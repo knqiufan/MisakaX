@@ -41,3 +41,7 @@ desktop.ini
 
 # ===== Logs =====
 *.log
+
+# ===== Others =====
+learning/
+.claude/
