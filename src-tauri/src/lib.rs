@@ -1,30 +1,50 @@
 mod commands;
 pub mod config;
 pub mod db;
+mod sidecar;
 
 use config::AppConfig;
+use sidecar::SidecarManager;
 use std::sync::Mutex;
 
 /// Application state shared across commands
 pub struct AppState {
     pub db: Mutex<rusqlite::Connection>,
     pub config: Mutex<AppConfig>,
+    pub sidecar: Mutex<Option<SidecarManager>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Initialize tracing
     tracing_subscriber::fmt::init();
 
-    // Ensure directories exist early (before Tauri setup, in case setup fails)
     config::ensure_directories().expect("Failed to create config directories");
-
-    // Load config early for validation
     let app_config = config::load_config().expect("Failed to load configuration");
 
-    // Initialize database
     let db_path = config::db_path().expect("Failed to determine database path");
     let conn = db::init_database(&db_path).expect("Failed to initialize database");
+
+    // Resolve agent directory relative to the executable (dev: project root, prod: same dir)
+    let agent_dir = std::env::current_dir()
+        .map(|d| d.join("agent"))
+        .unwrap_or_else(|_| std::path::PathBuf::from("agent"));
+
+    // Auto-start Python sidecar if auto_start_sidecar is enabled
+    let sidecar = if app_config.auto_start_sidecar {
+        match sidecar::SidecarManager::start(
+            agent_dir.to_str().unwrap_or("agent"),
+            app_config.sidecar_port,
+        ) {
+            Ok(manager) => Some(manager),
+            Err(e) => {
+                tracing::warn!("Python Sidecar failed to start: {}", e);
+                None
+            }
+        }
+    } else {
+        tracing::info!("Python Sidecar auto-start disabled (set auto_start_sidecar: true in config)");
+        None
+    };
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -36,6 +56,7 @@ pub fn run() {
         .manage(AppState {
             db: Mutex::new(conn),
             config: Mutex::new(app_config),
+            sidecar: Mutex::new(sidecar),
         })
         .invoke_handler(tauri::generate_handler![
             commands::settings::get_settings,

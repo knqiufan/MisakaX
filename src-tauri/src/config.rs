@@ -31,7 +31,7 @@ impl Default for AppConfig {
             default_model: "claude-sonnet-4-20250514".to_string(),
             log_level: "info".to_string(),
             sidecar_port: 9527,
-            auto_start_sidecar: false,
+            auto_start_sidecar: true,
         }
     }
 }
