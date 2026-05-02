@@ -1,6 +1,6 @@
-# Claw 桌面端技术选型调研报告
+# MisakaX 桌面端技术选型调研报告
 
-> **项目代号：** Claw（基于 Misaka 项目的下一代桌面端 AI Agent 客户端）
+> **项目代号：** MisakaX（基于 Misaka 项目的下一代桌面端 AI Agent 客户端）
 > **调研日期：** 2026-04-21
 > **文档版本：** v1.0
 > **目标：** 基于 Tauri 2.x 重写桌面端应用，脱离 claude-agent-sdk 依赖，手动实现 MCP、Skills、沙箱、SubAgent、记忆等全部核心功能
@@ -60,9 +60,9 @@
 
 ## 2. 当前 Misaka 项目功能清单
 
-以下是 Claw 必须覆盖（甚至超越）的功能矩阵：
+以下是 MisakaX 必须覆盖（甚至超越）的功能矩阵：
 
-| 功能模块 | Misaka 现有能力 | Claw 目标增强 |
+| 功能模块 | Misaka 现有能力 | MisakaX 目标增强 |
 |---------|----------------|-------------|
 | **对话系统** | 流式文本/思维链、多模态输入（图片）、Agent/Plan/Ask 三种模式 | + 支持更多模型提供商，+ 结构化输出 |
 | **会话管理** | CRUD、搜索、分组、归档、SDK 会话恢复、CLI 导入 | + 分支对话、+ 会话模板 |
@@ -150,7 +150,7 @@ let (mut rx, child) = sidecar.spawn().expect("Failed to spawn sidecar");
 
 ### 3.4 Tauri 关键插件
 
-| 插件 | 功能 | 对 Claw 的价值 |
+| 插件 | 功能 | 对 MisakaX 的价值 |
 |------|------|---------------|
 | `tauri-plugin-fs` | 文件系统访问 | 文件浏览、项目扫描 |
 | `tauri-plugin-shell` | 进程管理、Sidecar | 启动 Agent 后端、MCP Server |
@@ -251,7 +251,7 @@ StateGraph → Nodes (计算步骤) → Edges (控制流) → 共享 State 对�
 
 #### 关键能力
 
-| 能力 | 描述 | Claw 价值 |
+| 能力 | 描述 | MisakaX 价值 |
 |------|------|----------|
 | **持久化执行** | 通过 Checkpointer 实现崩溃恢复、长时间运行 | Agent 任务不中断 |
 | **Human-in-the-loop** | 在任意节点暂停等待人工审批 | 权限审批、敏感操作确认 |
@@ -380,7 +380,7 @@ React UI ←→ Tauri IPC ←→ Rust Core (Rig Agent 编排)
 - **完整 WASM 兼容**（核心库）
 - 类型安全
 
-**适合 Claw 的场景：**
+**适合 MisakaX 的场景：**
 - Rust 后端直接调用 LLM API（绕过 Sidecar 的轻量场景）
 - 嵌入式向量搜索（记忆检索）
 - 简单的单 Agent 工具调用
@@ -405,7 +405,7 @@ React UI ←→ Tauri IPC ←→ Rust Core (Rig Agent 编排)
 - **MCP 集成**：支持 stdio 和 SSE 接口
 - 可扩展的工具框架
 
-**适合 Claw 的场景：**
+**适合 MisakaX 的场景：**
 - 如果需要在 Rust 端实现复杂多 Agent 系统
 - 大规模 Agent 协调
 
@@ -434,7 +434,7 @@ React UI ←→ Tauri IPC ←→ Rust Core (Rig Agent 编排)
 rmcp = { version = "1.4.0", features = ["client", "transport-child-process", "transport-sse"] }
 ```
 
-**对 Claw 的关键价值：** 可以直接在 Rust 后端实现 MCP Client，无需依赖 Python/TypeScript。
+**对 MisakaX 的关键价值：** 可以直接在 Rust 后端实现 MCP Client，无需依赖 Python/TypeScript。
 
 ---
 
@@ -795,7 +795,7 @@ async fn search_memories(query_embedding: Vec<f32>, limit: usize) -> Vec<Memory>
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                    Claw Desktop App                       │
+│                    MisakaX Desktop App                       │
 ├──────────────────────────────────────────────────────────┤
 │  Frontend (WebView)                                       │
 │  ├── React 19 + TypeScript 5.x                           │
@@ -870,7 +870,7 @@ async fn search_memories(query_embedding: Vec<f32>, limit: usize) -> Vec<Memory>
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Claw Desktop App                         │
+│                         MisakaX Desktop App                         │
 │                                                                   │
 │  ┌─────────────────────────────────────────────────────────────┐ │
 │  │                    WebView (React UI)                        │ │
@@ -1112,7 +1112,7 @@ Tauri Rust Core
 
 ### 14.1 功能目标
 
-在原始 Misaka TODO 中，Buddy 系统仅定义为「16 种物种、稀有度、概率分布、独特视觉身份」的静态头像。Claw 的 Buddy 系统目标远超于此：
+在原始 Misaka TODO 中，Buddy 系统仅定义为「16 种物种、稀有度、概率分布、独特视觉身份」的静态头像。MisakaX 的 Buddy 系统目标远超于此：
 
 | 功能 | 描述 | 优先级 |
 |------|------|--------|
@@ -1151,7 +1151,7 @@ Tauri Rust Core
     "windows": [
       {
         "label": "buddy",
-        "title": "Claw Buddy",
+        "title": "MisakaX Buddy",
         "width": 300,
         "height": 400,
         "alwaysOnTop": true,
@@ -1381,7 +1381,7 @@ impl VoiceSynthesizer {
 | 方案 | 技术 | 说明 |
 |------|------|------|
 | **Silero VAD** | whisper-cpp-plus 内建 | 检测语音活动，自动开始识别 |
-| **自定义唤醒词** | Porcupine / Snowboy | 固定唤醒词（如"Hey Claw"） |
+| **自定义唤醒词** | Porcupine / Snowboy | 固定唤醒词（如"Hey MisakaX"） |
 | **按键触发** | 全局快捷键 | 最简单可靠的方案 |
 
 推荐初期使用 **全局快捷键** 触发语音输入，后续迭代加入 **Silero VAD** 自动检测。
@@ -1521,7 +1521,7 @@ hound = "3.5"       # WAV 处理
 
 ```
 ┌────────────────────────────────┐
-│         Claw 主窗口             │
+│         MisakaX 主窗口             │
 │  ┌──────────────────────────┐  │
 │  │      Chat / Dashboard    │  │
 │  │      Settings / etc.     │  │
@@ -1576,7 +1576,7 @@ await listen('buddy:set-emotion', (event) => {
 | **开发成本** | 7.0 | 涉及 STT/TTS/动画/多窗口等多个技术领域 |
 | **与主架构兼容性** | 9.5 | 完美融入 Tauri + React + Rust 技术栈 |
 
-**结论：Buddy 桌面伴侣系统可以完美融入 Claw 的技术架构。核心能力（透明窗口、动画、语音）均有成熟的 Tauri/Rust 生态支持，是 Claw 区别于其他 AI Agent 客户端的重要差异化功能。**
+**结论：Buddy 桌面伴侣系统可以完美融入 MisakaX 的技术架构。核心能力（透明窗口、动画、语音）均有成熟的 Tauri/Rust 生态支持，是 MisakaX 区别于其他 AI Agent 客户端的重要差异化功能。**
 
 ---
 

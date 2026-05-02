@@ -3,7 +3,7 @@
 > **项目代号：** MisakaX（基于 Misaka 项目的下一代桌面端 AI Agent 客户端）
 > **文档版本：** v1.0
 > **编制日期：** 2026-04-28
-> **基于：** [技术选型 v2.1](./CLAW_ARCHITECTURE_SELECTION.md) + [调研报告 v1.0](./CLAW_TECH_SELECTION_REPORT.md)
+> **基于：** [技术选型 v2.1](./MISAKAX_ARCHITECTURE_SELECTION.md) + [调研报告 v1.0](./MISAKAX_TECH_SELECTION_REPORT.md)
 > **开发模式：** 1 人 + Vibe Coding (AI 辅助开发)
 > **预估总工期：** 18-22 周（约 4.5-5.5 个月）
 
@@ -122,7 +122,7 @@ Vibe Coding（AI 辅助编程）对不同类型工作的加速倍率不同：
 | 0.4 | Cargo.toml 添加核心依赖 (rusqlite, sqlite-vec, tokio, serde) | 1h | Rust 依赖就绪 |
 | 0.5 | 创建 `agent/` Python 子项目 (pyproject.toml, requirements.txt) | 0.5h | Python 项目骨架 |
 | 0.6 | 配置 SQLite 数据库初始化 + sqlite-vec 加载 + 基础 Schema 迁移 | 3h | 数据库就绪 |
-| 0.7 | 实现 `~/.misakax/` 配置目录结构 + config.rs | 2h | 配置系统 |
+| 0.7 | 实现 `~/.claw/` 配置目录结构 + config.rs | 2h | 配置系统 |
 | 0.8 | Tauri 窗口基本配置 (大小/标题/图标/权限 ACL) | 1h | 窗口可运行 |
 | 0.9 | Git 仓库初始化 + .gitignore + CLAUDE.md + 基础 CI | 1h | 版本管理就绪 |
 
@@ -474,6 +474,6 @@ Week 20  ┘                                       │ B6: 高级交互
 
 > **文档结束**
 >
-> 本实施方案基于 [CLAW_ARCHITECTURE_SELECTION.md v2.1](./CLAW_ARCHITECTURE_SELECTION.md) 的技术决策，
+> 本实施方案基于 [MISAKAX_ARCHITECTURE_SELECTION.md v2.1](./MISAKAX_ARCHITECTURE_SELECTION.md) 的技术决策，
 > 针对 1 人 + Vibe Coding 的开发模式进行了工期优化和阶段重组。
 > 每个 Phase 交付可运行的功能切片，确保项目始终处于可演示状态。

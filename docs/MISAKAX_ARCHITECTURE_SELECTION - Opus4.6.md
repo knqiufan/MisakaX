@@ -1,9 +1,9 @@
-# Claw 项目架构选型文档 v2.1
+# MisakaX 项目架构选型文档 v2.1
 
-> **项目代号：** Claw（基于 Misaka 项目的下一代桌面端 AI Agent 客户端）
+> **项目代号：** MisakaX（基于 Misaka 项目的下一代桌面端 AI Agent 客户端）
 > **文档版本：** v2.1
 > **调研日期：** 2026-04-28
-> **基于：** [CLAW_TECH_SELECTION_REPORT.md v1.0](./CLAW_TECH_SELECTION_REPORT.md) 的深入修订
+> **基于：** [MISAKAX_TECH_SELECTION_REPORT.md v1.0](./MISAKAX_TECH_SELECTION_REPORT.md) 的深入修订
 > **目标：** 针对 v1.0 报告中遗漏和不够深入的关键问题，补充调研并给出最终技术决策
 
 ---
@@ -279,7 +279,7 @@ PowerMem 实现了一个受认知科学启发的五层记忆架构：
 
 ### 4.3 PowerMem 的核心优势
 
-| 能力 | 详情 | 对 Claw 的价值 |
+| 能力 | 详情 | 对 MisakaX 的价值 |
 |------|------|--------------|
 | **艾宾浩斯遗忘曲线** | 基于 `R = e^(-t/S)` 实现记忆衰减、强化、遗忘 | 智能记忆管理，自动清理无关记忆 |
 | **重要性智能评估** | LLM 驱动的多维度重要性评分 (0.0-1.0) | 自动区分高价值记忆和临时信息 |
@@ -359,7 +359,7 @@ PowerMem 提供 MCP Server 模式，可以作为 MCP 工具被 Agent 直接调�
 
 ### 4.7 PowerMem 采用建议
 
-**推荐采用 PowerMem 作为 Claw 的长期记忆引擎。** 理由：
+**推荐采用 PowerMem 作为 MisakaX 的长期记忆引擎。** 理由：
 
 1. **艾宾浩斯遗忘曲线**：在所有竞品中独有，最贴近人类记忆的管理方式
 2. **SQLite 本地模式**：桌面端无需额外数据库服务，开箱即用
@@ -725,11 +725,11 @@ async def skill_execution_node(state):
 
 ### 7.1 Buddy 系统定位
 
-Buddy 不是一个独立应用，而是 Claw 主应用的 **独立透明浮窗**，通过 Tauri 多窗口 API 与主窗口通信，共享同一个 Rust Core 后端。
+Buddy 不是一个独立应用，而是 MisakaX 主应用的 **独立透明浮窗**，通过 Tauri 多窗口 API 与主窗口通信，共享同一个 Rust Core 后端。
 
 ```
 ┌─────────────────────────────────┐
-│         Claw 主窗口              │          ┌──────────────┐
+│         MisakaX 主窗口              │          ┌──────────────┐
 │  ┌───────────────────────────┐  │          │  Buddy 窗口   │
 │  │   Chat / Dashboard /      │  │  Event   │  (透明浮窗)    │
 │  │   Settings / Skills       │◄─┼─────────►│  🐱 角色动画   │
@@ -756,7 +756,7 @@ Buddy 不是一个独立应用，而是 Claw 主应用的 **独立透明浮窗**
 
 ### 7.3 Buddy 与 Agent 系统集成
 
-Buddy 不是独立的 AI 系统，而是 Claw Agent 系统的一个 **交互前端**：
+Buddy 不是独立的 AI 系统，而是 MisakaX Agent 系统的一个 **交互前端**：
 
 ```
 语音 / 文字输入
@@ -843,12 +843,12 @@ SeekDB 是 OceanBase 团队推出的 **AI 原生混合数据库**，基于 Ocean
 
 #### 8.2.3 SeekDB 在 Windows 上不可用的影响分析
 
-Claw 的核心需求之一是 **P0 优先级的跨平台支持 (Windows / macOS / Linux)**。如果采用 SeekDB 作为唯一数据库：
+MisakaX 的核心需求之一是 **P0 优先级的跨平台支持 (Windows / macOS / Linux)**。如果采用 SeekDB 作为唯一数据库：
 
 - macOS 和 Linux 用户：可以使用嵌入式模式，体验良好
 - **Windows 用户**：必须安装 WSL2 并运行一个 SeekDB 服务端进程，严重破坏"开箱即用"的用户体验
 
-**结论：SeekDB 嵌入式模式无法作为 Claw 的统一数据库方案，因为它不满足 Windows 跨平台需求。**
+**结论：SeekDB 嵌入式模式无法作为 MisakaX 的统一数据库方案，因为它不满足 Windows 跨平台需求。**
 
 #### 8.2.4 macOS 上的已知问题
 
@@ -893,7 +893,7 @@ Claw 的核心需求之一是 **P0 优先级的跨平台支持 (Windows / macOS 
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│              Claw 统一存储层 (单一 SQLite 数据库文件)          │
+│              MisakaX 统一存储层 (单一 SQLite 数据库文件)          │
 │                                                              │
 │  ┌───────────────────────────────────────────────────────┐  │
 │  │  结构化数据 (rusqlite, 标准 SQL 表)                     │  │
@@ -1019,7 +1019,7 @@ fn hybrid_search(db: &Connection, query_vec: &[f32], query_text: &str, limit: us
 
 ### 8.6 SeekDB 的定位：PowerMem 的可选升级存储
 
-虽然 SeekDB 不适合作为 Claw 的统一数据库，但它仍然有价值：
+虽然 SeekDB 不适合作为 MisakaX 的统一数据库，但它仍然有价值：
 
 **PowerMem 的存储后端升级路径：**
 
@@ -1031,7 +1031,7 @@ PowerMem 存储选择:
 └── 生产: OceanBase 服务端 (团队/企业部署)
 ```
 
-在 Claw 的设置界面中，可以为 macOS / Linux 用户提供一个可选的"切换到 SeekDB 模式"选项，以获得 PowerMem 更强的混合检索能力。但默认方案必须是 SQLite，以确保 Windows 用户的开箱即用体验。
+在 MisakaX 的设置界面中，可以为 macOS / Linux 用户提供一个可选的"切换到 SeekDB 模式"选项，以获得 PowerMem 更强的混合检索能力。但默认方案必须是 SQLite，以确保 Windows 用户的开箱即用体验。
 
 ### 8.7 数据库方案最终决策
 
@@ -1054,7 +1054,7 @@ PowerMem 存储选择:
 
 ```
 ┌───────────────────────────────────────────────────────────────────┐
-│                        Claw Desktop App v2.1                        │
+│                        MisakaX Desktop App v2.1                        │
 ├───────────────────────────────────────────────────────────────────┤
 │  Frontend (WebView)                                                 │
 │  ├── React 19 + TypeScript 5.x                                     │
@@ -1144,7 +1144,7 @@ PowerMem 存储选择:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                          Claw Desktop App v2.0                         │
+│                          MisakaX Desktop App v2.0                         │
 │                                                                        │
 │  ┌──────────────────────────────────────────────────────────────────┐ │
 │  │                     WebView (React 19 UI)                         │ │
@@ -1442,7 +1442,7 @@ claw/
 
 > **文档结束**
 >
-> 本文档是对 [CLAW_TECH_SELECTION_REPORT.md v1.0](./CLAW_TECH_SELECTION_REPORT.md) 的深度修订。
+> 本文档是对 [MISAKAX_TECH_SELECTION_REPORT.md v1.0](./MISAKAX_TECH_SELECTION_REPORT.md) 的深度修订。
 > - v2.0 (2026-04-27)：针对 5 个核心问题补充调研
 > - v2.1 (2026-04-28)：新增 Buddy 架构选型、SeekDB 调研、知识库向量方案
 >

@@ -1,6 +1,6 @@
-# Claw 桌面端 — 最终架构选型文档
+# MisakaX 桌面端 — 最终架构选型文档
 
-> **项目代号：** Claw（基于 Misaka 项目的下一代桌面端 AI Agent 客户端）
+> **项目代号：** MisakaX（基于 Misaka 项目的下一代桌面端 AI Agent 客户端）
 > **调研日期：** 2026-04-28
 > **文档版本：** v2.1（v2.0 深度修订：新增知识库方案、数据库引擎深度选型）
 > **目标：** 回答 7 个关键架构问题，给出最终技术栈决策
@@ -313,7 +313,7 @@ cargo tauri doctor    # Tauri 官方诊断命令，一键检查所有依赖
 | p95 延迟 | 1.44s | 17.12s | **-91.83%** |
 | Token 用量 | ~0.9K | ~26K | **-96.53%** |
 
-**OpenClaw 集成验证：**
+**OpenMisakaX 集成验证：**
 
 | 指标 | PowerMem 插件 | 默认方案 | 节省 |
 |------|-------------|---------|------|
@@ -410,7 +410,7 @@ def save_conversation(state: MessagesState) -> dict:
 
 ```
 ┌───────────────────────────────────────────────────────┐
-│                Claw 三层记忆架构                         │
+│                MisakaX 三层记忆架构                         │
 ├───────────────────────────────────────────────────────┤
 │  Layer 1: 工作记忆 (Working Memory)                      │
 │  ├── 当前对话上下文 + 流式 token                           │
@@ -442,7 +442,7 @@ def save_conversation(state: MessagesState) -> dict:
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                  Claw Desktop App                │
+│                  MisakaX Desktop App                │
 │                                                  │
 │  ┌────────────────────────────────────────────┐ │
 │  │     React 19 WebView (表现层 + UI 状态)      │ │
@@ -643,7 +643,7 @@ allowed-tools: Bash Read Write
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                   Claw Skills System                          │
+│                   MisakaX Skills System                          │
 │                                                               │
 │  ┌─────────────────────────────────────────────────────────┐ │
 │  │                  React Frontend (Skills UI)               │ │
@@ -742,7 +742,7 @@ impl SkillManager {
 
 ### 6.4 Skills 市场
 
-#### 自建 Claw Skills Hub（类似 Skyll / ClawHub）
+#### 自建 MisakaX Skills Hub（类似 Skyll / MisakaXHub）
 
 ```
 claw-skills-hub/
@@ -928,7 +928,7 @@ main_graph.add_conditional_edges("planner", route_to_agent)
 
 ### 10.6 知识库 (Knowledge Base) 系统实现
 
-知识库是 Claw 的核心差异化功能之一，允许用户导入本地文档（Markdown、PDF、代码文件等），通过语义搜索和全文检索定位信息，并用 LLM 进行 RAG 问答。
+知识库是 MisakaX 的核心差异化功能之一，允许用户导入本地文档（Markdown、PDF、代码文件等），通过语义搜索和全文检索定位信息，并用 LLM 进行 RAG 问答。
 
 #### 10.6.1 知识库功能矩阵
 
@@ -948,7 +948,7 @@ main_graph.add_conditional_edges("planner", route_to_agent)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                 Claw Knowledge Base System                │
+│                 MisakaX Knowledge Base System                │
 │                                                           │
 │  ┌─────────────────────────────────────────────────────┐ │
 │  │               React Frontend (KB UI)                  │ │
@@ -1390,7 +1390,7 @@ Buddy 系统保持原报告的完整方案，核心要点：
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    Claw Desktop App (v2)                       │
+│                    MisakaX Desktop App (v2)                       │
 ├──────────────────────────────────────────────────────────────┤
 │  Frontend (WebView)                                           │
 │  ├── React 19 + TypeScript 5.x                                │
@@ -1675,7 +1675,7 @@ sqlite-vec → 纯 JS/Rust 余弦相似度计算 (退化为暴力搜索，功能
 >
 > 本报告基于 2026 年 4 月的最新技术生态进行深度调研，结合 PowerMem、seekdb 跨平台分析、
 > SKILL.md 标准、sqlite-vec 向量搜索、Tauri Sidecar 社区实践等最新信息，对
-> CLAW_TECH_SELECTION_REPORT.md (v1.0) 进行了重大修订和扩展。
+> MISAKAX_TECH_SELECTION_REPORT.md (v1.0) 进行了重大修订和扩展。
 > 所有技术选型均经过多维度对比和可行性验证。
 >
 > 最终架构选择：**智能分层 Hybrid Smart Routing (React + Tauri Rust Core + Python Sidecar on-demand)**

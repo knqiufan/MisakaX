@@ -1,0 +1,43 @@
+# ===== Rust =====
+src-tauri/target/
+.cargo/
+
+# ===== Node / Frontend =====
+node_modules/
+dist/
+.vite/
+
+# ===== Python =====
+agent/__pycache__/
+agent/app/__pycache__/
+agent/app/routers/__pycache__/
+agent/.venv/
+*.pyc
+*.pyo
+*.egg-info/
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Environment =====
+.env
+.env.local
+.env.*.local
+
+# ===== MisakaX Runtime =====
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ===== Logs =====
+*.log
