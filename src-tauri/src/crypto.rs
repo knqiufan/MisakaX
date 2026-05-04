@@ -27,9 +27,7 @@ fn get_machine_seed() -> Vec<u8> {
 
     parts.extend_from_slice(b"misakax-desktop-agent");
 
-    if let Ok(hostname) = std::env::var("COMPUTERNAME")
-        .or_else(|_| std::env::var("HOSTNAME"))
-    {
+    if let Ok(hostname) = std::env::var("COMPUTERNAME").or_else(|_| std::env::var("HOSTNAME")) {
         parts.extend_from_slice(hostname.as_bytes());
     }
 
@@ -74,8 +72,7 @@ pub fn decrypt(encoded: &str) -> anyhow::Result<String> {
         .decrypt(nonce, ciphertext)
         .map_err(|e| anyhow::anyhow!("Decryption failed: {}", e))?;
 
-    String::from_utf8(plaintext)
-        .map_err(|e| anyhow::anyhow!("UTF-8 decode failed: {}", e))
+    String::from_utf8(plaintext).map_err(|e| anyhow::anyhow!("UTF-8 decode failed: {}", e))
 }
 
 pub fn mask_api_key(key: &str) -> String {

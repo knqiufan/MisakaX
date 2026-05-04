@@ -43,7 +43,9 @@ pub fn run() {
             }
         }
     } else {
-        tracing::info!("Python Sidecar auto-start disabled (set auto_start_sidecar: true in config)");
+        tracing::info!(
+            "Python Sidecar auto-start disabled (set auto_start_sidecar: true in config)"
+        );
         None
     };
 

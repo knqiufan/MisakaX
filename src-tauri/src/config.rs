@@ -95,7 +95,10 @@ pub fn ensure_directories() -> Result<()> {
         std::fs::create_dir_all(dir)?;
     }
 
-    tracing::info!("Config directories initialized at: {}", config_dir()?.display());
+    tracing::info!(
+        "Config directories initialized at: {}",
+        config_dir()?.display()
+    );
     Ok(())
 }
 

@@ -45,9 +45,7 @@ pub struct ConnectionTestResult {
 }
 
 #[tauri::command]
-pub fn list_router_configs(
-    state: State<'_, AppState>,
-) -> Result<Vec<RouterConfigView>, String> {
+pub fn list_router_configs(state: State<'_, AppState>) -> Result<Vec<RouterConfigView>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let mut stmt = db
         .prepare(
@@ -93,8 +91,7 @@ pub fn create_router_config(
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let id = uuid::Uuid::new_v4().to_string();
 
-    let encrypted_key =
-        crypto::encrypt(&config.api_key).map_err(|e| e.to_string())?;
+    let encrypted_key = crypto::encrypt(&config.api_key).map_err(|e| e.to_string())?;
 
     db.execute(
         "INSERT INTO router_configs (id, name, provider, api_key_encrypted, model, base_url, config_json, is_active)
@@ -178,8 +175,7 @@ pub fn update_router_config(
         updates.join(", ")
     );
 
-    let param_refs: Vec<&dyn rusqlite::types::ToSql> =
-        params.iter().map(|p| p.as_ref()).collect();
+    let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
 
     db.execute(&sql, param_refs.as_slice())
         .map_err(|e| e.to_string())?;
@@ -188,10 +184,7 @@ pub fn update_router_config(
 }
 
 #[tauri::command]
-pub fn delete_router_config(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<(), String> {
+pub fn delete_router_config(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let affected = db
         .execute("DELETE FROM router_configs WHERE id = ?1", [&id])
@@ -240,9 +233,7 @@ pub async fn test_router_connection(
     let url = build_models_url(&provider, base_url.as_deref());
 
     let client = reqwest::Client::new();
-    let mut request = client
-        .get(&url)
-        .timeout(std::time::Duration::from_secs(10));
+    let mut request = client.get(&url).timeout(std::time::Duration::from_secs(10));
 
     request = match provider.as_str() {
         "anthropic" => request

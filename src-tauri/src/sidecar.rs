@@ -29,16 +29,19 @@ impl SidecarManager {
             ])
             .current_dir(agent_dir)
             .spawn()
-            .map_err(|e| format!("Failed to start Python Sidecar: {}. Is Python + uvicorn installed?", e))?;
+            .map_err(|e| {
+                format!(
+                    "Failed to start Python Sidecar: {}. Is Python + uvicorn installed?",
+                    e
+                )
+            })?;
 
         // Wait for health check (max 10 seconds)
         for _ in 0..20 {
             std::thread::sleep(Duration::from_millis(500));
             if Self::health_check(port) {
                 tracing::info!("Python Sidecar ready on port {}", port);
-                return Ok(Self {
-                    child: Some(child),
-                });
+                return Ok(Self { child: Some(child) });
             }
         }
 

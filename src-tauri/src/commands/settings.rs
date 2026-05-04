@@ -22,8 +22,10 @@ pub fn update_setting(
         "language" => config.language = value.as_str().unwrap_or("en").to_string(),
         "accent_color" => config.accent_color = value.as_str().unwrap_or("#6366f1").to_string(),
         "default_model" => {
-            config.default_model =
-                value.as_str().unwrap_or("claude-sonnet-4-20250514").to_string()
+            config.default_model = value
+                .as_str()
+                .unwrap_or("claude-sonnet-4-20250514")
+                .to_string()
         }
         "log_level" => config.log_level = value.as_str().unwrap_or("info").to_string(),
         _ => return Err(format!("Unknown setting key: {}", key)),
@@ -40,10 +42,7 @@ pub fn get_app_config(state: State<'_, AppState>) -> Result<AppConfig, String> {
 }
 
 #[tauri::command]
-pub fn update_app_config(
-    state: State<'_, AppState>,
-    config: AppConfig,
-) -> Result<(), String> {
+pub fn update_app_config(state: State<'_, AppState>, config: AppConfig) -> Result<(), String> {
     let mut current = state.config.lock().map_err(|e| e.to_string())?;
     *current = config;
     crate::config::save_config(&current).map_err(|e| e.to_string())?;
@@ -51,10 +50,7 @@ pub fn update_app_config(
 }
 
 #[tauri::command]
-pub fn get_setting(
-    state: State<'_, AppState>,
-    key: String,
-) -> Result<Option<String>, String> {
+pub fn get_setting(state: State<'_, AppState>, key: String) -> Result<Option<String>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let result = db.query_row(
         "SELECT value FROM settings WHERE key = ?1",
@@ -70,11 +66,7 @@ pub fn get_setting(
 }
 
 #[tauri::command]
-pub fn set_setting(
-    state: State<'_, AppState>,
-    key: String,
-    value: String,
-) -> Result<(), String> {
+pub fn set_setting(state: State<'_, AppState>, key: String, value: String) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.execute(
         "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)
@@ -86,9 +78,7 @@ pub fn set_setting(
 }
 
 #[tauri::command]
-pub fn get_all_settings(
-    state: State<'_, AppState>,
-) -> Result<HashMap<String, String>, String> {
+pub fn get_all_settings(state: State<'_, AppState>) -> Result<HashMap<String, String>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let mut stmt = db
         .prepare("SELECT key, value FROM settings")
@@ -123,12 +113,9 @@ pub fn get_system_info() -> Result<SystemInfo, String> {
         .map(|d| d.display().to_string())
         .unwrap_or_else(|_| "unknown".to_string());
 
-    let db_path = crate::config::db_path()
-        .map_err(|e| e.to_string())?;
+    let db_path = crate::config::db_path().map_err(|e| e.to_string())?;
 
-    let db_size_bytes = std::fs::metadata(&db_path)
-        .map(|m| m.len())
-        .unwrap_or(0);
+    let db_size_bytes = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
 
     Ok(SystemInfo {
         app_version: env!("CARGO_PKG_VERSION").to_string(),

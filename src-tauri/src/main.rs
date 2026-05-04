@@ -13,8 +13,8 @@ mod tests {
         let db_path = PathBuf::from("test.db");
 
         let tables = {
-            let conn =
-                misaka_x_lib::db::init_database(&db_path).expect("Failed to initialize test database");
+            let conn = misaka_x_lib::db::init_database(&db_path)
+                .expect("Failed to initialize test database");
 
             let mut stmt = conn
                 .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
