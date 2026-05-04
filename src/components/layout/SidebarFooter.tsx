@@ -31,9 +31,7 @@ export function SidebarFooter() {
         <PanelLeftClose className="h-5 w-5 shrink-0" />
       )}
       {!collapsed && (
-        <span className="truncate">
-          {collapsed ? t("expand") : t("collapse")}
-        </span>
+        <span className="truncate">{t("collapse")}</span>
       )}
     </button>
   );

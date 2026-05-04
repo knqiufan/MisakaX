@@ -94,11 +94,8 @@ export function ModelSettings() {
   );
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="w-full min-w-0 space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">
-          {t("models.title")}
-        </h2>
         <Button size="sm" onClick={handleAdd}>
           <Plus className="mr-1.5 h-4 w-4" />
           {t("models.addProvider")}
@@ -106,7 +103,7 @@ export function ModelSettings() {
       </div>
 
       {providers.length === 0 ? (
-        <EmptyState />
+        <ProvidersEmptyState />
       ) : (
         <div className="space-y-3">
           {providers.map((p) => (
@@ -132,7 +129,7 @@ export function ModelSettings() {
   );
 }
 
-function EmptyState() {
+function ProvidersEmptyState() {
   const { t } = useTranslation("settings");
 
   return (

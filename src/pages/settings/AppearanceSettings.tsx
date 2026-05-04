@@ -30,10 +30,7 @@ export function AppearanceSettings() {
   const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed);
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <h2 className="text-settings-section-title text-foreground">
-        {t("appearance.title")}
-      </h2>
+    <div className="w-full min-w-0 space-y-6">
 
       <Card>
         <CardHeader>

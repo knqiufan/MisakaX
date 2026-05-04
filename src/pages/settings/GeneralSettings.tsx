@@ -29,10 +29,7 @@ export function GeneralSettings() {
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <h2 className="text-lg font-semibold text-foreground">
-        {t("general.title")}
-      </h2>
+    <div className="w-full min-w-0 space-y-6">
 
       <Card>
         <CardHeader>
