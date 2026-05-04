@@ -44,4 +44,12 @@ desktop.ini
 
 # ===== Others =====
 learning/
-.claude/
+
+# ===== Claude Code =====
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+.claude/hooks/review-config.json
+
+# ===== Hooks secrets =====
+.cursor/hooks/review-config.json

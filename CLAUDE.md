@@ -1,3 +1,8 @@
+---
+description: 
+alwaysApply: true
+---
+
 # MisakaX — Desktop AI Agent Client
 
 Cross-platform desktop AI Agent client built with Tauri 2.x (Rust), React 19 (TypeScript), and Python Sidecar (LangGraph + PowerMem).
