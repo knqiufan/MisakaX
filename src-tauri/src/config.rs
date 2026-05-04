@@ -2,16 +2,26 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+pub fn default_ui_font_size() -> u8 {
+    14
+}
+
 /// Application configuration, persisted to ~/.misakax/config.yaml
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
     /// UI language (en, zh_CN)
     pub language: String,
-    /// Theme: "light", "dark", "system"
+    /// Theme: "light", "dark", "dim", "system"
     pub theme: String,
     /// Accent color (hex)
     pub accent_color: String,
+    /// Reduce translucent surfaces and backdrop blur for readability
+    #[serde(default)]
+    pub reduced_transparency: bool,
+    /// Base UI font size in pixels (e.g. 14)
+    #[serde(default = "default_ui_font_size")]
+    pub ui_font_size: u8,
     /// Default LLM model
     pub default_model: String,
     /// Log level
@@ -28,6 +38,8 @@ impl Default for AppConfig {
             language: "en".to_string(),
             theme: "system".to_string(),
             accent_color: "#6366f1".to_string(),
+            reduced_transparency: false,
+            ui_font_size: 14,
             default_model: "claude-sonnet-4-20250514".to_string(),
             log_level: "info".to_string(),
             sidecar_port: 9527,

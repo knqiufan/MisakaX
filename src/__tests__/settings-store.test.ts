@@ -23,6 +23,8 @@ const mockConfig = {
   language: "en",
   theme: "system" as const,
   accent_color: "#6366f1",
+  reduced_transparency: false,
+  ui_font_size: 14,
   default_model: "claude-sonnet-4-20250514",
   log_level: "info",
   sidecar_port: 9527,

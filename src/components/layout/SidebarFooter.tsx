@@ -18,9 +18,10 @@ export function SidebarFooter() {
 
   const collapseButton = (
     <button
+      type="button"
       onClick={toggleSidebar}
       className={cn(
-        "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors duration-150 ease-out hover:bg-accent hover:text-accent-foreground",
+        "flex w-full items-center gap-3 rounded-[var(--radius-button)] px-3 py-2 text-sm font-medium text-muted-foreground transition-[background,color] duration-[var(--ds-dur-fast)] ease-out hover:bg-[color:var(--surface-hover)] hover:text-foreground",
         collapsed && "justify-center px-0"
       )}
     >

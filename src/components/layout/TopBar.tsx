@@ -17,10 +17,8 @@ export function TopBar() {
   const titleKey = PAGE_TITLES[route.page] || "nav:chat";
 
   return (
-    <header className="sticky top-0 z-10 flex h-12 items-center border-b border-border bg-background/80 px-6 backdrop-blur-md">
-      <h1 className="text-sm font-semibold text-foreground">
-        {t(titleKey)}
-      </h1>
+    <header className="sticky top-0 z-[3] flex h-12 shrink-0 items-center border-b border-border px-6 bg-[color:var(--surface-topbar)] backdrop-blur-xl backdrop-saturate-150">
+      <h1 className="text-settings-section-title text-foreground">{t(titleKey)}</h1>
       <div className="flex-1" />
     </header>
   );

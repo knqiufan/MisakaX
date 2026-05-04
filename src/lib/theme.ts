@@ -1,4 +1,4 @@
-export type ThemeMode = "light" | "dark" | "system";
+export type ThemeMode = "light" | "dark" | "dim" | "system";
 
 export interface AccentColor {
   name: string;
@@ -29,13 +29,22 @@ function getSystemTheme(): "light" | "dark" {
 
 export function resolveTheme(mode: ThemeMode): "light" | "dark" {
   if (mode === "system") return getSystemTheme();
+  if (mode === "dim") return "dark";
   return mode;
 }
 
-export function applyThemeToDOM(resolved: "light" | "dark"): void {
+export function applyThemeToDOM(mode: ThemeMode, resolved: "light" | "dark"): void {
   const root = document.documentElement;
   root.classList.remove("light", "dark");
-  root.classList.add(resolved);
+
+  if (mode === "dim") {
+    root.classList.add("dark");
+    root.dataset.theme = "dim";
+    return;
+  }
+
+  root.removeAttribute("data-theme");
+  root.classList.add(resolved === "dark" ? "dark" : "light");
 }
 
 export function applyAccentColor(hexColor: string): void {
@@ -43,13 +52,19 @@ export function applyAccentColor(hexColor: string): void {
   if (!accent) return;
 
   const root = document.documentElement;
-  root.style.setProperty("--primary", accent.hsl);
-  root.style.setProperty("--primary-foreground", accent.hslForeground);
-  root.style.setProperty("--ring", accent.hsl);
+  root.style.setProperty("--primary", `hsl(${accent.hsl})`);
+  root.style.setProperty("--primary-foreground", `hsl(${accent.hslForeground})`);
+  root.style.setProperty("--ring", `hsl(${accent.hsl})`);
+}
+
+export function applyUIFontSize(px: number): void {
+  const clamped = Math.min(22, Math.max(11, Math.round(px)));
+  const scale = clamped / 14;
+  document.documentElement.style.setProperty("--ui-font-scale", String(scale));
 }
 
 export function startSystemThemeListener(
-  onSystemChange: (resolved: "light" | "dark") => void
+  onSystemChange: (resolved: "light" | "dark") => void,
 ): void {
   stopSystemThemeListener();
 

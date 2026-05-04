@@ -1,7 +1,9 @@
 export interface AppConfig {
   language: string;
-  theme: "light" | "dark" | "system";
+  theme: "light" | "dark" | "dim" | "system";
   accent_color: string;
+  reduced_transparency: boolean;
+  ui_font_size: number;
   default_model: string;
   log_level: string;
   sidecar_port: number;

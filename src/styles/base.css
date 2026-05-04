@@ -1,0 +1,56 @@
+@import "./tokens-motion.css";
+@import "./theme-light.css";
+@import "./theme-dark.css";
+@import "./theme-dim.css";
+@import "./theme-overlays.css";
+
+@layer base {
+  html {
+    font-size: calc(14px * var(--ui-font-scale, 1));
+  }
+
+  body {
+    margin: 0;
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      "Helvetica Neue",
+      Arial,
+      sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  .misaka-app {
+    user-select: none;
+  }
+
+  .misaka-app input,
+  .misaka-app textarea,
+  .misaka-app [contenteditable="true"] {
+    user-select: text;
+  }
+}
+
+@layer utilities {
+  .text-settings-section-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .text-sidebar-heading {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .text-meta {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+}

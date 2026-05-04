@@ -1,0 +1,82 @@
+/**
+ * Dark theme (default Codex Monitor palette) — ui-design-report §2.1.
+ * html.dark without data-theme=dim uses this block; dim overrides in theme-dim.css.
+ */
+html.dark {
+  color-scheme: dark;
+
+  --text-primary: #e6e7ea;
+  --text-strong: #ffffff;
+  --text-muted: rgba(255, 255, 255, 0.65);
+  --text-subtle: rgba(255, 255, 255, 0.52);
+  --text-faint: rgba(255, 255, 255, 0.38);
+  --text-accent-soft: rgba(164, 195, 255, 0.75);
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-muted: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --border-stronger: rgba(255, 255, 255, 0.2);
+  --border-accent: rgba(100, 200, 255, 0.55);
+  --border-accent-soft: rgba(100, 200, 255, 0.3);
+
+  --surface-sidebar: rgba(18, 18, 18, 0.52);
+  --surface-topbar: rgba(10, 14, 20, 0.48);
+  --surface-messages: rgba(8, 10, 16, 0.72);
+  --surface-card: rgba(255, 255, 255, 0.045);
+  --surface-card-strong: rgba(255, 255, 255, 0.11);
+  --surface-item: rgba(255, 255, 255, 0.03);
+  --surface-control: rgba(255, 255, 255, 0.08);
+  --surface-control-hover: rgba(255, 255, 255, 0.14);
+  --surface-hover: rgba(255, 255, 255, 0.06);
+  --surface-active: rgba(100, 200, 255, 0.16);
+  --surface-popover: rgba(14, 16, 24, 0.98);
+
+  --status-success: rgba(120, 235, 190, 0.95);
+  --status-warning: rgba(255, 175, 85, 0.95);
+  --status-error: rgba(255, 110, 110, 0.95);
+
+  --radius-ui-sm: 0.5rem;
+  --radius-ui-md: 0.625rem;
+  --radius-ui-lg: 0.875rem;
+  --radius-ui-xl: 1.125rem;
+  --radius-button: 0.625rem;
+
+  --background: rgb(6 8 12);
+  --foreground: var(--text-primary);
+
+  --card: var(--surface-card);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface-popover);
+  --popover-foreground: var(--foreground);
+  --muted: var(--surface-item);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--surface-control-hover);
+  --accent-foreground: var(--text-strong);
+  --secondary: var(--surface-card-strong);
+  --secondary-foreground: var(--foreground);
+  --border: var(--border-strong);
+  --input: var(--border-muted);
+  --ring: var(--border-accent-soft);
+
+  --destructive: var(--status-error);
+  --destructive-foreground: #1a0505;
+
+  --sidebar: var(--surface-sidebar);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--text-accent-soft);
+  --sidebar-primary-foreground: var(--text-strong);
+  --sidebar-accent: var(--surface-active);
+  --sidebar-accent-foreground: var(--text-strong);
+  --sidebar-border: var(--border-muted);
+  --sidebar-ring: var(--border-accent);
+
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+
+  --primary: oklch(0.72 0.12 232);
+  --primary-foreground: oklch(0.2 0.04 260);
+}
+

@@ -1,26 +1,36 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { ContentArea } from "./ContentArea";
 import { useAppStore } from "@/stores";
 import { useThemeStore } from "@/stores/theme-store";
+import { settingsIpc } from "@/lib/ipc";
+import { cn } from "@/lib/utils";
 
-const TABLET_BREAKPOINT = 1280;
+const NARROW_BREAKPOINT = 960;
 
 export function AppShell() {
   const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed);
-  const initialize = useThemeStore((s) => s.initialize);
-  const cleanup = useThemeStore((s) => s.cleanup);
+  const initializeTheme = useThemeStore((s) => s.initialize);
+  const cleanupTheme = useThemeStore((s) => s.cleanup);
+  const reducedTransparency = useThemeStore((s) => s.reducedTransparency);
+  const [isWindows, setIsWindows] = useState(false);
 
   useEffect(() => {
-    initialize();
-    return cleanup;
-  }, [initialize, cleanup]);
+    initializeTheme();
+    return cleanupTheme;
+  }, [initializeTheme, cleanupTheme]);
+
+  useEffect(() => {
+    void settingsIpc.getSystemInfo().then((info) => {
+      setIsWindows(info.os.toLowerCase() === "windows");
+    });
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < TABLET_BREAKPOINT) {
+      if (window.innerWidth < NARROW_BREAKPOINT) {
         setSidebarCollapsed(true);
       }
     };
@@ -32,11 +42,17 @@ export function AppShell() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex h-screen w-screen overflow-hidden bg-background">
+      <div
+        className={cn(
+          "misaka-app flex h-screen w-screen overflow-hidden bg-background",
+          reducedTransparency && "reduced-transparency",
+          isWindows && "is-windows"
+        )}
+      >
         <Sidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <TopBar />
-          <main className="flex-1 overflow-auto">
+          <main className="min-h-0 flex-1 overflow-auto bg-[color:var(--surface-messages)]">
             <ContentArea />
           </main>
         </div>

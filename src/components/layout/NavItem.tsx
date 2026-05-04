@@ -24,20 +24,24 @@ export function NavItem({ icon: Icon, label, route, badge }: NavItemProps) {
 
   const button = (
     <button
+      type="button"
       onClick={() => navigate(route)}
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        "relative flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 ease-out",
+        "relative flex w-full items-center gap-3 px-3 py-2 text-[0.8125rem] font-semibold leading-snug outline-none transition-[color,background-color,box-shadow,transform] duration-[var(--ds-dur-fast)] [transition-timing-function:var(--ds-ease-out)] focus-visible:ring-2 focus-visible:ring-[color:var(--border-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[var(--ds-active-scale-sm)]",
+        "rounded-[var(--radius-button)] border border-transparent",
         collapsed && "justify-center px-0",
         isActive
-          ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          ? "border-[color:var(--border-accent-soft)] bg-[color:var(--surface-active)] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+          : "text-muted-foreground hover:bg-[color:var(--surface-hover)] hover:text-foreground"
       )}
     >
-      {isActive && (
-        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary" />
-      )}
-      <Icon className="h-5 w-5 shrink-0" />
+      <Icon
+        className={cn(
+          "h-5 w-5 shrink-0",
+          isActive && "text-[color:var(--text-accent-soft)]"
+        )}
+      />
       {!collapsed && <span className="truncate">{label}</span>}
       {badge !== undefined && badge > 0 && (
         <BadgeIndicator count={badge} collapsed={collapsed} />
@@ -73,7 +77,7 @@ function BadgeIndicator({
   }
 
   return (
-    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-destructive-foreground">
+    <span className="bg-destructive text-destructive-foreground ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-meta">
       {count > 99 ? "99+" : count}
     </span>
   );
