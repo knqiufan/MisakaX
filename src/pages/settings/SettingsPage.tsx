@@ -58,7 +58,7 @@ export function SettingsPage() {
         ))}
       </nav>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="min-w-0 flex-1 overflow-auto p-6">
         <SettingsContent tab={activeTab} />
       </div>
     </div>

@@ -5,12 +5,12 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-button)] font-medium transition-[transform,box-shadow,background,color,border-color,filter] duration-[var(--ds-dur-fast)] ease-out hover:brightness-[1.02] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/55 focus-visible:ring-[3px] aria-invalid:ring-destructive/30 dark:aria-invalid:ring-destructive/50 aria-invalid:border-destructive active:scale-[var(--ds-active-scale)] active:transition-none",
+  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-button)] font-medium transition-[transform,box-shadow,background,color,border-color] duration-[var(--ds-dur-fast)] ease-out disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/55 focus-visible:ring-[3px] aria-invalid:ring-destructive/30 dark:aria-invalid:ring-destructive/50 aria-invalid:border-destructive active:scale-[var(--ds-active-scale)] active:transition-none",
   {
     variants: {
       variant: {
         default:
-          "border-0 bg-gradient-to-br from-[#62b7ff] to-[#4fe3a3] px-4 py-2 text-sm font-semibold text-[#0b0f1a] shadow-md hover:-translate-y-px hover:shadow-lg active:!brightness-[0.92]",
+          "border border-[color:color-mix(in_srgb,var(--primary)_55%,transparent)] bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(0,0,0,0.12)] hover:border-[color:color-mix(in_srgb,var(--primary)_70%,transparent)] hover:shadow-[0_8px_20px_color-mix(in_srgb,var(--primary)_35%,transparent)] hover:-translate-y-px hover:brightness-[1.03] active:!brightness-[0.94] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:brightness-[1.06]",
         destructive:
           "border-0 bg-destructive px-4 py-2 text-sm font-medium text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/35 dark:focus-visible:ring-destructive/45 dark:bg-destructive/72",
         outline:

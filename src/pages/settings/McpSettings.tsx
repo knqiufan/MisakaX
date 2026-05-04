@@ -5,13 +5,15 @@ export function McpSettings() {
   const { t } = useTranslation("settings");
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <h2 className="text-lg font-semibold text-foreground">
-        {t("mcp.title")}
-      </h2>
-      <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border">
+    <div className="w-full min-w-0 space-y-6">
+      <h2 className="text-lg font-semibold text-foreground">{t("mcp.title")}</h2>
+      <div
+        className="flex min-h-64 w-full flex-col items-center justify-center gap-3 rounded-[var(--radius-ui-lg)] border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-card)]/40 px-4 py-8"
+      >
         <Plug className="h-10 w-10 text-muted-foreground/50" />
-        <p className="text-sm text-muted-foreground">{t("mcp.comingSoon")}</p>
+        <p className="max-w-lg text-center text-sm text-muted-foreground">
+          {t("mcp.comingSoon")}
+        </p>
       </div>
     </div>
   );
