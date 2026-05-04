@@ -1,0 +1,21 @@
+{
+  "appName": "MisakaX",
+  "loading": "加载中...",
+  "save": "保存",
+  "cancel": "取消",
+  "confirm": "确认",
+  "delete": "删除",
+  "edit": "编辑",
+  "add": "添加",
+  "close": "关闭",
+  "search": "搜索",
+  "searchPlaceholder": "搜索... (⌘K)",
+  "noData": "暂无数据",
+  "error": "错误",
+  "success": "成功",
+  "comingSoon": "即将推出",
+  "emptyState": {
+    "title": "这里还没有内容",
+    "description": "开始创建新内容吧"
+  }
+}

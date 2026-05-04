@@ -1,0 +1,69 @@
+{
+  "title": "设置",
+  "general": {
+    "title": "通用",
+    "language": "语言",
+    "languageDesc": "选择界面显示语言",
+    "logLevel": "日志级别",
+    "logLevelDesc": "设置应用日志详细程度",
+    "autoStartSidecar": "自动启动 Agent 服务",
+    "autoStartSidecarDesc": "应用启动时自动运行 Python Agent 服务",
+    "sidecarPort": "服务端口",
+    "sidecarPortDesc": "Agent 服务监听端口号"
+  },
+  "models": {
+    "title": "模型",
+    "addProvider": "添加 Provider",
+    "editProvider": "编辑 Provider",
+    "deleteProvider": "删除 Provider",
+    "deleteConfirm": "确定要删除此 Provider 吗？",
+    "providerName": "Provider 名称",
+    "providerType": "Provider 类型",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "请输入 API Key",
+    "baseUrl": "接口地址",
+    "baseUrlPlaceholder": "https://api.example.com/v1",
+    "model": "模型",
+    "modelPlaceholder": "选择或输入模型名称",
+    "setDefault": "设为默认",
+    "testConnection": "测试连接",
+    "testing": "测试中...",
+    "connectionSuccess": "连接成功",
+    "connectionFailed": "连接失败",
+    "noProviders": "尚未配置任何 Provider",
+    "noProvidersDesc": "添加 Provider 以开始使用 AI 模型"
+  },
+  "mcp": {
+    "title": "MCP",
+    "comingSoon": "MCP 配置将在 Phase 3 中提供"
+  },
+  "appearance": {
+    "title": "外观",
+    "theme": "主题",
+    "themeDesc": "选择应用主题模式",
+    "themeLight": "浅色",
+    "themeDark": "深色",
+    "themeSystem": "跟随系统",
+    "accentColor": "强调色",
+    "accentColorDesc": "选择界面主强调色",
+    "fontSize": "字体大小",
+    "fontSizeDesc": "调整基础字号 ({{size}}px)",
+    "sidebarDefault": "默认展开侧边栏",
+    "sidebarDefaultDesc": "应用启动时默认展开侧边栏"
+  },
+  "about": {
+    "title": "关于",
+    "version": "版本",
+    "checkUpdate": "检查更新",
+    "checkUpdateDesc": "检查可用更新（将在 Phase 6 中实现）",
+    "systemInfo": "系统信息",
+    "os": "操作系统",
+    "architecture": "架构",
+    "dataDirectory": "数据目录",
+    "dbSize": "数据库大小",
+    "techStack": "技术栈",
+    "license": "开源许可",
+    "github": "GitHub 仓库",
+    "openSource": "开源"
+  }
+}

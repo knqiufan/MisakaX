@@ -1,0 +1,21 @@
+{
+  "appName": "MisakaX",
+  "loading": "Loading...",
+  "save": "Save",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "delete": "Delete",
+  "edit": "Edit",
+  "add": "Add",
+  "close": "Close",
+  "search": "Search",
+  "searchPlaceholder": "Search... (⌘K)",
+  "noData": "No data",
+  "error": "Error",
+  "success": "Success",
+  "comingSoon": "Coming soon",
+  "emptyState": {
+    "title": "Nothing here yet",
+    "description": "Get started by creating something new"
+  }
+}

@@ -1,5 +1,6 @@
 mod commands;
 pub mod config;
+pub mod crypto;
 pub mod db;
 mod sidecar;
 
@@ -61,6 +62,17 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::settings::get_settings,
             commands::settings::update_setting,
+            commands::settings::get_app_config,
+            commands::settings::update_app_config,
+            commands::settings::get_setting,
+            commands::settings::set_setting,
+            commands::settings::get_all_settings,
+            commands::settings::get_system_info,
+            commands::router_configs::list_router_configs,
+            commands::router_configs::create_router_config,
+            commands::router_configs::update_router_config,
+            commands::router_configs::delete_router_config,
+            commands::router_configs::test_router_connection,
         ])
         .setup(|_app| {
             tracing::info!("MisakaX initialized successfully");

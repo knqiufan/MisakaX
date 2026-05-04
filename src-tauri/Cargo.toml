@@ -54,3 +54,10 @@ dirs = "6"
 
 # --- Concurrency ---
 dashmap = "6"
+
+# --- Cryptography ---
+aes-gcm = "0.10"
+hkdf = "0.12"
+sha2 = "0.10"
+base64 = "0.22"
+rand = "0.8"

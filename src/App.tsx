@@ -1,17 +1,11 @@
-import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/sonner";
+import { AppShell } from "@/components/layout/AppShell";
 
-function App() {
+export function App() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-foreground">MisakaX</h1>
-        <p className="text-muted-foreground">Desktop AI Agent Client</p>
-        <Button variant="default" size="lg">
-          Get Started
-        </Button>
-      </div>
-    </div>
+    <>
+      <AppShell />
+      <Toaster position="bottom-right" richColors />
+    </>
   );
 }
-
-export default App;

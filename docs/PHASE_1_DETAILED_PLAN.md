@@ -1200,97 +1200,97 @@ export function useIpc<T>(fn: (...args: unknown[]) => Promise<T>): UseIpcResult<
 
 ### 1.7 主题系统 [预估 3h]
 
-- [ ] **1.7.1** 创建 `src/lib/theme.ts`（主题应用逻辑：切换 class、监听 matchMedia）
-- [ ] **1.7.2** 在 `app-store` 或独立 `theme-store` 中实现主题状态管理
-- [ ] **1.7.3** 实现 `system` 模式的 matchMedia 监听
-- [ ] **1.7.4** 实现强调色 CSS 变量动态切换
-- [ ] **1.7.5** 在应用启动时从 config 加载主题并应用
-- [ ] **1.7.6** 主题切换时同步写回 config.yaml（通过 IPC）
-- [ ] **1.7.7** 验证亮/暗/系统三种模式切换正常
+- [x] **1.7.1** 创建 `src/lib/theme.ts`（主题应用逻辑：切换 class、监听 matchMedia）
+- [x] **1.7.2** 在 `app-store` 或独立 `theme-store` 中实现主题状态管理
+- [x] **1.7.3** 实现 `system` 模式的 matchMedia 监听
+- [x] **1.7.4** 实现强调色 CSS 变量动态切换
+- [x] **1.7.5** 在应用启动时从 config 加载主题并应用
+- [x] **1.7.6** 主题切换时同步写回 config.yaml（通过 IPC）
+- [x] **1.7.7** 验证亮/暗/系统三种模式切换正常
 
 ### 1.8 i18n 国际化 [预估 3h]
 
-- [ ] **1.8.1** 安装依赖：`npm install react-i18next i18next`
-- [ ] **1.8.2** 创建 `src/locales/i18n.ts`（i18next 初始化配置）
-- [ ] **1.8.3** 创建 `src/locales/en/common.json`
-- [ ] **1.8.4** 创建 `src/locales/en/nav.json`
-- [ ] **1.8.5** 创建 `src/locales/en/settings.json`
-- [ ] **1.8.6** 创建 `src/locales/zh-CN/common.json`
-- [ ] **1.8.7** 创建 `src/locales/zh-CN/nav.json`
-- [ ] **1.8.8** 创建 `src/locales/zh-CN/settings.json`
-- [ ] **1.8.9** 在 `main.tsx` 中引入 i18n 初始化
-- [ ] **1.8.10** 验证 `useTranslation()` hook 工作正常
+- [x] **1.8.1** 安装依赖：`npm install react-i18next i18next`
+- [x] **1.8.2** 创建 `src/locales/i18n.ts`（i18next 初始化配置）
+- [x] **1.8.3** 创建 `src/locales/en/common.json`
+- [x] **1.8.4** 创建 `src/locales/en/nav.json`
+- [x] **1.8.5** 创建 `src/locales/en/settings.json`
+- [x] **1.8.6** 创建 `src/locales/zh-CN/common.json`
+- [x] **1.8.7** 创建 `src/locales/zh-CN/nav.json`
+- [x] **1.8.8** 创建 `src/locales/zh-CN/settings.json`
+- [x] **1.8.9** 在 `main.tsx` 中引入 i18n 初始化
+- [x] **1.8.10** 验证 `useTranslation()` hook 工作正常
 
 ### 1.1 AppShell 主布局 [预估 4h]
 
-- [ ] **1.1.1** 安装 shadcn/ui 组件：`npx shadcn@latest add tooltip separator scroll-area`
-- [ ] **1.1.2** 创建 `src/components/layout/AppShell.tsx`（主布局容器）
-- [ ] **1.1.3** 创建 `src/components/layout/Sidebar.tsx`（侧边栏骨架）
-- [ ] **1.1.4** 创建 `src/components/layout/TopBar.tsx`（顶栏）
-- [ ] **1.1.5** 创建 `src/components/layout/ContentArea.tsx`（路由内容区渲染）
-- [ ] **1.1.6** 修改 `src/App.tsx`，引入 AppShell 替换当前内容
-- [ ] **1.1.7** 实现侧边栏折叠/展开动画（CSS transition）
-- [ ] **1.1.8** 验证布局在 1280x800 和 900x600 下表现正常
+- [x] **1.1.1** 安装 shadcn/ui 组件：`npx shadcn@latest add tooltip separator scroll-area`
+- [x] **1.1.2** 创建 `src/components/layout/AppShell.tsx`（主布局容器）
+- [x] **1.1.3** 创建 `src/components/layout/Sidebar.tsx`（侧边栏骨架）
+- [x] **1.1.4** 创建 `src/components/layout/TopBar.tsx`（顶栏）
+- [x] **1.1.5** 创建 `src/components/layout/ContentArea.tsx`（路由内容区渲染）
+- [x] **1.1.6** 修改 `src/App.tsx`，引入 AppShell 替换当前内容
+- [x] **1.1.7** 实现侧边栏折叠/展开动画（CSS transition）
+- [x] **1.1.8** 验证布局在 1280x800 和 900x600 下表现正常
 
 ### 1.2 路由系统 [预估 2h]
 
-- [ ] **1.2.1** 在 `app-store.ts` 中定义 Route 类型（含 notifications 页面）和 navigate action
-- [ ] **1.2.2** 创建 `src/pages/ChatPage.tsx`（占位）
-- [ ] **1.2.3** 创建 `src/pages/SkillsPage.tsx`（占位）
-- [ ] **1.2.4** 创建 `src/pages/KnowledgePage.tsx`（占位）
-- [ ] **1.2.5** 创建 `src/pages/DashboardPage.tsx`（占位）
-- [ ] **1.2.6** 创建 `src/pages/NotificationsPage.tsx`（占位，显示通知列表骨架）
-- [ ] **1.2.7** 创建 `src/pages/SettingsPage.tsx`（占位）
-- [ ] **1.2.8** 在 `ContentArea.tsx` 中实现 switch-case 路由渲染
-- [ ] **1.2.9** 验证点击导航时页面正确切换
+- [x] **1.2.1** 在 `app-store.ts` 中定义 Route 类型（含 notifications 页面）和 navigate action
+- [x] **1.2.2** 创建 `src/pages/ChatPage.tsx`（占位）
+- [x] **1.2.3** 创建 `src/pages/SkillsPage.tsx`（占位）
+- [x] **1.2.4** 创建 `src/pages/KnowledgePage.tsx`（占位）
+- [x] **1.2.5** 创建 `src/pages/DashboardPage.tsx`（占位）
+- [x] **1.2.6** 创建 `src/pages/NotificationsPage.tsx`（占位，显示通知列表骨架）
+- [x] **1.2.7** 创建 `src/pages/SettingsPage.tsx`（占位）
+- [x] **1.2.8** 在 `ContentArea.tsx` 中实现 switch-case 路由渲染
+- [x] **1.2.9** 验证点击导航时页面正确切换
 
 ### 1.3 侧边栏导航 [预估 3h]
 
-- [ ] **1.3.1** 创建 `src/components/layout/NavItem.tsx`（导航项组件，支持 badge 属性）
-- [ ] **1.3.2** 创建 `src/components/layout/SidebarHeader.tsx`（Logo 区域）
-- [ ] **1.3.3** 创建 `src/components/layout/SidebarFooter.tsx`（底部：通知入口 + 用户头像 + 折叠按钮）
-- [ ] **1.3.4** 创建 `src/components/layout/UserMenu.tsx`（用户头像 + DropdownMenu：个人中心/设置/退出）
-- [ ] **1.3.5** 实现 NavItem 的 active / hover / collapsed 三种视觉状态
-- [ ] **1.3.6** 实现通知入口的未读 Badge 显示（红色圆点/数字）
-- [ ] **1.3.7** 实现折叠态下的 Tooltip 提示
-- [ ] **1.3.8** 实现折叠态下用户头像 DropdownMenu 向右弹出
-- [ ] **1.3.9** 添加 `aria-current="page"` 无障碍标记
-- [ ] **1.3.10** 验证所有导航项点击、状态切换、下拉菜单正常
+- [x] **1.3.1** 创建 `src/components/layout/NavItem.tsx`（导航项组件，支持 badge 属性）
+- [x] **1.3.2** 创建 `src/components/layout/SidebarHeader.tsx`（Logo 区域）
+- [x] **1.3.3** 创建 `src/components/layout/SidebarFooter.tsx`（底部：通知入口 + 用户头像 + 折叠按钮）
+- [x] **1.3.4** 创建 `src/components/layout/UserMenu.tsx`（用户头像 + DropdownMenu：个人中心/设置/退出）
+- [x] **1.3.5** 实现 NavItem 的 active / hover / collapsed 三种视觉状态
+- [x] **1.3.6** 实现通知入口的未读 Badge 显示（红色圆点/数字）
+- [x] **1.3.7** 实现折叠态下的 Tooltip 提示
+- [x] **1.3.8** 实现折叠态下用户头像 DropdownMenu 向右弹出
+- [x] **1.3.9** 添加 `aria-current="page"` 无障碍标记
+- [x] **1.3.10** 验证所有导航项点击、状态切换、下拉菜单正常
 
 ### 1.4 设置页面 [预估 6h]
 
-- [ ] **1.4.1** 安装 shadcn/ui 组件：`npx shadcn@latest add tabs input label select switch slider radio-group card badge sonner`
-- [ ] **1.4.2** 创建 `src/pages/settings/SettingsPage.tsx`（主容器 + Tab 导航）
-- [ ] **1.4.3** 创建 `src/pages/settings/GeneralSettings.tsx`（通用设置表单）
-- [ ] **1.4.4** 创建 `src/pages/settings/ModelSettings.tsx`（Provider 管理列表）
-- [ ] **1.4.5** 创建 `src/pages/settings/McpSettings.tsx`（占位，Phase 3 实现）
-- [ ] **1.4.6** 创建 `src/pages/settings/AppearanceSettings.tsx`（主题+强调色+字号）
-- [ ] **1.4.7** 创建 `src/pages/settings/AboutSettings.tsx`（版本信息+系统信息）
-- [ ] **1.4.8** 实现 Settings Tab 切换逻辑（与路由联动）
-- [ ] **1.4.9** 实现表单双向绑定（store ↔ 表单控件）
-- [ ] **1.4.10** 验证所有设置面板渲染正常
+- [x] **1.4.1** 安装 shadcn/ui 组件：`npx shadcn@latest add tabs input label select switch slider radio-group card badge sonner`
+- [x] **1.4.2** 创建 `src/pages/settings/SettingsPage.tsx`（主容器 + Tab 导航）
+- [x] **1.4.3** 创建 `src/pages/settings/GeneralSettings.tsx`（通用设置表单）
+- [x] **1.4.4** 创建 `src/pages/settings/ModelSettings.tsx`（Provider 管理列表）
+- [x] **1.4.5** 创建 `src/pages/settings/McpSettings.tsx`（占位，Phase 3 实现）
+- [x] **1.4.6** 创建 `src/pages/settings/AppearanceSettings.tsx`（主题+强调色+字号）
+- [x] **1.4.7** 创建 `src/pages/settings/AboutSettings.tsx`（版本信息+系统信息）
+- [x] **1.4.8** 实现 Settings Tab 切换逻辑（与路由联动）
+- [x] **1.4.9** 实现表单双向绑定（store ↔ 表单控件）
+- [x] **1.4.10** 验证所有设置面板渲染正常
 
 ### 1.5 Rust 端设置 CRUD Commands [预估 3h]
 
-- [ ] **1.5.1** 重构 `src-tauri/src/commands/settings.rs`：增加 `get_app_config`、`update_app_config`
-- [ ] **1.5.2** 新增 `get_setting`、`set_setting`、`get_all_settings` 三个 SQLite 操作命令
-- [ ] **1.5.3** 新增 `get_system_info` 命令（版本、OS、架构、数据目录、DB 大小）
-- [ ] **1.5.4** 在 `lib.rs` 的 `invoke_handler` 中注册新命令
-- [ ] **1.5.5** 执行 `cargo check` 确认编译通过
-- [ ] **1.5.6** 验证前端 IPC 调用各命令正常
+- [x] **1.5.1** 重构 `src-tauri/src/commands/settings.rs`：增加 `get_app_config`、`update_app_config`
+- [x] **1.5.2** 新增 `get_setting`、`set_setting`、`get_all_settings` 三个 SQLite 操作命令
+- [x] **1.5.3** 新增 `get_system_info` 命令（版本、OS、架构、数据目录、DB 大小）
+- [x] **1.5.4** 在 `lib.rs` 的 `invoke_handler` 中注册新命令
+- [x] **1.5.5** 执行 `cargo check` 确认编译通过
+- [x] **1.5.6** 验证前端 IPC 调用各命令正常
 
 ### 1.6 路由配置 UI + Rust 后端 [预估 6h]
 
-- [ ] **1.6.1** 新增 Cargo 依赖：`aes-gcm`、`hkdf`、`sha2`、`base64`
-- [ ] **1.6.2** 创建 `src-tauri/src/crypto.rs`（API Key 加密/解密工具）
-- [ ] **1.6.3** 创建 `src-tauri/src/commands/router_configs.rs`（CRUD + 测试连接命令）
-- [ ] **1.6.4** 在 `lib.rs` 注册 router_configs commands
-- [ ] **1.6.5** 执行 `cargo check` 确认编译通过
-- [ ] **1.6.6** 创建 `src/pages/settings/ProviderCard.tsx`（Provider 卡片组件）
-- [ ] **1.6.7** 创建 `src/pages/settings/ProviderDialog.tsx`（添加/编辑 Provider 弹窗）
-- [ ] **1.6.8** 在 `ModelSettings.tsx` 中集成 Provider 列表和操作
-- [ ] **1.6.9** 实现"测试连接"功能（调用后端 API → Toast 提示）
-- [ ] **1.6.10** 验证 Provider CRUD 全流程（添加 → 列表显示 → 编辑 → 删除 → 重启验证持久化）
+- [x] **1.6.1** 新增 Cargo 依赖：`aes-gcm`、`hkdf`、`sha2`、`base64`
+- [x] **1.6.2** 创建 `src-tauri/src/crypto.rs`（API Key 加密/解密工具）
+- [x] **1.6.3** 创建 `src-tauri/src/commands/router_configs.rs`（CRUD + 测试连接命令）
+- [x] **1.6.4** 在 `lib.rs` 注册 router_configs commands
+- [x] **1.6.5** 执行 `cargo check` 确认编译通过
+- [x] **1.6.6** 创建 `src/pages/settings/ProviderCard.tsx`（Provider 卡片组件）
+- [x] **1.6.7** 创建 `src/pages/settings/ProviderDialog.tsx`（添加/编辑 Provider 弹窗）
+- [x] **1.6.8** 在 `ModelSettings.tsx` 中集成 Provider 列表和操作
+- [x] **1.6.9** 实现"测试连接"功能（调用后端 API → Toast 提示）
+- [x] **1.6.10** 验证 Provider CRUD 全流程（添加 → 列表显示 → 编辑 → 删除 → 重启验证持久化）
 
 ### 收尾验证 [预估 1h]
 

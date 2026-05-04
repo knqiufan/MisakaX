@@ -1,0 +1,69 @@
+{
+  "title": "Settings",
+  "general": {
+    "title": "General",
+    "language": "Language",
+    "languageDesc": "Choose your preferred language",
+    "logLevel": "Log Level",
+    "logLevelDesc": "Set the application log verbosity",
+    "autoStartSidecar": "Auto-start Agent Sidecar",
+    "autoStartSidecarDesc": "Automatically start the Python agent service on app launch",
+    "sidecarPort": "Sidecar Port",
+    "sidecarPortDesc": "Port number for the agent sidecar service"
+  },
+  "models": {
+    "title": "Models",
+    "addProvider": "Add Provider",
+    "editProvider": "Edit Provider",
+    "deleteProvider": "Delete Provider",
+    "deleteConfirm": "Are you sure you want to delete this provider?",
+    "providerName": "Provider Name",
+    "providerType": "Provider Type",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "Enter your API key",
+    "baseUrl": "Base URL",
+    "baseUrlPlaceholder": "https://api.example.com/v1",
+    "model": "Model",
+    "modelPlaceholder": "Select or enter model name",
+    "setDefault": "Set as Default",
+    "testConnection": "Test Connection",
+    "testing": "Testing...",
+    "connectionSuccess": "Connection successful",
+    "connectionFailed": "Connection failed",
+    "noProviders": "No providers configured",
+    "noProvidersDesc": "Add a provider to start using AI models"
+  },
+  "mcp": {
+    "title": "MCP",
+    "comingSoon": "MCP configuration will be available in Phase 3"
+  },
+  "appearance": {
+    "title": "Appearance",
+    "theme": "Theme",
+    "themeDesc": "Select the application theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "accentColor": "Accent Color",
+    "accentColorDesc": "Choose the primary accent color",
+    "fontSize": "Font Size",
+    "fontSizeDesc": "Adjust the base font size ({{size}}px)",
+    "sidebarDefault": "Sidebar Expanded by Default",
+    "sidebarDefaultDesc": "Show the sidebar expanded when the app starts"
+  },
+  "about": {
+    "title": "About",
+    "version": "Version",
+    "checkUpdate": "Check for Updates",
+    "checkUpdateDesc": "Check for available updates (coming in Phase 6)",
+    "systemInfo": "System Information",
+    "os": "Operating System",
+    "architecture": "Architecture",
+    "dataDirectory": "Data Directory",
+    "dbSize": "Database Size",
+    "techStack": "Technology Stack",
+    "license": "License",
+    "github": "GitHub Repository",
+    "openSource": "Open Source"
+  }
+}
