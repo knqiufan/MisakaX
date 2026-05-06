@@ -16,10 +16,10 @@ export function Sidebar() {
         "relative flex min-h-0 shrink-0 flex-col border-r border-sidebar-border",
         "border-[color:var(--border-muted)] bg-sidebar",
         "backdrop-blur-xl backdrop-saturate-150 [transition:width_var(--ds-dur-slow)_var(--ds-ease-out)]",
-        collapsed ? "w-14" : "w-[280px]"
+        collapsed ? "w-14" : "w-[160px]"
       )}
     >
-      <SidebarHeader />
+      {/* <SidebarHeader /> */}
 
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 py-2">
         <NavItem icon={MessageSquare} label={t("chat")} route={{ page: "chat" }} />
