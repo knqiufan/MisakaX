@@ -1,4 +1,7 @@
+use std::pin::Pin;
+
 use anyhow::Result;
+use futures::Stream;
 use rig::agent::Agent;
 
 use super::config::LlmConfig;
@@ -34,6 +37,91 @@ pub trait LlmProvider: Send + Sync {
     fn supports_thinking(&self, model_name: &str) -> bool;
 }
 
+// ─── 类型擦除的流式 delta ─────────────────────────────────────────────
+
+/// Provider 无关的流式 delta 类型
+///
+/// 将各 Provider 不同泛型参数的 `StreamedAssistantContent<R>` 映射为
+/// 统一的类型擦除枚举，消除上层代码对具体 Provider 类型的依赖。
+#[derive(Debug, Clone)]
+pub enum StreamDelta {
+    /// 文本增量
+    Text(String),
+    /// 思维链/推理增量（Anthropic thinking blocks / OpenAI reasoning）
+    Thinking(String),
+    /// 完整的思维链块（一次性接收，通常来自 Reasoning variant）
+    ThinkingBlock(String),
+    /// Token 用量统计（流结束时发送）
+    Usage(StreamUsage),
+}
+
+/// 类型擦除的 token 用量
+#[derive(Debug, Clone)]
+pub struct StreamUsage {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub total_tokens: u64,
+}
+
+/// 类型擦除的流式输出流
+pub type DeltaStream =
+    Pin<Box<dyn Stream<Item = Result<StreamDelta, anyhow::Error>> + Send>>;
+
+/// 将 rig-core 的 `MultiTurnStreamItem<R>` 转换为 `Option<StreamDelta>`
+///
+/// 返回 `None` 表示该 item 不需要向前端推送（如 UserContent 工具结果回传）。
+fn map_multi_turn_item<R>(item: rig::agent::MultiTurnStreamItem<R>) -> Option<StreamDelta>
+where
+    R: Clone + std::marker::Unpin + rig::completion::request::GetTokenUsage,
+{
+    use rig::agent::MultiTurnStreamItem;
+    use rig::streaming::StreamedAssistantContent;
+
+    match item {
+        MultiTurnStreamItem::StreamAssistantItem(content) => match content {
+            StreamedAssistantContent::Text(text) => {
+                if text.text.is_empty() {
+                    None
+                } else {
+                    Some(StreamDelta::Text(text.text))
+                }
+            }
+            StreamedAssistantContent::Reasoning(reasoning) => {
+                let display = reasoning.display_text();
+                if display.is_empty() {
+                    None
+                } else {
+                    Some(StreamDelta::ThinkingBlock(display))
+                }
+            }
+            StreamedAssistantContent::ReasoningDelta { reasoning, .. } => {
+                if reasoning.is_empty() {
+                    None
+                } else {
+                    Some(StreamDelta::Thinking(reasoning))
+                }
+            }
+            StreamedAssistantContent::Final(response) => {
+                if let Some(usage) = response.token_usage() {
+                    Some(StreamDelta::Usage(StreamUsage {
+                        input_tokens: usage.input_tokens,
+                        output_tokens: usage.output_tokens,
+                        total_tokens: usage.total_tokens,
+                    }))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        },
+        MultiTurnStreamItem::FinalResponse(_) => None,
+        MultiTurnStreamItem::StreamUserItem(_) => None,
+        _ => None,
+    }
+}
+
+// ─── AgentHandle ──────────────────────────────────────────────────────
+
 /// Agent 句柄 — 封装不同 Provider 的具体 Agent 类型
 ///
 /// ## 为什么用 enum dispatch 而不是 trait object？
@@ -44,7 +132,7 @@ pub trait LlmProvider: Send + Sync {
 /// 实现开闭原则（新增 Provider 不影响上层），但 Agent 层面退化为 enum dispatch。
 ///
 /// 这是一个**已知技术妥协**：新增 Provider 需在此 enum 添加 variant +
-/// `prompt`/`chat` 的 match 分支。由于 Provider 种类有限（通常 3-5 个），
+/// `prompt`/`chat`/`stream_chat` 的 match 分支。由于 Provider 种类有限（通常 3-5 个），
 /// 且绝大多数自定义 Provider 复用 `OpenAi` variant（通过 OpenAI 兼容协议），
 /// 实际维护成本可控。
 pub enum AgentHandle {
@@ -84,6 +172,49 @@ impl AgentHandle {
                 .chat(input, history)
                 .await
                 .map_err(|e| anyhow::anyhow!("{e}")),
+        }
+    }
+
+    /// 流式多轮对话 — 返回类型擦除的 `DeltaStream`
+    ///
+    /// 内部通过 `StreamingChat::stream_chat` 获取 Provider 特定类型的流，
+    /// 然后用 `map_multi_turn_item` 将每个 `MultiTurnStreamItem` 统一为 `StreamDelta`。
+    pub async fn stream_chat(
+        &self,
+        input: &str,
+        history: Vec<rig::completion::message::Message>,
+    ) -> Result<DeltaStream> {
+        use futures::StreamExt;
+        use rig::streaming::StreamingChat;
+
+        match self {
+            Self::OpenAi(agent) => {
+                let stream = agent.stream_chat(input, history).await;
+                Ok(Box::pin(stream.filter_map(|item| async move {
+                    match item {
+                        Ok(multi) => map_multi_turn_item(multi).map(Ok),
+                        Err(e) => Some(Err(anyhow::anyhow!("{e}"))),
+                    }
+                })))
+            }
+            Self::Anthropic(agent) => {
+                let stream = agent.stream_chat(input, history).await;
+                Ok(Box::pin(stream.filter_map(|item| async move {
+                    match item {
+                        Ok(multi) => map_multi_turn_item(multi).map(Ok),
+                        Err(e) => Some(Err(anyhow::anyhow!("{e}"))),
+                    }
+                })))
+            }
+            Self::Gemini(agent) => {
+                let stream = agent.stream_chat(input, history).await;
+                Ok(Box::pin(stream.filter_map(|item| async move {
+                    match item {
+                        Ok(multi) => map_multi_turn_item(multi).map(Ok),
+                        Err(e) => Some(Err(anyhow::anyhow!("{e}"))),
+                    }
+                })))
+            }
         }
     }
 }

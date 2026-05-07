@@ -1911,17 +1911,17 @@ interface ImageAttachment {
 
 ### 2.2 Rust 流式 LLM 调用 + Tauri Event 推送 [预估 8h]
 
-- [ ] **2.2.1** 创建 `src-tauri/src/services/llm/streaming.rs`（StreamSession struct）
-- [ ] **2.2.2** 定义 Event Payload 结构体（StreamTokenPayload / StreamThinkingPayload / StreamCompletePayload / StreamErrorPayload），全部派生 `Clone + Serialize`
-- [ ] **2.2.3** 实现 `StreamSession::execute_stream()` — 主流式循环 + 通过 `AppHandle::emit()` 推送 Event
-- [ ] **2.2.4** 实现 `StreamSession::handle_delta()` — 区分 text / thinking 类型
-- [ ] **2.2.5** 实现 `StreamSession::finalize()` — 流式结束后汇总并 emit stream_complete
-- [ ] **2.2.6** 实现 `StreamSession::emit_error()` — 错误 Event 推送
-- [ ] **2.2.7** 创建 `StreamRegistry`（使用已有的 `dashmap::DashMap`，支持 abort）
-- [ ] **2.2.8** 在 `lib.rs` 的 `AppState` 中新增 `pub stream_registry: StreamRegistry` 字段（无需 Mutex）
-- [ ] **2.2.9** 在 `run()` 函数的 `.manage(AppState {...})` 中初始化 `stream_registry: StreamRegistry::new()`
-- [ ] **2.2.10** 实现 Anthropic thinking blocks 的特殊处理逻辑
-- [ ] **2.2.11** `cargo check` 编译通过
+- [x] **2.2.1** 创建 `src-tauri/src/services/llm/streaming.rs`（StreamSession struct）
+- [x] **2.2.2** 定义 Event Payload 结构体（StreamTokenPayload / StreamThinkingPayload / StreamCompletePayload / StreamErrorPayload），全部派生 `Clone + Serialize`
+- [x] **2.2.3** 实现 `StreamSession::execute_stream()` — 主流式循环 + 通过 `AppHandle::emit()` 推送 Event
+- [x] **2.2.4** 实现 `StreamSession::handle_delta()` — 区分 text / thinking 类型
+- [x] **2.2.5** 实现 `StreamSession::finalize()` — 流式结束后汇总并 emit stream_complete
+- [x] **2.2.6** 实现 `StreamSession::emit_error()` — 错误 Event 推送
+- [x] **2.2.7** 创建 `StreamRegistry`（使用已有的 `dashmap::DashMap`，支持 abort）
+- [x] **2.2.8** 在 `lib.rs` 的 `AppState` 中新增 `pub stream_registry: StreamRegistry` 字段（无需 Mutex）
+- [x] **2.2.9** 在 `run()` 函数的 `.manage(AppState {...})` 中初始化 `stream_registry: StreamRegistry::new()`
+- [x] **2.2.10** 实现 Anthropic thinking blocks 的特殊处理逻辑
+- [x] **2.2.11** `cargo check` 编译通过
 
 ### 2.3 send_message Command + 策略模式预留 [预估 8h] 🆕更新
 

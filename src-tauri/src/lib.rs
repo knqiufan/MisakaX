@@ -6,6 +6,7 @@ pub mod services;
 mod sidecar;
 
 use config::AppConfig;
+use services::llm::StreamRegistry;
 use sidecar::SidecarManager;
 use std::sync::Mutex;
 
@@ -14,6 +15,9 @@ pub struct AppState {
     pub db: Mutex<rusqlite::Connection>,
     pub config: Mutex<AppConfig>,
     pub sidecar: Mutex<Option<SidecarManager>>,
+    /// 流式会话注册表 — 跟踪活跃流并支持 abort（停止生成）。
+    /// DashMap 内部实现并发安全，无需外层 Mutex。
+    pub stream_registry: StreamRegistry,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -61,6 +65,7 @@ pub fn run() {
             db: Mutex::new(conn),
             config: Mutex::new(app_config),
             sidecar: Mutex::new(sidecar),
+            stream_registry: StreamRegistry::new(),
         })
         .invoke_handler(tauri::generate_handler![
             commands::settings::get_settings,
