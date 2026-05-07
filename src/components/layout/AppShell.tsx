@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar } from "./Sidebar";
-import { TopBar } from "./TopBar";
 import { ContentArea } from "./ContentArea";
 import { useAppStore } from "@/stores";
 import { useThemeStore } from "@/stores/theme-store";
 import { settingsIpc } from "@/lib/ipc";
 import { cn } from "@/lib/utils";
+import { i18n } from "@/locales/i18n";
 
 const NARROW_BREAKPOINT = 960;
 
@@ -21,6 +21,14 @@ export function AppShell() {
     initializeTheme();
     return cleanupTheme;
   }, [initializeTheme, cleanupTheme]);
+
+  useEffect(() => {
+    void settingsIpc.getAppConfig().then((config) => {
+      if (config.language && config.language !== i18n.language) {
+        i18n.changeLanguage(config.language);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     void settingsIpc.getSystemInfo().then((info) => {
