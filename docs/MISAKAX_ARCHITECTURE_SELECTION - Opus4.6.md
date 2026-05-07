@@ -1,10 +1,10 @@
-# MisakaX 项目架构选型文档 v2.1
+# MisakaX 项目架构选型文档 v2.2
 
 > **项目代号：** MisakaX（基于 Misaka 项目的下一代桌面端 AI Agent 客户端）
-> **文档版本：** v2.1
-> **调研日期：** 2026-04-28
+> **文档版本：** v2.2（架构重构：全路径 DeepAgents，Sidecar 预热，工作目录系统）
+> **调研日期：** 2026-04-28（原始）/ 2026-05-07（v2.2 修订）
 > **基于：** [MISAKAX_TECH_SELECTION_REPORT.md v1.0](./MISAKAX_TECH_SELECTION_REPORT.md) 的深入修订
-> **目标：** 针对 v1.0 报告中遗漏和不够深入的关键问题，补充调研并给出最终技术决策
+> **目标：** 针对关键架构问题补充调研，给出最终技术决策
 
 ---
 
@@ -33,7 +33,8 @@
 | 1 | Tauri Sidecar 模式是什么？Python Sidecar 对性能有何影响？ | 仅概述，无性能量化 | 深度剖析原理与性能基准 |
 | 2 | 运行整个技术架构需要什么环境？ | 未覆盖 | 完整的环境依赖矩阵 |
 | 3 | PowerMem 是否适合作为长期记忆引擎？是否兼容 LangGraph？ | 未涉及 | 完整调研 + 对比分析 |
-| 4 | 能否最大化用 Rust，仅在 Agent 相关场景使用 Python？ | 提及但未深入 | 分层职责划分 + 最佳实践 |
+| 4 | 能否最大化用 Rust，仅在 Agent 相关场景使用 Python？ | 提及但未深入 | **[v2.2 修订]** 全路径 DeepAgents + Rust 非对话 |
+| 9 | 全路径 Agent 架构（消除双路径路由）？ | 未涉及 | **[v2.2 🆕]** 全路径 DeepAgents 单一架构 |
 | 5 | Skills 系统的加载与使用方案在选型中缺失 | 未覆盖 | 完整技术方案 |
 | 6 | Buddy 桌面伴侣功能的架构选型 | v1.0 有深度调研但未纳入 v2.0 | **[v2.1 新增]** 完整架构选型 |
 | 7 | SeekDB 嵌入式能否替换 SQLite？跨平台兼容性如何？ | 未涉及 | **[v2.1 新增]** 深度调研 + 结论 |
@@ -123,16 +124,18 @@ Sidecar 模式引入的性能开销来自三个维度：**进程启动**、**通
 
 > Python Sidecar 通过 PyInstaller/Nuitka 编译后的体积和启动时间是主要代价。使用 Nuitka AOT 编译可将启动时间降低至 ~600ms，体积降低至 ~40MB。
 
-#### 2.2.4 优化策略
+#### 2.2.4 优化策略 (v2.2 更新)
 
 | 策略 | 效果 | 复杂度 |
 |------|------|--------|
-| **延迟启动**：仅在需要 Agent 功能时才启动 Sidecar | 主窗口秒开，无感知延迟 | 低 |
-| **预热连接**：启动后立即建立 WebSocket 长连接 | 消除首次请求的连接建立开销 | 低 |
+| **应用启动预热**：启动时异步启动 Sidecar（不阻塞 UI） | 用户首次对话即无冷启动延迟 | 中 |
+| **健康检查循环**：定期检查 Sidecar 健康状态 + 自动重启 | 确保 Sidecar 始终可用 | 中 |
+| **预热连接**：启动后立即建立 HTTP 连接池 | 消除首次请求的连接建立开销 | 低 |
 | **连接池**：复用 HTTP 连接 | 减少 TCP 握手开销 | 低 |
 | **Nuitka 替代 PyInstaller** | 启动快 30-50%，体积小 20-30% | 中 |
 | **消息批处理**：合并多个小请求 | 减少 IPC 次数 | 中 |
-| **共享内存**：大数据通过 mmap 传递 | 避免序列化大对象 | 高 |
+
+> **v2.2 变更：** 移除"延迟启动"策略。全路径架构要求 Sidecar 始终就绪，改为应用启动时预热 + 健康监控。
 
 ### 2.3 Sidecar 模式的核心价值
 
@@ -438,81 +441,90 @@ React (UI) ←→ Tauri Rust (中间层/粘合剂) ←→ Python (Agent 大脑)
 └──────────────┴──────────────────────────────────────────────┘
 ```
 
-### 5.4 三种架构方案对比
+### 5.4 三种架构方案对比 (v2.2 修订)
 
-#### 方案 Alpha：Rust 最大化 + Python 最小化（推荐）
-
-```
-React UI ←→ Tauri Rust Core (承担大部分逻辑) ←→ Python Sidecar (仅 Agent 编排+记忆)
-                    ↕
-            Rig (LLM 直调)
-            rmcp (MCP Client)
-            rusqlite (数据库)
-            Wasmtime (沙箱)
-            Skills Manager
-```
-
-| 优势 | 劣势 |
-|------|------|
-| 性能最优的折中方案 | Rust 层代码量较大 |
-| Python 仅做最擅长的事 | 需维护 Rust + Python 两套代码 |
-| 安装包 ~60 MB (Python 部分被压缩到最小) | Agent 编排调试需跨进程 |
-| 启动快 (Rust 部分即时就绪，Python 延迟启动) | |
-| LLM 直调无需经过 Sidecar | |
-
-#### 方案 Beta：完全 Python Sidecar（v1.0 原方案）
+#### 方案 Alpha：全路径 DeepAgents + Rust 非对话（🏆 推荐）
 
 ```
-React UI ←→ Tauri Rust Core (薄中间层) ←→ Python Sidecar (所有后端逻辑)
+React UI ←→ Tauri Rust Core (系统集成 + 非对话业务) ←→ Python Sidecar (全对话入口，常驻预热)
+                    ↕                                  ↕
+            Rig (Embedding/标题/摘要)        DeepAgents Harness
+            rmcp (MCP Client)               ├ Middleware 链
+            rusqlite (数据库)                ├ PowerMem (记忆)
+            Wasmtime (沙箱)                  └ LangGraph Checkpointer
+            Skills Manager (发现/注册)
+            Sidecar Manager (预热/监控)
 ```
 
 | 优势 | 劣势 |
 |------|------|
-| Rust 层最简单 | 所有请求都经过 IPC |
-| Python 开发效率高 | 安装包 80+ MB |
-| AI 库选择最多 | 冷启动慢 |
+| 每次对话拥有完整 Agent 能力（无路由割裂） | 空闲内存 ~162MB（vs 纯 Rust ~42MB） |
+| 单一对话代码路径，维护简单 | Sidecar 预热增加应用启动复杂性 |
+| DeepAgents Middleware 开箱即用 | 所有对话都经过 1-3ms IPC |
+| Python 做 AI 生态最擅长的事 | |
+| 渐进式实施（Phase 2 Rig 过渡 → Phase 4 DeepAgents） | |
+
+#### 方案 Beta：双路径 Smart Routing（v2.1 原方案 — 已弃用）
+
+```
+React UI ←→ Tauri Rust Core ──简单──▶ Rig → LLM
+                    │
+                    └──复杂──▶ Python Sidecar (LangGraph)
+```
+
+| 优势 | 劣势 |
+|------|------|
+| 简单请求 0 IPC 开销 | 用户体验割裂（无法预知路由结果） |
+| 低负载时资源占用小 | 路由误判风险 |
+| | 维护两套对话系统 |
+| | 不符合 Agent 平台定位 |
+
+> **弃用原因：** 双路径路由导致的用户体验割裂和维护复杂性超过了性能收益。
 
 #### 方案 Gamma：纯 Rust + TypeScript（无 Python）
 
 ```
 React UI ←→ Tauri Rust Core (所有后端逻辑)
                   ↕
-           Rig (LLM)
-           rmcp (MCP)
-           Ractor (Multi-Agent)
-           自研记忆系统
+           Rig + rmcp + 自研记忆
 ```
 
 | 优势 | 劣势 |
 |------|------|
-| 安装包最小 (~15 MB) | 无法使用 PowerMem、LangGraph |
-| 性能最高 | Agent 编排能力有限 (Rig 无内建多 Agent) |
+| 安装包最小 (~15 MB) | 无法使用 DeepAgents/PowerMem/LangGraph |
+| 性能最高 | Agent 编排能力严重受限 |
 | 技术栈最统一 | 需要大量自研，开发周期长 |
-| 冷启动最快 (~380 ms) | Rust AI Agent 生态仍在成长期 |
 
-### 5.5 最佳实践建议
+### 5.5 最佳实践建议 (v2.2)
 
-**推荐方案 Alpha：Rust 最大化 + Python 最小化。** 理由：
+**推荐方案 Alpha：全路径 DeepAgents + Rust 非对话。** 理由：
 
-1. **渐进式架构**：初期可以从更多 Python 开始，逐步将稳定模块迁移到 Rust
-2. **LLM 直调 via Rig**：简单的 LLM 对话（无需复杂编排）直接在 Rust 端完成，无 IPC 开销
-3. **MCP 原生 Rust**：rmcp 是官方 Tier 2 SDK，MCP Client 在 Rust 端实现性能最优
-4. **Python 做 Python 最擅长的事**：复杂 Agent 编排（LangGraph）和智能记忆（PowerMem）是 Python 生态的强项
-5. **延迟启动策略**：Python Sidecar 仅在用户触发 Agent 功能时启动，普通设置/浏览等操作纯 Rust 处理
+1. **Agent 平台定位**：MisakaX 是 Agent 平台而非聊天客户端。每次对话都应拥有完整 Agent 能力
+2. **DeepAgents 开箱即用**：Middleware 链覆盖规划/文件/子代理/技能/记忆/摘要，省去 60-80% 手动编码
+3. **Rust 做 Rust 最擅长的事**：系统集成（FS/进程/通知）、MCP Client、数据库、沙箱、Skills 发现、Buddy 语音
+4. **Sidecar 预热消除延迟**：应用启动时异步预热，用户首次对话即无冷启动延迟
+5. **Rig 保留非对话价值**：Embedding 生成、会话标题/摘要、配置验证
+6. **渐进式过渡**：Phase 2 Rig 作为过渡实现验证 UI 链路，Phase 4 DeepAgents 正式接管
 
-**数据流路径选择逻辑：**
+**数据流路径选择逻辑（v2.2）：**
 
 ```
-用户发送消息
+用户请求
     │
-    ├── 简单对话 (无工具、无编排)?
-    │   └── Rig (Rust 端直调 LLM)  ← 0 IPC 开销
+    ├── 用户对话 (所有)
+    │   └── Rust 转发 → Python Sidecar (DeepAgents) ← 常驻预热，无冷启动
     │
-    ├── 需要 MCP 工具调用?
-    │   └── rmcp (Rust 端 MCP Client) → Rig 编排 ← 0 IPC 开销
+    ├── 知识库检索
+    │   └── Rust 本地 (sqlite-vec + FTS5 + RRF) ← 0 IPC
     │
-    └── 需要复杂编排 (多步骤/SubAgent/条件分支/记忆)?
-        └── Python Sidecar (LangGraph + PowerMem) ← ~2ms IPC 开销
+    ├── Embedding 生成
+    │   └── Rig (Rust) → Embedding API ← 0 IPC
+    │
+    ├── 会话标题/摘要
+    │   └── Rig (Rust) → LLM Completion ← 0 IPC
+    │
+    └── 沙箱执行
+        └── Wasmtime (Rust) ← 0 IPC
 ```
 
 ---
@@ -771,9 +783,8 @@ Buddy 不是独立的 AI 系统，而是 MisakaX Agent 系统的一个 **交互�
 ┌─────────────────────────────────────────────────┐
 │ Tauri Rust Core                                   │
 │ ├── whisper-cpp-plus → 语音转文字                  │
-│ ├── Command Router → 同一套路由逻辑                │
-│ │   ├── 简单对话 → Rig (Rust LLM 直调)            │
-│ │   └── 复杂任务 → Python Sidecar (LangGraph)     │
+│ ├── Command Router → 所有对话转发 Sidecar           │
+│ │   └── Python Sidecar (DeepAgents Harness)        │
 │ ├── 结果返回: { text, emotion, actions[] }        │
 │ ├── piper-rs → 文字转语音                          │
 │ └── Tauri Event → Buddy 窗口更新动画 + 播放语音    │
@@ -1114,8 +1125,9 @@ PowerMem 存储选择:
 | **Python 打包** | PyInstaller | Nuitka | 启动快 30-50%，体积小 20-30% |
 | **Rust 职责** | 薄中间层 | 承担大部分后端逻辑 | 性能最大化 |
 | **Skills 方案** | 仅目录草图 | 完整技术方案 | v1.0 缺失 |
-| **LLM 调用路径** | 全部走 Sidecar | 简单走 Rig (Rust)，复杂走 Sidecar | 减少 IPC，性能优化 |
-| **数据流设计** | 单路径 | 双路径 (Rust 直调 / Sidecar) | 灵活性 |
+| **LLM 调用路径** | 全部走 Sidecar | 全路径 DeepAgents | **[v2.2]** 消除路由割裂，Agent 自主决策 |
+| **Sidecar 生命周期** | 随应用启动 | 应用启动预热 | **[v2.2]** 无冷启动延迟 |
+| **数据流设计** | 单路径 | 单路径（对话统一） | **[v2.2]** 简化路由 |
 
 ### 9.3 分层责任划分（v2.1 修订）
 
@@ -1241,57 +1253,57 @@ PowerMem 存储选择:
 └──────────────────────────────────────────────────┘
 ```
 
-### 10.3 模块划分（v2.1 修订）
+### 10.3 模块划分（v2.2 修订）
 
 ```
 claw/
-├── src-tauri/                        # Rust 后端 (承担主要职责)
+├── src-tauri/                        # Rust 后端 (系统集成 + 非对话业务)
 │   ├── src/
-│   │   ├── main.rs                   # 入口
+│   │   ├── main.rs                   # 入口 + Sidecar 预热
 │   │   ├── commands/                 # Tauri Commands (暴露给前端)
-│   │   │   ├── chat.rs              # 对话 (路由判断: Rig 或 Sidecar)
-│   │   │   ├── session.rs           # 会话管理
+│   │   │   ├── chat.rs              # 对话 (所有对话转发 Sidecar)
+│   │   │   ├── session.rs           # 会话管理 (含工作目录绑定)
+│   │   │   ├── workspace.rs         # [v2.2] 工作目录管理 (验证/选择/切换)
 │   │   │   ├── mcp.rs              # MCP 管理
-│   │   │   ├── skills.rs           # Skills 管理
-│   │   │   ├── knowledge.rs        # [v2.1] 知识库管理 (导入/检索)
+│   │   │   ├── skills.rs           # Skills 发现/注册 (Rust 层)
+│   │   │   ├── knowledge.rs        # 知识库管理 (导入/检索)
 │   │   │   ├── memory.rs           # 记忆查询 (代理转发)
-│   │   │   ├── buddy.rs            # [v2.1] Buddy 交互 (STT/TTS/对话)
+│   │   │   ├── buddy.rs            # Buddy 交互 (STT/TTS/对话)
 │   │   │   ├── settings.rs         # 设置
 │   │   │   └── file.rs             # 文件操作
 │   │   ├── services/                # 业务逻辑 (Rust 实现)
-│   │   │   ├── llm/                # LLM 直调 (via Rig)
+│   │   │   ├── llm/                # Rig 非对话调用
 │   │   │   │   ├── provider.rs     # 多提供商统一接口
-│   │   │   │   ├── streaming.rs    # 流式 Token 处理
-│   │   │   │   └── router.rs       # 路由判断逻辑
+│   │   │   │   ├── embedding.rs    # Embedding 生成
+│   │   │   │   └── title_gen.rs    # 会话标题/摘要生成
 │   │   │   ├── mcp/                # MCP Client (via rmcp)
 │   │   │   │   ├── client.rs       # MCP Client 管理器
 │   │   │   │   ├── transport.rs    # stdio / HTTP / SSE 传输
 │   │   │   │   └── config.rs       # MCP 配置加载
-│   │   │   ├── skills/             # Skills 系统 (Rust 实现)
+│   │   │   ├── skills/             # Skills 发现与管理 (Rust)
 │   │   │   │   ├── discovery.rs    # Skill 发现 (多目录扫描)
 │   │   │   │   ├── parser.rs       # SKILL.md 解析 (YAML + MD)
 │   │   │   │   ├── registry.rs     # Skill 注册表 (DashMap)
-│   │   │   │   ├── executor.rs     # Skill 执行器
-│   │   │   │   ├── watcher.rs      # 文件监听 (热重载)
+│   │   │   │   ├── sync.rs         # [v2.2] 同步至 agent/skills/
 │   │   │   │   └── market.rs       # 市场 API 客户端
-│   │   │   ├── knowledge/          # [v2.1] 知识库系统
+│   │   │   ├── knowledge/          # 知识库系统
 │   │   │   │   ├── ingest.rs       # 文档导入 (解析/分块/嵌入)
 │   │   │   │   ├── search.rs       # 混合搜索 (sqlite-vec + FTS5 + RRF)
 │   │   │   │   ├── embedding.rs    # Embedding 生成 (via Rig)
 │   │   │   │   └── chunker.rs      # 智能文档分块
-│   │   │   ├── voice/              # [v2.1] 语音系统 (Buddy)
+│   │   │   ├── voice/              # 语音系统 (Buddy)
 │   │   │   │   ├── stt.rs          # whisper-cpp-plus 语音识别
 │   │   │   │   ├── tts.rs          # piper-rs 语音合成
 │   │   │   │   └── audio.rs        # cpal 采集 + rodio 播放
 │   │   │   ├── sandbox/            # WASM 沙箱
 │   │   │   └── sidecar/            # Python Sidecar 管理
-│   │   │       ├── manager.rs      # 启动/停止/健康检查/重启
+│   │   │       ├── manager.rs      # 预热启动/健康检查/自动重启
 │   │   │       ├── protocol.rs     # HTTP/WS 通信协议
-│   │   │       └── health.rs       # 健康检查与自动恢复
+│   │   │       └── health.rs       # 健康检查与状态指示
 │   │   ├── db/                     # 数据库层
 │   │   │   ├── mod.rs              # 数据库初始化 + sqlite-vec 加载
 │   │   │   ├── migrations.rs       # Schema 迁移
-│   │   │   └── models.rs           # 数据模型
+│   │   │   └── models.rs           # 数据模型 (含 Session.working_dir)
 │   │   ├── state.rs                # 应用状态
 │   │   └── config.rs               # 配置管理
 │   ├── Cargo.toml
@@ -1300,61 +1312,48 @@ claw/
 ├── src/                              # React 前端
 │   ├── components/
 │   │   ├── chat/                    # 对话组件
+│   │   │   ├── ChatView.tsx        # 对话主视图
+│   │   │   ├── DirectorySelector.tsx # [v2.2] 工作目录选择器
+│   │   │   └── WorkspaceBar.tsx    # [v2.2] 当前工作目录指示栏
 │   │   ├── layout/                  # 布局组件
 │   │   ├── skills/                  # Skills 组件
-│   │   │   ├── SkillMarket.tsx     # Skills 市场浏览
-│   │   │   ├── SkillCard.tsx       # 单个 Skill 卡片
-│   │   │   ├── SkillManager.tsx    # 已安装 Skills 管理
-│   │   │   ├── SkillEditor.tsx     # Skill 内容编辑器
-│   │   │   └── SkillTrigger.tsx    # Skill 触发提示 UI
-│   │   ├── knowledge/              # [v2.1] 知识库组件
-│   │   │   ├── KnowledgeBase.tsx   # 知识库管理界面
-│   │   │   ├── DocImporter.tsx     # 文档导入
-│   │   │   └── SearchResult.tsx    # 检索结果展示
-│   │   ├── buddy/                  # [v2.1] Buddy 组件
-│   │   │   ├── BuddyAvatar.tsx    # 角色动画 (Lottie)
-│   │   │   ├── SpeechBubble.tsx   # 对话气泡
-│   │   │   ├── MiniInput.tsx      # 迷你输入框
-│   │   │   └── VoiceButton.tsx    # 语音按钮
+│   │   ├── knowledge/              # 知识库组件
+│   │   ├── buddy/                  # Buddy 组件
 │   │   ├── settings/
 │   │   ├── dashboard/
 │   │   └── ui/                      # shadcn/ui 基础组件
 │   ├── stores/
-│   │   ├── app.ts                  # 应用状态
-│   │   ├── chat.ts                 # 对话状态
+│   │   ├── app.ts                  # 应用状态 (含 Sidecar 状态)
+│   │   ├── chat.ts                 # 对话状态 (含 currentWorkingDir)
 │   │   ├── skills.ts              # Skills 状态
-│   │   ├── knowledge.ts           # [v2.1] 知识库状态
-│   │   └── buddy.ts              # [v2.1] Buddy 状态
+│   │   ├── knowledge.ts           # 知识库状态
+│   │   └── buddy.ts              # Buddy 状态
 │   ├── hooks/
 │   ├── lib/
 │   ├── i18n/
 │   └── App.tsx
 │
-├── agent/                            # Python Sidecar (精简职责)
-│   ├── agent/
+├── agent/                            # Python Sidecar (全对话入口)
+│   ├── app/
 │   │   ├── __init__.py
-│   │   ├── graph.py                # LangGraph 主图定义
-│   │   ├── nodes.py                # 节点实现
-│   │   ├── subagents.py           # SubAgent 子图定义
-│   │   ├── tools.py                # 工具定义
-│   │   ├── memory.py              # PowerMem 集成
-│   │   └── state.py                # Agent 状态
-│   ├── server.py                   # FastAPI 入口
-│   ├── requirements.txt
-│   └── build_nuitka.py            # Nuitka 构建脚本
+│   │   ├── main.py                 # FastAPI 入口 (/agent/chat, /agent/stream, /health)
+│   │   ├── agent.py                # create_deep_agent() 组装 (Middlewares + Tools + SubAgents)
+│   │   ├── tools.py                # 自定义 Tool (PowerMem, MCP Bridge, KB Search)
+│   │   ├── middleware.py           # [v2.2] 自定义 Middleware (工作目录注入等)
+│   │   └── config.py               # Agent 配置
+│   ├── skills/                      # [v2.2] SKILL.md 文件 (Rust 端同步至此)
+│   ├── memories/                    # [v2.2] AGENTS.md 记忆文件
+│   ├── requirements.txt             # deepagents + powermem + fastapi + uvicorn
+│   └── build_nuitka.py             # Nuitka 打包脚本
 │
-├── skills/                           # 内建 Skills
+├── skills/                           # 内建 Skills (Rust Skill Manager 扫描源)
 │   ├── code-review.md
 │   ├── brainstorming.md
 │   └── debugging.md
 │
-├── models/                           # [v2.1] 模型文件 (首次使用时下载)
-│   ├── README.md                    # 模型下载说明
-│   └── .gitkeep
-│
+├── models/                           # 模型文件 (首次使用时下载)
 ├── package.json
 ├── vite.config.ts
-├── tailwind.config.ts
 └── tsconfig.json
 ```
 
@@ -1390,53 +1389,57 @@ claw/
 | **国际化** | **react-i18next** | — | React 生态标准 |
 | **代码编辑器** | **Monaco Editor** | CodeMirror | VS Code 同款，功能最全 |
 
-### 11.2 架构核心原则
+### 11.2 架构核心原则 (v2.2)
 
 | 原则 | 实施方式 |
 |------|---------|
-| **Rust 做重活** | MCP、数据库、文件系统、沙箱、Skills 注册、LLM 直调、知识库检索、语音引擎全部 Rust 实现 |
-| **Python 做巧活** | 仅 Agent 编排 (LangGraph) 和智能记忆 (PowerMem) 使用 Python |
-| **延迟启动** | Python Sidecar 仅在需要时启动，普通操作纯 Rust，用户无感知 |
-| **双路径分流** | 简单请求 Rust 内部完成 (0 IPC)，复杂请求转发 Sidecar (~2ms IPC) |
+| **全路径 DeepAgents** | 所有用户对话统一经过 DeepAgents harness，Agent 自主决策，无路由割裂 |
+| **Sidecar 预热** | 应用启动时异步预启动 Python Sidecar，用户首次对话即无冷启动延迟 |
+| **Rust 做重活** | MCP、数据库、文件系统、沙箱、Skills 发现、知识库检索、语音引擎、Sidecar 管理全部 Rust |
+| **Python 做巧活** | Agent 编排 (DeepAgents) 和智能记忆 (PowerMem) 使用 Python，全对话入口 |
+| **Rig 非对话专用** | Embedding 生成、会话标题/摘要、LLM 配置验证等非对话场景使用 Rig |
 | **统一 SQLite** | 结构化数据 + 向量搜索 + 全文搜索，一个 .db 文件搞定 |
-| **Skills 原生支持** | SKILL.md 标准格式，多来源发现，热重载，与 Agent 编排深度集成 |
+| **Skills 双层架构** | Rust 发现/注册/管理 + DeepAgents SkillsMiddleware 执行 |
+| **工作目录 P0** | 每会话绑定本地+远程目录，Agent 文件操作基于工作目录 |
 | **记忆智能化** | PowerMem 遗忘曲线 + 重要性评估，非暴力全文塞进上下文 |
+| **渐进式过渡** | Phase 2 Rig 过渡实现 → Phase 4 DeepAgents 正式接管 |
 | **Buddy 独立窗口** | 透明浮窗 + Tauri Event 通信，共享 Rust Core 后端 |
 
-### 11.3 综合评分（v2.1 修订）
+### 11.3 综合评分（v2.2 修订）
 
-| 评估维度 | v1.0 评分 | v2.0 评分 | v2.1 评分 | 变更说明 |
-|---------|----------|----------|----------|---------|
-| **性能** | 9.5 | 9.7 | **9.7** | 无变更 |
-| **UI 美观度** | 9.0 | 9.0 | 9.0 | 无变更 |
-| **社区活跃度** | 9.0 | 9.0 | 9.0 | 无变更 |
-| **稳定性** | 8.5 | 8.5 | **8.7** | SQLite 统一方案更稳定，避免 SeekDB 跨平台问题 |
-| **易用性** | 7.5 | 7.5 | 7.5 | 无变更 |
-| **功能覆盖率** | 9.5 | 9.8 | **10.0** | 新增知识库 RAG + Buddy 完整选型 |
-| **Agent 框架完整性** | 9.0 | 9.3 | 9.3 | 无变更 |
-| **包体积** | 8.0 | 8.3 | 8.3 | 无变更 |
-| **跨平台** | 9.0 | 9.0 | **9.5** | 确认 SQLite 方案全平台零问题，排除 SeekDB 风险 |
-| **可维护性** | 8.5 | 8.7 | 8.7 | 无变更 |
-| **Skills 系统** | N/A | 9.0 | 9.0 | 无变更 |
-| **记忆系统** | 7.5 | 9.0 | 9.0 | 无变更 |
-| **知识库** | N/A | N/A | **9.0** | sqlite-vec + FTS5 + RRF 混合搜索 |
-| **Buddy 系统** | N/A | N/A | **9.0** | Lottie + whisper + piper 完整选型 |
-| **综合评分** | **8.8** | **9.0** | **9.1** | |
+| 评估维度 | v1.0 | v2.0 | v2.1 | v2.2 | 变更说明 |
+|---------|------|------|------|------|---------|
+| **性能** | 9.5 | 9.7 | 9.7 | **9.2** | 全路径走 Sidecar；预热消除冷启动感知 |
+| **UI 美观度** | 9.0 | 9.0 | 9.0 | 9.0 | 不变 |
+| **社区活跃度** | 9.0 | 9.0 | 9.0 | 9.0 | 不变 |
+| **稳定性** | 8.5 | 8.5 | 8.7 | **9.0** | 单一对话路径比双路径更稳定 |
+| **易用性** | 7.5 | 7.5 | 7.5 | **8.0** | 工作目录选择 UI 提升工程化体验 |
+| **功能覆盖率** | 9.5 | 9.8 | 10.0 | **10.0** | 全对话 DeepAgents + 工作目录 |
+| **Agent 框架完整性** | 9.0 | 9.3 | 9.3 | **9.8** | DeepAgents Middleware 全链覆盖 |
+| **包体积** | 8.0 | 8.3 | 8.3 | 8.3 | 不变 |
+| **跨平台** | 9.0 | 9.0 | 9.5 | 9.5 | 不变 |
+| **可维护性** | 8.5 | 8.7 | 8.7 | **9.5** | 单一对话路径 + Middleware 集中管理 |
+| **Skills 系统** | N/A | 9.0 | 9.0 | **9.5** | 双层架构互补 |
+| **记忆系统** | 7.5 | 9.0 | 9.0 | 9.0 | 不变 |
+| **知识库** | N/A | N/A | 9.0 | 9.0 | 不变 |
+| **Buddy 系统** | N/A | N/A | 9.0 | 9.0 | 不变 |
+| **用户体验一致性** | N/A | N/A | N/A | **9.5** | 🆕 无路由割裂 |
+| **工作目录能力** | N/A | N/A | N/A | **9.5** | 🆕 工程型 Agent 核心特性 |
+| **综合评分** | **8.8** | **9.0** | **9.1** | **9.2** | +0.1 |
 
-### 11.4 开发路线图（v2.1 修订）
+### 11.4 开发路线图（v2.2 修订）
 
-| 阶段 | 时间 | 目标 | v2.1 更新 |
-|------|------|------|----------|
-| **Phase 1: 基础框架** | 4-6 周 | Tauri 项目搭建、React UI 骨架、Rig 简单对话、SQLite + sqlite-vec | + sqlite-vec 初始化 |
-| **Phase 2: 核心功能** | 6-8 周 | 流式对话、会话管理、rmcp MCP、设置系统、主题/i18n | 无变更 |
-| **Phase 3: Skills 系统** | 3-4 周 | Skill 发现/解析/注册/执行/UI | 无变更 |
-| **Phase 4: Agent 增强** | 6-8 周 | LangGraph Sidecar、PowerMem 记忆、SubAgent | 无变更 |
-| **Phase 5: 知识库** | 3-4 周 | **[v2.1 NEW]** 文档导入、分块、Embedding、混合搜索、RAG UI | 新增阶段 |
-| **Phase 6: 高级功能** | 4-6 周 | WASM 沙箱、Dashboard、文件浏览 | 无变更 |
-| **Phase 7: Buddy 系统** | 13-19 周 | 桌面伴侣（可与 Phase 2-6 并行） | 无变更 |
-| **Phase 8: 打磨发布** | 4-6 周 | 性能优化、跨平台测试、自动更新、打包 | 无变更 |
+| 阶段 | 时间 | 目标 | 关键技术决策 |
+|------|------|------|-------------|
+| **Phase 0: 环境搭建** | 1 周 | Tauri 项目脚手架、三端环境就绪 | Rust + React + Python 初始骨架 |
+| **Phase 1: 基础框架** | 3 周 | React UI 骨架、设置系统、主题/i18n、SQLite | 纯 Rust+TS，无 Python |
+| **Phase 2: 过渡对话系统** | 3 周 | Rig 流式对话、会话管理（含工作目录选择 UI） | Rig 暂时承担对话；工作目录概念建立 |
+| **Phase 3: Sidecar 基础设施 + MCP** | 3 周 | Sidecar 预热管理器、FastAPI 骨架、rmcp MCP | 首次引入 Python；预热但不接管对话 |
+| **Phase 4: DeepAgents 全对话迁移** | 3 周 | DeepAgents 核心集成、PowerMem 记忆、SubAgent、HITL | Rig 对话退役；DeepAgents 接管 |
+| **Phase 5: Skills + 知识库** | 4 周 | Skills 双层架构、知识库 RAG | SkillsMiddleware + 混合搜索 |
+| **Phase 6: 高级功能 + Buddy + 发布** | 6 周 | WASM 沙箱、Dashboard、Buddy 伴侣、跨平台打包 | 功能补全 + 打磨 |
 
-**总预估周期：30-41 周（7.5-10 个月），其中 Buddy 可并行开发**
+**总预估周期：23 周（约 5-6 个月），其中 Buddy 可并行开发**
 
 ---
 
@@ -1445,5 +1448,6 @@ claw/
 > 本文档是对 [MISAKAX_TECH_SELECTION_REPORT.md v1.0](./MISAKAX_TECH_SELECTION_REPORT.md) 的深度修订。
 > - v2.0 (2026-04-27)：针对 5 个核心问题补充调研
 > - v2.1 (2026-04-28)：新增 Buddy 架构选型、SeekDB 调研、知识库向量方案
+> - v2.2 (2026-05-07)：架构重构 — 全路径 DeepAgents 单一架构，消除双路径路由，Sidecar 预热，工作目录系统
 >
 > v1.0 中 Buddy 系统的详细实现方案（动画代码、语音集成、AI 对话流程等）请参考原报告第 14 节。

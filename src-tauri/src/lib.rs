@@ -2,6 +2,7 @@ mod commands;
 pub mod config;
 pub mod crypto;
 pub mod db;
+pub mod services;
 mod sidecar;
 
 use config::AppConfig;
@@ -75,6 +76,9 @@ pub fn run() {
             commands::router_configs::update_router_config,
             commands::router_configs::delete_router_config,
             commands::router_configs::test_router_connection,
+            commands::models::list_available_models,
+            commands::models::add_custom_model,
+            commands::models::delete_custom_model,
         ])
         .setup(|_app| {
             tracing::info!("MisakaX initialized successfully");

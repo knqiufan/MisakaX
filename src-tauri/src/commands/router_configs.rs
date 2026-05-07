@@ -24,6 +24,7 @@ pub struct CreateRouterConfig {
     pub base_url: Option<String>,
     pub config_json: Option<String>,
     pub is_active: Option<bool>,
+    pub api_compat: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -35,6 +36,7 @@ pub struct UpdateRouterConfig {
     pub base_url: Option<String>,
     pub config_json: Option<String>,
     pub is_active: Option<bool>,
+    pub api_compat: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -94,8 +96,8 @@ pub fn create_router_config(
     let encrypted_key = crypto::encrypt(&config.api_key).map_err(|e| e.to_string())?;
 
     db.execute(
-        "INSERT INTO router_configs (id, name, provider, api_key_encrypted, model, base_url, config_json, is_active)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT INTO router_configs (id, name, provider, api_key_encrypted, model, base_url, config_json, is_active, api_compat)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         rusqlite::params![
             id,
             config.name,
@@ -105,6 +107,7 @@ pub fn create_router_config(
             config.base_url,
             config.config_json,
             config.is_active.unwrap_or(false) as i32,
+            config.api_compat,
         ],
     )
     .map_err(|e| e.to_string())?;
@@ -163,6 +166,10 @@ pub fn update_router_config(
     if let Some(is_active) = config.is_active {
         updates.push("is_active = ?");
         params.push(Box::new(is_active as i32));
+    }
+    if let Some(ref api_compat) = config.api_compat {
+        updates.push("api_compat = ?");
+        params.push(Box::new(api_compat.clone()));
     }
 
     if updates.is_empty() {
@@ -279,10 +286,18 @@ fn build_models_url(provider: &str, base_url: Option<&str>) -> String {
     }
 }
 
-fn truncate(s: &str, max: usize) -> &str {
-    if s.len() <= max {
-        s
-    } else {
-        &s[..max]
+fn truncate(s: &str, max_bytes: usize) -> &str {
+    if s.len() <= max_bytes {
+        return s;
+    }
+    match s.get(..max_bytes) {
+        Some(valid) => valid,
+        None => {
+            let mut end = max_bytes;
+            while end > 0 && !s.is_char_boundary(end) {
+                end -= 1;
+            }
+            &s[..end]
+        }
     }
 }

@@ -36,7 +36,7 @@ serde_json = "1"
 serde_yaml = "0.9"
 
 # --- HTTP client ---
-reqwest = { version = "0.12", features = ["json", "stream", "blocking"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "blocking", "native-tls", "charset", "http2", "macos-system-configuration"] }
 
 # --- Utilities ---
 uuid = { version = "1", features = ["v4"] }
@@ -61,3 +61,12 @@ hkdf = "0.12"
 sha2 = "0.10"
 base64 = "0.22"
 rand = "0.8"
+
+# --- LLM framework (Phase 2) ---
+rig-core = { version = "0.36", default-features = false, features = ["derive", "reqwest", "native-tls"] }
+
+# --- Stream processing ---
+futures = "0.3"
+
+# --- Async trait support ---
+async-trait = "0.1"

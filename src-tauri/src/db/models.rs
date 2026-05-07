@@ -21,7 +21,16 @@ pub struct Message {
     pub role: String,
     pub content: String,
     pub token_usage: Option<String>,
+    pub model: Option<String>,
+    pub thinking_content: Option<String>,
+    pub attachments: Option<String>,
+    #[serde(default = "default_message_status")]
+    pub status: String,
     pub created_at: String,
+}
+
+fn default_message_status() -> String {
+    "complete".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,4 +51,37 @@ pub struct RouterConfig {
     pub config_json: Option<String>,
     pub is_active: bool,
     pub created_at: String,
+    /// 接口兼容模式（仅自定义 Provider 使用）：
+    /// `None` = 根据 provider 自动判断
+    /// `"openai"` = OpenAI 兼容接口
+    /// `"anthropic"` = Anthropic 兼容接口
+    #[serde(default)]
+    pub api_compat: Option<String>,
+}
+
+/// 用户自定义模型（绑定到 router_configs）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomModel {
+    pub id: String,
+    pub router_config_id: String,
+    pub model_id: String,
+    pub display_name: String,
+    pub supports_vision: bool,
+    pub supports_thinking: bool,
+    pub max_tokens: Option<i32>,
+    pub context_window: Option<i32>,
+    pub created_at: String,
+}
+
+/// 创建自定义模型的请求参数
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreateCustomModel {
+    pub model_id: String,
+    pub display_name: String,
+    #[serde(default)]
+    pub supports_vision: bool,
+    #[serde(default)]
+    pub supports_thinking: bool,
+    pub max_tokens: Option<i32>,
+    pub context_window: Option<i32>,
 }
