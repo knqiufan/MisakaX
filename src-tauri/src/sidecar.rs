@@ -1,6 +1,11 @@
 use std::process::{Child, Command};
 use std::time::Duration;
 
+/// 构建健康检查 URL
+pub fn health_check_url(port: u16) -> String {
+    format!("http://127.0.0.1:{}/health", port)
+}
+
 /// Manages the Python Agent Sidecar process lifecycle.
 pub struct SidecarManager {
     child: Option<Child>,
@@ -9,8 +14,7 @@ pub struct SidecarManager {
 impl SidecarManager {
     /// Spawn the Python sidecar and wait for its health check.
     pub fn start(agent_dir: &str, port: u16) -> Result<Self, String> {
-        // Check if already running
-        if Self::health_check(port) {
+        if Self::is_healthy(port) {
             tracing::info!("Python Sidecar already running on port {}", port);
             return Ok(Self { child: None });
         }
@@ -36,16 +40,14 @@ impl SidecarManager {
                 )
             })?;
 
-        // Wait for health check (max 10 seconds)
         for _ in 0..20 {
             std::thread::sleep(Duration::from_millis(500));
-            if Self::health_check(port) {
+            if Self::is_healthy(port) {
                 tracing::info!("Python Sidecar ready on port {}", port);
                 return Ok(Self { child: Some(child) });
             }
         }
 
-        // Timeout — kill the process and return error
         let _ = child.kill();
         let _ = child.wait();
         Err(format!(
@@ -54,9 +56,9 @@ impl SidecarManager {
         ))
     }
 
-    fn health_check(port: u16) -> bool {
+    fn is_healthy(port: u16) -> bool {
         reqwest::blocking::Client::new()
-            .get(format!("http://127.0.0.1:{}/health", port))
+            .get(health_check_url(port))
             .timeout(Duration::from_secs(2))
             .send()
             .map(|r| r.status().is_success())

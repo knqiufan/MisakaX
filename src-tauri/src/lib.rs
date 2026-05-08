@@ -6,7 +6,10 @@ pub mod config;
 pub mod crypto;
 pub mod db;
 pub mod services;
+#[cfg(not(feature = "test-private"))]
 mod sidecar;
+#[cfg(feature = "test-private")]
+pub mod sidecar;
 
 use config::AppConfig;
 use services::llm::StreamRegistry;
