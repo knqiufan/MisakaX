@@ -1,5 +1,6 @@
 pub mod migrations;
 pub mod models;
+pub mod repository;
 
 use anyhow::Result;
 use rusqlite::Connection;

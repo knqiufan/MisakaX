@@ -76,7 +76,7 @@ pub fn decrypt(encoded: &str) -> anyhow::Result<String> {
 }
 
 pub fn mask_api_key(key: &str) -> String {
-    if key.len() <= 8 {
+    if key.len() < 8 {
         return "*".repeat(key.len());
     }
     let prefix = &key[..4];

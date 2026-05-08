@@ -1,7 +1,10 @@
-use crate::config::AppConfig;
-use crate::AppState;
 use std::collections::HashMap;
+
 use tauri::State;
+
+use crate::config::AppConfig;
+use crate::db::repository::SettingsRepo;
+use crate::AppState;
 
 #[tauri::command]
 pub fn get_settings(state: State<'_, AppState>) -> Result<String, String> {
@@ -52,50 +55,19 @@ pub fn update_app_config(state: State<'_, AppState>, config: AppConfig) -> Resul
 #[tauri::command]
 pub fn get_setting(state: State<'_, AppState>, key: String) -> Result<Option<String>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    let result = db.query_row(
-        "SELECT value FROM settings WHERE key = ?1",
-        [&key],
-        |row| row.get::<_, String>(0),
-    );
-
-    match result {
-        Ok(value) => Ok(Some(value)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(e.to_string()),
-    }
+    SettingsRepo::get(&db, &key).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn set_setting(state: State<'_, AppState>, key: String, value: String) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.execute(
-        "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)
-         ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = CURRENT_TIMESTAMP",
-        rusqlite::params![key, value],
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(())
+    SettingsRepo::set(&db, &key, &value).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn get_all_settings(state: State<'_, AppState>) -> Result<HashMap<String, String>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    let mut stmt = db
-        .prepare("SELECT key, value FROM settings")
-        .map_err(|e| e.to_string())?;
-
-    let rows = stmt
-        .query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })
-        .map_err(|e| e.to_string())?;
-
-    let mut map = HashMap::new();
-    for row in rows {
-        let (k, v) = row.map_err(|e| e.to_string())?;
-        map.insert(k, v);
-    }
-    Ok(map)
+    SettingsRepo::get_all(&db).map_err(|e| e.to_string())
 }
 
 #[derive(serde::Serialize)]
@@ -114,7 +86,6 @@ pub fn get_system_info() -> Result<SystemInfo, String> {
         .unwrap_or_else(|_| "unknown".to_string());
 
     let db_path = crate::config::db_path().map_err(|e| e.to_string())?;
-
     let db_size_bytes = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
 
     Ok(SystemInfo {
