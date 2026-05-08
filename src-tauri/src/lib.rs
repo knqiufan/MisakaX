@@ -84,6 +84,10 @@ pub fn run() {
             commands::models::list_available_models,
             commands::models::add_custom_model,
             commands::models::delete_custom_model,
+            commands::chat::send_message,
+            commands::chat::stop_generation,
+            commands::chat::regenerate_message,
+            commands::chat::get_messages,
         ])
         .setup(|_app| {
             tracing::info!("MisakaX initialized successfully");

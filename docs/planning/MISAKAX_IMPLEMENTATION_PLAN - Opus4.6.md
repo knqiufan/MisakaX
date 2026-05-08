@@ -3,7 +3,7 @@
 > **项目代号：** MisakaX（基于 Misaka 项目的下一代桌面端 AI Agent 客户端）
 > **文档版本：** v3.0（架构重构：全路径 DeepAgents + 渐进式过渡 + 工作目录系统）
 > **编制日期：** 2026-04-28（原始）/ 2026-05-07（v3.0 修订）
-> **基于：** [架构选型 v2.2](./MISAKAX_ARCHITECTURE_FINAL%20-%20DeepSeek-V4-Pro.md) + [选型文档 v2.2](./MISAKAX_ARCHITECTURE_SELECTION%20-%20Opus4.6.md) + [Rig/DeepAgents 调研 v3.0](./RIG_DEEPAGENTS_RESEARCH.md)
+> **基于：** [架构选型 v2.2](../architecture/MISAKAX_ARCHITECTURE_FINAL%20-%20DeepSeek-V4-Pro.md) + [选型文档 v2.2](../architecture/MISAKAX_ARCHITECTURE_SELECTION%20-%20Opus4.6.md) + [Rig/DeepAgents 调研 v3.0](../research/RIG_DEEPAGENTS_RESEARCH.md)
 > **开发模式：** 1 人 + Vibe Coding (AI 辅助开发)
 > **预估总工期：** 22-24 周（约 5.5-6 个月）
 

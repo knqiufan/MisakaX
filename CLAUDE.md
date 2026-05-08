@@ -34,7 +34,7 @@ Cross-platform desktop AI Agent client built with Tauri 2.x (Rust), React 19 (Ty
 | `src/` | React frontend (Vite + TypeScript) |
 | `src-tauri/src/` | Rust backend (Tauri 2.x) |
 | `agent/` | Python Sidecar (FastAPI) |
-| `docs/` | Architecture & planning docs |
+| `docs/` | Documentation (`architecture/`, `planning/`, `research/`, `project/`, `design/`, `guides/`) |
 
 ## Dev Commands
 
@@ -62,7 +62,7 @@ cargo test           # Run tests
 - **Rust**: 1.95.0+ (`x86_64-pc-windows-gnu` target)
 - **Node**: 20+ (via nvm)
 - **Python**: 3.11.11 (via conda env `misaka`)
-- **C compiler**: MinGW-w64 GCC 5.3.0 (via conda, for C dependency compilation)
+- **C compiler**: MinGW-w64 GCC 15.2.0 (via MSYS2 at `D:\soft\msys64\mingw64\bin`, configured in `.cargo/config.toml`)
 - **Linker**: Rust self-contained `ld.exe` (binutils 2.42+)
 
 ## Key Technical Decisions

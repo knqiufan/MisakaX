@@ -151,6 +151,12 @@ misaka-x/
 │   ├── pyproject.toml             # Python 项目配置
 │   └── requirements.txt           # Python 依赖
 ├── docs/                          # 项目文档
+│   ├── architecture/              # 架构与选型文档
+│   ├── planning/                  # 阶段计划与总体规划
+│   ├── research/                  # 技术调研
+│   ├── project/                   # 项目结构等说明文档
+│   ├── design/                    # UI / 视觉设计文档
+│   └── guides/                    # 学习与入门指南
 ├── .gitignore
 ├── CLAUDE.md                      # AI 辅助开发指引
 ├── package.json                   # 前端依赖与脚本
@@ -203,7 +209,7 @@ cargo clippy
 - [ ] **Phase 3** — LangGraph Agent 编排、PowerMem 长期记忆
 - [ ] **Phase 4** — 插件市场、语音模型、多语言支持
 
-详细规划参见 [`docs/PHASE_0_DETAILED_PLAN.md`](docs/PHASE_0_DETAILED_PLAN.md) 及后续文档。
+详细规划参见 [`docs/planning/PHASE_0_DETAILED_PLAN.md`](docs/planning/PHASE_0_DETAILED_PLAN.md) 及后续文档。
 
 ## 贡献指南
 

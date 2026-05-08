@@ -3,7 +3,7 @@
 > **所属项目：** MisakaX
 > **阶段：** Phase 0（第 1 周）
 > **总预估：** ~12 小时
-> **前置文档：** [MISAKAX_IMPLEMENTATION_PLAN.md](./MISAKAX_IMPLEMENTATION_PLAN%20-%20Opus4.6.md)、[MISAKAX_ARCHITECTURE_SELECTION.md](./MISAKAX_ARCHITECTURE_SELECTION%20-%20Opus4.6.md)
+> **前置文档：** [MISAKAX_IMPLEMENTATION_PLAN.md](./MISAKAX_IMPLEMENTATION_PLAN%20-%20Opus4.6.md)、[MISAKAX_ARCHITECTURE_SELECTION.md](../architecture/MISAKAX_ARCHITECTURE_SELECTION%20-%20Opus4.6.md)
 
 ---
 
@@ -103,7 +103,7 @@ misaka-x/
 │   ├── pyproject.toml                  # Python 项目配置
 │   ├── requirements.txt                # Python 依赖
 │   └── README.md
-├── docs/                               # 项目文档
+├── docs/                               # 项目文档（architecture / planning / research / project / design / guides）
 ├── .gitignore
 ├── CLAUDE.md                           # AI 辅助开发指引
 ├── package.json                        # 前端依赖
@@ -1499,7 +1499,7 @@ MisakaX is a cross-platform desktop AI Agent client built with Tauri 2.x (Rust),
   - `src/stores/` — Zustand stores
   - `src/hooks/` — Custom React hooks
 - `agent/` — Python Sidecar (LangGraph + PowerMem)
-- `docs/` — Project documentation
+- `docs/` — Project documentation (`architecture/`, `planning/`, `research/`, `project/`, `design/`, `guides/`)
 
 ## Development Commands
 

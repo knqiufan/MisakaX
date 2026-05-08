@@ -12,7 +12,13 @@ MisakaX/
 ├── agent/                         # Python Sidecar 子项目
 ├── components.json                # shadcn/ui 配置文件
 ├── dist/                          # 前端构建产物
-├── docs/                          # 架构与规划文档
+├── docs/                          # 项目文档（按主题分子目录）
+│   ├── architecture/              # 架构与选型
+│   ├── planning/                  # 阶段计划与总体规划
+│   ├── research/                  # 技术调研
+│   ├── project/                   # 项目结构说明等
+│   ├── design/                    # UI / 设计报告
+│   └── guides/                    # 学习指南
 ├── index.html                     # Vite 入口 HTML
 ├── node_modules/                  # 前端依赖包
 ├── package.json                   # 前端项目配置
@@ -117,13 +123,49 @@ MisakaX/
 
 ## 四、`docs/` — 项目文档
 
+顶层按主题分到子目录，避免所有 Markdown 扁平堆叠。
+
+### `docs/architecture/`
+
 | 文件 | 用途 |
 |------|------|
-| `MISAKAX_ARCHITECTURE_FINAL.md` | 最终技术架构选型文档 |
-| `MISAKAX_ARCHITECTURE_SELECTION.md` | 架构方案对比与选择理由 |
-| `MISAKAX_IMPLEMENTATION_PLAN.md` | 整体实施计划 |
+| `MISAKAX_ARCHITECTURE_FINAL - DeepSeek-V4-Pro.md` | 最终技术架构选型文档 |
+| `MISAKAX_ARCHITECTURE_SELECTION - Opus4.6.md` | 架构方案对比与选择理由 |
 | `MISAKAX_TECH_SELECTION_REPORT.md` | 技术选型详细报告 |
-| `PHASE_0_DETAILED_PLAN.md` | Phase 0 详细执行方案（含 55 项 TODO 清单） |
+
+### `docs/planning/`
+
+| 文件 | 用途 |
+|------|------|
+| `MISAKAX_IMPLEMENTATION_PLAN - Opus4.6.md` | 整体实施方案 |
+| `CLAW_IMPLEMENTATION_PLAN - Opus4.6.md` | CLAW / 相关业务实施方案 |
+| `PHASE_0_DETAILED_PLAN.md` | Phase 0 详细执行方案 |
+| `PHASE_1_DETAILED_PLAN.md` | Phase 1 详细执行方案 |
+| `PHASE_2_DETAILED_PLAN.md` | Phase 2 详细执行方案 |
+
+### `docs/research/`
+
+| 文件 | 用途 |
+|------|------|
+| `RIG_DEEPAGENTS_RESEARCH.md` | Rig / DeepAgents 等技术调研 |
+
+### `docs/project/`
+
+| 文件 | 用途 |
+|------|------|
+| `PROJECT_STRUCTURE.md` | 仓库目录与各模块说明（本文件） |
+
+### `docs/design/`
+
+| 文件 | 用途 |
+|------|------|
+| `ui-design-report.md` | UI / 产品设计报告 |
+
+### `docs/guides/`
+
+| 文件 | 用途 |
+|------|------|
+| `rust-learning-faq-modules-and-lib.md` | Rust 模块与 `lib.rs` / `bin` 常见问题说明 |
 
 ---
 
