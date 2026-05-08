@@ -10,5 +10,8 @@ pub use backend::{ChatBackend, ImageAttachment, RigBackend};
 pub use config::LlmConfig;
 pub use factory::ProviderFactory;
 pub use registry::{ModelInfo, ModelRegistry};
-pub use streaming::{StreamRegistry, StreamResult, StreamSession, TokenUsageInfo};
+pub use streaming::{
+    StreamCompletePayload, StreamErrorPayload, StreamRegistry, StreamResult,
+    StreamSession, StreamThinkingPayload, StreamTokenPayload, TokenUsageInfo,
+};
 pub use traits::{AgentHandle, DeltaStream, LlmProvider, StreamDelta, StreamUsage};

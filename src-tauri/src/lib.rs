@@ -1,4 +1,7 @@
+#[cfg(not(feature = "test-private"))]
 mod commands;
+#[cfg(feature = "test-private")]
+pub mod commands;
 pub mod config;
 pub mod crypto;
 pub mod db;

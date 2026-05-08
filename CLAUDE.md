@@ -59,11 +59,10 @@ cargo test           # Run tests
 
 ## Environment Setup
 
-- **Rust**: 1.95.0+ (`x86_64-pc-windows-gnu` target)
+- **Rust**: 1.95.0+ (`x86_64-pc-windows-msvc` target)
 - **Node**: 20+ (via nvm)
 - **Python**: 3.11.11 (via conda env `misaka`)
-- **C compiler**: MinGW-w64 GCC 15.2.0 (via MSYS2 at `D:\soft\msys64\mingw64\bin`, configured in `.cargo/config.toml`)
-- **Linker**: Rust self-contained `ld.exe` (binutils 2.42+)
+- **C/C++ compiler**: MSVC (via Visual Studio Build Tools)
 
 ## Key Technical Decisions
 
@@ -71,7 +70,7 @@ cargo test           # Run tests
 - shadcn/ui New York style with Zinc base
 - SQLite WAL mode for concurrent reads
 - `bundled` SQLite via rusqlite (no system dependency)
-- `x86_64-pc-windows-gnu` target (GNU ABI, not MSVC)
+- `x86_64-pc-windows-msvc` target (MSVC ABI)
 
 ## Code Style
 

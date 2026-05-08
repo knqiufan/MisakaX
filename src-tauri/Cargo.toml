@@ -5,6 +5,9 @@ description = "MisakaX - Desktop AI Agent Client"
 authors = ["you"]
 edition = "2021"
 
+[features]
+test-private = []
+
 [lib]
 name = "misaka_x_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]

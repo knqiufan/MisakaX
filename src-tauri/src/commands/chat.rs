@@ -239,15 +239,17 @@ pub fn get_messages(
 
 /// 模型标识解析结果
 #[derive(Debug)]
-struct ModelSpec {
-    config_id: String,
-    model_id: String,
+#[cfg_attr(feature = "test-private", allow(dead_code))]
+pub struct ModelSpec {
+    pub config_id: String,
+    pub model_id: String,
 }
 
 /// 解析模型标识 — 格式为 "config_id:model_id"
 ///
 /// 优先级：model_override > session.model > 返回错误
-fn resolve_model_spec(
+#[cfg_attr(feature = "test-private", allow(dead_code))]
+pub fn resolve_model_spec(
     model_override: Option<&str>,
     session_model: Option<&str>,
 ) -> Result<ModelSpec, String> {
@@ -618,55 +620,4 @@ fn collect_messages_reversed(
         .collect();
     messages.reverse();
     Ok(messages)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_resolve_model_spec_with_override() {
-        let spec = resolve_model_spec(Some("config1:gpt-4o"), Some("config2:claude")).unwrap();
-        assert_eq!(spec.config_id, "config1");
-        assert_eq!(spec.model_id, "gpt-4o");
-    }
-
-    #[test]
-    fn test_resolve_model_spec_fallback_to_session() {
-        let spec = resolve_model_spec(None, Some("config2:claude-sonnet-4")).unwrap();
-        assert_eq!(spec.config_id, "config2");
-        assert_eq!(spec.model_id, "claude-sonnet-4");
-    }
-
-    #[test]
-    fn test_resolve_model_spec_no_model() {
-        let result = resolve_model_spec(None, None);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("No model specified"));
-    }
-
-    #[test]
-    fn test_resolve_model_spec_invalid_format() {
-        let result = resolve_model_spec(Some("no-colon"), None);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Invalid model format"));
-    }
-
-    #[test]
-    fn test_resolve_model_spec_with_multiple_colons() {
-        let spec = resolve_model_spec(Some("config:model:extra"), None).unwrap();
-        assert_eq!(spec.config_id, "config");
-        assert_eq!(spec.model_id, "model:extra");
-    }
-
-    #[test]
-    fn test_send_message_result_serialize() {
-        let result = SendMessageResult {
-            user_message_id: "u1".to_string(),
-            assistant_message_id: "a1".to_string(),
-        };
-        let json = serde_json::to_string(&result).unwrap();
-        assert!(json.contains("\"user_message_id\":\"u1\""));
-        assert!(json.contains("\"assistant_message_id\":\"a1\""));
-    }
 }

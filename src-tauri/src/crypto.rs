@@ -83,32 +83,3 @@ pub fn mask_api_key(key: &str) -> String {
     let suffix = &key[key.len() - 4..];
     format!("{}...{}", prefix, suffix)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_encrypt_decrypt_roundtrip() {
-        let original = "sk-test-api-key-12345678";
-        let encrypted = encrypt(original).unwrap();
-        assert_ne!(encrypted, original);
-        let decrypted = decrypt(&encrypted).unwrap();
-        assert_eq!(decrypted, original);
-    }
-
-    #[test]
-    fn test_encrypt_produces_different_ciphertext() {
-        let original = "sk-test-key";
-        let enc1 = encrypt(original).unwrap();
-        let enc2 = encrypt(original).unwrap();
-        assert_ne!(enc1, enc2, "Each encryption should use a unique nonce");
-    }
-
-    #[test]
-    fn test_mask_api_key() {
-        assert_eq!(mask_api_key("sk-1234567890abcdef"), "sk-1...cdef");
-        assert_eq!(mask_api_key("short"), "*****");
-        assert_eq!(mask_api_key("12345678"), "1234...5678");
-    }
-}

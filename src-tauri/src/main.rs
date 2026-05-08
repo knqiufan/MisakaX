@@ -26,9 +26,9 @@ mod tests {
                 .collect();
 
             let version: i64 = conn
-                .query_row("SELECT version FROM _schema_version", [], |row| row.get(0))
+                .query_row("SELECT MAX(version) FROM _schema_version", [], |row| row.get(0))
                 .unwrap();
-            assert_eq!(version, 1);
+            assert!(version >= 2, "Expected schema version >= 2, got {}", version);
 
             tables
         };
