@@ -81,24 +81,22 @@ pub fn config_file_path() -> Result<PathBuf> {
 
 /// Ensure all required directories exist.
 pub fn ensure_directories() -> Result<()> {
+    let root = config_dir()?;
     let dirs = [
-        config_dir()?,
-        config_dir()?.join("data"),
-        skills_dir()?,
-        managed_skills_dir()?,
-        config_dir()?.join("plugins"),
-        config_dir()?.join("models"),
-        logs_dir()?,
+        root.clone(),
+        root.join("data"),
+        root.join("skills"),
+        root.join("managed").join("skills"),
+        root.join("plugins"),
+        root.join("models"),
+        root.join("logs"),
     ];
 
     for dir in &dirs {
         std::fs::create_dir_all(dir)?;
     }
 
-    tracing::info!(
-        "Config directories initialized at: {}",
-        config_dir()?.display()
-    );
+    tracing::info!("Config directories initialized at: {}", root.display());
     Ok(())
 }
 

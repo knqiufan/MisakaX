@@ -22,6 +22,7 @@ pub struct SendMessageRequest {
     pub content: String,
     pub images: Option<Vec<ImageAttachment>>,
     pub model_override: Option<String>,
+    pub llm_config: Option<LlmConfig>,
 }
 
 // ─── send_message Command ──────────────────────────────────────────────
@@ -62,12 +63,13 @@ pub async fn send_message(
     // Step 6: 注册流，构建 Backend，执行流式调用
     let abort_flag = state.stream_registry.register(&request.session_id);
 
-    let backend = RigBackend::from_config(
-        &router_config,
-        &decrypted_key,
-        LlmConfig::default().sanitized(),
-    )
-    .map_err(|e| format!("Failed to create backend: {e}"))?;
+    let llm_config = request
+        .llm_config
+        .unwrap_or_default()
+        .sanitized();
+
+    let backend = RigBackend::from_config(&router_config, &decrypted_key, llm_config)
+        .map_err(|e| format!("Failed to create backend: {e}"))?;
 
     let stream_result = {
         use crate::services::llm::ChatBackend;

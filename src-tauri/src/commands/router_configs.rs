@@ -83,35 +83,59 @@ pub fn update_router_config(
 ) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
 
-    let mut updates: Vec<(&str, Box<dyn rusqlite::types::ToSql>)> = Vec::new();
+    let encrypted_key = config
+        .api_key
+        .as_deref()
+        .map(crypto::encrypt)
+        .transpose()
+        .map_err(|e| e.to_string())?;
 
-    if let Some(ref name) = config.name {
-        updates.push(("name", Box::new(name.clone())));
-    }
-    if let Some(ref provider) = config.provider {
-        updates.push(("provider", Box::new(provider.clone())));
-    }
-    if let Some(ref api_key) = config.api_key {
-        let encrypted = crypto::encrypt(api_key).map_err(|e| e.to_string())?;
-        updates.push(("api_key_encrypted", Box::new(encrypted)));
-    }
-    if let Some(ref model) = config.model {
-        updates.push(("model", Box::new(model.clone())));
-    }
-    if let Some(ref base_url) = config.base_url {
-        updates.push(("base_url", Box::new(base_url.clone())));
-    }
-    if let Some(ref config_json) = config.config_json {
-        updates.push(("config_json", Box::new(config_json.clone())));
-    }
+    let mut updates = UpdateBuilder::new();
+    updates
+        .set_opt("name", &config.name)
+        .set_opt("provider", &config.provider)
+        .set_opt("api_key_encrypted", &encrypted_key)
+        .set_opt("model", &config.model)
+        .set_opt("base_url", &config.base_url)
+        .set_opt("config_json", &config.config_json)
+        .set_opt("api_compat", &config.api_compat);
+
     if let Some(is_active) = config.is_active {
-        updates.push(("is_active", Box::new(is_active as i32)));
-    }
-    if let Some(ref api_compat) = config.api_compat {
-        updates.push(("api_compat", Box::new(api_compat.clone())));
+        updates.set("is_active", is_active as i32);
     }
 
-    RouterConfigRepo::update(&db, &id, &updates).map_err(|e| e.to_string())
+    RouterConfigRepo::update(&db, &id, &updates.build()).map_err(|e| e.to_string())
+}
+
+/// 轻量 SQL UPDATE 字段构建器
+struct UpdateBuilder {
+    fields: Vec<(&'static str, Box<dyn rusqlite::types::ToSql>)>,
+}
+
+impl UpdateBuilder {
+    fn new() -> Self {
+        Self { fields: Vec::new() }
+    }
+
+    fn set_opt(&mut self, column: &'static str, value: &Option<String>) -> &mut Self {
+        if let Some(v) = value {
+            self.fields.push((column, Box::new(v.clone())));
+        }
+        self
+    }
+
+    fn set<T: rusqlite::types::ToSql + 'static>(
+        &mut self,
+        column: &'static str,
+        value: T,
+    ) -> &mut Self {
+        self.fields.push((column, Box::new(value)));
+        self
+    }
+
+    fn build(self) -> Vec<(&'static str, Box<dyn rusqlite::types::ToSql>)> {
+        self.fields
+    }
 }
 
 #[tauri::command]

@@ -103,7 +103,7 @@ impl ChatBackend for RigBackend {
 
         let chat_history = build_rig_chat_history(messages);
 
-        let mut stream_session = StreamSession::new(
+        let stream_session = StreamSession::new(
             message_id.to_string(),
             session.id.clone(),
             app.clone(),

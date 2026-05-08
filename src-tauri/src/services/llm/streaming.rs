@@ -80,8 +80,8 @@ pub struct StreamResult {
 /// 管理一次流式 LLM 调用的生命周期：
 /// 启动流 → 逐块处理 delta → emit Tauri Event → 汇总完成
 pub struct StreamSession {
-    message_id: String,
-    session_id: String,
+    message_id: Arc<str>,
+    session_id: Arc<str>,
     app_handle: AppHandle,
     abort_flag: Arc<AtomicBool>,
     accumulated_content: String,
@@ -97,8 +97,8 @@ impl StreamSession {
         abort_flag: Arc<AtomicBool>,
     ) -> Self {
         Self {
-            message_id,
-            session_id,
+            message_id: Arc::from(message_id),
+            session_id: Arc::from(session_id),
             app_handle,
             abort_flag,
             accumulated_content: String::new(),
@@ -111,8 +111,9 @@ impl StreamSession {
     ///
     /// 通过 `AgentHandle::stream_chat` 获取类型擦除的 delta 流，
     /// 逐块分发到 `handle_delta`，最后调用 `finalize` 汇总。
+    /// 消费 self 以在 finalize 时直接 move 出 accumulated 数据避免 clone。
     pub async fn execute_stream(
-        &mut self,
+        mut self,
         agent: &AgentHandle,
         prompt: &str,
         chat_history: Vec<rig::completion::message::Message>,
@@ -181,8 +182,8 @@ impl StreamSession {
             .emit(
                 "stream_token",
                 StreamTokenPayload {
-                    session_id: self.session_id.clone(),
-                    message_id: self.message_id.clone(),
+                    session_id: self.session_id.to_string(),
+                    message_id: self.message_id.to_string(),
                     delta: text.to_string(),
                 },
             )
@@ -195,49 +196,46 @@ impl StreamSession {
             .emit(
                 "stream_thinking",
                 StreamThinkingPayload {
-                    session_id: self.session_id.clone(),
-                    message_id: self.message_id.clone(),
+                    session_id: self.session_id.to_string(),
+                    message_id: self.message_id.to_string(),
                     thinking_delta: thinking.to_string(),
                 },
             )
             .map_err(|e| anyhow::anyhow!("Failed to emit stream_thinking: {e}"))
     }
 
-    /// 汇总流式结果并 emit 完成事件
-    fn finalize(&self) -> anyhow::Result<StreamResult> {
+    /// 汇总流式结果并 emit 完成事件，消费 self 避免额外 clone
+    fn finalize(self) -> anyhow::Result<StreamResult> {
         let was_aborted = self.abort_flag.load(Ordering::Relaxed);
 
-        let result = StreamResult {
-            content: self.accumulated_content.clone(),
-            thinking: self.accumulated_thinking.clone(),
+        let payload = StreamCompletePayload {
+            session_id: self.session_id.to_string(),
+            message_id: self.message_id.to_string(),
+            full_content: self.accumulated_content.clone(),
+            full_thinking: self.accumulated_thinking.clone(),
             usage: self.usage.clone(),
             was_aborted,
         };
 
         self.app_handle
-            .emit(
-                "stream_complete",
-                StreamCompletePayload {
-                    session_id: self.session_id.clone(),
-                    message_id: self.message_id.clone(),
-                    full_content: result.content.clone(),
-                    full_thinking: result.thinking.clone(),
-                    usage: result.usage.clone(),
-                    was_aborted,
-                },
-            )
+            .emit("stream_complete", &payload)
             .map_err(|e| anyhow::anyhow!("Failed to emit stream_complete: {e}"))?;
 
         tracing::info!(
             session_id = %self.session_id,
             message_id = %self.message_id,
-            content_len = result.content.len(),
-            thinking_len = result.thinking.len(),
+            content_len = payload.full_content.len(),
+            thinking_len = payload.full_thinking.len(),
             aborted = was_aborted,
             "Stream completed"
         );
 
-        Ok(result)
+        Ok(StreamResult {
+            content: self.accumulated_content,
+            thinking: self.accumulated_thinking,
+            usage: self.usage,
+            was_aborted,
+        })
     }
 
     /// 发送错误事件
@@ -252,8 +250,8 @@ impl StreamSession {
             .emit(
                 "stream_error",
                 StreamErrorPayload {
-                    session_id: self.session_id.clone(),
-                    message_id: self.message_id.clone(),
+                    session_id: self.session_id.to_string(),
+                    message_id: self.message_id.to_string(),
                     error: error.to_string(),
                 },
             )
