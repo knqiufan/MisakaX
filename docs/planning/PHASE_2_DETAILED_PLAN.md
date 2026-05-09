@@ -1941,18 +1941,18 @@ interface ImageAttachment {
 
 ### 2.7 工作目录选择器 [预估 6h] 🆕
 
-- [ ] **2.7.1** 创建 `src-tauri/src/commands/workspace.rs`（browse_directory / validate_directory / get_recent_directories）
-- [ ] **2.7.2** 在 `commands/mod.rs` 添加 `pub mod workspace;`
-- [ ] **2.7.3** 在 `lib.rs` 的 `invoke_handler` 中注册 workspace commands
-- [ ] **2.7.4** 定义 `DirectoryInfo` 和 `RecentDirectory` 数据结构
-- [ ] **2.7.5** 在 `migrate_v2()` 中新增 `recent_directories` 表
-- [ ] **2.7.6** 实现 `browse_directory`：调用 Tauri 原生文件夹选择对话框
-- [ ] **2.7.7** 实现 `validate_directory`：验证路径存在、可读写，返回目录元信息
-- [ ] **2.7.8** 实现 `get_recent_directories`：从 SQLite 读取最近使用的工作目录
-- [ ] **2.7.9** 创建 `src/lib/ipc/workspace.ts`（workspaceIpc：browseDirectory/validateDirectory/getRecentDirectories）
-- [ ] **2.7.10** 创建 `src/components/chat/WorkspaceSelector.tsx`（工作目录选择器弹窗组件）
-- [ ] **2.7.11** 实现最近目录列表 + 浏览按钮 + 跳过选项 UI
-- [ ] **2.7.12** `cargo check` 编译通过
+- [x] **2.7.1** 创建 `src-tauri/src/commands/workspace.rs`（browse_directory / validate_directory / get_recent_directories）
+- [x] **2.7.2** 在 `commands/mod.rs` 添加 `pub mod workspace;`
+- [x] **2.7.3** 在 `lib.rs` 的 `invoke_handler` 中注册 workspace commands
+- [x] **2.7.4** 定义 `DirectoryInfo` 和 `RecentDirectory` 数据结构
+- [x] **2.7.5** 在 `migrate_v2()` 中新增 `recent_directories` 表
+- [x] **2.7.6** 实现 `browse_directory`：调用 Tauri 原生文件夹选择对话框
+- [x] **2.7.7** 实现 `validate_directory`：验证路径存在、可读写，返回目录元信息
+- [x] **2.7.8** 实现 `get_recent_directories`：从 SQLite 读取最近使用的工作目录
+- [x] **2.7.9** 创建 `src/lib/ipc/workspace.ts`（workspaceIpc：browseDirectory/validateDirectory/getRecentDirectories）
+- [x] **2.7.10** 创建 `src/components/chat/WorkspaceSelector.tsx`（工作目录选择器弹窗组件）
+- [x] **2.7.11** 实现最近目录列表 + 浏览按钮 + 跳过选项 UI
+- [x] **2.7.12** `cargo check` 编译通过
 
 ### 2.8 会话-工作目录绑定 [预估 3h] 🆕
 
