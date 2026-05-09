@@ -28,7 +28,7 @@ export function NavItem({ icon: Icon, label, route, badge }: NavItemProps) {
       onClick={() => navigate(route)}
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        "relative flex w-full items-center gap-3 px-3 py-2 text-[0.8125rem] font-semibold leading-snug outline-none transition-[color,background-color,box-shadow,transform] duration-[var(--ds-dur-fast)] [transition-timing-function:var(--ds-ease-out)] focus-visible:ring-2 focus-visible:ring-[color:var(--border-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[var(--ds-active-scale-sm)]",
+        "relative flex w-full items-center gap-3 px-3 py-2 text-[0.8125rem] font-semibold leading-snug outline-none transition-[color,background-color,box-shadow,transform] duration-[var(--ds-dur-fast)] [transition-timing-function:var(--ds-ease-out)] focus-visible:ring-2 focus-visible:ring-[color:var(--border-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
         "rounded-[var(--radius-button)] border border-transparent",
         collapsed && "justify-center px-0",
         isActive

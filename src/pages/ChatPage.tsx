@@ -80,15 +80,21 @@ export function ChatPage() {
         </>
       ) : (
         <>
-          <div className="flex h-full flex-col items-center justify-center gap-4">
-            <EmptyState
-              icon={MessageSquare}
-              title={t("nav:chat")}
-              description={t("comingSoon")}
-            />
-            <Button onClick={handleNewSession} className="gap-2">
+          <div className="flex h-full flex-col items-center justify-center gap-6 px-4 text-center">
+            <div className="flex size-16 items-center justify-center rounded-[var(--radius-ui-xl)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-card)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+              <MessageSquare className="size-8 text-muted-foreground/60" strokeWidth={1.15} />
+            </div>
+            <div className="max-w-md space-y-2">
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                {t("common:appName")}
+              </h2>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {t("workspace:description")}
+              </p>
+            </div>
+            <Button onClick={handleNewSession} className="mt-2 gap-2" size="lg">
               <Plus className="h-4 w-4" />
-              {t("common:newSession")}
+              {t("workspace:selectWorkingDir")}
             </Button>
           </div>
           <WorkspaceSelector
