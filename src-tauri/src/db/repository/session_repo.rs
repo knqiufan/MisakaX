@@ -30,6 +30,42 @@ impl SessionRepo {
         .context("Session not found")
     }
 
+    pub fn create(
+        conn: &Connection,
+        id: &str,
+        title: Option<&str>,
+        model: Option<&str>,
+        working_directory: Option<&str>,
+    ) -> Result<Session> {
+        let project_name = working_directory.map(extract_project_name);
+
+        conn.execute(
+            "INSERT INTO sessions (id, title, model, working_directory, project_name, status, mode)
+             VALUES (?1, ?2, ?3, ?4, ?5, 'active', 'agent')",
+            rusqlite::params![id, title, model, working_directory, project_name],
+        )?;
+
+        Self::find_by_id(conn, id)
+    }
+
+    pub fn update_working_directory(
+        conn: &Connection,
+        session_id: &str,
+        working_directory: Option<&str>,
+    ) -> Result<()> {
+        let project_name = working_directory.map(extract_project_name);
+
+        conn.execute(
+            "UPDATE sessions
+             SET working_directory = ?1,
+                 project_name = ?2,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?3",
+            rusqlite::params![working_directory, project_name, session_id],
+        )?;
+        Ok(())
+    }
+
     pub fn update_stats(
         conn: &Connection,
         session_id: &str,
@@ -57,4 +93,12 @@ impl SessionRepo {
         }
         Ok(())
     }
+}
+
+fn extract_project_name(path: &str) -> String {
+    std::path::Path::new(path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(path)
+        .to_string()
 }

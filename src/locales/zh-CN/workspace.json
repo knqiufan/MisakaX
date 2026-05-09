@@ -20,5 +20,8 @@
   "dirNotReadable": "目录不可读",
   "dirNotWritable": "目录不可写（只读）",
   "fileCount": "{{count}} 个项目",
-  "remove": "移除"
+  "remove": "移除",
+  "noWorkingDir": "未设置工作目录",
+  "selectDir": "选择目录",
+  "switchDir": "切换目录"
 }

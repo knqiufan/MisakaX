@@ -20,5 +20,8 @@
   "dirNotReadable": "Directory is not readable",
   "dirNotWritable": "Directory is not writable (read-only)",
   "fileCount": "{{count}} items",
-  "remove": "Remove"
+  "remove": "Remove",
+  "noWorkingDir": "No working directory set",
+  "selectDir": "Select directory",
+  "switchDir": "Switch directory"
 }

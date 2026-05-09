@@ -1956,20 +1956,20 @@ interface ImageAttachment {
 
 ### 2.8 会话-工作目录绑定 [预估 3h] 🆕
 
-- [ ] **2.8.1** 修改 `create_session` command，新增 `working_directory` 参数
-- [ ] **2.8.2** 实现 `bind_working_directory()` 逻辑（验证 + 更新 session + 更新 recent_directories）
-- [ ] **2.8.3** 在 `migrate_v2()` 中添加 `ALTER TABLE sessions ADD COLUMN working_dir_remote TEXT` 和 `working_dir_remote_type TEXT`
-- [ ] **2.8.4** 更新前端 `sessionsIpc.create()` 传递 `working_directory` 参数
-- [ ] **2.8.5** 修改新建会话流程：点击"新建"→ 弹出工作目录选择器 → 选择后创建会话
-- [ ] **2.8.6** 验证会话创建时工作目录正确持久化到 SQLite
+- [x] **2.8.1** 修改 `create_session` command，新增 `working_directory` 参数
+- [x] **2.8.2** 实现 `bind_working_directory()` 逻辑（验证 + 更新 session + 更新 recent_directories）
+- [x] **2.8.3** 在 `migrate_v2()` 中添加 `ALTER TABLE sessions ADD COLUMN working_dir_remote TEXT` 和 `working_dir_remote_type TEXT`
+- [x] **2.8.4** 更新前端 `sessionsIpc.create()` 传递 `working_directory` 参数
+- [x] **2.8.5** 修改新建会话流程：点击"新建"→ 弹出工作目录选择器 → 选择后创建会话
+- [x] **2.8.6** 验证会话创建时工作目录正确持久化到 SQLite
 
 ### 2.9 工作目录状态指示栏 [预估 3h] 🆕
 
-- [ ] **2.9.1** 创建 `src/components/chat/WorkspaceBar.tsx`（工作目录状态指示栏组件）
-- [ ] **2.9.2** 实现已设置目录 / 未设置目录两种显示状态
-- [ ] **2.9.3** 实现"切换目录"按钮功能（复用 WorkspaceSelector 弹窗）
-- [ ] **2.9.4** 在 ChatView 中集成 WorkspaceBar（MessageList 之上）
-- [ ] **2.9.5** 验证目录显示、切换流程完整性
+- [x] **2.9.1** 创建 `src/components/chat/WorkspaceBar.tsx`（工作目录状态指示栏组件）
+- [x] **2.9.2** 实现已设置目录 / 未设置目录两种显示状态
+- [x] **2.9.3** 实现"切换目录"按钮功能（复用 WorkspaceSelector 弹窗）
+- [x] **2.9.4** 在 ChatView 中集成 WorkspaceBar（MessageList 之上）
+- [x] **2.9.5** 验证目录显示、切换流程完整性
 
 ### 2.10 会话列表侧边栏 [预估 5h]
 

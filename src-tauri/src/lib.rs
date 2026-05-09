@@ -99,6 +99,9 @@ pub fn run() {
             commands::workspace::get_recent_directories,
             commands::workspace::record_directory_usage,
             commands::workspace::remove_recent_directory,
+            commands::session::create_session,
+            commands::session::update_session_working_dir,
+            commands::session::get_session,
         ])
         .setup(|_app| {
             tracing::info!("MisakaX initialized successfully");
