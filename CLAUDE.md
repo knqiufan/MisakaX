@@ -151,4 +151,15 @@ cargo build          # Standalone Rust build when not using npm wrapper
 - Rust 2021 edition, standard module layout
 - TypeScript strict mode
 - No default exports (use named exports)
-- **Frontend UI/UX**: MUST strictly follow `docs/design/frontend-ui-guidelines.md`. Maintain a modern desktop Agent style. Strictly avoid web-like bouncy/scaling animations (no `active:scale`, no `zoom-in`/`zoom-out`).
+- **Frontend UI/UX**: Any time you author or refactor React UI or styling (`src/**/*.tsx`, shared CSS tokens, shell layout), **read and comply with** the project’s UI specs (they are complementary, not optional pick-one):
+  - **Path-scoped reinforcement** (loads when editing matching files—reduces “forgot to load CLAUDE” cases):
+    - **Cursor**: `.cursor/rules/misaka-frontend-ui-specs.mdc` (`globs`: `src/**/*.tsx`, `src/**/*.css`, `src/*.css`)
+    - **Claude Code**: `.claude/rules/misaka-frontend-ui-specs.md` (`paths` frontmatter, same patterns)
+  - **Global motion, color, and component tone** (desktop Agent style; no web-like bouncy/scaling): `docs/design/frontend-ui-guidelines.md`
+  - **Main nav vs session column vs workspace chrome** (collapse semantics, session toolbar, workspace directory bar): `docs/design/shell-and-workspace-ui-spec.md`
+  - **Buttons, menus, popovers, selects, dialogs, tooltips, toasts, and related controls**: `docs/design/button-menu-design-spec.md`
+- **After UI work (mandatory doc sync)**: When the user asks to **change, adjust, polish, or refactor UI/UX** (layout, chrome, components, tokens, copy placement, interaction), do **not** stop at code only. When the implementation is done:
+  1. **Extract reusable rules** — Summarize what future work must respect (semantics, sizing, tokens, i18n/a11y hooks, what *not* to do). Skip one-off bug narration; keep **normative, concise** bullets others can follow.
+  2. **Patch the right spec(s)** — Update the smallest set of existing files under `docs/design/` (usually one of the three above). Add or revise sections so the new behavior is documented. If a rule clearly belongs in two docs, cross-link instead of duplicating long text.
+  3. **Maintain doc hygiene** — Bump the **“最后审阅 / Last reviewed”** date in the edited spec’s header/metadata when present; keep headings and tables consistent with that file’s style.
+  This is **automatic follow-through** for agents: the user should **not** need to ask for a separate “update the design doc” step after each UI task.

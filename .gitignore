@@ -46,9 +46,7 @@ desktop.ini
 learning/
 
 # ===== Claude Code =====
-.claude/*
-!.claude/settings.json
-!.claude/hooks/
+.claude/skills/learning-builder/
 .claude/hooks/review-config.json
 
 # ===== Hooks secrets =====

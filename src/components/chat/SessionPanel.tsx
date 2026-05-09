@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Plus, Search, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -10,11 +11,11 @@ import type { Session } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
 
 interface SessionPanelProps {
-  collapsed: boolean;
   onNewSession: () => void;
 }
 
-export function SessionPanel({ collapsed, onNewSession }: SessionPanelProps) {
+export function SessionPanel({ onNewSession }: SessionPanelProps) {
+  const { t } = useTranslation();
   const {
     sessions,
     activeSessionId,
@@ -135,18 +136,17 @@ export function SessionPanel({ collapsed, onNewSession }: SessionPanelProps) {
     [searchResults, sessions]
   );
 
-  if (collapsed) return null;
-
   return (
-    <div className="flex h-full w-[220px] shrink-0 flex-col border-r border-[color:var(--border-muted)] bg-sidebar">
+    <div className="flex h-full w-[260px] shrink-0 flex-col border-r border-[color:var(--border-muted)] bg-sidebar">
       <SessionPanelHeader
         searchQuery={searchQuery}
         onSearchChange={handleSearch}
         onNewSession={onNewSession}
+        newSessionLabel={t("common:newSession")}
       />
 
       <ScrollArea className="min-h-0 flex-1">
-        <div className="space-y-0.5 px-2 py-1">
+        <div className="space-y-0.5 px-3 py-2">
           {displaySessions.length > 0 ? (
             displaySessions.map((session) => (
               <SessionItem
@@ -173,33 +173,43 @@ function SessionPanelHeader({
   searchQuery,
   onSearchChange,
   onNewSession,
+  newSessionLabel,
 }: {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onNewSession: () => void;
+  newSessionLabel: string;
 }) {
   return (
-    <div className="shrink-0 space-y-2 px-2 pb-1 pt-2">
-      <div className="flex items-center gap-1.5">
+    <div className="shrink-0 border-b border-[color:var(--border-muted)] bg-[color:var(--surface-sidebar)] px-3 pb-3 pt-3">
+      <div className="flex w-full items-stretch gap-2">
         <div className="relative min-w-0 flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/55" />
           <Input
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="搜索会话…"
-            className="h-7 pl-8 text-xs"
+            className={cn(
+              "h-10 w-full rounded-[var(--radius-ui-md)] border-[color:var(--border-muted)]",
+              "bg-[color:var(--surface-card)] pl-10 pr-3 text-sm shadow-none",
+              "placeholder:text-muted-foreground/55"
+            )}
           />
         </div>
         <Button
-          variant="ghost"
+          type="button"
+          variant="outline"
           size="icon"
           onClick={onNewSession}
+          title={newSessionLabel}
+          aria-label={newSessionLabel}
           className={cn(
-            "h-7 w-7 shrink-0",
-            "text-muted-foreground hover:text-foreground"
+            "h-10 w-10 shrink-0 rounded-[var(--radius-ui-md)]",
+            "border-[color:var(--border-muted)] bg-[color:var(--surface-card)]",
+            "text-muted-foreground hover:bg-[color:var(--surface-control-hover)] hover:text-foreground"
           )}
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-5 w-5" />
         </Button>
       </div>
     </div>

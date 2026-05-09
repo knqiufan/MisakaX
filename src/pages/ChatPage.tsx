@@ -6,13 +6,11 @@ import { WorkspaceSelector } from "@/components/chat/WorkspaceSelector";
 import { WorkspaceBar } from "@/components/chat/WorkspaceBar";
 import { SessionPanel } from "@/components/chat/SessionPanel";
 import { useChatStore } from "@/stores/chat-store";
-import { useAppStore } from "@/stores";
 import { sessionsIpc } from "@/lib/ipc";
 import type { Session } from "@/lib/ipc";
 
 export function ChatPage() {
   const { t } = useTranslation();
-  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
   const {
     activeSession,
     showWorkspaceSelector,
@@ -61,10 +59,7 @@ export function ChatPage() {
 
   return (
     <div className="flex h-full">
-      <SessionPanel
-        collapsed={sidebarCollapsed}
-        onNewSession={handleNewSession}
-      />
+      <SessionPanel onNewSession={handleNewSession} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         {activeSession ? (
