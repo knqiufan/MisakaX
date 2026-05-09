@@ -1,12 +1,33 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useChatStore } from "@/stores/chat-store";
+import type { Message } from "@/lib/ipc";
+
+const makeMessage = (overrides: Partial<Message> = {}): Message => ({
+  id: crypto.randomUUID(),
+  session_id: "test-session",
+  role: "user",
+  content: "Hello",
+  token_usage: null,
+  model: null,
+  thinking_content: null,
+  attachments: null,
+  status: "complete",
+  created_at: new Date().toISOString(),
+  ...overrides,
+});
 
 describe("useChatStore", () => {
   beforeEach(() => {
     useChatStore.setState({
       sessions: [],
       activeSessionId: null,
+      activeSession: null,
       loading: false,
+      showWorkspaceSelector: false,
+      messages: [],
+      isStreaming: false,
+      streamingMessageId: null,
+      selectedModel: null,
     });
   });
 
@@ -15,6 +36,10 @@ describe("useChatStore", () => {
     expect(state.sessions).toEqual([]);
     expect(state.activeSessionId).toBeNull();
     expect(state.loading).toBe(false);
+    expect(state.messages).toEqual([]);
+    expect(state.isStreaming).toBe(false);
+    expect(state.streamingMessageId).toBeNull();
+    expect(state.selectedModel).toBeNull();
   });
 
   it("should set active session", () => {
@@ -111,5 +136,83 @@ describe("useChatStore", () => {
     expect(useChatStore.getState().activeSessionId).toBe("s1");
     expect(useChatStore.getState().loading).toBe(true);
     expect(useChatStore.getState().sessions).toEqual([]);
+  });
+
+  describe("messages", () => {
+    it("should add a message", () => {
+      const msg = makeMessage({ content: "Hi" });
+      useChatStore.getState().addMessage(msg);
+      expect(useChatStore.getState().messages).toHaveLength(1);
+      expect(useChatStore.getState().messages[0].content).toBe("Hi");
+    });
+
+    it("should set messages list", () => {
+      const msgs = [makeMessage({ id: "m1" }), makeMessage({ id: "m2" })];
+      useChatStore.getState().setMessages(msgs);
+      expect(useChatStore.getState().messages).toHaveLength(2);
+    });
+
+    it("should update message content (append delta)", () => {
+      const msg = makeMessage({ id: "m1", content: "Hello" });
+      useChatStore.getState().addMessage(msg);
+      useChatStore.getState().updateMessageContent("m1", " World");
+      expect(useChatStore.getState().messages[0].content).toBe("Hello World");
+    });
+
+    it("should not modify other messages when updating content", () => {
+      useChatStore.getState().setMessages([
+        makeMessage({ id: "m1", content: "First" }),
+        makeMessage({ id: "m2", content: "Second" }),
+      ]);
+      useChatStore.getState().updateMessageContent("m2", "++");
+      expect(useChatStore.getState().messages[0].content).toBe("First");
+      expect(useChatStore.getState().messages[1].content).toBe("Second++");
+    });
+
+    it("should set message status", () => {
+      const msg = makeMessage({ id: "m1", status: "streaming" });
+      useChatStore.getState().addMessage(msg);
+      useChatStore.getState().setMessageStatus("m1", "complete");
+      expect(useChatStore.getState().messages[0].status).toBe("complete");
+    });
+
+    it("should clear messages", () => {
+      useChatStore.getState().setMessages([makeMessage(), makeMessage()]);
+      useChatStore.getState().setStreaming(true, "x");
+      useChatStore.getState().clearMessages();
+      expect(useChatStore.getState().messages).toHaveLength(0);
+      expect(useChatStore.getState().isStreaming).toBe(false);
+      expect(useChatStore.getState().streamingMessageId).toBeNull();
+    });
+  });
+
+  describe("streaming state", () => {
+    it("should set streaming with message id", () => {
+      useChatStore.getState().setStreaming(true, "msg-42");
+      const state = useChatStore.getState();
+      expect(state.isStreaming).toBe(true);
+      expect(state.streamingMessageId).toBe("msg-42");
+    });
+
+    it("should clear streaming", () => {
+      useChatStore.getState().setStreaming(true, "msg-42");
+      useChatStore.getState().setStreaming(false);
+      const state = useChatStore.getState();
+      expect(state.isStreaming).toBe(false);
+      expect(state.streamingMessageId).toBeNull();
+    });
+  });
+
+  describe("model selection", () => {
+    it("should set selected model", () => {
+      useChatStore.getState().setSelectedModel("provider-1:gpt-4o");
+      expect(useChatStore.getState().selectedModel).toBe("provider-1:gpt-4o");
+    });
+
+    it("should clear selected model", () => {
+      useChatStore.getState().setSelectedModel("x:y");
+      useChatStore.getState().setSelectedModel(null);
+      expect(useChatStore.getState().selectedModel).toBeNull();
+    });
   });
 });

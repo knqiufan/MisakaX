@@ -1,0 +1,14 @@
+{
+  "inputPlaceholder": "Type a message...",
+  "send": "Send",
+  "stop": "Stop generation",
+  "selectModel": "Select model",
+  "noModels": "No models available",
+  "noModelsHint": "Configure a Provider in settings first",
+  "modelSelector": "Model",
+  "emptyTitle": "Start a conversation",
+  "emptyDescription": "Type a message to start chatting with AI. Markdown is supported.",
+  "copyMessage": "Copy message",
+  "copied": "Copied",
+  "regenerate": "Regenerate"
+}

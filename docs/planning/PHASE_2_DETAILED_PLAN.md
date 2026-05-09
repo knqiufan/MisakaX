@@ -2002,36 +2002,36 @@ interface ImageAttachment {
 
 ### 2.4 ChatView 组件 [预估 6h]
 
-- [ ] **2.4.1** 重写 `src/pages/ChatPage.tsx`（从 EmptyState 占位替换为左右分栏：SessionPanel + ChatView）
-- [ ] **2.4.2** 创建 `src/components/chat/ChatView.tsx`（对话主视图容器）
-- [ ] **2.4.3** 创建 `src/components/chat/MessageList.tsx`（消息列表 + 自动滚动）
-- [ ] **2.4.4** 创建 `src/components/chat/ChatEmptyState.tsx`（Chat 专属空会话欢迎页，可复用 `layout/EmptyState` 风格）
-- [ ] **2.4.5** 创建 `src/components/chat/StreamingIndicator.tsx`（流式输出指示器）
-- [ ] **2.4.6** 完善 `src/stores/chat-store.ts`（从现有 22 行骨架扩展为完整 ChatState + 所有 Actions）
-- [ ] **2.4.7** 创建 `src/hooks/use-stream-listener.ts`（`@tauri-apps/api` listen() 监听 4 种 Event）
-- [ ] **2.4.8** 实现自动滚动策略（isAtBottom 检测 + 回到底部按钮）
-- [ ] **2.4.9** 验证完整对话流程（发送 → 流式渲染 → 完成）
+- [x] **2.4.1** 重写 `src/pages/ChatPage.tsx`（从 EmptyState 占位替换为左右分栏：SessionPanel + ChatView）
+- [x] **2.4.2** 创建 `src/components/chat/ChatView.tsx`（对话主视图容器）
+- [x] **2.4.3** 创建 `src/components/chat/MessageList.tsx`（消息列表 + 自动滚动）
+- [x] **2.4.4** 创建 `src/components/chat/ChatEmptyState.tsx`（Chat 专属空会话欢迎页，可复用 `layout/EmptyState` 风格）
+- [x] **2.4.5** 创建 `src/components/chat/StreamingIndicator.tsx`（流式输出指示器）
+- [x] **2.4.6** 完善 `src/stores/chat-store.ts`（从现有 22 行骨架扩展为完整 ChatState + 所有 Actions）
+- [x] **2.4.7** 创建 `src/hooks/use-stream-listener.ts`（`@tauri-apps/api` listen() 监听 4 种 Event）
+- [x] **2.4.8** 实现自动滚动策略（isAtBottom 检测 + 回到底部按钮）
+- [x] **2.4.9** 验证完整对话流程（发送 → 流式渲染 → 完成）
 
 ### 2.5 MessageItem 组件 [预估 6h]
 
-- [ ] **2.5.1** 安装依赖：`npm install react-markdown remark-gfm rehype-raw shiki`
-- [ ] **2.5.2** 创建 `src/components/chat/MessageItem.tsx`（消息渲染主组件）
-- [ ] **2.5.3** 创建 `src/components/chat/CodeBlock.tsx`（shiki 代码高亮 + 复制按钮 + 语言标签）
-- [ ] **2.5.4** 实现 user / assistant 两种消息变体的视觉样式
-- [ ] **2.5.5** 集成 react-markdown + remark-gfm 渲染 Markdown 内容
-- [ ] **2.5.6** 实现 CodeBlock 的自定义渲染器（替换 react-markdown 默认代码块）
-- [ ] **2.5.7** 创建 `src/components/chat/TokenBadge.tsx`（Token 用量标签）
-- [ ] **2.5.8** 实现消息操作栏（复制消息 / 重新生成按钮）
-- [ ] **2.5.9** 验证 Markdown 渲染效果（标题/列表/表格/代码/链接）
+- [x] **2.5.1** 安装依赖：`npm install react-markdown remark-gfm rehype-raw shiki`
+- [x] **2.5.2** 创建 `src/components/chat/MessageItem.tsx`（消息渲染主组件）
+- [x] **2.5.3** 创建 `src/components/chat/CodeBlock.tsx`（shiki 代码高亮 + 复制按钮 + 语言标签）
+- [x] **2.5.4** 实现 user / assistant 两种消息变体的视觉样式
+- [x] **2.5.5** 集成 react-markdown + remark-gfm 渲染 Markdown 内容
+- [x] **2.5.6** 实现 CodeBlock 的自定义渲染器（替换 react-markdown 默认代码块）
+- [x] **2.5.7** 创建 `src/components/chat/TokenBadge.tsx`（Token 用量标签）
+- [x] **2.5.8** 实现消息操作栏（复制消息 / 重新生成按钮）
+- [x] **2.5.9** 验证 Markdown 渲染效果（标题/列表/表格/代码/链接）
 
 ### 2.6 MessageInput 组件 [预估 4h]
 
-- [ ] **2.6.1** 创建 `src/components/chat/MessageInput.tsx`（多行输入框 + 发送/停止按钮）
-- [ ] **2.6.2** 实现 Enter 发送 / Shift+Enter 换行
-- [ ] **2.6.3** 实现 Textarea 自适应高度（最小 1 行，最大 200px）
-- [ ] **2.6.4** 实现模型选择器下拉（读取已配置的 Provider 模型列表）
-- [ ] **2.6.5** 实现流式中 发送按钮→停止按钮 的状态切换
-- [ ] **2.6.6** 验证键盘快捷键和发送逻辑
+- [x] **2.6.1** 创建 `src/components/chat/MessageInput.tsx`（多行输入框 + 发送/停止按钮）
+- [x] **2.6.2** 实现 Enter 发送 / Shift+Enter 换行
+- [x] **2.6.3** 实现 Textarea 自适应高度（最小 1 行，最大 200px）
+- [x] **2.6.4** 实现模型选择器下拉（读取已配置的 Provider 模型列表）
+- [x] **2.6.5** 实现流式中 发送按钮→停止按钮 的状态切换
+- [x] **2.6.6** 验证键盘快捷键和发送逻辑
 
 ### 2.12 Token 用量统计 [预估 2h]
 
