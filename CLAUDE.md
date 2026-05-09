@@ -151,3 +151,4 @@ cargo build          # Standalone Rust build when not using npm wrapper
 - Rust 2021 edition, standard module layout
 - TypeScript strict mode
 - No default exports (use named exports)
+- **Frontend UI/UX**: MUST strictly follow `docs/design/frontend-ui-guidelines.md`. Maintain a modern desktop Agent style. Strictly avoid web-like bouncy/scaling animations (no `active:scale`, no `zoom-in`/`zoom-out`).
