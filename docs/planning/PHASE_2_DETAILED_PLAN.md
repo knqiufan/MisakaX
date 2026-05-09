@@ -1973,32 +1973,32 @@ interface ImageAttachment {
 
 ### 2.10 会话列表侧边栏 [预估 5h]
 
-- [ ] **2.10.1** 创建 `src-tauri/src/commands/session.rs`（create / list / update / delete / search，create 需含 working_directory）
-- [ ] **2.10.2** 在 `commands/mod.rs` 添加 `pub mod session;`
-- [ ] **2.10.3** 在 `lib.rs` 的 `invoke_handler` 中注册 session commands
-- [ ] **2.10.4** 创建 `src/lib/ipc/sessions.ts`（sessionsIpc：create/list/update/delete/search）
-- [ ] **2.10.5** 创建 `src/lib/ipc/chat.ts`（chatIpc：sendMessage/stopGeneration/regenerateMessage/getMessages）
-- [ ] **2.10.6** 更新 `src/lib/ipc/types.ts`（新增 Message / TokenUsage / ImageAttachment / StreamPayload 类型，Session 已有但需增强）
-- [ ] **2.10.7** 更新 `src/lib/ipc/index.ts`（导出 sessionsIpc / chatIpc / workspaceIpc）
-- [ ] **2.10.8** 创建 `src/components/chat/SessionPanel.tsx`（会话列表面板 + 搜索框 + 新建按钮）
-- [ ] **2.10.9** 创建 `src/components/chat/SessionItem.tsx`（单个会话项 + 右键菜单：重命名/删除/归档）
-- [ ] **2.10.10** 实现会话搜索过滤（前端调用 Rust search_sessions FTS 查询）
-- [ ] **2.10.11** 实现会话自动命名逻辑（后台异步调用 LLM 生成标题，不阻塞主对话流）
-- [ ] **2.10.12** 验证 CRUD 全流程 + 持久化（重启后会话仍在）
+- [x] **2.10.1** 创建 `src-tauri/src/commands/session.rs`（create / list / update / delete / search，create 需含 working_directory）
+- [x] **2.10.2** 在 `commands/mod.rs` 添加 `pub mod session;`
+- [x] **2.10.3** 在 `lib.rs` 的 `invoke_handler` 中注册 session commands
+- [x] **2.10.4** 创建 `src/lib/ipc/sessions.ts`（sessionsIpc：create/list/update/delete/search）
+- [x] **2.10.5** 创建 `src/lib/ipc/chat.ts`（chatIpc：sendMessage/stopGeneration/regenerateMessage/getMessages）
+- [x] **2.10.6** 更新 `src/lib/ipc/types.ts`（新增 Message / TokenUsage / ImageAttachment / StreamPayload 类型，Session 已有但需增强）
+- [x] **2.10.7** 更新 `src/lib/ipc/index.ts`（导出 sessionsIpc / chatIpc / workspaceIpc）
+- [x] **2.10.8** 创建 `src/components/chat/SessionPanel.tsx`（会话列表面板 + 搜索框 + 新建按钮）
+- [x] **2.10.9** 创建 `src/components/chat/SessionItem.tsx`（单个会话项 + 右键菜单：重命名/删除/归档）
+- [x] **2.10.10** 实现会话搜索过滤（前端调用 Rust search_sessions FTS 查询）
+- [x] **2.10.11** 实现会话自动命名逻辑（后台异步调用 LLM 生成标题，不阻塞主对话流）
+- [x] **2.10.12** 验证 CRUD 全流程 + 持久化（重启后会话仍在）
 
 ### 2.11 消息持久化 [预估 3h]
 
-- [ ] **2.11.1** 在 `migrations.rs` 中实现 `migrate_v2()`（ALTER TABLE messages + ALTER TABLE sessions + CREATE TABLE recent_directories）
-- [ ] **2.11.2** 在 `run_migrations()` 中取消 v2 注释：`if current_version < 2 { migrate_v2(conn)?; }`
-- [ ] **2.11.3** 更新 `db/models.rs` 中的 `Message` 结构体（新增 model / thinking_content / attachments / status 字段）
-- [ ] **2.11.4** 更新 `db/models.rs` 中的 `Session` 结构体（新增 total_input_tokens / total_output_tokens / last_message_at / pinned / group_name 字段）
-- [ ] **2.11.5** 新增 `db/models.rs` 中的 `TokenUsage` 和 `ImageAttachment` 结构体
-- [ ] **2.11.6** 创建 `src-tauri/src/db/messages.rs`（save / get / update_content / update_status / update_usage / delete / delete_after）
-- [ ] **2.11.7** 创建 `src-tauri/src/db/sessions.rs`（create / list / update / delete / search / update_token_counts）
-- [ ] **2.11.8** 在 `db/mod.rs` 中添加 `pub mod messages; pub mod sessions;`
-- [ ] **2.11.9** 实现 FTS 同步写入（messages_fts，已在 v1 建表）
-- [ ] **2.11.10** 编写单元测试验证消息/会话读写
-- [ ] **2.11.11** `cargo check` 编译通过
+- [x] **2.11.1** 在 `migrations.rs` 中实现 `migrate_v2()`（ALTER TABLE messages + ALTER TABLE sessions + CREATE TABLE recent_directories）
+- [x] **2.11.2** 在 `run_migrations()` 中取消 v2 注释：`if current_version < 2 { migrate_v2(conn)?; }`
+- [x] **2.11.3** 更新 `db/models.rs` 中的 `Message` 结构体（新增 model / thinking_content / attachments / status 字段）
+- [x] **2.11.4** 更新 `db/models.rs` 中的 `Session` 结构体（新增 total_input_tokens / total_output_tokens / last_message_at / pinned / group_name 字段）
+- [x] **2.11.5** 新增 `db/models.rs` 中的 `TokenUsage` 和 `ImageAttachment` 结构体
+- [x] **2.11.6** 创建 `src-tauri/src/db/messages.rs`（save / get / update_content / update_status / update_usage / delete / delete_after）
+- [x] **2.11.7** 创建 `src-tauri/src/db/sessions.rs`（create / list / update / delete / search / update_token_counts）
+- [x] **2.11.8** 在 `db/mod.rs` 中添加 `pub mod messages; pub mod sessions;`
+- [x] **2.11.9** 实现 FTS 同步写入（messages_fts，已在 v1 建表）
+- [x] **2.11.10** 编写单元测试验证消息/会话读写
+- [x] **2.11.11** `cargo check` 编译通过
 
 ### 2.4 ChatView 组件 [预估 6h]
 

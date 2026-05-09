@@ -290,3 +290,52 @@ fn test_different_sessions_are_isolated() {
     assert_eq!(s2_messages.len(), 1);
     assert_eq!(s2_messages[0].content, "Session 2");
 }
+
+// ─── update_status ───────────────────────────────────────────────────
+
+#[test]
+fn test_update_status() {
+    let conn = setup_db();
+    MessageRepo::insert_assistant_placeholder(&conn, "m1", "s1", "gpt-4o").unwrap();
+
+    assert_eq!(
+        MessageRepo::find_recent(&conn, "s1", 1).unwrap()[0].status,
+        "streaming"
+    );
+
+    MessageRepo::update_status(&conn, "m1", "error").unwrap();
+
+    assert_eq!(
+        MessageRepo::find_recent(&conn, "s1", 1).unwrap()[0].status,
+        "error"
+    );
+}
+
+// ─── update_usage ────────────────────────────────────────────────────
+
+#[test]
+fn test_update_usage() {
+    let conn = setup_db();
+    MessageRepo::insert_user_message(&conn, "m1", "s1", "Hello", None).unwrap();
+
+    let usage_json = r#"{"input_tokens":100,"output_tokens":50,"total_tokens":150}"#;
+    MessageRepo::update_usage(&conn, "m1", usage_json).unwrap();
+
+    let messages = MessageRepo::find_recent(&conn, "s1", 1).unwrap();
+    assert_eq!(messages[0].token_usage.as_deref(), Some(usage_json));
+}
+
+// ─── delete single message ──────────────────────────────────────────
+
+#[test]
+fn test_delete_single_message() {
+    let conn = setup_db();
+    insert_message_at(&conn, "m1", "s1", "user", "First", "2025-01-01T00:01:00", None);
+    insert_message_at(&conn, "m2", "s1", "user", "Second", "2025-01-01T00:02:00", None);
+
+    MessageRepo::delete(&conn, "m1").unwrap();
+
+    let messages = MessageRepo::find_recent(&conn, "s1", 10).unwrap();
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0].id, "m2");
+}

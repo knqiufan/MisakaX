@@ -76,6 +76,82 @@ export interface Session {
   project_name: string | null;
   status: string;
   mode: string;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  last_message_at: string | null;
+  pinned: boolean;
+  group_name: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type MessageRole = "user" | "assistant" | "system";
+export type MessageStatus = "streaming" | "complete" | "error" | "stopped" | "aborted";
+
+export interface Message {
+  id: string;
+  session_id: string;
+  role: MessageRole;
+  content: string;
+  token_usage: string | null;
+  model: string | null;
+  thinking_content: string | null;
+  attachments: string | null;
+  status: MessageStatus;
+  created_at: string;
+}
+
+export interface TokenUsage {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number | null;
+  cache_creation_tokens: number | null;
+  total_tokens: number;
+}
+
+export interface ImageAttachment {
+  type: string;
+  data: string;
+  mime_type: string;
+}
+
+export interface SendMessageRequest {
+  session_id: string;
+  content: string;
+  images?: ImageAttachment[];
+  model_override?: string;
+  llm_config?: Record<string, unknown>;
+}
+
+export interface SendMessageResult {
+  user_message_id: string;
+  assistant_message_id: string;
+}
+
+export interface StreamTokenPayload {
+  session_id: string;
+  message_id: string;
+  delta: string;
+  content_type: "text" | "thinking";
+}
+
+export interface StreamCompletePayload {
+  session_id: string;
+  message_id: string;
+  usage: TokenUsage | null;
+  model: string | null;
+}
+
+export interface StreamErrorPayload {
+  session_id: string;
+  message_id: string | null;
+  error: string;
+}
+
+export interface UpdateSessionParams {
+  id: string;
+  title?: string;
+  model?: string;
+  pinned?: boolean;
+  status?: string;
 }

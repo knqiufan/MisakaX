@@ -36,6 +36,62 @@ pub fn create_session(
     Ok(session)
 }
 
+// ─── list_sessions Command ───────────────────────────────────────────
+
+#[tauri::command]
+pub fn list_sessions(
+    state: State<'_, AppState>,
+    status: Option<String>,
+) -> Result<Vec<Session>, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    SessionRepo::list(&conn, status.as_deref()).map_err(|e| e.to_string())
+}
+
+// ─── update_session Command ──────────────────────────────────────────
+
+#[tauri::command]
+pub fn update_session(
+    state: State<'_, AppState>,
+    id: String,
+    title: Option<String>,
+    model: Option<String>,
+    pinned: Option<bool>,
+    status: Option<String>,
+) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    SessionRepo::update(
+        &conn,
+        &id,
+        title.as_deref(),
+        model.as_deref(),
+        pinned,
+        status.as_deref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+// ─── delete_session Command ──────────────────────────────────────────
+
+#[tauri::command]
+pub fn delete_session(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    SessionRepo::delete(&conn, &id).map_err(|e| e.to_string())
+}
+
+// ─── search_sessions Command ─────────────────────────────────────────
+
+#[tauri::command]
+pub fn search_sessions(
+    state: State<'_, AppState>,
+    query: String,
+) -> Result<Vec<Session>, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    SessionRepo::search(&conn, &query).map_err(|e| e.to_string())
+}
+
 // ─── update_session_working_dir Command ──────────────────────────────
 
 #[tauri::command]

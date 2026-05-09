@@ -165,3 +165,147 @@ fn update_stats_without_tokens_updates_timestamp() {
         .unwrap();
     assert!(last.is_some());
 }
+
+// ─── list ─────────────────────────────────────────────────────────────
+
+#[test]
+fn list_sessions_returns_active_by_default() {
+    let conn = create_test_db();
+
+    SessionRepo::create(&conn, "s1", Some("First"), None, None).unwrap();
+    SessionRepo::create(&conn, "s2", Some("Second"), None, None).unwrap();
+
+    let list = SessionRepo::list(&conn, None).unwrap();
+    assert_eq!(list.len(), 2);
+}
+
+#[test]
+fn list_sessions_filters_by_status() {
+    let conn = create_test_db();
+
+    SessionRepo::create(&conn, "s1", Some("Active"), None, None).unwrap();
+    SessionRepo::create(&conn, "s2", Some("Archived"), None, None).unwrap();
+    SessionRepo::update(&conn, "s2", None, None, None, Some("archived")).unwrap();
+
+    let active = SessionRepo::list(&conn, Some("active")).unwrap();
+    assert_eq!(active.len(), 1);
+    assert_eq!(active[0].id, "s1");
+
+    let archived = SessionRepo::list(&conn, Some("archived")).unwrap();
+    assert_eq!(archived.len(), 1);
+    assert_eq!(archived[0].id, "s2");
+}
+
+#[test]
+fn list_sessions_pinned_first() {
+    let conn = create_test_db();
+
+    SessionRepo::create(&conn, "s1", Some("Normal"), None, None).unwrap();
+    SessionRepo::create(&conn, "s2", Some("Pinned"), None, None).unwrap();
+    SessionRepo::update(&conn, "s2", None, None, Some(true), None).unwrap();
+
+    let list = SessionRepo::list(&conn, None).unwrap();
+    assert_eq!(list[0].id, "s2");
+    assert!(list[0].pinned);
+}
+
+// ─── update ───────────────────────────────────────────────────────────
+
+#[test]
+fn update_session_title() {
+    let conn = create_test_db();
+    SessionRepo::create(&conn, "s1", Some("Old Title"), None, None).unwrap();
+
+    SessionRepo::update(&conn, "s1", Some("New Title"), None, None, None).unwrap();
+
+    let session = SessionRepo::find_by_id(&conn, "s1").unwrap();
+    assert_eq!(session.title, Some("New Title".to_string()));
+}
+
+#[test]
+fn update_session_pin_and_model() {
+    let conn = create_test_db();
+    SessionRepo::create(&conn, "s1", None, None, None).unwrap();
+
+    SessionRepo::update(&conn, "s1", None, Some("config1:gpt-4"), Some(true), None).unwrap();
+
+    let session = SessionRepo::find_by_id(&conn, "s1").unwrap();
+    assert!(session.pinned);
+    assert_eq!(session.model, Some("config1:gpt-4".to_string()));
+}
+
+// ─── delete ──────────────────────────────────────────────────────────
+
+#[test]
+fn delete_session_removes_session_and_messages() {
+    let conn = create_test_db();
+    SessionRepo::create(&conn, "s1", Some("To Delete"), None, None).unwrap();
+
+    conn.execute(
+        "INSERT INTO messages (id, session_id, role, content) VALUES ('m1', 's1', 'user', 'Hello')",
+        [],
+    )
+    .unwrap();
+
+    SessionRepo::delete(&conn, "s1").unwrap();
+
+    let result = SessionRepo::find_by_id(&conn, "s1");
+    assert!(result.is_err());
+
+    let msg_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM messages WHERE session_id = 's1'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(msg_count, 0);
+}
+
+// ─── search ──────────────────────────────────────────────────────────
+
+#[test]
+fn search_sessions_by_title() {
+    let conn = create_test_db();
+    SessionRepo::create(&conn, "s1", Some("Rust 学习笔记"), None, None).unwrap();
+    SessionRepo::create(&conn, "s2", Some("Python 项目"), None, None).unwrap();
+    SessionRepo::create(&conn, "s3", Some("Rust 编译优化"), None, None).unwrap();
+
+    let results = SessionRepo::search(&conn, "Rust").unwrap();
+    assert_eq!(results.len(), 2);
+}
+
+#[test]
+fn search_sessions_by_project_name() {
+    let conn = create_test_db();
+    SessionRepo::create(&conn, "s1", None, None, Some("/code/misaka-tauri")).unwrap();
+    SessionRepo::create(&conn, "s2", None, None, Some("/code/other-project")).unwrap();
+
+    let results = SessionRepo::search(&conn, "misaka").unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].id, "s1");
+}
+
+#[test]
+fn search_sessions_excludes_archived() {
+    let conn = create_test_db();
+    SessionRepo::create(&conn, "s1", Some("Archived Match"), None, None).unwrap();
+    SessionRepo::update(&conn, "s1", None, None, None, Some("archived")).unwrap();
+
+    let results = SessionRepo::search(&conn, "Match").unwrap();
+    assert_eq!(results.len(), 0);
+}
+
+// ─── new fields verification ─────────────────────────────────────────
+
+#[test]
+fn session_has_new_fields_with_defaults() {
+    let conn = create_test_db();
+    let session = SessionRepo::create(&conn, "s-new", None, None, None).unwrap();
+
+    assert_eq!(session.total_input_tokens, 0);
+    assert_eq!(session.total_output_tokens, 0);
+    assert!(session.last_message_at.is_none());
+    assert!(!session.pinned);
+    assert!(session.group_name.is_none());
+}

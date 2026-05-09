@@ -100,6 +100,10 @@ pub fn run() {
             commands::workspace::record_directory_usage,
             commands::workspace::remove_recent_directory,
             commands::session::create_session,
+            commands::session::list_sessions,
+            commands::session::update_session,
+            commands::session::delete_session,
+            commands::session::search_sessions,
             commands::session::update_session_working_dir,
             commands::session::get_session,
         ])

@@ -181,6 +181,35 @@ impl MessageRepo {
         })
     }
 
+    pub fn update_status(
+        conn: &Connection,
+        msg_id: &str,
+        status: &str,
+    ) -> Result<()> {
+        conn.execute(
+            "UPDATE messages SET status = ?1 WHERE id = ?2",
+            rusqlite::params![status, msg_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_usage(
+        conn: &Connection,
+        msg_id: &str,
+        usage_json: &str,
+    ) -> Result<()> {
+        conn.execute(
+            "UPDATE messages SET token_usage = ?1 WHERE id = ?2",
+            rusqlite::params![usage_json, msg_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete(conn: &Connection, msg_id: &str) -> Result<()> {
+        conn.execute("DELETE FROM messages WHERE id = ?1", [msg_id])?;
+        Ok(())
+    }
+
     pub fn delete_from(
         conn: &Connection,
         session_id: &str,

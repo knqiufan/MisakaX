@@ -9,23 +9,11 @@ impl SessionRepo {
     pub fn find_by_id(conn: &Connection, session_id: &str) -> Result<Session> {
         conn.query_row(
             "SELECT id, title, model, system_prompt, working_directory, project_name,
-                    status, mode, created_at, updated_at
+                    status, mode, total_input_tokens, total_output_tokens,
+                    last_message_at, pinned, group_name, created_at, updated_at
              FROM sessions WHERE id = ?1",
             [session_id],
-            |row| {
-                Ok(Session {
-                    id: row.get(0)?,
-                    title: row.get(1)?,
-                    model: row.get(2)?,
-                    system_prompt: row.get(3)?,
-                    working_directory: row.get(4)?,
-                    project_name: row.get(5)?,
-                    status: row.get(6)?,
-                    mode: row.get(7)?,
-                    created_at: row.get(8)?,
-                    updated_at: row.get(9)?,
-                })
-            },
+            Self::map_row,
         )
         .context("Session not found")
     }
@@ -46,6 +34,103 @@ impl SessionRepo {
         )?;
 
         Self::find_by_id(conn, id)
+    }
+
+    pub fn list(
+        conn: &Connection,
+        status: Option<&str>,
+    ) -> Result<Vec<Session>> {
+        let status_filter = status.unwrap_or("active");
+
+        let mut stmt = conn.prepare(
+            "SELECT id, title, model, system_prompt, working_directory, project_name,
+                    status, mode, total_input_tokens, total_output_tokens,
+                    last_message_at, pinned, group_name, created_at, updated_at
+             FROM sessions
+             WHERE status = ?1
+             ORDER BY pinned DESC, COALESCE(last_message_at, updated_at) DESC",
+        )?;
+
+        let rows = stmt.query_map([status_filter], Self::map_row)?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    pub fn update(
+        conn: &Connection,
+        session_id: &str,
+        title: Option<&str>,
+        model: Option<&str>,
+        pinned: Option<bool>,
+        status: Option<&str>,
+    ) -> Result<()> {
+        let mut set_clauses = vec!["updated_at = CURRENT_TIMESTAMP"];
+        let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+        if let Some(t) = title {
+            set_clauses.push("title = ?");
+            params.push(Box::new(t.to_string()));
+        }
+        if let Some(m) = model {
+            set_clauses.push("model = ?");
+            params.push(Box::new(m.to_string()));
+        }
+        if let Some(p) = pinned {
+            set_clauses.push("pinned = ?");
+            params.push(Box::new(p as i32));
+        }
+        if let Some(s) = status {
+            set_clauses.push("status = ?");
+            params.push(Box::new(s.to_string()));
+        }
+
+        params.push(Box::new(session_id.to_string()));
+
+        let param_start = 1;
+        let mut numbered_clauses = Vec::new();
+        let mut idx = param_start;
+        for clause in &set_clauses {
+            if clause.contains('?') {
+                numbered_clauses.push(clause.replace('?', &format!("?{idx}")));
+                idx += 1;
+            } else {
+                numbered_clauses.push(clause.to_string());
+            }
+        }
+        let id_placeholder = format!("?{idx}");
+
+        let sql = format!(
+            "UPDATE sessions SET {} WHERE id = {}",
+            numbered_clauses.join(", "),
+            id_placeholder,
+        );
+
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+            params.iter().map(|p| p.as_ref()).collect();
+        conn.execute(&sql, param_refs.as_slice())?;
+        Ok(())
+    }
+
+    pub fn delete(conn: &Connection, session_id: &str) -> Result<()> {
+        conn.execute("DELETE FROM messages WHERE session_id = ?1", [session_id])?;
+        conn.execute("DELETE FROM sessions WHERE id = ?1", [session_id])?;
+        Ok(())
+    }
+
+    pub fn search(conn: &Connection, query: &str) -> Result<Vec<Session>> {
+        let pattern = format!("%{query}%");
+        let mut stmt = conn.prepare(
+            "SELECT id, title, model, system_prompt, working_directory, project_name,
+                    status, mode, total_input_tokens, total_output_tokens,
+                    last_message_at, pinned, group_name, created_at, updated_at
+             FROM sessions
+             WHERE (title LIKE ?1 OR project_name LIKE ?1)
+               AND status = 'active'
+             ORDER BY COALESCE(last_message_at, updated_at) DESC
+             LIMIT 50",
+        )?;
+
+        let rows = stmt.query_map([&pattern], Self::map_row)?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
     }
 
     pub fn update_working_directory(
@@ -92,6 +177,26 @@ impl SessionRepo {
             )?;
         }
         Ok(())
+    }
+
+    fn map_row(row: &rusqlite::Row) -> rusqlite::Result<Session> {
+        Ok(Session {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            model: row.get(2)?,
+            system_prompt: row.get(3)?,
+            working_directory: row.get(4)?,
+            project_name: row.get(5)?,
+            status: row.get(6)?,
+            mode: row.get(7)?,
+            total_input_tokens: row.get::<_, Option<i64>>(8)?.unwrap_or(0),
+            total_output_tokens: row.get::<_, Option<i64>>(9)?.unwrap_or(0),
+            last_message_at: row.get(10)?,
+            pinned: row.get::<_, Option<i32>>(11)?.unwrap_or(0) != 0,
+            group_name: row.get(12)?,
+            created_at: row.get(13)?,
+            updated_at: row.get(14)?,
+        })
     }
 }
 

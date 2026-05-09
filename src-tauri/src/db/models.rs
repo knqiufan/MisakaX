@@ -10,8 +10,27 @@ pub struct Session {
     pub project_name: Option<String>,
     pub status: String,
     pub mode: String,
+    #[serde(default)]
+    pub total_input_tokens: i64,
+    #[serde(default)]
+    pub total_output_tokens: i64,
+    pub last_message_at: Option<String>,
+    #[serde(default)]
+    pub pinned: bool,
+    pub group_name: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenUsage {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    #[serde(default)]
+    pub cache_read_tokens: Option<u64>,
+    #[serde(default)]
+    pub cache_creation_tokens: Option<u64>,
+    pub total_tokens: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
