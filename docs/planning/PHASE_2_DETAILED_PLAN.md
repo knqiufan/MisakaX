@@ -1925,19 +1925,19 @@ interface ImageAttachment {
 
 ### 2.3 send_message Command + 策略模式预留 [预估 8h] 🆕更新
 
-- [ ] **2.3.1** 创建 `src-tauri/src/services/llm/backend.rs`（ChatBackend trait + RigBackend struct）🆕
-- [ ] **2.3.2** 实现 `ChatBackend` trait（`send_and_stream` 方法签名，Phase 4 兼容性关键抽象）🆕
-- [ ] **2.3.3** 实现 `RigBackend`（Phase 2 的临时 Rig 直调实现，实现 ChatBackend trait）🆕
-- [ ] **2.3.4** 创建 `src-tauri/src/commands/chat.rs`
-- [ ] **2.3.5** 实现 `send_message` command（通过 ChatBackend trait 调用，注意 Mutex 锁分段获取/释放）
-- [ ] **2.3.6** 实现消息上下文构建函数 `build_chat_context()`
-- [ ] **2.3.7** 实现多模态消息构建（文本 + 图片 Base64）
-- [ ] **2.3.8** 实现 `stop_generation` command（调用 `state.stream_registry.abort()`）
-- [ ] **2.3.9** 实现 `regenerate_message` command
-- [ ] **2.3.10** 实现 `get_messages` command（带分页：limit + before_id）
-- [ ] **2.3.11** 在 `commands/mod.rs` 中添加 `pub mod chat;`（现有：`pub mod router_configs; pub mod settings;`）
-- [ ] **2.3.12** 在 `lib.rs` 的 `invoke_handler` 中注册新 commands（追加到现有 13 条之后）
-- [ ] **2.3.13** `cargo check` 编译通过
+- [x] **2.3.1** 创建 `src-tauri/src/services/llm/backend.rs`（ChatBackend trait + RigBackend struct）🆕
+- [x] **2.3.2** 实现 `ChatBackend` trait（`send_and_stream` 方法签名，Phase 4 兼容性关键抽象）🆕
+- [x] **2.3.3** 实现 `RigBackend`（Phase 2 的临时 Rig 直调实现，实现 ChatBackend trait）🆕
+- [x] **2.3.4** 创建 `src-tauri/src/commands/chat.rs`
+- [x] **2.3.5** 实现 `send_message` command（通过 ChatBackend trait 调用，注意 Mutex 锁分段获取/释放）
+- [x] **2.3.6** 实现消息上下文构建函数 `build_chat_context()`
+- [x] **2.3.7** 实现多模态消息构建（文本 + 图片 Base64）
+- [x] **2.3.8** 实现 `stop_generation` command（调用 `state.stream_registry.abort()`）
+- [x] **2.3.9** 实现 `regenerate_message` command
+- [x] **2.3.10** 实现 `get_messages` command（带分页：limit + before_id）
+- [x] **2.3.11** 在 `commands/mod.rs` 中添加 `pub mod chat;`（现有：`pub mod router_configs; pub mod settings;`）
+- [x] **2.3.12** 在 `lib.rs` 的 `invoke_handler` 中注册新 commands（追加到现有 13 条之后）
+- [x] **2.3.13** `cargo check` 编译通过
 
 ### 2.7 工作目录选择器 [预估 6h] 🆕
 

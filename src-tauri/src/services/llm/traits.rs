@@ -177,11 +177,12 @@ impl AgentHandle {
 
     /// 流式多轮对话 — 返回类型擦除的 `DeltaStream`
     ///
+    /// `prompt` 支持多模态输入（文本 + 图片），接受 `rig::completion::message::Message`。
     /// 内部通过 `StreamingChat::stream_chat` 获取 Provider 特定类型的流，
     /// 然后用 `map_multi_turn_item` 将每个 `MultiTurnStreamItem` 统一为 `StreamDelta`。
     pub async fn stream_chat(
         &self,
-        input: &str,
+        prompt: rig::completion::message::Message,
         history: Vec<rig::completion::message::Message>,
     ) -> Result<DeltaStream> {
         use futures::StreamExt;
@@ -189,7 +190,7 @@ impl AgentHandle {
 
         match self {
             Self::OpenAi(agent) => {
-                let stream = agent.stream_chat(input, history).await;
+                let stream = agent.stream_chat(prompt, history).await;
                 Ok(Box::pin(stream.filter_map(|item| async move {
                     match item {
                         Ok(multi) => map_multi_turn_item(multi).map(Ok),
@@ -198,7 +199,7 @@ impl AgentHandle {
                 })))
             }
             Self::Anthropic(agent) => {
-                let stream = agent.stream_chat(input, history).await;
+                let stream = agent.stream_chat(prompt, history).await;
                 Ok(Box::pin(stream.filter_map(|item| async move {
                     match item {
                         Ok(multi) => map_multi_turn_item(multi).map(Ok),
@@ -207,7 +208,7 @@ impl AgentHandle {
                 })))
             }
             Self::Gemini(agent) => {
-                let stream = agent.stream_chat(input, history).await;
+                let stream = agent.stream_chat(prompt, history).await;
                 Ok(Box::pin(stream.filter_map(|item| async move {
                     match item {
                         Ok(multi) => map_multi_turn_item(multi).map(Ok),

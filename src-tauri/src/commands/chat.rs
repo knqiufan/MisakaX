@@ -8,6 +8,12 @@ use crate::services::llm::config::LlmConfig;
 use crate::services::llm::RigBackend;
 use crate::AppState;
 
+/// 将附件 JSON 字符串反序列化为 ImageAttachment 列表
+fn parse_attachments_json(json: Option<&str>) -> Option<Vec<ImageAttachment>> {
+    json.and_then(|s| serde_json::from_str::<Vec<ImageAttachment>>(s).ok())
+        .filter(|imgs| !imgs.is_empty())
+}
+
 // ─── 请求/响应类型 ─────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize)]
@@ -126,8 +132,8 @@ pub async fn regenerate_message(
     session_id: String,
     message_id: String,
 ) -> Result<SendMessageResult, String> {
-    // Step 1: 加载 regeneration 上下文
-    let (user_content, user_msg_id, messages_before) = {
+    // Step 1: 加载 regeneration 上下文（含原始用户消息的附件）
+    let regen_ctx = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         MessageRepo::find_regeneration_context(&db, &session_id, &message_id)
             .map_err(|e| e.to_string())?
@@ -155,6 +161,7 @@ pub async fn regenerate_message(
     )?;
 
     let abort_flag = state.stream_registry.register(&session_id);
+    let images = parse_attachments_json(regen_ctx.user_attachments.as_deref());
 
     let backend = RigBackend::from_config(
         &router_config,
@@ -169,9 +176,9 @@ pub async fn regenerate_message(
             .send_and_stream(
                 &app,
                 &session,
-                &messages_before,
-                &user_content,
-                &None,
+                &regen_ctx.messages_before,
+                &regen_ctx.user_content,
+                &images,
                 &model_spec.model_id,
                 abort_flag,
                 &assistant_msg_id,
@@ -187,7 +194,7 @@ pub async fn regenerate_message(
     update_session_stats(&state, &session_id, &result)?;
 
     Ok(SendMessageResult {
-        user_message_id: user_msg_id,
+        user_message_id: regen_ctx.user_msg_id,
         assistant_message_id: assistant_msg_id,
     })
 }

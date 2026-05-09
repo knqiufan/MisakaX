@@ -3,6 +3,14 @@ use rusqlite::Connection;
 
 use crate::db::models::Message;
 
+/// Regeneration 上下文：包含需要重新生成的用户消息及其之前的历史
+pub struct RegenerationContext {
+    pub user_content: String,
+    pub user_msg_id: String,
+    pub user_attachments: Option<String>,
+    pub messages_before: Vec<Message>,
+}
+
 pub struct MessageRepo;
 
 impl MessageRepo {
@@ -119,12 +127,12 @@ impl MessageRepo {
         Self::collect_reversed(rows)
     }
 
-    /// 加载 regeneration 上下文：目标消息之前最近一条用户消息及更早的历史
+    /// 加载 regeneration 上下文：目标消息之前最近一条用户消息（含附件）及更早的历史
     pub fn find_regeneration_context(
         conn: &Connection,
         session_id: &str,
         target_message_id: &str,
-    ) -> Result<(String, String, Vec<Message>)> {
+    ) -> Result<RegenerationContext> {
         let target_created_at: String = conn
             .query_row(
                 "SELECT created_at FROM messages WHERE id = ?1 AND session_id = ?2",
@@ -133,13 +141,13 @@ impl MessageRepo {
             )
             .context("Target message not found")?;
 
-        let (user_content, user_msg_id) = conn
+        let (user_content, user_msg_id, user_attachments): (String, String, Option<String>) = conn
             .query_row(
-                "SELECT content, id FROM messages
+                "SELECT content, id, attachments FROM messages
                  WHERE session_id = ?1 AND role = 'user' AND created_at < ?2
                  ORDER BY created_at DESC LIMIT 1",
                 rusqlite::params![session_id, target_created_at],
-                |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .context("No user message found before target")?;
 
@@ -165,7 +173,12 @@ impl MessageRepo {
 
         let messages_before: Vec<Message> = rows.filter_map(|r| r.ok()).collect();
 
-        Ok((user_content, user_msg_id, messages_before))
+        Ok(RegenerationContext {
+            user_content,
+            user_msg_id,
+            user_attachments,
+            messages_before,
+        })
     }
 
     pub fn delete_from(

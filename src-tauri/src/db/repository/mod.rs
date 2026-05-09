@@ -5,7 +5,7 @@ pub mod session_repo;
 pub mod settings_repo;
 
 pub use custom_model_repo::CustomModelRepo;
-pub use message_repo::MessageRepo;
+pub use message_repo::{MessageRepo, RegenerationContext};
 pub use router_config_repo::RouterConfigRepo;
 pub use session_repo::SessionRepo;
 pub use settings_repo::SettingsRepo;

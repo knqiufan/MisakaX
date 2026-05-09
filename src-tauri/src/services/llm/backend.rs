@@ -3,6 +3,10 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
+use rig::completion::message::{
+    AssistantContent, ImageMediaType, Message as RigMessage, UserContent,
+};
+use rig::one_or_many::OneOrMany;
 use tauri::AppHandle;
 
 use crate::db::models::{Message, Session};
@@ -30,16 +34,6 @@ pub struct ImageAttachment {
 #[async_trait]
 pub trait ChatBackend: Send + Sync {
     /// 发送消息并以流式方式返回响应
-    ///
-    /// - `app`: Tauri AppHandle，用于 emit Event
-    /// - `session`: 当前会话信息
-    /// - `messages`: 历史消息列表
-    /// - `user_content`: 用户输入内容
-    /// - `images`: 可选的图片附件
-    /// - `model_id`: 模型标识符
-    /// - `config_id`: router config ID（用于获取 Provider）
-    /// - `abort_flag`: 中止标记（用户点击"停止生成"时设置为 true）
-    /// - `message_id`: 消息 ID（用于 Event 标识）
     async fn send_and_stream(
         &self,
         app: &AppHandle,
@@ -90,7 +84,7 @@ impl ChatBackend for RigBackend {
         session: &Session,
         messages: &[Message],
         user_content: &str,
-        _images: &Option<Vec<ImageAttachment>>,
+        images: &Option<Vec<ImageAttachment>>,
         model_id: &str,
         abort_flag: Arc<AtomicBool>,
         message_id: &str,
@@ -102,6 +96,7 @@ impl ChatBackend for RigBackend {
         )?;
 
         let chat_history = build_rig_chat_history(messages);
+        let prompt = build_user_prompt(user_content, images);
 
         let stream_session = StreamSession::new(
             message_id.to_string(),
@@ -111,25 +106,69 @@ impl ChatBackend for RigBackend {
         );
 
         stream_session
-            .execute_stream(&agent, user_content, chat_history)
+            .execute_stream(&agent, prompt, chat_history)
             .await
     }
 }
 
-/// 将 db Message 列表转换为 rig-core 的 chat history 格式
-#[cfg_attr(feature = "test-private", allow(dead_code))]
-pub fn build_rig_chat_history(
-    messages: &[Message],
-) -> Vec<rig::completion::message::Message> {
-    use rig::completion::message::{AssistantContent, Message as RigMessage, UserContent};
-    use rig::one_or_many::OneOrMany;
+// ─── 消息构建辅助函数 ────────────────────────────────────────────────
 
+/// 构建当前用户的 prompt（支持文本 + 图片多模态）
+///
+/// 当 `images` 非空时，构建包含文本和图片的多内容 User 消息；
+/// 否则仅返回纯文本消息。
+pub fn build_user_prompt(
+    content: &str,
+    images: &Option<Vec<ImageAttachment>>,
+) -> RigMessage {
+    let has_images = images.as_ref().is_some_and(|imgs| !imgs.is_empty());
+
+    if !has_images {
+        return RigMessage::user(content);
+    }
+
+    let imgs = images.as_ref().unwrap();
+    let mut parts: Vec<UserContent> = Vec::with_capacity(1 + imgs.len());
+
+    parts.push(UserContent::text(content));
+
+    for img in imgs {
+        let media_type = parse_image_media_type(&img.media_type);
+        parts.push(UserContent::image_base64(
+            &img.data,
+            Some(media_type),
+            None,
+        ));
+    }
+
+    RigMessage::User {
+        content: OneOrMany::many(parts)
+            .expect("parts is guaranteed non-empty"),
+    }
+}
+
+/// 将 MIME type 字符串解析为 rig-core 的 ImageMediaType
+fn parse_image_media_type(mime: &str) -> ImageMediaType {
+    match mime.to_lowercase().as_str() {
+        "image/png" => ImageMediaType::PNG,
+        "image/gif" => ImageMediaType::GIF,
+        "image/webp" => ImageMediaType::WEBP,
+        "image/heic" => ImageMediaType::HEIC,
+        "image/heif" => ImageMediaType::HEIF,
+        "image/svg+xml" => ImageMediaType::SVG,
+        _ => ImageMediaType::JPEG,
+    }
+}
+
+/// 将 db Message 列表转换为 rig-core 的 chat history 格式
+///
+/// 历史消息中的图片附件也会被还原为多模态消息。
+#[cfg_attr(feature = "test-private", allow(dead_code))]
+pub fn build_rig_chat_history(messages: &[Message]) -> Vec<RigMessage> {
     messages
         .iter()
         .filter_map(|msg| match msg.role.as_str() {
-            "user" => Some(RigMessage::User {
-                content: OneOrMany::one(UserContent::text(msg.content.clone())),
-            }),
+            "user" => Some(build_history_user_message(msg)),
             "assistant" => Some(RigMessage::Assistant {
                 id: None,
                 content: OneOrMany::one(AssistantContent::text(msg.content.clone())),
@@ -137,6 +176,17 @@ pub fn build_rig_chat_history(
             _ => None,
         })
         .collect()
+}
+
+/// 从历史 User 消息中还原多模态内容
+fn build_history_user_message(msg: &Message) -> RigMessage {
+    let images = msg
+        .attachments
+        .as_deref()
+        .and_then(|json| serde_json::from_str::<Vec<ImageAttachment>>(json).ok())
+        .filter(|imgs| !imgs.is_empty());
+
+    build_user_prompt(&msg.content, &images)
 }
 
 // Phase 4 预留接口（当前注释，Phase 4 时解注释并实现）

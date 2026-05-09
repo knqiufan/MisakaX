@@ -112,10 +112,13 @@ impl StreamSession {
     /// 通过 `AgentHandle::stream_chat` 获取类型擦除的 delta 流，
     /// 逐块分发到 `handle_delta`，最后调用 `finalize` 汇总。
     /// 消费 self 以在 finalize 时直接 move 出 accumulated 数据避免 clone。
+    ///
+    /// `prompt` 支持多模态：纯文本传 `Message::user("text")`，
+    /// 带图片传包含 `UserContent::text` + `UserContent::image_base64` 的 `Message::User`。
     pub async fn execute_stream(
         mut self,
         agent: &AgentHandle,
-        prompt: &str,
+        prompt: rig::completion::message::Message,
         chat_history: Vec<rig::completion::message::Message>,
     ) -> anyhow::Result<StreamResult> {
         use futures::StreamExt;

@@ -6,7 +6,9 @@ pub mod registry;
 pub mod streaming;
 pub mod traits;
 
-pub use backend::{ChatBackend, ImageAttachment, RigBackend};
+pub use backend::{
+    build_rig_chat_history, build_user_prompt, ChatBackend, ImageAttachment, RigBackend,
+};
 pub use config::LlmConfig;
 pub use factory::ProviderFactory;
 pub use registry::{ModelInfo, ModelRegistry};
