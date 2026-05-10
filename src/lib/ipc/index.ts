@@ -5,6 +5,7 @@ export { workspaceIpc } from "./workspace";
 export { sessionsIpc } from "./sessions";
 export { chatIpc } from "./chat";
 export { modelsIpc } from "./models";
+export { sidecarIpc } from "./sidecar";
 export type {
   AppConfig,
   RouterConfig,
@@ -29,3 +30,4 @@ export type {
 export type { DirectoryInfo, RecentDirectory } from "./workspace";
 export type { CreateSessionParams, UpdateSessionWorkingDirParams } from "./sessions";
 export type { ModelInfo, ProviderModels } from "./models";
+export type { SidecarStatus, SidecarStatusEvent } from "./sidecar";

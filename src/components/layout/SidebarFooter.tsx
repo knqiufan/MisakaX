@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores";
 import { NavItem } from "./NavItem";
 import { UserMenu } from "./UserMenu";
+import { SidecarStatusBadge } from "./SidecarStatusBadge";
 import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
@@ -49,16 +50,19 @@ export function SidebarFooter() {
 
       <UserMenu collapsed={collapsed} />
 
-      {collapsed ? (
-        <Tooltip>
-          <TooltipTrigger asChild>{collapseButton}</TooltipTrigger>
-          <TooltipContent side="right" sideOffset={8}>
-            <p>{t("expand")}</p>
-          </TooltipContent>
-        </Tooltip>
-      ) : (
-        collapseButton
-      )}
+      <div className="flex items-center justify-between">
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>{collapseButton}</TooltipTrigger>
+            <TooltipContent side="right" sideOffset={8}>
+              <p>{t("expand")}</p>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          collapseButton
+        )}
+        <SidecarStatusBadge />
+      </div>
     </div>
   );
 }

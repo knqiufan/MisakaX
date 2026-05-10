@@ -18,5 +18,15 @@
   "emptyState": {
     "title": "这里还没有内容",
     "description": "开始创建新内容吧"
+  },
+  "sidecar": {
+    "status": {
+      "ready": "Agent 就绪",
+      "starting": "Agent 启动中…",
+      "error": "Agent 异常",
+      "stopped": "Agent 已停止",
+      "restarting": "Agent 重启中…"
+    },
+    "clickToRestart": "点击重启"
   }
 }

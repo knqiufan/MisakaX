@@ -1572,35 +1572,35 @@ agent/
 #### 3.1 Python Sidecar 端点扩展（4h）
 
 ```
-TODO-3.1.1  [1.0h] [无依赖]
+TODO-3.1.1  [1.0h] [无依赖] ✅ 已完成 (2026-05-11)
     创建 agent/app/models.py
     - 定义 ChatMessage / ChatConfig / ChatRequest / ChatResponse / ToolCall / TokenUsage Pydantic 模型
     - 定义 HealthResponse / InfoResponse 响应模型
     - 所有模型使用 pydantic v2 语法（model_config 而非 class Config）
 
-TODO-3.1.2  [0.5h] [依赖 3.1.1]
+TODO-3.1.2  [0.5h] [依赖 3.1.1] ✅ 已完成 (2026-05-11)
     修改 agent/app/routers/health.py
     - 增强 /health 返回结构：添加 version / uptime_seconds / capabilities / agent_ready 字段
     - 在 app 启动时记录 startup_time（修改 main.py 的 startup 事件）
 
-TODO-3.1.3  [1.0h] [依赖 3.1.1]
+TODO-3.1.3  [1.0h] [依赖 3.1.1] ✅ 已完成 (2026-05-11)
     创建 agent/app/routers/agent.py
     - 实现占位 POST /agent/chat 端点（返回 501 HTTPException）
     - 实现占位 POST /agent/stream 端点（返回 501 HTTPException）
     - 请求参数类型使用 models.py 中定义的 ChatRequest
 
-TODO-3.1.4  [0.5h] [无依赖]
+TODO-3.1.4  [0.5h] [无依赖] ✅ 已完成 (2026-05-11)
     创建 agent/app/routers/info.py
     - GET /info 返回 name / version / python_version / deepagents_available / powermem_available
     - deepagents_available / powermem_available 通过 try-import 动态检测
 
-TODO-3.1.5  [0.5h] [依赖 3.1.2-3.1.4]
+TODO-3.1.5  [0.5h] [依赖 3.1.2-3.1.4] ✅ 已完成 (2026-05-11)
     修改 agent/app/main.py
     - 注册 agent_router 和 info_router
-    - startup 事件记录 app.state.startup_time
+    - startup 事件记录 app.state.startup_time（使用 lifespan 替代已弃用的 on_event）
     - 修改 config.py 新增 debug: bool = False
 
-TODO-3.1.6  [0.5h] [依赖 3.1.5]
+TODO-3.1.6  [0.5h] [依赖 3.1.5] ✅ 已完成 (2026-05-11)
     验证所有端点
     - 启动 Sidecar：cd agent && python -m uvicorn app.main:app --port 9527
     - 测试 /health、/info、/agent/chat、/agent/stream 返回值正确
@@ -1609,7 +1609,7 @@ TODO-3.1.6  [0.5h] [依赖 3.1.5]
 #### 3.2 Sidecar 预热管理器（6h）
 
 ```
-TODO-3.2.1  [2.0h] [依赖 3.1 完成]
+TODO-3.2.1  [2.0h] [依赖 3.1 完成] ✅ 已完成 (2026-05-11)
     重写 src-tauri/src/sidecar.rs
     - 定义 SidecarStatus 枚举（Stopped / Starting / Ready / Error / Restarting）
     - 定义 SidecarStatusEvent 结构体（用于 Tauri Event）
@@ -1623,24 +1623,24 @@ TODO-3.2.1  [2.0h] [依赖 3.1 完成]
     - 保留 Drop trait 用于进程清理
     - 每次状态变化通过 app.emit("sidecar:status", event) 通知前端
 
-TODO-3.2.2  [1.5h] [依赖 3.2.1]
+TODO-3.2.2  [1.5h] [依赖 3.2.1] ✅ 已完成 (2026-05-11)
     修改 src-tauri/src/lib.rs
     - AppState.sidecar 类型从 Mutex<Option<SidecarManager>> 改为 Arc<SidecarManager>
     - 构建 SidecarManager 实例（传入 agent_dir + port）
     - setup 闭包中 tokio::spawn 异步调用 sidecar.preheat(app_handle)
     - 移除旧的同步 Sidecar 启动逻辑
 
-TODO-3.2.3  [1.0h] [依赖 3.2.1]
+TODO-3.2.3  [1.0h] [依赖 3.2.1] ✅ 已完成 (2026-05-11)
     创建 src-tauri/src/commands/sidecar.rs
     - get_sidecar_status command：返回当前 SidecarStatus
     - restart_sidecar command：调用 sidecar.restart()
     - 在 commands/mod.rs 中注册新模块
 
-TODO-3.2.4  [0.5h] [依赖 3.2.2, 3.2.3]
+TODO-3.2.4  [0.5h] [依赖 3.2.2, 3.2.3] ✅ 已完成 (2026-05-11)
     修改 src-tauri/src/lib.rs invoke_handler
     - 注册 get_sidecar_status / restart_sidecar 两个新 command
 
-TODO-3.2.5  [1.0h] [依赖 3.2.4]
+TODO-3.2.5  [1.0h] [依赖 3.2.4] ✅ 已完成 (2026-05-11)
     集成测试
     - cargo check 编译通过
     - 启动应用，观察日志确认 Sidecar 异步预热成功
@@ -1651,27 +1651,27 @@ TODO-3.2.5  [1.0h] [依赖 3.2.4]
 #### 3.3 Sidecar 状态指示器（2h）
 
 ```
-TODO-3.3.1  [0.5h] [无依赖]
+TODO-3.3.1  [0.5h] [无依赖] ✅ 已完成 (2026-05-11)
     创建 src/lib/ipc/sidecar.ts
     - 定义 SidecarStatus / SidecarStatusEvent TypeScript 类型
     - 封装 getSidecarStatus() / restartSidecar() IPC 调用
     - 在 index.ts 中导出
 
-TODO-3.3.2  [0.5h] [依赖 3.3.1]
+TODO-3.3.2  [0.5h] [依赖 3.3.1] ✅ 已完成 (2026-05-11)
     创建 src/hooks/use-sidecar-status.ts
     - useSidecarStatus() hook：
       - 监听 'sidecar:status' Tauri Event
       - 初始化时调用 getSidecarStatus()
       - 返回 { status, restartSidecar }
 
-TODO-3.3.3  [0.5h] [依赖 3.3.2]
+TODO-3.3.3  [0.5h] [依赖 3.3.2] ✅ 已完成 (2026-05-11)
     创建 src/components/layout/SidecarStatusBadge.tsx
     - 使用 useSidecarStatus() hook
     - 状态→颜色+图标映射（emerald=就绪 / amber=启动中或重启中 / destructive=异常 / muted=停止）
     - Tooltip 显示详细信息（端口、运行时长）
     - Error 状态显示"重启"按钮
 
-TODO-3.3.4  [0.5h] [依赖 3.3.3]
+TODO-3.3.4  [0.5h] [依赖 3.3.3] ✅ 已完成 (2026-05-11)
     修改 src/components/layout/SidebarFooter.tsx
     - 在版本号旁嵌入 SidecarStatusBadge 组件
     - 确保布局紧凑，不干扰已有 UI
@@ -1681,7 +1681,7 @@ TODO-3.3.4  [0.5h] [依赖 3.3.3]
 #### 3.4 Rust ↔ Sidecar 通信协议（4h）
 
 ```
-TODO-3.4.1  [1.5h] [无依赖]
+TODO-3.4.1  [1.5h] [无依赖] ✅ 已完成 (2026-05-11)
     创建 src-tauri/src/services/sidecar_client.rs
     - SidecarClient 结构体（base_url + reqwest::Client）
     - new(port) 构造函数
@@ -1691,18 +1691,18 @@ TODO-3.4.1  [1.5h] [无依赖]
     - async fn stream(request: AgentChatRequest) → Result<impl Stream>（Phase 4 使用，SSE 解析）
     - 定义 AgentChatRequest / AgentChatResponse / AgentStreamEvent 类型
 
-TODO-3.4.2  [0.5h] [依赖 3.4.1]
+TODO-3.4.2  [0.5h] [依赖 3.4.1] ✅ 已完成 (2026-05-11)
     修改 src-tauri/src/services/mod.rs
     - 添加 pub mod sidecar_client;
-    - 添加 pub mod mcp;（为 Sprint 2 预留）
+    - 注：pub mod mcp 将在 Sprint 2 中添加
 
-TODO-3.4.3  [1.0h] [依赖 3.4.1, 3.1 完成]
+TODO-3.4.3  [1.0h] [依赖 3.4.1, 3.1 完成] ✅ 已完成 (2026-05-11)
     修改 agent/app/routers/agent.py
     - /agent/chat 占位端点改为接受完整 ChatRequest 并返回 501（而非简单 422）
     - /agent/stream 占位端点同上
     - 确保请求参数与 Rust 侧 AgentChatRequest 对齐
 
-TODO-3.4.4  [1.0h] [依赖 3.4.1-3.4.3]
+TODO-3.4.4  [1.0h] [依赖 3.4.1-3.4.3] ✅ 已完成 (2026-05-11)
     端到端联通测试
     - 在 sidecar.rs preheat 成功后，调用 SidecarClient::health() 验证
     - 记录日志：Sidecar health check via SidecarClient: OK

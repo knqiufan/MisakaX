@@ -13,14 +13,16 @@ pub mod sidecar;
 
 use config::AppConfig;
 use services::llm::StreamRegistry;
+use services::sidecar_client::SidecarClient;
 use sidecar::SidecarManager;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 /// Application state shared across commands
 pub struct AppState {
     pub db: Mutex<rusqlite::Connection>,
     pub config: Mutex<AppConfig>,
-    pub sidecar: Mutex<Option<SidecarManager>>,
+    pub sidecar: Arc<SidecarManager>,
+    pub sidecar_client: SidecarClient,
     /// 流式会话注册表 — 跟踪活跃流并支持 abort（停止生成）。
     /// DashMap 内部实现并发安全，无需外层 Mutex。
     pub stream_registry: StreamRegistry,
@@ -36,29 +38,19 @@ pub fn run() {
     let db_path = config::db_path().expect("Failed to determine database path");
     let conn = db::init_database(&db_path).expect("Failed to initialize database");
 
-    // Resolve agent directory relative to the executable (dev: project root, prod: same dir)
     let agent_dir = std::env::current_dir()
         .map(|d| d.join("agent"))
         .unwrap_or_else(|_| std::path::PathBuf::from("agent"));
 
-    // Auto-start Python sidecar if auto_start_sidecar is enabled
-    let sidecar = if app_config.auto_start_sidecar {
-        match sidecar::SidecarManager::start(
-            agent_dir.to_str().unwrap_or("agent"),
-            app_config.sidecar_port,
-        ) {
-            Ok(manager) => Some(manager),
-            Err(e) => {
-                tracing::warn!("Python Sidecar failed to start: {}", e);
-                None
-            }
-        }
-    } else {
-        tracing::info!(
-            "Python Sidecar auto-start disabled (set auto_start_sidecar: true in config)"
-        );
-        None
-    };
+    let sidecar_port = app_config.sidecar_port;
+    let auto_start = app_config.auto_start_sidecar;
+
+    let sidecar = Arc::new(SidecarManager::new(
+        agent_dir.to_str().unwrap_or("agent").to_string(),
+        sidecar_port,
+    ));
+
+    let sidecar_client = SidecarClient::new(sidecar_port);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -70,7 +62,8 @@ pub fn run() {
         .manage(AppState {
             db: Mutex::new(conn),
             config: Mutex::new(app_config),
-            sidecar: Mutex::new(sidecar),
+            sidecar: Arc::clone(&sidecar),
+            sidecar_client,
             stream_registry: StreamRegistry::new(),
         })
         .invoke_handler(tauri::generate_handler![
@@ -106,9 +99,39 @@ pub fn run() {
             commands::session::search_sessions,
             commands::session::update_session_working_dir,
             commands::session::get_session,
+            commands::sidecar::get_sidecar_status,
+            commands::sidecar::restart_sidecar,
         ])
-        .setup(|_app| {
+        .setup(move |app| {
             tracing::info!("MisakaX initialized successfully");
+
+            if auto_start {
+                let app_handle = app.handle().clone();
+                sidecar.preheat(app_handle.clone());
+
+                let sidecar_port_for_check = sidecar_port;
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_secs(12)).await;
+                    let client = SidecarClient::new(sidecar_port_for_check);
+                    match client.health().await {
+                        Ok(resp) => {
+                            tracing::info!(
+                                "Sidecar health check via SidecarClient: OK (v{}, uptime={:.1}s)",
+                                resp.version,
+                                resp.uptime_seconds,
+                            );
+                        }
+                        Err(e) => {
+                            tracing::warn!("Sidecar health check via SidecarClient failed: {}", e);
+                        }
+                    }
+                });
+            } else {
+                tracing::info!(
+                    "Python Sidecar auto-start disabled (set auto_start_sidecar: true in config)"
+                );
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())

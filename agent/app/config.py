@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 9527
     log_level: str = "info"
+    debug: bool = False
     db_path: str = ""  # Will be set by Rust core via env var
 
     model_config = {"env_prefix": "MISAKA_"}

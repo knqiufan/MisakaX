@@ -18,5 +18,15 @@
   "emptyState": {
     "title": "Nothing here yet",
     "description": "Get started by creating something new"
+  },
+  "sidecar": {
+    "status": {
+      "ready": "Agent Ready",
+      "starting": "Agent Starting…",
+      "error": "Agent Error",
+      "stopped": "Agent Stopped",
+      "restarting": "Agent Restarting…"
+    },
+    "clickToRestart": "Click to restart"
   }
 }
