@@ -91,6 +91,20 @@
     "techStack": "Technology Stack",
     "license": "License",
     "github": "GitHub Repository",
-    "openSource": "Open Source"
+    "openSource": "Open Source",
+    "dataManagement": "Data Management",
+    "dataManagementDesc": "Export or import session data in JSON format.",
+    "exportAllSessions": "Export All Sessions",
+    "importSessions": "Import Sessions",
+    "exporting": "Exporting...",
+    "importing": "Importing...",
+    "exportSuccess": "Export successful",
+    "exportFailed": "Export failed",
+    "importSuccess": "Import complete",
+    "importPartial": "Partially imported",
+    "importFailed": "Import failed",
+    "imported": "imported",
+    "skipped": "skipped",
+    "noSessionsToExport": "No sessions to export"
   }
 }

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Download, Upload } from "lucide-react";
+import { save as dialogSave, open as dialogOpen } from "@tauri-apps/plugin-dialog";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { settingsIpc } from "@/lib/ipc";
+import { settingsIpc, sessionsIpc } from "@/lib/ipc";
 import type { SystemInfo } from "@/lib/ipc";
 
 export function AboutSettings() {
@@ -83,6 +85,8 @@ export function AboutSettings() {
         </CardContent>
       </Card>
 
+      <DataManagementCard />
+
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-center gap-4">
@@ -112,6 +116,102 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="font-mono text-foreground">{value}</dd>
     </div>
+  );
+}
+
+function DataManagementCard() {
+  const { t } = useTranslation("settings");
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  const handleExportAll = async () => {
+    try {
+      setExporting(true);
+      const allSessions = await sessionsIpc.list();
+      if (allSessions.length === 0) {
+        toast.info(t("about.noSessionsToExport"));
+        return;
+      }
+
+      const filePath = await dialogSave({
+        title: t("about.exportAllSessions"),
+        defaultPath: `misakax-export-${new Date().toISOString().slice(0, 10)}.json`,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (!filePath) return;
+
+      const ids = allSessions.map((s) => s.id);
+      await sessionsIpc.exportSessions(ids, filePath);
+      toast.success(t("about.exportSuccess"));
+    } catch (err) {
+      console.error("Export all failed:", err);
+      toast.error(t("about.exportFailed"));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleImport = async () => {
+    try {
+      setImporting(true);
+      const selected = await dialogOpen({
+        title: t("about.importSessions"),
+        filters: [{ name: "JSON", extensions: ["json"] }],
+        multiple: false,
+      });
+      if (!selected) return;
+
+      const filePath = typeof selected === "string" ? selected : selected;
+      const result = await sessionsIpc.importSessions(filePath);
+
+      if (result.errors.length > 0) {
+        toast.warning(
+          `${t("about.importPartial")}: ${result.imported_count} ${t("about.imported")}, ${result.skipped_count} ${t("about.skipped")}`
+        );
+      } else {
+        toast.success(
+          `${t("about.importSuccess")}: ${result.imported_count} ${t("about.imported")}, ${result.skipped_count} ${t("about.skipped")}`
+        );
+      }
+    } catch (err) {
+      console.error("Import failed:", err);
+      toast.error(t("about.importFailed"));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">{t("about.dataManagement")}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportAll}
+            disabled={exporting}
+          >
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            {exporting ? t("about.exporting") : t("about.exportAllSessions")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleImport}
+            disabled={importing}
+          >
+            <Upload className="mr-1.5 h-3.5 w-3.5" />
+            {importing ? t("about.importing") : t("about.importSessions")}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {t("about.dataManagementDesc")}
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 

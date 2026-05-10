@@ -339,3 +339,96 @@ fn test_delete_single_message() {
     assert_eq!(messages.len(), 1);
     assert_eq!(messages[0].id, "m2");
 }
+
+// ─── FTS5 search ────────────────────────────────────────────────────
+
+#[test]
+fn test_fts_search_finds_user_messages() {
+    let conn = setup_db();
+    MessageRepo::insert_user_message(&conn, "m1", "s1", "Rust programming language", None)
+        .unwrap();
+    MessageRepo::insert_user_message(&conn, "m2", "s1", "Python scripting", None).unwrap();
+
+    let results = MessageRepo::search_fts(&conn, "Rust", None, 10).unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].id, "m1");
+    assert!(results[0].snippet.contains("Rust"));
+}
+
+#[test]
+fn test_fts_search_finds_assistant_messages() {
+    let conn = setup_db();
+    MessageRepo::insert_assistant_placeholder(&conn, "a1", "s1", "gpt-4o").unwrap();
+    MessageRepo::update_assistant_content(
+        &conn,
+        "a1",
+        "Here is a tutorial on Rust ownership",
+        None,
+        None,
+        false,
+    )
+    .unwrap();
+
+    let results = MessageRepo::search_fts(&conn, "ownership", None, 10).unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].role, "assistant");
+}
+
+#[test]
+fn test_fts_search_filters_by_session() {
+    let conn = setup_db();
+    conn.execute("INSERT INTO sessions (id, title) VALUES ('s2', 'Test2')", [])
+        .unwrap();
+
+    MessageRepo::insert_user_message(&conn, "m1", "s1", "Shared keyword unique", None)
+        .unwrap();
+    MessageRepo::insert_user_message(&conn, "m2", "s2", "Also has keyword unique", None)
+        .unwrap();
+
+    let all = MessageRepo::search_fts(&conn, "unique", None, 10).unwrap();
+    assert_eq!(all.len(), 2);
+
+    let s1_only = MessageRepo::search_fts(&conn, "unique", Some("s1"), 10).unwrap();
+    assert_eq!(s1_only.len(), 1);
+    assert_eq!(s1_only[0].session_id, "s1");
+}
+
+#[test]
+fn test_fts_search_empty_query_returns_empty() {
+    let conn = setup_db();
+    MessageRepo::insert_user_message(&conn, "m1", "s1", "Some content", None).unwrap();
+
+    let results = MessageRepo::search_fts(&conn, "", None, 10).unwrap();
+    assert!(results.is_empty());
+
+    let results2 = MessageRepo::search_fts(&conn, "   ", None, 10).unwrap();
+    assert!(results2.is_empty());
+}
+
+#[test]
+fn test_fts_search_includes_session_title() {
+    let conn = setup_db();
+    MessageRepo::insert_user_message(&conn, "m1", "s1", "Hello from test", None).unwrap();
+
+    let results = MessageRepo::search_fts(&conn, "Hello", None, 10).unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].session_title, Some("Test".to_string()));
+}
+
+#[test]
+fn test_fts_search_respects_limit() {
+    let conn = setup_db();
+    for i in 0..10 {
+        MessageRepo::insert_user_message(
+            &conn,
+            &format!("fts-m{i}"),
+            "s1",
+            &format!("Searchable content item {i}"),
+            None,
+        )
+        .unwrap();
+    }
+
+    let results = MessageRepo::search_fts(&conn, "Searchable", None, 3).unwrap();
+    assert_eq!(results.len(), 3);
+}

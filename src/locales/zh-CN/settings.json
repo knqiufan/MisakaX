@@ -91,6 +91,20 @@
     "techStack": "技术栈",
     "license": "开源许可",
     "github": "GitHub 仓库",
-    "openSource": "开源"
+    "openSource": "开源",
+    "dataManagement": "数据管理",
+    "dataManagementDesc": "导出或导入会话数据，支持 JSON 格式。",
+    "exportAllSessions": "导出所有会话",
+    "importSessions": "导入会话",
+    "exporting": "导出中...",
+    "importing": "导入中...",
+    "exportSuccess": "导出成功",
+    "exportFailed": "导出失败",
+    "importSuccess": "导入完成",
+    "importPartial": "部分导入完成",
+    "importFailed": "导入失败",
+    "imported": "条导入",
+    "skipped": "条跳过",
+    "noSessionsToExport": "暂无会话可导出"
   }
 }

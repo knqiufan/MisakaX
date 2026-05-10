@@ -1,5 +1,10 @@
 import { invoke } from "./invoke";
-import type { Session, UpdateSessionParams } from "./types";
+import type {
+  Session,
+  UpdateSessionParams,
+  MessageSearchResult,
+  ImportResult,
+} from "./types";
 
 export interface CreateSessionParams {
   title?: string;
@@ -45,4 +50,33 @@ export const sessionsIpc = {
       sessionId: params.sessionId,
       workingDirectory: params.workingDirectory,
     }),
+
+  pin: (id: string, pinned: boolean) =>
+    invoke<void>("pin_session", { id, pinned }),
+
+  archive: (id: string, archived: boolean) =>
+    invoke<void>("archive_session", { id, archived }),
+
+  setGroup: (id: string, group: string | null) =>
+    invoke<void>("set_session_group", { id, group }),
+
+  listGroups: () =>
+    invoke<string[]>("list_session_groups"),
+
+  searchMessages: (
+    query: string,
+    sessionId?: string,
+    limit?: number,
+  ) =>
+    invoke<MessageSearchResult[]>("search_messages", {
+      query,
+      sessionId,
+      limit,
+    }),
+
+  exportSessions: (sessionIds: string[], filePath: string) =>
+    invoke<void>("export_sessions", { sessionIds, filePath }),
+
+  importSessions: (filePath: string) =>
+    invoke<ImportResult>("import_sessions", { filePath }),
 };

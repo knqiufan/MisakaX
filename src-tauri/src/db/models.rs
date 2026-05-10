@@ -104,3 +104,38 @@ pub struct CreateCustomModel {
     pub max_tokens: Option<i32>,
     pub context_window: Option<i32>,
 }
+
+/// FTS5 全文搜索结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessageSearchResult {
+    pub id: String,
+    pub session_id: String,
+    pub session_title: Option<String>,
+    pub role: String,
+    pub snippet: String,
+    pub created_at: String,
+}
+
+/// 会话导出数据（顶层容器）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportData {
+    pub version: u32,
+    pub exported_at: String,
+    pub app: String,
+    pub sessions: Vec<ExportSession>,
+}
+
+/// 单个会话的导出数据（含消息列表）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportSession {
+    pub session: Session,
+    pub messages: Vec<Message>,
+}
+
+/// 导入结果统计
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportResult {
+    pub imported_count: u32,
+    pub skipped_count: u32,
+    pub errors: Vec<String>,
+}

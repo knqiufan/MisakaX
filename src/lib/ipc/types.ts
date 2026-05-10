@@ -157,6 +157,33 @@ export interface UpdateSessionParams {
   status?: string;
 }
 
+export interface MessageSearchResult {
+  id: string;
+  session_id: string;
+  session_title: string | null;
+  role: string;
+  snippet: string;
+  created_at: string;
+}
+
+export interface ExportData {
+  version: number;
+  exported_at: string;
+  app: string;
+  sessions: ExportSession[];
+}
+
+export interface ExportSession {
+  session: Session;
+  messages: Message[];
+}
+
+export interface ImportResult {
+  imported_count: number;
+  skipped_count: number;
+  errors: string[];
+}
+
 // ─── MCP Types ───────────────────────────────────────────────────────
 
 export type ToolCallStatus = "pending" | "running" | "complete" | "error";

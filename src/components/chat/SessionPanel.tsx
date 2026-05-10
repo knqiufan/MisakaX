@@ -1,13 +1,23 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Search, MessageSquare } from "lucide-react";
+import {
+  Plus,
+  Search,
+  MessageSquare,
+  ChevronDown,
+  ChevronRight,
+  Archive,
+} from "lucide-react";
+import { save as dialogSave } from "@tauri-apps/plugin-dialog";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SessionItem } from "./SessionItem";
+import { MessageSearchResults } from "./MessageSearchResults";
 import { sessionsIpc } from "@/lib/ipc";
-import type { Session } from "@/lib/ipc";
+import type { Session, MessageSearchResult } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
 
 interface SessionPanelProps {
@@ -26,42 +36,71 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Session[] | null>(null);
+  const [messageResults, setMessageResults] = useState<MessageSearchResult[] | null>(null);
+  const [groups, setGroups] = useState<string[]>([]);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedSessions, setArchivedSessions] = useState<Session[]>([]);
+  const [archivedCount, setArchivedCount] = useState(0);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const loadSessions = useCallback(async () => {
     try {
-      const list = await sessionsIpc.list();
+      const [list, groupList, archived] = await Promise.all([
+        sessionsIpc.list(),
+        sessionsIpc.listGroups(),
+        sessionsIpc.list("archived"),
+      ]);
       setSessions(list);
+      setGroups(groupList);
+      setArchivedCount(archived.length);
+      if (showArchived) setArchivedSessions(archived);
     } catch (err) {
       console.error("Failed to load sessions:", err);
     }
-  }, [setSessions]);
+  }, [setSessions, showArchived]);
+
+  const loadArchivedSessions = useCallback(async () => {
+    try {
+      const list = await sessionsIpc.list("archived");
+      setArchivedSessions(list);
+      setArchivedCount(list.length);
+    } catch (err) {
+      console.error("Failed to load archived sessions:", err);
+    }
+  }, []);
 
   useEffect(() => {
     loadSessions();
   }, [loadSessions]);
 
-  const handleSearch = useCallback(
-    (query: string) => {
-      setSearchQuery(query);
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+  useEffect(() => {
+    if (showArchived) loadArchivedSessions();
+  }, [showArchived, loadArchivedSessions]);
 
-      if (!query.trim()) {
-        setSearchResults(null);
-        return;
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+
+    if (!query.trim()) {
+      setSearchResults(null);
+      setMessageResults(null);
+      return;
+    }
+
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const [sessionHits, msgHits] = await Promise.all([
+          sessionsIpc.search(query.trim()),
+          sessionsIpc.searchMessages(query.trim(), undefined, 20),
+        ]);
+        setSearchResults(sessionHits);
+        setMessageResults(msgHits);
+      } catch (err) {
+        console.error("Search failed:", err);
       }
-
-      searchTimerRef.current = setTimeout(async () => {
-        try {
-          const results = await sessionsIpc.search(query.trim());
-          setSearchResults(results);
-        } catch (err) {
-          console.error("Session search failed:", err);
-        }
-      }, 300);
-    },
-    []
-  );
+    }, 300);
+  }, []);
 
   const handleSelect = useCallback(
     async (id: string) => {
@@ -96,33 +135,35 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
           setActiveSessionData(null);
         }
         await loadSessions();
+        if (showArchived) await loadArchivedSessions();
       } catch (err) {
         console.error("Failed to delete session:", err);
       }
     },
-    [activeSessionId, setActiveSession, setActiveSessionData, loadSessions]
+    [activeSessionId, setActiveSession, setActiveSessionData, loadSessions, showArchived, loadArchivedSessions]
   );
 
   const handleArchive = useCallback(
-    async (id: string) => {
+    async (id: string, archived: boolean) => {
       try {
-        await sessionsIpc.update({ id, status: "archived" });
-        if (activeSessionId === id) {
+        await sessionsIpc.archive(id, archived);
+        if (archived && activeSessionId === id) {
           setActiveSession(null);
           setActiveSessionData(null);
         }
         await loadSessions();
+        if (showArchived) await loadArchivedSessions();
       } catch (err) {
-        console.error("Failed to archive session:", err);
+        console.error("Failed to toggle archive:", err);
       }
     },
-    [activeSessionId, setActiveSession, setActiveSessionData, loadSessions]
+    [activeSessionId, setActiveSession, setActiveSessionData, loadSessions, showArchived, loadArchivedSessions]
   );
 
   const handleTogglePin = useCallback(
     async (id: string, pinned: boolean) => {
       try {
-        await sessionsIpc.update({ id, pinned });
+        await sessionsIpc.pin(id, pinned);
         await loadSessions();
       } catch (err) {
         console.error("Failed to toggle pin:", err);
@@ -131,10 +172,95 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
     [loadSessions]
   );
 
-  const displaySessions = useMemo(
-    () => searchResults ?? sessions,
-    [searchResults, sessions]
+  const handleSetGroup = useCallback(
+    async (id: string, group: string | null) => {
+      try {
+        await sessionsIpc.setGroup(id, group);
+        await loadSessions();
+      } catch (err) {
+        console.error("Failed to set group:", err);
+      }
+    },
+    [loadSessions]
   );
+
+  const handleExport = useCallback(async (id: string) => {
+    try {
+      const filePath = await dialogSave({
+        title: "导出会话",
+        defaultPath: "session-export.json",
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (!filePath) return;
+      await sessionsIpc.exportSessions([id], filePath);
+      toast.success("导出成功");
+    } catch (err) {
+      console.error("Export failed:", err);
+      toast.error("导出失败");
+    }
+  }, []);
+
+  const handleMessageResultClick = useCallback(
+    (sessionId: string) => {
+      handleSelect(sessionId);
+      setSearchQuery("");
+      setSearchResults(null);
+      setMessageResults(null);
+    },
+    [handleSelect]
+  );
+
+  const toggleGroupCollapse = useCallback((group: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(group)) next.delete(group);
+      else next.add(group);
+      return next;
+    });
+  }, []);
+
+  const isSearching = !!searchQuery.trim();
+
+  const { pinnedSessions, groupedSessions, ungroupedSessions } = useMemo(() => {
+    const display = searchResults ?? sessions;
+    const pinned = display.filter((s) => s.pinned);
+    const grouped = new Map<string, Session[]>();
+    const ungrouped: Session[] = [];
+
+    for (const s of display) {
+      if (s.pinned) continue;
+      if (s.group_name) {
+        const list = grouped.get(s.group_name) ?? [];
+        list.push(s);
+        grouped.set(s.group_name, list);
+      } else {
+        ungrouped.push(s);
+      }
+    }
+
+    return { pinnedSessions: pinned, groupedSessions: grouped, ungroupedSessions: ungrouped };
+  }, [searchResults, sessions]);
+
+  const renderSessionItem = (session: Session) => (
+    <SessionItem
+      key={session.id}
+      session={session}
+      isActive={activeSessionId === session.id}
+      groups={groups}
+      onSelect={handleSelect}
+      onRename={handleRename}
+      onDelete={handleDelete}
+      onArchive={handleArchive}
+      onTogglePin={handleTogglePin}
+      onSetGroup={handleSetGroup}
+      onExport={handleExport}
+    />
+  );
+
+  const totalDisplay =
+    pinnedSessions.length +
+    Array.from(groupedSessions.values()).reduce((acc, g) => acc + g.length, 0) +
+    ungroupedSessions.length;
 
   return (
     <div className="flex h-full w-[260px] shrink-0 flex-col border-r border-[color:var(--border-muted)] bg-sidebar">
@@ -147,22 +273,51 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-0.5 px-3 py-2">
-          {displaySessions.length > 0 ? (
-            displaySessions.map((session) => (
-              <SessionItem
-                key={session.id}
-                session={session}
-                isActive={activeSessionId === session.id}
-                onSelect={handleSelect}
-                onRename={handleRename}
-                onDelete={handleDelete}
-                onArchive={handleArchive}
-                onTogglePin={handleTogglePin}
-              />
-            ))
-          ) : (
-            <EmptySessionList hasSearch={!!searchQuery.trim()} />
+          {isSearching && messageResults && messageResults.length > 0 && (
+            <MessageSearchResults
+              results={messageResults}
+              onResultClick={handleMessageResultClick}
+            />
           )}
+
+          {totalDisplay > 0 ? (
+            <>
+              {pinnedSessions.length > 0 && (
+                <SectionHeader label="置顶" />
+              )}
+              {pinnedSessions.map(renderSessionItem)}
+
+              {Array.from(groupedSessions.entries()).map(([groupName, items]) => (
+                <div key={groupName}>
+                  <GroupHeader
+                    label={groupName}
+                    count={items.length}
+                    collapsed={collapsedGroups.has(groupName)}
+                    onToggle={() => toggleGroupCollapse(groupName)}
+                  />
+                  {!collapsedGroups.has(groupName) && items.map(renderSessionItem)}
+                </div>
+              ))}
+
+              {ungroupedSessions.length > 0 && groupedSessions.size > 0 && (
+                <SectionHeader label="未分组" />
+              )}
+              {ungroupedSessions.map(renderSessionItem)}
+            </>
+          ) : (
+            <EmptySessionList hasSearch={isSearching} />
+          )}
+
+          {!isSearching && archivedCount > 0 && (
+            <ArchivedToggle
+              count={archivedCount}
+              show={showArchived}
+              onToggle={() => setShowArchived((v) => !v)}
+              onLoadArchived={loadArchivedSessions}
+            />
+          )}
+
+          {showArchived && archivedSessions.map(renderSessionItem)}
         </div>
       </ScrollArea>
     </div>
@@ -188,7 +343,7 @@ function SessionPanelHeader({
           <Input
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="搜索会话…"
+            placeholder="搜索会话 / 消息…"
             className={cn(
               "h-10 w-full rounded-[var(--radius-ui-md)] border-[color:var(--border-muted)]",
               "bg-[color:var(--surface-card)] pl-10 pr-3 text-sm shadow-none",
@@ -213,6 +368,70 @@ function SessionPanelHeader({
         </Button>
       </div>
     </div>
+  );
+}
+
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <div className="px-1 pb-0.5 pt-3 text-[0.625rem] font-semibold uppercase tracking-wider text-muted-foreground/50">
+      {label}
+    </div>
+  );
+}
+
+function GroupHeader({
+  label,
+  count,
+  collapsed,
+  onToggle,
+}: {
+  label: string;
+  count: number;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="flex w-full items-center gap-1 px-1 pb-0.5 pt-3 text-[0.625rem] font-semibold uppercase tracking-wider text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+    >
+      {collapsed ? (
+        <ChevronRight className="h-3 w-3" />
+      ) : (
+        <ChevronDown className="h-3 w-3" />
+      )}
+      <span>{label}</span>
+      <span className="ml-auto text-[0.5625rem] tabular-nums">{count}</span>
+    </button>
+  );
+}
+
+function ArchivedToggle({
+  count,
+  show,
+  onToggle,
+  onLoadArchived,
+}: {
+  count: number;
+  show: boolean;
+  onToggle: () => void;
+  onLoadArchived: () => void;
+}) {
+  const handleClick = () => {
+    if (!show) onLoadArchived();
+    onToggle();
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-[var(--radius-button)] px-2 py-1.5 text-[0.6875rem] text-muted-foreground/60 transition-colors hover:bg-[color:var(--surface-hover)] hover:text-muted-foreground"
+    >
+      <Archive className="h-3 w-3" />
+      {show ? "隐藏归档" : `显示 ${count} 个归档`}
+    </button>
   );
 }
 

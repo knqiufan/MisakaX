@@ -179,6 +179,60 @@ impl SessionRepo {
         Ok(())
     }
 
+    pub fn pin_session(conn: &Connection, session_id: &str, pinned: bool) -> Result<()> {
+        conn.execute(
+            "UPDATE sessions SET pinned = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+            rusqlite::params![pinned as i32, session_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn archive_session(conn: &Connection, session_id: &str) -> Result<()> {
+        conn.execute(
+            "UPDATE sessions SET status = 'archived', updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
+            [session_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn unarchive_session(conn: &Connection, session_id: &str) -> Result<()> {
+        conn.execute(
+            "UPDATE sessions SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
+            [session_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn set_group(conn: &Connection, session_id: &str, group: Option<&str>) -> Result<()> {
+        conn.execute(
+            "UPDATE sessions SET group_name = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+            rusqlite::params![group, session_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_groups(conn: &Connection) -> Result<Vec<String>> {
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT group_name FROM sessions
+             WHERE group_name IS NOT NULL AND group_name != '' AND status = 'active'
+             ORDER BY group_name",
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    pub fn list_all_for_export(conn: &Connection) -> Result<Vec<Session>> {
+        let mut stmt = conn.prepare(
+            "SELECT id, title, model, system_prompt, working_directory, project_name,
+                    status, mode, total_input_tokens, total_output_tokens,
+                    last_message_at, pinned, group_name, created_at, updated_at
+             FROM sessions
+             ORDER BY created_at ASC",
+        )?;
+        let rows = stmt.query_map([], Self::map_row)?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
     fn map_row(row: &rusqlite::Row) -> rusqlite::Result<Session> {
         Ok(Session {
             id: row.get(0)?,

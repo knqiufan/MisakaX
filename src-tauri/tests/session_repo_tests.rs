@@ -309,3 +309,111 @@ fn session_has_new_fields_with_defaults() {
     assert!(!session.pinned);
     assert!(session.group_name.is_none());
 }
+
+// ─── pin_session ────────────────────────────────────────────────────
+
+#[test]
+fn pin_session_sets_pinned_true() {
+    let conn = create_test_db();
+    SessionRepo::create(&conn, "pin-1", Some("Test"), None, None).unwrap();
+
+    SessionRepo::pin_session(&conn, "pin-1", true).unwrap();
+
+    let s = SessionRepo::find_by_id(&conn, "pin-1").unwrap();
+    assert!(s.pinned);
+}
+
+#[test]
+fn pin_session_unpin() {
+    let conn = create_test_db();
+    SessionRepo::create(&conn, "pin-2", None, None, None).unwrap();
+    SessionRepo::pin_session(&conn, "pin-2", true).unwrap();
+    SessionRepo::pin_session(&conn, "pin-2", false).unwrap();
+
+    let s = SessionRepo::find_by_id(&conn, "pin-2").unwrap();
+    assert!(!s.pinned);
+}
+
+// ─── archive_session / unarchive_session ────────────────────────────
+
+#[test]
+fn archive_and_unarchive_session() {
+    let conn = create_test_db();
+    SessionRepo::create(&conn, "arc-1", Some("To Archive"), None, None).unwrap();
+
+    SessionRepo::archive_session(&conn, "arc-1").unwrap();
+    let s = SessionRepo::find_by_id(&conn, "arc-1").unwrap();
+    assert_eq!(s.status, "archived");
+
+    let active = SessionRepo::list(&conn, Some("active")).unwrap();
+    assert!(active.iter().all(|s| s.id != "arc-1"));
+
+    let archived = SessionRepo::list(&conn, Some("archived")).unwrap();
+    assert_eq!(archived.len(), 1);
+    assert_eq!(archived[0].id, "arc-1");
+
+    SessionRepo::unarchive_session(&conn, "arc-1").unwrap();
+    let s = SessionRepo::find_by_id(&conn, "arc-1").unwrap();
+    assert_eq!(s.status, "active");
+}
+
+// ─── set_group / list_groups ────────────────────────────────────────
+
+#[test]
+fn set_group_and_list_groups() {
+    let conn = create_test_db();
+    SessionRepo::create(&conn, "grp-1", Some("A"), None, None).unwrap();
+    SessionRepo::create(&conn, "grp-2", Some("B"), None, None).unwrap();
+    SessionRepo::create(&conn, "grp-3", Some("C"), None, None).unwrap();
+
+    SessionRepo::set_group(&conn, "grp-1", Some("Work")).unwrap();
+    SessionRepo::set_group(&conn, "grp-2", Some("Personal")).unwrap();
+    SessionRepo::set_group(&conn, "grp-3", Some("Work")).unwrap();
+
+    let s = SessionRepo::find_by_id(&conn, "grp-1").unwrap();
+    assert_eq!(s.group_name, Some("Work".to_string()));
+
+    let groups = SessionRepo::list_groups(&conn).unwrap();
+    assert_eq!(groups.len(), 2);
+    assert!(groups.contains(&"Work".to_string()));
+    assert!(groups.contains(&"Personal".to_string()));
+}
+
+#[test]
+fn set_group_to_none_removes_group() {
+    let conn = create_test_db();
+    SessionRepo::create(&conn, "grp-rm", None, None, None).unwrap();
+    SessionRepo::set_group(&conn, "grp-rm", Some("Test")).unwrap();
+
+    let s = SessionRepo::find_by_id(&conn, "grp-rm").unwrap();
+    assert_eq!(s.group_name, Some("Test".to_string()));
+
+    SessionRepo::set_group(&conn, "grp-rm", None).unwrap();
+
+    let s = SessionRepo::find_by_id(&conn, "grp-rm").unwrap();
+    assert!(s.group_name.is_none());
+}
+
+#[test]
+fn list_groups_excludes_archived() {
+    let conn = create_test_db();
+    SessionRepo::create(&conn, "grp-arc", None, None, None).unwrap();
+    SessionRepo::set_group(&conn, "grp-arc", Some("Archived Group")).unwrap();
+    SessionRepo::archive_session(&conn, "grp-arc").unwrap();
+
+    let groups = SessionRepo::list_groups(&conn).unwrap();
+    assert!(!groups.contains(&"Archived Group".to_string()));
+}
+
+// ─── list_all_for_export ────────────────────────────────────────────
+
+#[test]
+fn list_all_for_export_includes_all_statuses() {
+    let conn = create_test_db();
+    SessionRepo::create(&conn, "exp-1", Some("Active"), None, None).unwrap();
+    SessionRepo::create(&conn, "exp-2", Some("Archived"), None, None).unwrap();
+    SessionRepo::archive_session(&conn, "exp-2").unwrap();
+
+    let all = SessionRepo::list_all_for_export(&conn).unwrap();
+    assert_eq!(all.len(), 2);
+}

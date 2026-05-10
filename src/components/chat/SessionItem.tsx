@@ -1,5 +1,15 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { MoreHorizontal, Pin, Pencil, Archive, Trash2 } from "lucide-react";
+import {
+  MoreHorizontal,
+  Pin,
+  Pencil,
+  Archive,
+  ArchiveRestore,
+  Trash2,
+  FolderOpen,
+  Download,
+  Plus,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
@@ -7,6 +17,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { Session } from "@/lib/ipc";
@@ -14,26 +27,36 @@ import type { Session } from "@/lib/ipc";
 interface SessionItemProps {
   session: Session;
   isActive: boolean;
+  groups: string[];
   onSelect: (id: string) => void;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
-  onArchive: (id: string) => void;
+  onArchive: (id: string, archived: boolean) => void;
   onTogglePin: (id: string, pinned: boolean) => void;
+  onSetGroup: (id: string, group: string | null) => void;
+  onExport: (id: string) => void;
 }
 
 export function SessionItem({
   session,
   isActive,
+  groups,
   onSelect,
   onRename,
   onDelete,
   onArchive,
   onTogglePin,
+  onSetGroup,
+  onExport,
 }: SessionItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
+  const [newGroupInput, setNewGroupInput] = useState("");
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const newGroupRef = useRef<HTMLInputElement>(null);
 
+  const isArchived = session.status === "archived";
   const displayTitle = session.title || "New Chat";
   const timeLabel = formatRelativeTime(session.last_message_at ?? session.updated_at);
 
@@ -43,6 +66,12 @@ export function SessionItem({
       inputRef.current.select();
     }
   }, [isEditing]);
+
+  useEffect(() => {
+    if (isCreatingGroup && newGroupRef.current) {
+      newGroupRef.current.focus();
+    }
+  }, [isCreatingGroup]);
 
   const handleStartRename = useCallback(() => {
     setEditValue(displayTitle);
@@ -68,6 +97,15 @@ export function SessionItem({
     [handleCommitRename]
   );
 
+  const handleNewGroupCommit = useCallback(() => {
+    const trimmed = newGroupInput.trim();
+    if (trimmed) {
+      onSetGroup(session.id, trimmed);
+    }
+    setNewGroupInput("");
+    setIsCreatingGroup(false);
+  }, [newGroupInput, session.id, onSetGroup]);
+
   return (
     <div
       role="button"
@@ -79,6 +117,7 @@ export function SessionItem({
       className={cn(
         "group relative flex w-full cursor-pointer items-center gap-2 rounded-[var(--radius-button)] px-2.5 py-2 text-left text-sm outline-none",
         "transition-[background-color,color] duration-[var(--ds-dur-fast)] ease-out",
+        isArchived && "opacity-50",
         isActive
           ? "bg-[color:var(--surface-active)] text-foreground"
           : "text-muted-foreground hover:bg-[color:var(--surface-hover)] hover:text-foreground"
@@ -104,6 +143,12 @@ export function SessionItem({
           </p>
         )}
         <p className="mt-0.5 truncate text-[0.6875rem] text-muted-foreground/70">
+          {session.group_name && (
+            <span className="mr-1.5 inline-flex items-center gap-0.5">
+              <FolderOpen className="inline h-2.5 w-2.5" />
+              {session.group_name}
+            </span>
+          )}
           {session.project_name && (
             <span className="mr-1.5">{session.project_name}</span>
           )}
@@ -122,7 +167,7 @@ export function SessionItem({
         >
           <MoreHorizontal className="h-3.5 w-3.5" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" sideOffset={4} className="w-40">
+        <DropdownMenuContent align="end" sideOffset={4} className="w-44">
           <DropdownMenuItem onClick={handleStartRename}>
             <Pencil className="mr-2 h-3.5 w-3.5" />
             重命名
@@ -131,10 +176,71 @@ export function SessionItem({
             <Pin className="mr-2 h-3.5 w-3.5" />
             {session.pinned ? "取消置顶" : "置顶"}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onArchive(session.id)}>
-            <Archive className="mr-2 h-3.5 w-3.5" />
-            归档
+
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <FolderOpen className="mr-2 h-3.5 w-3.5" />
+              设置分组
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-40">
+              {session.group_name && (
+                <DropdownMenuItem onClick={() => onSetGroup(session.id, null)}>
+                  取消分组
+                </DropdownMenuItem>
+              )}
+              {groups.map((g) => (
+                <DropdownMenuItem
+                  key={g}
+                  onClick={() => onSetGroup(session.id, g)}
+                  className={cn(session.group_name === g && "font-semibold")}
+                >
+                  {g}
+                </DropdownMenuItem>
+              ))}
+              {groups.length > 0 && <DropdownMenuSeparator />}
+              {isCreatingGroup ? (
+                <div className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+                  <Input
+                    ref={newGroupRef}
+                    value={newGroupInput}
+                    onChange={(e) => setNewGroupInput(e.target.value)}
+                    onBlur={handleNewGroupCommit}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleNewGroupCommit();
+                      if (e.key === "Escape") setIsCreatingGroup(false);
+                    }}
+                    placeholder="分组名称"
+                    className="h-6 px-1 py-0 text-sm"
+                  />
+                </div>
+              ) : (
+                <DropdownMenuItem onClick={() => setIsCreatingGroup(true)}>
+                  <Plus className="mr-2 h-3.5 w-3.5" />
+                  新建分组
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+
+          <DropdownMenuItem onClick={() => onExport(session.id)}>
+            <Download className="mr-2 h-3.5 w-3.5" />
+            导出
           </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={() => onArchive(session.id, !isArchived)}>
+            {isArchived ? (
+              <>
+                <ArchiveRestore className="mr-2 h-3.5 w-3.5" />
+                取消归档
+              </>
+            ) : (
+              <>
+                <Archive className="mr-2 h-3.5 w-3.5" />
+                归档
+              </>
+            )}
+          </DropdownMenuItem>
+
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => onDelete(session.id)}

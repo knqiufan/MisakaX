@@ -1938,86 +1938,88 @@ TODO-3.11.4 [0.5h] [依赖 3.11.2] ✅ DONE
 
 ### Sprint 4：会话高级管理（与 Sprint 1-2 穿插进行）
 
-#### 3.12 会话分组/归档/置顶（3h）
+#### 3.12 会话分组/归档/置顶（3h） ✅ DONE
 
 ```
-TODO-3.12.1 [1.0h] [无依赖]
+TODO-3.12.1 ✅ [1.0h] [无依赖]
     扩展 src-tauri/src/db/repository/session_repo.rs
     - pin_session(conn, session_id, pinned: bool)
     - archive_session(conn, session_id)：设置 status='archived'
     - unarchive_session(conn, session_id)：恢复 status='active'
     - set_group(conn, session_id, group: Option<&str>)
     - list_groups(conn) → Vec<String>：SELECT DISTINCT group_name
+    - list_all_for_export(conn) → Vec<Session>（导出用）
 
-TODO-3.12.2 [0.5h] [依赖 3.12.1]
+TODO-3.12.2 ✅ [0.5h] [依赖 3.12.1]
     扩展 src-tauri/src/commands/session.rs
     - 新增 pin_session / archive_session / set_session_group / list_session_groups commands
     - 注册到 lib.rs invoke_handler
 
-TODO-3.12.3 [1.0h] [依赖 3.12.2]
+TODO-3.12.3 ✅ [1.0h] [依赖 3.12.2]
     修改 src/components/chat/SessionPanel.tsx
     - 会话列表分区渲染：📌 置顶区 → 分组区（按 group_name 折叠）→ 普通区
     - 归档会话默认隐藏，底部"显示 N 个归档"开关
     - 分组折叠/展开控制
 
-TODO-3.12.4 [0.5h] [依赖 3.12.3]
+TODO-3.12.4 ✅ [0.5h] [依赖 3.12.3]
     修改 src/components/chat/SessionItem.tsx
-    - 右键菜单 (ContextMenu) 新增：置顶 / 归档 / 设置分组（子菜单选择或新建分组）
+    - 右键菜单 (DropdownMenu) 新增：置顶 / 归档(含取消归档) / 设置分组（子菜单选择或新建分组）/ 导出
     - 置顶状态显示 📌 图标
-    - 归档状态显示灰色样式
+    - 归档状态显示灰色半透明样式
 ```
 
-#### 3.13 FTS5 全文搜索（3h）
+#### 3.13 FTS5 全文搜索（3h） ✅ DONE
 
 ```
-TODO-3.13.1 [1.0h] [无依赖]
+TODO-3.13.1 ✅ [1.0h] [无依赖]
     修改 src-tauri/src/db/repository/message_repo.rs
-    - 在 insert_user_message() 和 update_assistant_content() 后同步写入 FTS5 索引
-    - 新增 sync_to_fts() 内部辅助函数
+    - sync_fts() 已在 Phase 2 实现（insert_user_message / update_assistant_content 后同步）
     - 新增 search_fts(conn, query, session_id, limit) → Vec<MessageSearchResult>
-      - 使用 FTS5 snippet() 函数返回高亮片段
+      - 使用 FTS5 snippet() 函数返回高亮片段（<mark>标签包裹）
       - 支持按 session_id 过滤
+      - build_fts_query() 辅助：将用户输入转为安全的 FTS5 前缀匹配表达式
 
-TODO-3.13.2 [0.5h] [依赖 3.13.1]
+TODO-3.13.2 ✅ [0.5h] [依赖 3.13.1]
     修改 src-tauri/src/db/models.rs
     - 新增 MessageSearchResult { id, session_id, session_title, role, snippet, created_at }
 
-TODO-3.13.3 [0.5h] [依赖 3.13.1, 3.13.2]
+TODO-3.13.3 ✅ [0.5h] [依赖 3.13.1, 3.13.2]
     扩展 src-tauri/src/commands/session.rs
     - 新增 search_messages command（调用 MessageRepo::search_fts）
     - 注册到 lib.rs invoke_handler
 
-TODO-3.13.4 [1.0h] [依赖 3.13.3]
+TODO-3.13.4 ✅ [1.0h] [依赖 3.13.3]
     创建 src/components/chat/MessageSearchResults.tsx
     - 搜索结果列表，按会话分组
-    - 每条结果显示：会话标题 + 角色 + 高亮片段 + 时间
-    - 点击跳转到对应会话（切换 activeSessionId + 滚动到消息）
-    - 修改 SessionPanel.tsx 搜索框：输入 → 防抖 300ms → 调用 search_messages → 展示结果面板
+    - 每条结果显示：会话标题 + 角色标签 + 高亮片段（dangerouslySetInnerHTML for <mark>）
+    - 点击跳转到对应会话（切换 activeSessionId）
+    - SessionPanel.tsx 搜索框：输入 → 防抖 300ms → 并行调用 search_sessions + search_messages → 展示结果
 ```
 
-#### 3.14 会话导入/导出（3h）
+#### 3.14 会话导入/导出（3h） ✅ DONE
 
 ```
-TODO-3.14.1 [1.0h] [无依赖]
+TODO-3.14.1 ✅ [1.0h] [无依赖]
     修改 src-tauri/src/db/models.rs
     - 新增 ExportData { version, exported_at, app, sessions: Vec<ExportSession> }
     - ExportSession { session + messages }
     - ImportResult { imported_count, skipped_count, errors }
 
-TODO-3.14.2 [1.0h] [依赖 3.14.1]
+TODO-3.14.2 ✅ [1.0h] [依赖 3.14.1]
     扩展 src-tauri/src/commands/session.rs
     - export_sessions(session_ids, file_path)：
-      - 查询会话和关联消息 → 组装 ExportData → serde_json 写入文件
+      - 查询会话和关联消息 → 组装 ExportData → serde_json::to_string_pretty 写入文件
     - import_sessions(file_path)：
-      - 读取 JSON → 验证格式 → 逐条插入（跳过 ID 冲突）→ 返回 ImportResult
+      - 读取 JSON → 反序列化 ExportData → 逐条插入（跳过 ID 冲突）→ 同步 FTS 索引 → 返回 ImportResult
     - 注册到 lib.rs invoke_handler
 
-TODO-3.14.3 [1.0h] [依赖 3.14.2]
+TODO-3.14.3 ✅ [1.0h] [依赖 3.14.2]
     前端 UI
-    - SessionItem 右键菜单新增"导出"：弹出保存文件对话框（tauri-plugin-dialog save）→ 调用 export_sessions
-    - Settings 数据管理区域：
+    - SessionItem 右键菜单新增"导出"：弹出保存文件对话框（@tauri-apps/plugin-dialog save）→ 调用 export_sessions
+    - Settings → About 页面新增 DataManagementCard：
       - "导出所有会话"按钮：调用 list_sessions → export_sessions（全部 ID）
-      - "导入会话"按钮：弹出打开文件对话框（tauri-plugin-dialog open）→ 调用 import_sessions → Toast 显示结果
+      - "导入会话"按钮：弹出打开文件对话框（@tauri-apps/plugin-dialog open）→ 调用 import_sessions → Toast 显示结果
+    - i18n 完整覆盖：zh-CN/en 的 settings.about 新增 dataManagement 相关键
 ```
 
 ### Sprint 5：Nuitka 打包验证（第 10 周）
