@@ -118,10 +118,11 @@ describe("ChatView store integration", () => {
       store.addMessage(msg);
       store.setStreaming(true, "a3");
 
-      store.setMessageStatus("a3", "error");
+      store.updateMessageError("a3", "Stream failed");
       store.setStreaming(false);
 
       expect(useChatStore.getState().messages[0].status).toBe("error");
+      expect(useChatStore.getState().messages[0].content).toBe("Stream failed");
     });
   });
 

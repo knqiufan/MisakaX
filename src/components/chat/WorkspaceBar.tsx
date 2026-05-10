@@ -113,7 +113,7 @@ function WorkspaceBarSet({
   );
 }
 
-function extractDirName(path: string): string {
+export function extractDirName(path: string): string {
   const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
   const parts = normalized.split("/");
   return parts[parts.length - 1] || path;

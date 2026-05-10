@@ -18,5 +18,8 @@
   "inputTokens": "输入",
   "outputTokens": "输出",
   "totalTokens": "总计",
-  "scrollToBottom": "滚动到底部"
+  "scrollToBottom": "滚动到底部",
+  "errorOccurred": "请求失败",
+  "streamError": "流式输出错误",
+  "sendFailed": "无法完成请求"
 }

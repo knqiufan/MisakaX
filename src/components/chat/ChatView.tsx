@@ -1,6 +1,8 @@
 import { useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { useChatStore } from "@/stores/chat-store";
-import { chatIpc } from "@/lib/ipc";
+import { chatIpc, IpcError } from "@/lib/ipc";
 import type { Session, ImageAttachment } from "@/lib/ipc";
 import { useStreamListener } from "@/hooks/use-stream-listener";
 import { WorkspaceBar } from "./WorkspaceBar";
@@ -14,6 +16,7 @@ interface ChatViewProps {
 }
 
 export function ChatView({ session, onChangeDir }: ChatViewProps) {
+  const { t } = useTranslation("chat");
   const {
     messages,
     streamingMessageId,
@@ -22,6 +25,7 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
     setStreaming,
     addMessage,
     removeMessagesFrom,
+    updateMessageError,
     loadMessages,
     requestAutoTitle,
   } = useChatStore();
@@ -80,16 +84,38 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
           images,
           model_override: modelOverride,
         });
+        if (isFirstMessage) {
+          requestAutoTitle(session.id, content);
+        }
       } catch (err) {
         console.error("Failed to send message:", err);
+        const detail =
+          err instanceof IpcError ? err.originalError : String(err);
+        const shown = `${t("sendFailed")}: ${detail}`;
+        const assistant = useChatStore
+          .getState()
+          .messages.find((m) => m.id === assistantId);
+        if (assistant?.status !== "error") {
+          updateMessageError(assistantId, shown);
+        }
         setStreaming(false);
-      }
-
-      if (isFirstMessage) {
-        requestAutoTitle(session.id, content);
+        toast.error(t("errorOccurred"), {
+          description:
+            assistant?.status === "error"
+              ? assistant.content
+              : shown,
+        });
       }
     },
-    [session.id, addMessage, setStreaming, messages.length, requestAutoTitle]
+    [
+      session.id,
+      addMessage,
+      setStreaming,
+      updateMessageError,
+      messages.length,
+      requestAutoTitle,
+      t,
+    ]
   );
 
   const handleStop = useCallback(async () => {
@@ -125,10 +151,32 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
         await chatIpc.regenerateMessage(session.id, messageId);
       } catch (err) {
         console.error("Failed to regenerate:", err);
+        const detail =
+          err instanceof IpcError ? err.originalError : String(err);
+        const shown = `${t("sendFailed")}: ${detail}`;
+        const assistant = useChatStore
+          .getState()
+          .messages.find((m) => m.id === assistantId);
+        if (assistant?.status !== "error") {
+          updateMessageError(assistantId, shown);
+        }
         setStreaming(false);
+        toast.error(t("errorOccurred"), {
+          description:
+            assistant?.status === "error"
+              ? assistant.content
+              : shown,
+        });
       }
     },
-    [session.id, addMessage, removeMessagesFrom, setStreaming]
+    [
+      session.id,
+      addMessage,
+      removeMessagesFrom,
+      setStreaming,
+      updateMessageError,
+      t,
+    ]
   );
 
   return (

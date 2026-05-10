@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { i18n } from "@/locales/i18n";
 import { useChatStore } from "@/stores/chat-store";
 
 interface StreamTokenEvent {
@@ -29,7 +30,7 @@ interface StreamCompleteEvent {
 
 interface StreamErrorEvent {
   session_id: string;
-  message_id: string;
+  message_id: string | null;
   error: string;
 }
 
@@ -44,8 +45,13 @@ export function useStreamListener(sessionId: string | null) {
     const unlisteners: UnlistenFn[] = [];
 
     const setup = async () => {
-      const { updateMessageContent, setMessageStatus, setStreaming, setThinkingStreaming } =
-        useChatStore.getState();
+      const {
+        updateMessageContent,
+        updateMessageError,
+        setMessageStatus,
+        setStreaming,
+        setThinkingStreaming,
+      } = useChatStore.getState();
 
       const u1 = await listen<StreamTokenEvent>("stream_token", (event) => {
         const { session_id, message_id, delta } = event.payload;
@@ -111,11 +117,20 @@ export function useStreamListener(sessionId: string | null) {
       unlisteners.push(u3);
 
       const u4 = await listen<StreamErrorEvent>("stream_error", (event) => {
-        const { session_id, message_id } = event.payload;
+        const { session_id, message_id, error } = event.payload;
         if (session_id !== sessionId) return;
+
+        const detail = error.trim() || i18n.t("chat:streamError");
+
         if (message_id) {
-          setMessageStatus(message_id, "error");
+          const msg = useChatStore
+            .getState()
+            .messages.find((m) => m.id === message_id);
+          if (msg?.status === "streaming") {
+            updateMessageError(message_id, detail);
+          }
         }
+
         setStreaming(false);
       });
       unlisteners.push(u4);

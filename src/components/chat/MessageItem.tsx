@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check, Copy, RefreshCw, User, Bot } from "lucide-react";
+import { Check, Copy, RefreshCw, User, Bot, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Message, TokenUsage } from "@/lib/ipc";
 import { CodeBlock } from "./CodeBlock";
@@ -91,6 +91,25 @@ function MessageBubble({
   message: Message;
   isUser: boolean;
 }) {
+  if (!isUser && message.status === "error") {
+    return (
+      <div
+        className={cn(
+          "rounded-[var(--radius-ui-lg)] px-3.5 py-2.5 text-sm leading-relaxed",
+          "border border-destructive/45 bg-destructive/8 text-destructive"
+        )}
+        role="alert"
+      >
+        <div className="flex gap-2.5">
+          <AlertTriangle className="size-4 shrink-0 opacity-90" aria-hidden />
+          <p className="whitespace-pre-wrap break-words">
+            {message.content || "—"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!message.content && message.status === "streaming") {
     return null;
   }

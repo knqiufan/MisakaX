@@ -258,6 +258,18 @@ describe("useChatStore", () => {
     });
   });
 
+  describe("updateMessageError", () => {
+    it("should set status error and replace content", () => {
+      useChatStore.getState().addMessage(
+        makeMessage({ id: "e1", role: "assistant", status: "streaming" })
+      );
+      useChatStore.getState().updateMessageError("e1", "API error");
+      const m = useChatStore.getState().messages[0];
+      expect(m.status).toBe("error");
+      expect(m.content).toBe("API error");
+    });
+  });
+
   describe("removeMessagesFrom", () => {
     it("should remove target message and all after it", () => {
       useChatStore.getState().setMessages([

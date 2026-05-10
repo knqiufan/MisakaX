@@ -28,6 +28,7 @@ interface ChatState {
   addMessage: (message: Message) => void;
   removeMessagesFrom: (messageId: string) => void;
   updateMessageContent: (messageId: string, delta: string) => void;
+  updateMessageError: (messageId: string, error: string) => void;
   setMessageStatus: (messageId: string, status: Message["status"]) => void;
   setStreaming: (streaming: boolean, messageId?: string | null) => void;
   setThinkingStreaming: (streaming: boolean) => void;
@@ -109,6 +110,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => ({
       messages: state.messages.map((m) =>
         m.id === messageId ? { ...m, content: m.content + delta } : m
+      ),
+    })),
+
+  updateMessageError: (messageId, error) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === messageId ? { ...m, status: "error", content: error } : m
       ),
     })),
 

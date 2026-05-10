@@ -18,5 +18,8 @@
   "inputTokens": "Input",
   "outputTokens": "Output",
   "totalTokens": "Total",
-  "scrollToBottom": "Scroll to bottom"
+  "scrollToBottom": "Scroll to bottom",
+  "errorOccurred": "Request failed",
+  "streamError": "Stream error",
+  "sendFailed": "Could not complete the request"
 }

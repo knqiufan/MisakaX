@@ -65,6 +65,13 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - 避免“提示文本”与“操作按钮”在逻辑上产生冲突（例如：提示“即将推出”却又提供“新建”按钮）。
 - 居中对齐，使用柔和的图标（透明度降低）和简明的文案。
 
+### 4.5 助手消息错误状态（流式 / IPC 失败）
+
+- 当 `message.role === "assistant"` 且 `message.status === "error"` 时，**不使用 Markdown 渲染**，以纯文本展示 `message.content`（存放后端或 IPC 错误文案）。
+- 容器使用 **低强度破坏性语义色**：`border-destructive/45`、`bg-destructive/8`、`text-destructive`，附 `AlertTriangle` 图标，并设 `role="alert"`。
+- 禁止在此状态使用悬停位移动效；与 [按钮/菜单规范](./button-menu-design-spec.md) 一致，仅颜色/背景过渡。
+- 用户可见的错误还应通过 **Sonner `toast.error`**（`ChatView` 中 IPC `catch`）补充提示；`stream_error` 事件仅负责在助手仍为 `streaming` 时写入 `updateMessageError`，避免与 `catch` 重复 Toast 或覆盖已由 `catch` 写入的错误文案。
+
 ## 5. 总结
 
 在编写 Tailwind 类名时，时刻问自己：**“这个样式在 macOS/Windows 原生应用中会出现吗？”** 如果答案是否定的（比如鼠标放上去按钮会跳一下），请坚决将其移除。保持 UI 的专业、冷静与克制。
