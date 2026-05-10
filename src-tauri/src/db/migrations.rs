@@ -30,6 +30,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         migrate_v3(conn)?;
     }
 
+    if current_version < 4 {
+        migrate_v4(conn)?;
+    }
+
     Ok(())
 }
 
@@ -194,5 +198,24 @@ fn migrate_v3(conn: &Connection) -> Result<()> {
     )?;
 
     tracing::info!("Database migrated to version 3");
+    Ok(())
+}
+
+fn migrate_v4(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS tool_permissions (
+            server_id TEXT NOT NULL,
+            tool_name TEXT NOT NULL,
+            policy TEXT NOT NULL DEFAULT 'ask',
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (server_id, tool_name)
+        );
+
+        INSERT INTO _schema_version (version) VALUES (4);
+        ",
+    )?;
+
+    tracing::info!("Database migrated to version 4");
     Ok(())
 }

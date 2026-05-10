@@ -6,6 +6,7 @@ export { sessionsIpc } from "./sessions";
 export { chatIpc } from "./chat";
 export { modelsIpc } from "./models";
 export { sidecarIpc } from "./sidecar";
+export { mcpIpc } from "./mcp";
 export type {
   AppConfig,
   RouterConfig,
@@ -26,8 +27,17 @@ export type {
   StreamCompletePayload,
   StreamErrorPayload,
   UpdateSessionParams,
+  ToolCall,
+  ToolCallStatus,
+  McpServerInfo,
+  McpServerStatusType,
+  McpToolInfo,
+  ToolPermission,
+  ToolPermissionPolicy,
+  ToolCallRequestEvent,
 } from "./types";
 export type { DirectoryInfo, RecentDirectory } from "./workspace";
 export type { CreateSessionParams, UpdateSessionWorkingDirParams } from "./sessions";
 export type { ModelInfo, ProviderModels } from "./models";
 export type { SidecarStatus, SidecarStatusEvent } from "./sidecar";
+export type { McpServerConfigInput, McpTransportInput } from "./mcp";

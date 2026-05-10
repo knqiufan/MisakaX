@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import type { Message, TokenUsage } from "@/lib/ipc";
 import { CodeBlock } from "./CodeBlock";
 import { ThinkingBlock } from "./ThinkingBlock";
+import { ToolCallBlock } from "./ToolCallBlock";
 import { TokenBadge } from "./TokenBadge";
 import { StreamingIndicator } from "./StreamingIndicator";
 
@@ -25,6 +26,7 @@ export function MessageItem({
 }: MessageItemProps) {
   const isUser = message.role === "user";
   const hasThinking = !isUser && (!!message.thinking_content || isThinkingStreaming);
+  const hasToolCalls = !isUser && message.tool_calls && message.tool_calls.length > 0;
 
   return (
     <div
@@ -42,6 +44,13 @@ export function MessageItem({
             content={message.thinking_content ?? ""}
             isStreaming={isThinkingStreaming}
           />
+        )}
+        {hasToolCalls && (
+          <div className="flex w-full flex-col gap-0.5">
+            {message.tool_calls!.map((tc) => (
+              <ToolCallBlock key={tc.id} toolCall={tc} />
+            ))}
+          </div>
         )}
         <MessageBubble message={message} isUser={isUser} />
         {isStreaming && message.status === "streaming" && (

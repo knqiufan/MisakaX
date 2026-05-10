@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Message, Session } from "@/lib/ipc";
+import type { Message, Session, ToolCall } from "@/lib/ipc";
 import { chatIpc, sessionsIpc } from "@/lib/ipc";
 
 interface ChatState {
@@ -35,6 +35,8 @@ interface ChatState {
   setSelectedModel: (model: string | null) => void;
   clearMessages: () => void;
   loadMessages: (sessionId: string) => Promise<void>;
+  addToolCall: (messageId: string, toolCall: ToolCall) => void;
+  updateToolCall: (messageId: string, toolCallId: string, patch: Partial<ToolCall>) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -151,4 +153,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ loading: false });
     }
   },
+
+  addToolCall: (messageId, toolCall) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === messageId
+          ? { ...m, tool_calls: [...(m.tool_calls ?? []), toolCall] }
+          : m
+      ),
+    })),
+
+  updateToolCall: (messageId, toolCallId, patch) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === messageId
+          ? {
+              ...m,
+              tool_calls: (m.tool_calls ?? []).map((tc) =>
+                tc.id === toolCallId ? { ...tc, ...patch } : tc
+              ),
+            }
+          : m
+      ),
+    })),
 }));

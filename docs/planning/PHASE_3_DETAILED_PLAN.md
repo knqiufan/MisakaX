@@ -1843,10 +1843,10 @@ TODO-3.8.5  [0.5h] [依赖 3.8.1-3.8.4] ✅ DONE（单元测试覆盖）
 
 ### Sprint 3：MCP 前端 + Tool Call UI（第 9 周后半）
 
-#### 3.9 Tool Call UI 展示（5h）
+#### 3.9 Tool Call UI 展示（5h）✅ COMPLETED
 
 ```
-TODO-3.9.1  [2.0h] [无依赖]
+TODO-3.9.1  [2.0h] [无依赖] ✅ DONE
     创建 src/components/chat/ToolCallBlock.tsx
     - 接收 ToolCall 对象作为 props
     - 展示：工具名 + 所属 Server + 参数（JSON 格式化）+ 结果（支持代码高亮）
@@ -1854,28 +1854,28 @@ TODO-3.9.1  [2.0h] [无依赖]
     - 状态指示：pending（loading）/ running（动画）/ complete（✅）/ error（❌）
     - 执行耗时显示
 
-TODO-3.9.2  [1.0h] [依赖 3.9.1]
+TODO-3.9.2  [1.0h] [依赖 3.9.1] ✅ DONE
     修改 src/lib/ipc/types.ts
     - 新增 ToolCall / McpServerInfo / McpToolInfo / ToolPermission 类型
     - Message 类型新增 tool_calls?: ToolCall[]
 
-TODO-3.9.3  [1.0h] [依赖 3.9.1, 3.9.2]
+TODO-3.9.3  [1.0h] [依赖 3.9.1, 3.9.2] ✅ DONE
     修改 src/components/chat/MessageItem.tsx
     - 在 assistant 消息内容下方嵌入 ToolCallBlock 列表
     - 渲染逻辑：message.tool_calls?.map(tc => <ToolCallBlock key={tc.id} toolCall={tc} />)
     - 确保与 ThinkingBlock 的布局协调（thinking 在上，tool calls 在内容之间）
 
-TODO-3.9.4  [1.0h] [依赖 3.9.3]
+TODO-3.9.4  [1.0h] [依赖 3.9.3] ✅ DONE
     流式 Tool Call 更新
     - 修改 use-stream-listener.ts：监听 stream:tool_call / stream:tool_result 事件
     - 实时更新 chat-store 中消息的 tool_calls 数组
     - ToolCallBlock 响应式更新（pending → running → complete）
 ```
 
-#### 3.10 Tool Call 权限审批流程（4h）
+#### 3.10 Tool Call 权限审批流程（4h）✅ COMPLETED
 
 ```
-TODO-3.10.1 [1.0h] [依赖 Schema v3]
+TODO-3.10.1 [1.0h] [依赖 Schema v3] ✅ DONE
     创建 src-tauri/src/db/repository/tool_permission_repo.rs
     - find_policy(server_id, tool_name) → Option<String>
     - upsert_policy(server_id, tool_name, policy)
@@ -1883,7 +1883,7 @@ TODO-3.10.1 [1.0h] [依赖 Schema v3]
     - reset(server_id, tool_name)
     - 在 db/repository/mod.rs 注册
 
-TODO-3.10.2 [1.0h] [依赖 3.10.1]
+TODO-3.10.2 [1.0h] [依赖 3.10.1] ✅ DONE
     扩展 mcp.rs commands
     - mcp_call_tool 增加权限检查逻辑：
       1. 查询 ToolPermissionRepo::find_policy
@@ -1893,45 +1893,47 @@ TODO-3.10.2 [1.0h] [依赖 3.10.1]
     - 新增 mcp_approve_tool_call / mcp_deny_tool_call commands
     - 新增 mcp_list_permissions / mcp_reset_permission commands
 
-TODO-3.10.3 [1.5h] [依赖 3.9.1]
+TODO-3.10.3 [1.5h] [依赖 3.9.1] ✅ DONE
     创建 src/components/chat/ToolApprovalDialog.tsx
     - AlertDialog 组件，显示：工具名 / Server / 参数 JSON
     - 三个按钮：允许一次 / 始终允许 / 拒绝
     - 60s 倒计时自动拒绝
     - 调用 mcp_approve_tool_call 或 mcp_deny_tool_call
 
-TODO-3.10.4 [0.5h] [依赖 3.10.3]
+TODO-3.10.4 [0.5h] [依赖 3.10.3] ✅ DONE
     集成到 ChatView
     - 监听 mcp:tool_call_request 事件
     - 触发时弹出 ToolApprovalDialog
     - 用户操作后继续执行或拒绝
 ```
 
-#### 3.11 MCP 管理页面（4h）
+#### 3.11 MCP 管理页面（4h）✅ COMPLETED
 
 ```
-TODO-3.11.1 [0.5h] [无依赖]
+TODO-3.11.1 [0.5h] [无依赖] ✅ DONE
     创建 src/lib/ipc/mcp.ts
     - 封装所有 MCP IPC 调用（listServers / connectServer / disconnectServer / restartServer / listTools / addServerConfig / removeServerConfig / listPermissions / resetPermission）
     - 在 index.ts 导出
 
-TODO-3.11.2 [2.5h] [依赖 3.11.1]
-    创建 src/components/settings/McpSettingsPage.tsx
+TODO-3.11.2 [2.5h] [依赖 3.11.1] ✅ DONE
+    创建 src/pages/settings/McpSettings.tsx（替换占位组件）
     - Server 列表区域：每个 Server 显示名称 / transport 类型 / 连接状态 / 工具数量
     - 操作按钮：连接 / 断开 / 重启 / 删除
     - 工具列表展开（每个 Server 下可展开查看工具详情）
     - "添加 MCP Server" 对话框：选择 transport 类型 → 填写配置 → 保存
     - 权限管理区域：显示已设置的权限，支持重置
 
-TODO-3.11.3 [0.5h] [依赖 3.11.2]
+TODO-3.11.3 [0.5h] [依赖 3.11.2] ✅ DONE
     将 MCP 管理页面集成到 Settings 路由
-    - 修改 Settings 页面导航，添加 "MCP" tab
-    - 路由配置接入 McpSettingsPage
+    - Settings 页面导航已有 "MCP" tab（Phase 2 已注册占位）
+    - 路由配置已接入 McpSettings 组件
 
-TODO-3.11.4 [0.5h] [依赖 3.11.2]
+TODO-3.11.4 [0.5h] [依赖 3.11.2] ✅ DONE
     i18n
     - en/settings.json 新增 MCP 相关翻译 key
     - zh-CN/settings.json 对应翻译
+    - en/chat.json 新增 toolCall / toolApproval 相关翻译
+    - zh-CN/chat.json 对应翻译
 ```
 
 ### Sprint 4：会话高级管理（与 Sprint 1-2 穿插进行）

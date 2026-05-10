@@ -1,14 +1,16 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { listen } from "@tauri-apps/api/event";
 import { useChatStore } from "@/stores/chat-store";
 import { chatIpc, IpcError } from "@/lib/ipc";
-import type { Session, ImageAttachment } from "@/lib/ipc";
+import type { Session, ImageAttachment, ToolCallRequestEvent } from "@/lib/ipc";
 import { useStreamListener } from "@/hooks/use-stream-listener";
 import { WorkspaceBar } from "./WorkspaceBar";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { ChatEmptyState } from "./ChatEmptyState";
+import { ToolApprovalDialog } from "./ToolApprovalDialog";
 
 interface ChatViewProps {
   session: Session;
@@ -30,11 +32,26 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
     requestAutoTitle,
   } = useChatStore();
 
+  const [pendingApproval, setPendingApproval] =
+    useState<ToolCallRequestEvent | null>(null);
+
   useStreamListener(session.id);
 
   useEffect(() => {
     loadMessages(session.id);
   }, [session.id, loadMessages]);
+
+  useEffect(() => {
+    const unlisten = listen<ToolCallRequestEvent>(
+      "mcp:tool_call_request",
+      (event) => {
+        setPendingApproval(event.payload);
+      }
+    );
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
 
   const handleSend = useCallback(
     async (
@@ -193,6 +210,10 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
         />
       )}
       <MessageInput onSend={handleSend} onStop={handleStop} />
+      <ToolApprovalDialog
+        request={pendingApproval}
+        onDismiss={() => setPendingApproval(null)}
+      />
     </div>
   );
 }

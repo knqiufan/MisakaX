@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { i18n } from "@/locales/i18n";
 import { useChatStore } from "@/stores/chat-store";
+import type { ToolCallStatus } from "@/lib/ipc";
 
 interface StreamTokenEvent {
   session_id: string;
@@ -34,6 +35,26 @@ interface StreamErrorEvent {
   error: string;
 }
 
+interface StreamToolCallEvent {
+  session_id: string;
+  message_id: string;
+  tool_call_id: string;
+  server_id: string;
+  server_name: string;
+  tool_name: string;
+  arguments: Record<string, unknown>;
+  status: ToolCallStatus;
+}
+
+interface StreamToolResultEvent {
+  session_id: string;
+  message_id: string;
+  tool_call_id: string;
+  result: unknown | null;
+  error: string | null;
+  status: ToolCallStatus;
+}
+
 /**
  * Listens to Tauri backend stream events and updates chat store accordingly.
  * Should be mounted once per active session view.
@@ -51,6 +72,8 @@ export function useStreamListener(sessionId: string | null) {
         setMessageStatus,
         setStreaming,
         setThinkingStreaming,
+        addToolCall,
+        updateToolCall,
       } = useChatStore.getState();
 
       const u1 = await listen<StreamTokenEvent>("stream_token", (event) => {
@@ -134,6 +157,44 @@ export function useStreamListener(sessionId: string | null) {
         setStreaming(false);
       });
       unlisteners.push(u4);
+
+      const u5 = await listen<StreamToolCallEvent>(
+        "stream:tool_call",
+        (event) => {
+          const { session_id, message_id, tool_call_id, server_id, server_name, tool_name, arguments: args, status } = event.payload;
+          if (session_id !== sessionId) return;
+
+          addToolCall(message_id, {
+            id: tool_call_id,
+            server_id,
+            server_name,
+            tool_name,
+            arguments: args,
+            result: null,
+            status,
+            error: null,
+            started_at: Date.now(),
+            completed_at: null,
+          });
+        }
+      );
+      unlisteners.push(u5);
+
+      const u6 = await listen<StreamToolResultEvent>(
+        "stream:tool_result",
+        (event) => {
+          const { session_id, message_id, tool_call_id, result, error: toolError, status } = event.payload;
+          if (session_id !== sessionId) return;
+
+          updateToolCall(message_id, tool_call_id, {
+            result,
+            error: toolError,
+            status,
+            completed_at: Date.now(),
+          });
+        }
+      );
+      unlisteners.push(u6);
     };
 
     setup();

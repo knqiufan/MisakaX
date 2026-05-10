@@ -21,5 +21,21 @@
   "scrollToBottom": "滚动到底部",
   "errorOccurred": "请求失败",
   "streamError": "流式输出错误",
-  "sendFailed": "无法完成请求"
+  "sendFailed": "无法完成请求",
+  "toolCall": {
+    "arguments": "参数",
+    "result": "结果",
+    "error": "错误"
+  },
+  "toolApproval": {
+    "title": "工具调用审批",
+    "description": "AI 工具正在请求执行权限，请审查以下详情。",
+    "tool": "工具",
+    "server": "服务器",
+    "arguments": "参数",
+    "allowOnce": "允许一次",
+    "alwaysAllow": "始终允许",
+    "deny": "拒绝",
+    "countdown": "{{seconds}}秒后自动拒绝"
+  }
 }

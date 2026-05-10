@@ -21,5 +21,21 @@
   "scrollToBottom": "Scroll to bottom",
   "errorOccurred": "Request failed",
   "streamError": "Stream error",
-  "sendFailed": "Could not complete the request"
+  "sendFailed": "Could not complete the request",
+  "toolCall": {
+    "arguments": "Arguments",
+    "result": "Result",
+    "error": "Error"
+  },
+  "toolApproval": {
+    "title": "Tool Call Approval",
+    "description": "An AI tool is requesting permission to execute. Review the details below.",
+    "tool": "Tool",
+    "server": "Server",
+    "arguments": "Arguments",
+    "allowOnce": "Allow Once",
+    "alwaysAllow": "Always Allow",
+    "deny": "Deny",
+    "countdown": "Auto-deny in {{seconds}}s"
+  }
 }

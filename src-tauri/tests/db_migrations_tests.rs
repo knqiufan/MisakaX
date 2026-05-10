@@ -161,7 +161,7 @@ fn test_migration_idempotent() {
     let version: i64 = conn
         .query_row("SELECT MAX(version) FROM _schema_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(version, 3);
+    assert_eq!(version, 4);
 }
 
 #[test]

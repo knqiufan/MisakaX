@@ -35,7 +35,27 @@
   },
   "mcp": {
     "title": "MCP",
-    "comingSoon": "MCP 配置将在 Phase 3 中提供"
+    "servers": "MCP 服务器",
+    "noServers": "尚未配置 MCP 服务器",
+    "tools": "工具",
+    "viewTools": "查看工具",
+    "connect": "连接",
+    "disconnect": "断开",
+    "restart": "重启",
+    "delete": "删除",
+    "addServer": "添加服务器",
+    "addServerDesc": "配置新的 MCP 服务器连接",
+    "serverName": "服务器名称",
+    "serverNamePlaceholder": "我的 MCP 服务器",
+    "transportType": "传输协议",
+    "command": "命令",
+    "arguments": "参数",
+    "url": "URL 地址",
+    "cancel": "取消",
+    "add": "添加",
+    "adding": "添加中...",
+    "permissions": "工具权限",
+    "resetPermission": "重置权限"
   },
   "appearance": {
     "title": "外观",

@@ -35,7 +35,27 @@
   },
   "mcp": {
     "title": "MCP",
-    "comingSoon": "MCP configuration will be available in Phase 3"
+    "servers": "MCP Servers",
+    "noServers": "No MCP servers configured",
+    "tools": "tools",
+    "viewTools": "View Tools",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "restart": "Restart",
+    "delete": "Delete",
+    "addServer": "Add Server",
+    "addServerDesc": "Configure a new MCP server connection",
+    "serverName": "Server Name",
+    "serverNamePlaceholder": "My MCP Server",
+    "transportType": "Transport Type",
+    "command": "Command",
+    "arguments": "Arguments",
+    "url": "URL",
+    "cancel": "Cancel",
+    "add": "Add",
+    "adding": "Adding...",
+    "permissions": "Tool Permissions",
+    "resetPermission": "Reset Permission"
   },
   "appearance": {
     "title": "Appearance",

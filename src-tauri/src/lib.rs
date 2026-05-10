@@ -121,6 +121,10 @@ pub fn run() {
             commands::mcp::mcp_call_tool,
             commands::mcp::mcp_add_server_config,
             commands::mcp::mcp_remove_server_config,
+            commands::mcp::mcp_approve_tool_call,
+            commands::mcp::mcp_deny_tool_call,
+            commands::mcp::mcp_list_permissions,
+            commands::mcp::mcp_reset_permission,
         ])
         .setup(move |app| {
             tracing::info!("MisakaX initialized successfully");

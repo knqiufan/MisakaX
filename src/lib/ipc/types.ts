@@ -99,6 +99,7 @@ export interface Message {
   attachments: string | null;
   status: MessageStatus;
   created_at: string;
+  tool_calls?: ToolCall[];
 }
 
 export interface TokenUsage {
@@ -154,4 +155,60 @@ export interface UpdateSessionParams {
   model?: string;
   pinned?: boolean;
   status?: string;
+}
+
+// ─── MCP Types ───────────────────────────────────────────────────────
+
+export type ToolCallStatus = "pending" | "running" | "complete" | "error";
+
+export interface ToolCall {
+  id: string;
+  server_id: string;
+  server_name: string;
+  tool_name: string;
+  arguments: Record<string, unknown>;
+  result: unknown | null;
+  status: ToolCallStatus;
+  error: string | null;
+  started_at: number | null;
+  completed_at: number | null;
+}
+
+export type McpServerStatusType =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | { error: string };
+
+export interface McpServerInfo {
+  id: string;
+  name: string;
+  transport_type: string;
+  status: McpServerStatusType;
+  tools_count: number;
+  auto_connect: boolean;
+}
+
+export interface McpToolInfo {
+  server_id: string;
+  name: string;
+  description: string | null;
+  input_schema: Record<string, unknown>;
+}
+
+export type ToolPermissionPolicy = "allow" | "deny" | "ask";
+
+export interface ToolPermission {
+  server_id: string;
+  tool_name: string;
+  policy: ToolPermissionPolicy;
+  updated_at: string;
+}
+
+export interface ToolCallRequestEvent {
+  request_id: string;
+  server_id: string;
+  server_name: string;
+  tool_name: string;
+  arguments: Record<string, unknown>;
 }
