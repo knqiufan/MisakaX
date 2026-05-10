@@ -1,11 +1,14 @@
 import { invoke } from "./invoke";
 
+/** Mirrors `crate::services::llm::registry::ModelInfo` (serde snake_case). */
 export interface ModelInfo {
-  id: string;
-  name: string;
-  provider: string;
-  context_length: number | null;
+  model_id: string;
+  display_name: string;
+  supports_vision: boolean;
+  supports_thinking: boolean;
   is_custom: boolean;
+  max_tokens: number | null;
+  context_window: number | null;
 }
 
 export interface ProviderModels {

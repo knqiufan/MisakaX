@@ -7,6 +7,8 @@
 - **壳层布局、主导航收起语义、会话列表工具区、对话页工作目录顶栏**等专项约定：见 [shell-and-workspace-ui-spec.md](./shell-and-workspace-ui-spec.md)。  
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 
+**最后审阅 / Last reviewed:** 2026-05-10
+
 ## 1. 设计理念 (Design Philosophy)
 
 MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 客户端**。
@@ -53,7 +55,12 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - 侧边栏导航项（NavItem）选中时应有明显的视觉区分（如强调色边框或背景），未选中时保持低调。
 - 避免在菜单项切换时加入复杂的宽度/高度动画。
 
-### 4.3 空页面与占位符 (Empty States)
+### 4.3 对话输入区（Composer 单行）
+
+- 附件按钮、文本域、发送/停止按钮放在同一 `flex` 行时，使用 **`items-center`** 做垂直居中；避免在单行默认高度下配合过高的 `min-height` 使用 `items-end`，否则圆形图标按钮容易视觉上“沉底”。
+- 同行圆形图标按钮宜统一触控尺寸（例如均为 `size-8`），附件与发送样式对齐。
+
+### 4.4 空页面与占位符 (Empty States)
 - 空页面设计应具有**引导性**。
 - 避免“提示文本”与“操作按钮”在逻辑上产生冲突（例如：提示“即将推出”却又提供“新建”按钮）。
 - 居中对齐，使用柔和的图标（透明度降低）和简明的文案。

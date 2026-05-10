@@ -32,7 +32,7 @@ describe("MessageInput keyboard logic", () => {
 });
 
 describe("MessageInput auto-resize constraints", () => {
-  const MIN_HEIGHT = 40;
+  const MIN_HEIGHT = 36;
   const MAX_HEIGHT = 200;
 
   function computeHeight(scrollHeight: number): number {

@@ -23,7 +23,7 @@ import { useChatStore } from "@/stores/chat-store";
 import { ModelSelector } from "./ModelSelector";
 import { ImagePreview, type PendingImage } from "./ImagePreview";
 
-const MIN_HEIGHT = 40;
+const MIN_HEIGHT = 36;
 const MAX_HEIGHT = 200;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = [
@@ -216,7 +216,7 @@ export function MessageInput({ onSend, onStop, disabled }: MessageInputProps) {
         className={cn(
           "flex flex-col rounded-[var(--radius-ui-lg)]",
           "border bg-[color:var(--surface-card)]",
-          "px-3 py-2 transition-colors duration-[var(--ds-dur-fast)]",
+          "px-3 py-1.5 transition-colors duration-[var(--ds-dur-fast)]",
           isDragOver
             ? "border-primary/50 bg-primary/5"
             : "border-[color:var(--border-muted)] focus-within:border-[color:var(--border-strong)]"
@@ -224,7 +224,7 @@ export function MessageInput({ onSend, onStop, disabled }: MessageInputProps) {
       >
         <ImagePreview images={pendingImages} onRemove={handleRemoveImage} />
 
-        <div className="flex items-end gap-2">
+        <div className="flex items-center gap-2">
           <AttachButton onClick={handleAttachClick} t={t} />
 
           <textarea
@@ -237,8 +237,8 @@ export function MessageInput({ onSend, onStop, disabled }: MessageInputProps) {
             disabled={disabled}
             rows={1}
             className={cn(
-              "min-h-[40px] max-h-[200px] flex-1 resize-none bg-transparent",
-              "text-sm leading-relaxed text-foreground outline-none",
+              "min-h-[36px] max-h-[200px] flex-1 resize-none bg-transparent",
+              "text-sm leading-snug text-foreground outline-none",
               "placeholder:text-muted-foreground/55",
               "disabled:cursor-not-allowed disabled:opacity-50"
             )}
@@ -285,7 +285,7 @@ function AttachButton({
           onClick={onClick}
           aria-label={t("attach")}
           className={cn(
-            "mb-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full",
+            "inline-flex size-8 shrink-0 items-center justify-center rounded-full",
             "border border-[color:var(--cm-border-strong)]",
             "bg-[color:var(--cm-surface-panel-solid)]",
             "text-muted-foreground",
@@ -384,18 +384,26 @@ function InputFooter({ t }: { t: (key: string) => string }) {
 
   const flatModels = useMemo(() => {
     return providerModels.flatMap((pm) =>
-      pm.models.map((m) => ({
-        id: `${pm.provider.id}:${m.id}`,
-        label: m.name,
-        provider: pm.provider.name,
-      }))
+      pm.models.map((m) => {
+        const label =
+          m.display_name?.trim() || m.model_id?.trim() || t("selectModel");
+        return {
+          id: `${pm.provider.id}:${m.model_id}`,
+          label,
+          provider: pm.provider.name?.trim() || pm.provider.id,
+        };
+      })
     );
-  }, [providerModels]);
+  }, [providerModels, t]);
 
   const selectedLabel = useMemo(() => {
     if (!selectedModel) return t("selectModel");
     const found = flatModels.find((m) => m.id === selectedModel);
-    return found?.label ?? selectedModel.split(":").pop() ?? t("selectModel");
+    const fallback = selectedModel.includes(":")
+      ? selectedModel.split(":").pop()
+      : selectedModel;
+    const raw = found?.label ?? fallback;
+    return raw?.trim() ? raw.trim() : t("selectModel");
   }, [selectedModel, flatModels, t]);
 
   return (
