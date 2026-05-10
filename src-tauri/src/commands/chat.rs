@@ -6,6 +6,7 @@ use crate::db::repository::{MessageRepo, RouterConfigRepo, SessionRepo};
 use crate::services::llm::backend::ImageAttachment;
 use crate::services::llm::config::LlmConfig;
 use crate::services::llm::RigBackend;
+use crate::services::mcp_bridge::McpToolBridge;
 use crate::AppState;
 
 /// 将附件 JSON 字符串反序列化为 ImageAttachment 列表
@@ -46,7 +47,17 @@ pub async fn send_message(
     save_user_message(&state, &user_msg_id, &request)?;
 
     // Step 2: 加载会话 + 历史消息
-    let (session, history) = load_session_context(&state, &request.session_id)?;
+    let (mut session, history) = load_session_context(&state, &request.session_id)?;
+
+    // Step 2.5: 注入 MCP 工具描述到系统 prompt
+    let mcp_bridge = McpToolBridge::new(std::sync::Arc::clone(&state.mcp_manager));
+    if let Some(tool_desc) = mcp_bridge.tool_descriptions() {
+        let base_prompt = session
+            .system_prompt
+            .clone()
+            .unwrap_or_default();
+        session.system_prompt = Some(format!("{}{}", base_prompt, tool_desc));
+    }
 
     // Step 3: 解析模型标识
     let model_spec = resolve_model_spec(

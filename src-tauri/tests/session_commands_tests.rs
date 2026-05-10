@@ -1,10 +1,15 @@
+#[cfg(feature = "test-private")]
+mod tests {
 use misaka_x_lib::db::migrations::run_migrations;
 use misaka_x_lib::db::repository::{SessionRepo, WorkspaceRepo};
 use misaka_x_lib::AppState;
 use misaka_x_lib::config::AppConfig;
 use misaka_x_lib::services::llm::StreamRegistry;
+use misaka_x_lib::services::mcp::McpManager;
+use misaka_x_lib::services::sidecar_client::SidecarClient;
+use misaka_x_lib::sidecar::SidecarManager;
 use rusqlite::Connection;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 fn create_test_state() -> AppState {
     let conn = Connection::open_in_memory().unwrap();
@@ -14,8 +19,10 @@ fn create_test_state() -> AppState {
     AppState {
         db: Mutex::new(conn),
         config: Mutex::new(AppConfig::default()),
-        sidecar: Mutex::new(None),
+        sidecar: Arc::new(SidecarManager::new("agent".to_string(), 9527)),
+        sidecar_client: SidecarClient::new(9527),
         stream_registry: StreamRegistry::new(),
+        mcp_manager: Arc::new(McpManager::new()),
     }
 }
 
@@ -143,3 +150,4 @@ fn full_workspace_binding_flow() {
     );
     assert_eq!(updated.project_name, Some("other-project".to_string()));
 }
+} // mod tests

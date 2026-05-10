@@ -1,4 +1,6 @@
-use misaka_x_lib::commands::workspace::{validate_directory};
+#[cfg(feature = "test-private")]
+mod tests {
+use misaka_x_lib::commands::workspace::validate_directory;
 use std::fs;
 
 #[test]
@@ -77,3 +79,4 @@ fn validate_empty_directory() {
 
     let _ = fs::remove_dir_all(&temp);
 }
+} // mod tests

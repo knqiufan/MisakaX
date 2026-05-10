@@ -68,8 +68,15 @@ rand = "0.8"
 # --- LLM framework (Phase 2) ---
 rig-core = { version = "0.36", default-features = false, features = ["derive", "reqwest", "native-tls"] }
 
+# --- MCP (Phase 3) ---
+rmcp = { version = "1.6", features = ["client", "transport-child-process", "transport-streamable-http-client-reqwest", "reqwest-native-tls"] }
+http = "1"
+
 # --- Stream processing ---
 futures = "0.3"
 
 # --- Async trait support ---
 async-trait = "0.1"
+
+[dev-dependencies]
+tempfile = "3"

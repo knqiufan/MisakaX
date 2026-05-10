@@ -26,6 +26,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         migrate_v2(conn)?;
     }
 
+    if current_version < 3 {
+        migrate_v3(conn)?;
+    }
+
     Ok(())
 }
 
@@ -169,5 +173,26 @@ fn migrate_v2(conn: &Connection) -> Result<()> {
     )?;
 
     tracing::info!("Database migrated to version 2");
+    Ok(())
+}
+
+fn migrate_v3(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS mcp_servers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            transport_json TEXT NOT NULL,
+            auto_connect INTEGER DEFAULT 1,
+            env_json TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        INSERT INTO _schema_version (version) VALUES (3);
+        ",
+    )?;
+
+    tracing::info!("Database migrated to version 3");
     Ok(())
 }

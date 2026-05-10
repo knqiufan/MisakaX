@@ -96,6 +96,8 @@ pub fn ensure_directories() -> Result<()> {
         std::fs::create_dir_all(dir)?;
     }
 
+    crate::services::mcp::McpConfigLoader::ensure_default_config(&root)?;
+
     tracing::info!("Config directories initialized at: {}", root.display());
     Ok(())
 }

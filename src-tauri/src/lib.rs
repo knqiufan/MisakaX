@@ -13,6 +13,7 @@ pub mod sidecar;
 
 use config::AppConfig;
 use services::llm::StreamRegistry;
+use services::mcp::McpManager;
 use services::sidecar_client::SidecarClient;
 use sidecar::SidecarManager;
 use std::sync::{Arc, Mutex};
@@ -26,6 +27,8 @@ pub struct AppState {
     /// 流式会话注册表 — 跟踪活跃流并支持 abort（停止生成）。
     /// DashMap 内部实现并发安全，无需外层 Mutex。
     pub stream_registry: StreamRegistry,
+    /// MCP Server 管理器 — 管理所有 MCP Server 连接的生命周期
+    pub mcp_manager: Arc<McpManager>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -52,6 +55,14 @@ pub fn run() {
 
     let sidecar_client = SidecarClient::new(sidecar_port);
 
+    let mcp_manager = Arc::new(McpManager::new());
+
+    let mcp_configs = {
+        let config_root = config::config_dir().unwrap_or_default();
+        services::mcp::McpConfigLoader::load_all(&config_root, &conn)
+            .unwrap_or_default()
+    };
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
@@ -65,6 +76,7 @@ pub fn run() {
             sidecar: Arc::clone(&sidecar),
             sidecar_client,
             stream_registry: StreamRegistry::new(),
+            mcp_manager: Arc::clone(&mcp_manager),
         })
         .invoke_handler(tauri::generate_handler![
             commands::settings::get_settings,
@@ -101,6 +113,14 @@ pub fn run() {
             commands::session::get_session,
             commands::sidecar::get_sidecar_status,
             commands::sidecar::restart_sidecar,
+            commands::mcp::mcp_list_servers,
+            commands::mcp::mcp_connect_server,
+            commands::mcp::mcp_disconnect_server,
+            commands::mcp::mcp_restart_server,
+            commands::mcp::mcp_list_tools,
+            commands::mcp::mcp_call_tool,
+            commands::mcp::mcp_add_server_config,
+            commands::mcp::mcp_remove_server_config,
         ])
         .setup(move |app| {
             tracing::info!("MisakaX initialized successfully");
@@ -132,8 +152,105 @@ pub fn run() {
                 );
             }
 
+            // MCP: 异步连接 auto_connect Server
+            let mcp_for_connect = Arc::clone(&mcp_manager);
+            let mcp_configs_for_setup = mcp_configs.clone();
+            let app_handle_for_mcp = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let auto_configs: Vec<_> = mcp_configs_for_setup
+                    .into_iter()
+                    .filter(|c| c.auto_connect)
+                    .collect();
+
+                if auto_configs.is_empty() {
+                    tracing::info!("No MCP servers configured for auto-connect");
+                    return;
+                }
+
+                tracing::info!(
+                    count = auto_configs.len(),
+                    "Auto-connecting MCP servers"
+                );
+
+                for config in auto_configs {
+                    let server_name = config.name.clone();
+                    if let Err(e) = mcp_for_connect.connect(config).await {
+                        tracing::warn!(
+                            server = %server_name,
+                            error = %e,
+                            "Failed to auto-connect MCP server"
+                        );
+                    }
+                }
+
+                // 启动健康检查循环
+                start_mcp_health_loop(app_handle_for_mcp, mcp_for_connect);
+            });
+
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while running MisakaX");
+}
+
+const MCP_HEALTH_INTERVAL_SECS: u64 = 60;
+const MCP_MAX_RETRIES: u32 = 3;
+
+/// MCP Server 健康检查循环
+///
+/// 定期 ping 所有已连接的 Server，发现断连时自动重连（最多 3 次），
+/// 状态变化通过 Tauri Event (`mcp:server_status`) 通知前端。
+fn start_mcp_health_loop(app: tauri::AppHandle, manager: Arc<McpManager>) {
+    use tauri::Emitter;
+
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(
+                MCP_HEALTH_INTERVAL_SECS,
+            ))
+            .await;
+
+            let servers = manager.list_servers();
+            for info in servers {
+                if info.status != services::mcp::McpServerStatus::Connected {
+                    continue;
+                }
+
+                let alive = manager.health_check(&info.id).await;
+                if alive {
+                    manager.reset_retry(&info.id);
+                    continue;
+                }
+
+                tracing::warn!(
+                    server_id = %info.id,
+                    "MCP Server health check failed, attempting reconnect"
+                );
+
+                let retries = manager.retry_count(&info.id);
+                if retries >= MCP_MAX_RETRIES {
+                    tracing::error!(
+                        server_id = %info.id,
+                        retries = retries,
+                        "MCP Server exceeded max retries, giving up"
+                    );
+                    continue;
+                }
+
+                manager.increment_retry(&info.id);
+
+                if let Err(e) = manager.reconnect(&info.id).await {
+                    tracing::warn!(
+                        server_id = %info.id,
+                        error = %e,
+                        "MCP reconnect attempt failed"
+                    );
+                }
+
+                if let Some(updated) = manager.server_info(&info.id) {
+                    let _ = app.emit("mcp:server_status", &updated);
+                }
+            }
+        }
+    });
 }
