@@ -2035,45 +2035,45 @@ interface ImageAttachment {
 
 ### 2.12 Token 用量统计 [预估 2h]
 
-- [ ] **2.12.1** 定义 `TokenUsage` 结构体（Rust + TypeScript 两端）
-- [ ] **2.12.2** 在 `stream_complete` 事件中传递 usage 数据
-- [ ] **2.12.3** 在 `save_message` 时写入 token_usage 字段（JSON）
-- [ ] **2.12.4** 在 assistant 消息完成后更新 session 的 total_input_tokens / total_output_tokens
-- [ ] **2.12.5** 在 MessageItem 底部显示 TokenBadge 组件
-- [ ] **2.12.6** 验证 Token 统计数据正确
+- [x] **2.12.1** 定义 `TokenUsage` 结构体（Rust + TypeScript 两端）
+- [x] **2.12.2** 在 `stream_complete` 事件中传递 usage 数据
+- [x] **2.12.3** 在 `save_message` 时写入 token_usage 字段（JSON）
+- [x] **2.12.4** 在 assistant 消息完成后更新 session 的 total_input_tokens / total_output_tokens
+- [x] **2.12.5** 在 MessageItem 底部显示 TokenBadge 组件
+- [x] **2.12.6** 验证 Token 统计数据正确
 
 ### 2.13 思维链展示 [预估 3h]
 
-- [ ] **2.13.1** 安装 shadcn/ui 组件：`npx shadcn@latest add collapsible`
-- [ ] **2.13.2** 创建 `src/components/chat/ThinkingBlock.tsx`（折叠/展开组件）
-- [ ] **2.13.3** 在 `MessageItem` 中集成 ThinkingBlock（当 thinking_content 非空时显示）
-- [ ] **2.13.4** 实现流式 thinking 内容的实时更新（通过 stream_thinking 事件）
-- [ ] **2.13.5** 验证 Anthropic Claude thinking blocks 完整流程
+- [x] **2.13.1** 安装 shadcn/ui 组件：`npx shadcn@latest add collapsible`
+- [x] **2.13.2** 创建 `src/components/chat/ThinkingBlock.tsx`（折叠/展开组件）
+- [x] **2.13.3** 在 `MessageItem` 中集成 ThinkingBlock（当 thinking_content 非空时显示）
+- [x] **2.13.4** 实现流式 thinking 内容的实时更新（通过 stream_thinking 事件）
+- [x] **2.13.5** 验证 Anthropic Claude thinking blocks 完整流程
 
 ### 2.14 停止生成 / 重新生成 [预估 2h]
 
-- [ ] **2.14.1** 在 MessageInput 中实现 发送→停止 按钮切换
-- [ ] **2.14.2** 实现前端 `stopGeneration()` 调用 → Rust `stop_generation` command
-- [ ] **2.14.3** 在 MessageItem 操作栏中添加"重新生成"按钮
-- [ ] **2.14.4** 实现前端 `regenerateMessage()` 调用 → Rust `regenerate_message` command
-- [ ] **2.14.5** 验证停止生成后已有内容保留 + 重新生成后旧内容替换
+- [x] **2.14.1** 在 MessageInput 中实现 发送→停止 按钮切换
+- [x] **2.14.2** 实现前端 `stopGeneration()` 调用 → Rust `stop_generation` command
+- [x] **2.14.3** 在 MessageItem 操作栏中添加"重新生成"按钮
+- [x] **2.14.4** 实现前端 `regenerateMessage()` 调用 → Rust `regenerate_message` command
+- [x] **2.14.5** 验证停止生成后已有内容保留 + 重新生成后旧内容替换
 
 ### 2.15 多模态输入 [预估 4h]
 
-- [ ] **2.15.1** 在 MessageInput 中实现剪贴板粘贴图片（paste 事件 → Base64）
-- [ ] **2.15.2** 在 MessageInput 中实现拖拽图片（drag/drop 事件 → Base64）
-- [ ] **2.15.3** 在 MessageInput 中添加 📎 按钮（文件选择对话框）
-- [ ] **2.15.4** 创建 `src/components/chat/ImagePreview.tsx`（缩略图预览 + 删除按钮）
-- [ ] **2.15.5** 在 send_message 时传递 images 参数
-- [ ] **2.15.6** 实现文件大小检查（<=10MB）和类型校验
-- [ ] **2.15.7** 验证粘贴/拖拽/选择三种方式均可正常工作
-- [ ] **2.15.8** 验证视觉模型正确理解图片内容
+- [x] **2.15.1** 在 MessageInput 中实现剪贴板粘贴图片（paste 事件 → Base64）
+- [x] **2.15.2** 在 MessageInput 中实现拖拽图片（drag/drop 事件 → Base64）
+- [x] **2.15.3** 在 MessageInput 中添加 📎 按钮（文件选择对话框）
+- [x] **2.15.4** 创建 `src/components/chat/ImagePreview.tsx`（缩略图预览 + 删除按钮）
+- [x] **2.15.5** 在 send_message 时传递 images 参数
+- [x] **2.15.6** 实现文件大小检查（<=10MB）和类型校验
+- [x] **2.15.7** 验证粘贴/拖拽/选择三种方式均可正常工作
+- [x] **2.15.8** 验证视觉模型正确理解图片内容
 
 ### i18n 补充 [预估 1h]
 
-- [ ] **i18n-1** 在 `en/chat.json` 中添加对话相关翻译键
-- [ ] **i18n-2** 在 `zh-CN/chat.json` 中添加对话相关翻译键
-- [ ] **i18n-3** 所有新增 UI 文字使用 `useTranslation()` 的 `t()` 函数
+- [x] **i18n-1** 在 `en/chat.json` 中添加对话相关翻译键
+- [x] **i18n-2** 在 `zh-CN/chat.json` 中添加对话相关翻译键
+- [x] **i18n-3** 所有新增 UI 文字使用 `useTranslation()` 的 `t()` 函数
 
 ### 收尾验证 [预估 2h]
 

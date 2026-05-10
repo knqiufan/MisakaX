@@ -12,6 +12,7 @@ interface ChatState {
   messages: Message[];
   isStreaming: boolean;
   streamingMessageId: string | null;
+  isThinkingStreaming: boolean;
   selectedModel: string | null;
 
   setActiveSession: (id: string | null) => void;
@@ -25,9 +26,11 @@ interface ChatState {
 
   setMessages: (messages: Message[]) => void;
   addMessage: (message: Message) => void;
+  removeMessagesFrom: (messageId: string) => void;
   updateMessageContent: (messageId: string, delta: string) => void;
   setMessageStatus: (messageId: string, status: Message["status"]) => void;
   setStreaming: (streaming: boolean, messageId?: string | null) => void;
+  setThinkingStreaming: (streaming: boolean) => void;
   setSelectedModel: (model: string | null) => void;
   clearMessages: () => void;
   loadMessages: (sessionId: string) => Promise<void>;
@@ -43,6 +46,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   isStreaming: false,
   streamingMessageId: null,
+  isThinkingStreaming: false,
   selectedModel: null,
 
   setActiveSession: (id) => set({ activeSessionId: id }),
@@ -53,6 +57,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: [],
       isStreaming: false,
       streamingMessageId: null,
+      isThinkingStreaming: false,
     });
     get().refreshSessions();
   },
@@ -93,6 +98,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   addMessage: (message) =>
     set((state) => ({ messages: [...state.messages, message] })),
 
+  removeMessagesFrom: (messageId) =>
+    set((state) => {
+      const idx = state.messages.findIndex((m) => m.id === messageId);
+      if (idx === -1) return state;
+      return { messages: state.messages.slice(0, idx) };
+    }),
+
   updateMessageContent: (messageId, delta) =>
     set((state) => ({
       messages: state.messages.map((m) =>
@@ -108,12 +120,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     })),
 
   setStreaming: (streaming, messageId = null) =>
-    set({ isStreaming: streaming, streamingMessageId: messageId }),
+    set({
+      isStreaming: streaming,
+      streamingMessageId: messageId,
+      ...(streaming ? {} : { isThinkingStreaming: false }),
+    }),
+
+  setThinkingStreaming: (streaming) => set({ isThinkingStreaming: streaming }),
 
   setSelectedModel: (model) => set({ selectedModel: model }),
 
   clearMessages: () =>
-    set({ messages: [], isStreaming: false, streamingMessageId: null }),
+    set({ messages: [], isStreaming: false, streamingMessageId: null, isThinkingStreaming: false }),
 
   loadMessages: async (sessionId: string) => {
     try {

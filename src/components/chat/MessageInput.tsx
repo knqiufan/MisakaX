@@ -5,9 +5,11 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type ClipboardEvent,
+  type DragEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { Send, Square, ChevronDown } from "lucide-react";
+import { Send, Square, ChevronDown, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,15 +18,27 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { modelsIpc } from "@/lib/ipc";
-import type { ProviderModels } from "@/lib/ipc";
+import type { ImageAttachment, ProviderModels } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
 import { ModelSelector } from "./ModelSelector";
+import { ImagePreview, type PendingImage } from "./ImagePreview";
 
 const MIN_HEIGHT = 40;
 const MAX_HEIGHT = 200;
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+];
 
 interface MessageInputProps {
-  onSend: (content: string, modelOverride?: string) => void;
+  onSend: (
+    content: string,
+    modelOverride?: string,
+    images?: ImageAttachment[]
+  ) => void;
   onStop: () => void;
   disabled?: boolean;
 }
@@ -33,9 +47,15 @@ export function MessageInput({ onSend, onStop, disabled }: MessageInputProps) {
   const { t } = useTranslation("chat");
   const { isStreaming, selectedModel } = useChatStore();
   const [content, setContent] = useState("");
+  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const canSend = content.trim().length > 0 && !disabled && !isStreaming;
+  const canSend =
+    (content.trim().length > 0 || pendingImages.length > 0) &&
+    !disabled &&
+    !isStreaming;
 
   const adjustHeight = useCallback(() => {
     const el = textareaRef.current;
@@ -51,15 +71,26 @@ export function MessageInput({ onSend, onStop, disabled }: MessageInputProps) {
 
   const handleSend = useCallback(() => {
     const trimmed = content.trim();
-    if (!trimmed || isStreaming) return;
-    onSend(trimmed, selectedModel ?? undefined);
+    if ((!trimmed && pendingImages.length === 0) || isStreaming) return;
+
+    const images: ImageAttachment[] | undefined =
+      pendingImages.length > 0
+        ? pendingImages.map((img) => ({
+            type: "base64",
+            data: img.data,
+            mime_type: img.mime_type,
+          }))
+        : undefined;
+
+    onSend(trimmed, selectedModel ?? undefined, images);
     setContent("");
+    setPendingImages([]);
     requestAnimationFrame(() => {
       if (textareaRef.current) {
         textareaRef.current.style.height = `${MIN_HEIGHT}px`;
       }
     });
-  }, [content, isStreaming, onSend, selectedModel]);
+  }, [content, isStreaming, onSend, selectedModel, pendingImages]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -71,48 +102,204 @@ export function MessageInput({ onSend, onStop, disabled }: MessageInputProps) {
     [handleSend]
   );
 
-  const handleStopClick = useCallback(() => {
-    onStop();
-  }, [onStop]);
+  const processFiles = useCallback(
+    (files: FileList | File[]) => {
+      const fileArray = Array.from(files);
+      for (const file of fileArray) {
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+          console.warn(`Unsupported image type: ${file.type}`);
+          continue;
+        }
+        if (file.size > MAX_IMAGE_SIZE) {
+          console.warn(
+            `Image too large: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB > 10MB)`
+          );
+          continue;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(",")[1];
+          if (!base64) return;
+
+          setPendingImages((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              data: base64,
+              mime_type: file.type,
+              name: file.name,
+              size: file.size,
+            },
+          ]);
+        };
+        reader.readAsDataURL(file);
+      }
+    },
+    []
+  );
+
+  const handlePaste = useCallback(
+    (e: ClipboardEvent<HTMLTextAreaElement>) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const imageFiles: File[] = [];
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) imageFiles.push(file);
+        }
+      }
+
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        processFiles(imageFiles);
+      }
+    },
+    [processFiles]
+  );
+
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        processFiles(files);
+      }
+    },
+    [processFiles]
+  );
+
+  const handleAttachClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        processFiles(files);
+      }
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    },
+    [processFiles]
+  );
+
+  const handleRemoveImage = useCallback((id: string) => {
+    setPendingImages((prev) => prev.filter((img) => img.id !== id));
+  }, []);
 
   return (
     <div className="shrink-0 border-t border-[color:var(--border-muted)] bg-[color:var(--surface-topbar)] px-4 py-3">
       <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
         className={cn(
-          "flex items-end gap-2 rounded-[var(--radius-ui-lg)]",
-          "border border-[color:var(--border-muted)] bg-[color:var(--surface-card)]",
+          "flex flex-col rounded-[var(--radius-ui-lg)]",
+          "border bg-[color:var(--surface-card)]",
           "px-3 py-2 transition-colors duration-[var(--ds-dur-fast)]",
-          "focus-within:border-[color:var(--border-strong)]"
+          isDragOver
+            ? "border-primary/50 bg-primary/5"
+            : "border-[color:var(--border-muted)] focus-within:border-[color:var(--border-strong)]"
         )}
       >
-        <textarea
-          ref={textareaRef}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={t("inputPlaceholder")}
-          disabled={disabled}
-          rows={1}
-          className={cn(
-            "min-h-[40px] max-h-[200px] flex-1 resize-none bg-transparent",
-            "text-sm leading-relaxed text-foreground outline-none",
-            "placeholder:text-muted-foreground/55",
-            "disabled:cursor-not-allowed disabled:opacity-50"
-          )}
-          style={{ height: `${MIN_HEIGHT}px` }}
-        />
+        <ImagePreview images={pendingImages} onRemove={handleRemoveImage} />
 
-        <InputToolbar
-          isStreaming={isStreaming}
-          canSend={canSend}
-          onSend={handleSend}
-          onStop={handleStopClick}
-          t={t}
-        />
+        <div className="flex items-end gap-2">
+          <AttachButton onClick={handleAttachClick} t={t} />
+
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            placeholder={t("inputPlaceholder")}
+            disabled={disabled}
+            rows={1}
+            className={cn(
+              "min-h-[40px] max-h-[200px] flex-1 resize-none bg-transparent",
+              "text-sm leading-relaxed text-foreground outline-none",
+              "placeholder:text-muted-foreground/55",
+              "disabled:cursor-not-allowed disabled:opacity-50"
+            )}
+            style={{ height: `${MIN_HEIGHT}px` }}
+          />
+
+          <InputToolbar
+            isStreaming={isStreaming}
+            canSend={canSend}
+            onSend={handleSend}
+            onStop={onStop}
+            t={t}
+          />
+        </div>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={ALLOWED_IMAGE_TYPES.join(",")}
+        multiple
+        onChange={handleFileChange}
+        className="hidden"
+        aria-hidden
+      />
 
       <InputFooter t={t} />
     </div>
+  );
+}
+
+function AttachButton({
+  onClick,
+  t,
+}: {
+  onClick: () => void;
+  t: (key: string) => string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onClick}
+          aria-label={t("attach")}
+          className={cn(
+            "mb-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full",
+            "border border-[color:var(--cm-border-strong)]",
+            "bg-[color:var(--cm-surface-panel-solid)]",
+            "text-muted-foreground",
+            "transition-colors duration-[var(--ds-dur-fast)]",
+            "hover:text-foreground"
+          )}
+        >
+          <Paperclip className="size-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs">
+        {t("attach")}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

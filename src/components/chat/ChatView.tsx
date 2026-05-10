@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { useChatStore } from "@/stores/chat-store";
 import { chatIpc } from "@/lib/ipc";
-import type { Session } from "@/lib/ipc";
+import type { Session, ImageAttachment } from "@/lib/ipc";
 import { useStreamListener } from "@/hooks/use-stream-listener";
 import { WorkspaceBar } from "./WorkspaceBar";
 import { MessageList } from "./MessageList";
@@ -18,8 +18,10 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
     messages,
     streamingMessageId,
     isStreaming,
+    isThinkingStreaming,
     setStreaming,
     addMessage,
+    removeMessagesFrom,
     loadMessages,
     requestAutoTitle,
   } = useChatStore();
@@ -31,7 +33,14 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
   }, [session.id, loadMessages]);
 
   const handleSend = useCallback(
-    async (content: string, modelOverride?: string) => {
+    async (
+      content: string,
+      modelOverride?: string,
+      images?: ImageAttachment[]
+    ) => {
+      const attachmentsJson =
+        images && images.length > 0 ? JSON.stringify(images) : null;
+
       const userMessage = {
         id: crypto.randomUUID(),
         session_id: session.id,
@@ -40,7 +49,7 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
         token_usage: null,
         model: null,
         thinking_content: null,
-        attachments: null,
+        attachments: attachmentsJson,
         status: "complete" as const,
         created_at: new Date().toISOString(),
       };
@@ -68,6 +77,7 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
         await chatIpc.sendMessage({
           session_id: session.id,
           content,
+          images,
           model_override: modelOverride,
         });
       } catch (err) {
@@ -92,6 +102,8 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
 
   const handleRegenerate = useCallback(
     async (messageId: string) => {
+      removeMessagesFrom(messageId);
+
       const assistantId = crypto.randomUUID();
       const assistantPlaceholder = {
         id: assistantId,
@@ -116,7 +128,7 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
         setStreaming(false);
       }
     },
-    [session.id, addMessage, setStreaming]
+    [session.id, addMessage, removeMessagesFrom, setStreaming]
   );
 
   return (
@@ -128,6 +140,7 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
         <MessageList
           messages={messages}
           streamingMessageId={streamingMessageId}
+          isThinkingStreaming={isThinkingStreaming}
           onRegenerate={handleRegenerate}
         />
       )}

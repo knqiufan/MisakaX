@@ -10,5 +10,13 @@
   "emptyDescription": "Type a message to start chatting with AI. Markdown is supported.",
   "copyMessage": "Copy message",
   "copied": "Copied",
-  "regenerate": "Regenerate"
+  "regenerate": "Regenerate",
+  "attach": "Attach image",
+  "thinkingStreaming": "Thinking…",
+  "thinkingDone": "Thought process",
+  "tokenUsage": "Token usage",
+  "inputTokens": "Input",
+  "outputTokens": "Output",
+  "totalTokens": "Total",
+  "scrollToBottom": "Scroll to bottom"
 }

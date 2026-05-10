@@ -44,12 +44,17 @@ export function useStreamListener(sessionId: string | null) {
     const unlisteners: UnlistenFn[] = [];
 
     const setup = async () => {
-      const { updateMessageContent, setMessageStatus, setStreaming } =
+      const { updateMessageContent, setMessageStatus, setStreaming, setThinkingStreaming } =
         useChatStore.getState();
 
       const u1 = await listen<StreamTokenEvent>("stream_token", (event) => {
         const { session_id, message_id, delta } = event.payload;
         if (session_id !== sessionId) return;
+
+        if (useChatStore.getState().isThinkingStreaming) {
+          setThinkingStreaming(false);
+        }
+
         updateMessageContent(message_id, delta);
       });
       unlisteners.push(u1);
@@ -59,6 +64,9 @@ export function useStreamListener(sessionId: string | null) {
         (event) => {
           const { session_id, message_id, thinking_delta } = event.payload;
           if (session_id !== sessionId) return;
+
+          setThinkingStreaming(true);
+
           const store = useChatStore.getState();
           const msg = store.messages.find((m) => m.id === message_id);
           if (msg) {

@@ -27,6 +27,7 @@ describe("useChatStore", () => {
       messages: [],
       isStreaming: false,
       streamingMessageId: null,
+      isThinkingStreaming: false,
       selectedModel: null,
     });
   });
@@ -213,6 +214,78 @@ describe("useChatStore", () => {
       useChatStore.getState().setSelectedModel("x:y");
       useChatStore.getState().setSelectedModel(null);
       expect(useChatStore.getState().selectedModel).toBeNull();
+    });
+  });
+
+  describe("thinking streaming state", () => {
+    it("should set thinking streaming", () => {
+      useChatStore.getState().setThinkingStreaming(true);
+      expect(useChatStore.getState().isThinkingStreaming).toBe(true);
+    });
+
+    it("should reset thinking streaming when stream completes", () => {
+      useChatStore.getState().setThinkingStreaming(true);
+      useChatStore.getState().setStreaming(false);
+      expect(useChatStore.getState().isThinkingStreaming).toBe(false);
+    });
+
+    it("should reset thinking streaming on clearMessages", () => {
+      useChatStore.getState().setThinkingStreaming(true);
+      useChatStore.getState().clearMessages();
+      expect(useChatStore.getState().isThinkingStreaming).toBe(false);
+    });
+
+    it("should reset thinking streaming on setActiveSessionData", () => {
+      useChatStore.getState().setThinkingStreaming(true);
+      useChatStore.getState().setActiveSessionData({
+        id: "s",
+        title: null,
+        model: null,
+        system_prompt: null,
+        working_directory: null,
+        project_name: null,
+        status: "active",
+        mode: "agent",
+        total_input_tokens: 0,
+        total_output_tokens: 0,
+        last_message_at: null,
+        pinned: false,
+        group_name: null,
+        created_at: "",
+        updated_at: "",
+      });
+      expect(useChatStore.getState().isThinkingStreaming).toBe(false);
+    });
+  });
+
+  describe("removeMessagesFrom", () => {
+    it("should remove target message and all after it", () => {
+      useChatStore.getState().setMessages([
+        makeMessage({ id: "m1" }),
+        makeMessage({ id: "m2" }),
+        makeMessage({ id: "m3" }),
+      ]);
+      useChatStore.getState().removeMessagesFrom("m2");
+      const msgs = useChatStore.getState().messages;
+      expect(msgs).toHaveLength(1);
+      expect(msgs[0].id).toBe("m1");
+    });
+
+    it("should remove all messages when first is targeted", () => {
+      useChatStore.getState().setMessages([
+        makeMessage({ id: "m1" }),
+        makeMessage({ id: "m2" }),
+      ]);
+      useChatStore.getState().removeMessagesFrom("m1");
+      expect(useChatStore.getState().messages).toHaveLength(0);
+    });
+
+    it("should do nothing if id not found", () => {
+      useChatStore.getState().setMessages([
+        makeMessage({ id: "m1" }),
+      ]);
+      useChatStore.getState().removeMessagesFrom("not-found");
+      expect(useChatStore.getState().messages).toHaveLength(1);
     });
   });
 });

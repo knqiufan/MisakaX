@@ -31,6 +31,7 @@ describe("ChatView store integration", () => {
       messages: [],
       isStreaming: false,
       streamingMessageId: null,
+      isThinkingStreaming: false,
       selectedModel: null,
     });
   });

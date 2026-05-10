@@ -6,21 +6,25 @@ import { Check, Copy, RefreshCw, User, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Message, TokenUsage } from "@/lib/ipc";
 import { CodeBlock } from "./CodeBlock";
+import { ThinkingBlock } from "./ThinkingBlock";
 import { TokenBadge } from "./TokenBadge";
 import { StreamingIndicator } from "./StreamingIndicator";
 
 interface MessageItemProps {
   message: Message;
   isStreaming?: boolean;
+  isThinkingStreaming?: boolean;
   onRegenerate?: (messageId: string) => void;
 }
 
 export function MessageItem({
   message,
   isStreaming,
+  isThinkingStreaming,
   onRegenerate,
 }: MessageItemProps) {
   const isUser = message.role === "user";
+  const hasThinking = !isUser && (!!message.thinking_content || isThinkingStreaming);
 
   return (
     <div
@@ -33,6 +37,12 @@ export function MessageItem({
       <div
         className={cn("flex max-w-[85%] flex-col gap-1", isUser && "items-end")}
       >
+        {hasThinking && (
+          <ThinkingBlock
+            content={message.thinking_content ?? ""}
+            isStreaming={isThinkingStreaming}
+          />
+        )}
         <MessageBubble message={message} isUser={isUser} />
         {isStreaming && message.status === "streaming" && (
           <StreamingIndicator className="ml-1" />
@@ -85,6 +95,8 @@ function MessageBubble({
     return null;
   }
 
+  const attachedImages = parseAttachments(message.attachments);
+
   return (
     <div
       className={cn(
@@ -94,6 +106,18 @@ function MessageBubble({
           : "bg-[color:var(--surface-card)] text-foreground"
       )}
     >
+      {attachedImages.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-2">
+          {attachedImages.map((img, i) => (
+            <img
+              key={i}
+              src={`data:${img.mime_type};base64,${img.data}`}
+              alt=""
+              className="max-h-48 max-w-[200px] rounded-[var(--radius-ui-md)] object-contain"
+            />
+          ))}
+        </div>
+      )}
       {isUser ? (
         <p className="whitespace-pre-wrap">{message.content}</p>
       ) : (
@@ -101,6 +125,21 @@ function MessageBubble({
       )}
     </div>
   );
+}
+
+interface AttachmentImage {
+  data: string;
+  mime_type: string;
+}
+
+function parseAttachments(raw: string | null): AttachmentImage[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as AttachmentImage[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 function MarkdownContent({ content }: { content: string }) {
