@@ -81,7 +81,7 @@ impl MessageRepo {
     ) -> Result<Vec<Message>> {
         let mut stmt = conn.prepare(
             "SELECT id, session_id, role, content, token_usage, model,
-                    thinking_content, attachments, status, created_at
+                    thinking_content, attachments, status, tool_calls, created_at
              FROM messages
              WHERE session_id = ?1
              ORDER BY created_at DESC
@@ -112,7 +112,7 @@ impl MessageRepo {
 
         let mut stmt = conn.prepare(
             "SELECT id, session_id, role, content, token_usage, model,
-                    thinking_content, attachments, status, created_at
+                    thinking_content, attachments, status, tool_calls, created_at
              FROM messages
              WHERE session_id = ?1 AND created_at < ?2
              ORDER BY created_at DESC
@@ -160,7 +160,7 @@ impl MessageRepo {
 
         let mut stmt = conn.prepare(
             "SELECT id, session_id, role, content, token_usage, model,
-                    thinking_content, attachments, status, created_at
+                    thinking_content, attachments, status, tool_calls, created_at
              FROM messages
              WHERE session_id = ?1 AND created_at < ?2
              ORDER BY created_at ASC",
@@ -325,7 +325,8 @@ impl MessageRepo {
             attachments: row.get(7)?,
             status: row.get::<_, Option<String>>(8)?
                 .unwrap_or_else(|| "complete".to_string()),
-            created_at: row.get(9)?,
+            tool_calls: row.get(9)?,
+            created_at: row.get(10)?,
         })
     }
 

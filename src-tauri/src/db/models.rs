@@ -45,6 +45,7 @@ pub struct Message {
     pub attachments: Option<String>,
     #[serde(default = "default_message_status")]
     pub status: String,
+    pub tool_calls: Option<String>,
     pub created_at: String,
 }
 

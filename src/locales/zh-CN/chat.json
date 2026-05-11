@@ -27,6 +27,26 @@
     "result": "结果",
     "error": "错误"
   },
+  "session": {
+    "searchPlaceholder": "搜索会话 / 消息…",
+    "pinned": "置顶",
+    "ungrouped": "未分组",
+    "hideArchived": "隐藏归档",
+    "showArchived": "显示 {{count}} 个归档",
+    "noMatchingSessions": "未找到匹配的会话",
+    "noSessions": "暂无会话",
+    "pin": "置顶",
+    "unpin": "取消置顶",
+    "archive": "归档",
+    "unarchive": "取消归档",
+    "setGroup": "设置分组",
+    "newGroup": "新建分组",
+    "removeGroup": "移出分组",
+    "export": "导出",
+    "rename": "重命名",
+    "delete": "删除",
+    "deleteConfirm": "确定要删除此会话吗？"
+  },
   "toolApproval": {
     "title": "工具调用审批",
     "description": "AI 工具正在请求执行权限，请审查以下详情。",

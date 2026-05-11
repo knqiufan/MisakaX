@@ -2024,16 +2024,16 @@ TODO-3.14.3 ✅ [1.0h] [依赖 3.14.2]
 
 ### Sprint 5：Nuitka 打包验证（第 10 周）
 
-#### 3.15 Nuitka 打包脚本（4h）
+#### 3.15 Nuitka 打包脚本（4h）✅ COMPLETED
 
 ```
-TODO-3.15.1 [0.5h] [无依赖]
+TODO-3.15.1 [0.5h] [无依赖] ✅ DONE
     创建 agent/run.py
     - Nuitka 独立入口点
     - multiprocessing.freeze_support()
     - uvicorn.run(app, host, port, log_level) — 直接传 app 对象而非字符串
 
-TODO-3.15.2 [1.0h] [依赖 3.15.1]
+TODO-3.15.2 [1.0h] [依赖 3.15.1] ✅ DONE
     创建 agent/build_nuitka.py
     - Nuitka 命令参数组装
     - --standalone --onefile
@@ -2041,44 +2041,47 @@ TODO-3.15.2 [1.0h] [依赖 3.15.1]
     - --output-filename=misaka-agent
     - 打包前清理旧产物
 
-TODO-3.15.3 [1.5h] [依赖 3.15.2]
+TODO-3.15.3 [1.5h] [依赖 3.15.2] ✅ DONE
     执行打包并验证
     - pip install nuitka（开发环境）
     - python build_nuitka.py
     - 验证产物：运行 misaka-agent.exe → curl /health
     - 记录：体积 / 启动时间 / 内存占用
 
-TODO-3.15.4 [1.0h] [依赖 3.15.3]
+TODO-3.15.4 [1.0h] [依赖 3.15.3] ✅ DONE
     问题修复与优化
-    - 解决可能的模块缺失问题（--include-module 补充）
+    - 修复：multiprocessing.freeze_support 不是独立模块，改用 --include-package=multiprocessing
     - 优化打包参数（排除不必要的模块减小体积）
     - 更新 README 或 docs 记录打包流程
 ```
 
-### 收尾：Schema 迁移 + 全量验证
+### 收尾：Schema 迁移 + 全量验证 ✅ COMPLETED
 
 ```
-TODO-SCHEMA [1.0h] [在 Sprint 2 开始前完成]
+TODO-SCHEMA [1.0h] [在 Sprint 2 开始前完成] ✅ DONE
     修改 src-tauri/src/db/migrations.rs
-    - 新增 migrate_v3 函数
-    - 创建 mcp_servers 表
-    - 创建 tool_permissions 表
-    - messages 表新增 tool_calls TEXT 字段
-    - run_migrations() 中添加 if current_version < 3 分支
+    - migrate_v3：创建 mcp_servers 表
+    - migrate_v4：创建 tool_permissions 表
+    - migrate_v5：messages 表新增 tool_calls TEXT 字段
+    - run_migrations() 中添加 if current_version < 3/4/5 分支
 
-TODO-MODELS [0.5h] [依赖 TODO-SCHEMA]
+TODO-MODELS [0.5h] [依赖 TODO-SCHEMA] ✅ DONE
     修改 src-tauri/src/db/models.rs
-    - 新增 McpServer / ToolPermission 结构体
+    - McpServerRecord 在 mcp_server_repo.rs 中定义
+    - ToolPermission 在 tool_permission_repo.rs 中定义
     - Message 结构体新增 tool_calls: Option<String> 字段
+    - message_repo.rs 中 map_row / SELECT / import INSERT 同步更新
 
-TODO-I18N  [1.0h] [Sprint 3 结束时]
+TODO-I18N  [1.0h] [Sprint 3 结束时] ✅ DONE
     更新 i18n 文件
-    - src/locales/en/chat.json：tool call / 搜索 / 导入导出 / 分组归档 相关 key
-    - src/locales/zh-CN/chat.json：对应中文翻译
-    - src/locales/en/settings.json：MCP 管理页面 key
-    - src/locales/zh-CN/settings.json：对应中文翻译
+    - en/chat.json：新增 session.* (pin/unpin/archive/group/search/export/delete)、toolCall、toolApproval key
+    - zh-CN/chat.json：对应中文翻译
+    - en/settings.json：MCP 管理页面 + 数据管理 key
+    - zh-CN/settings.json：对应中文翻译
+    - SessionPanel.tsx / SessionItem.tsx 硬编码中文全部替换为 t() 调用
+    - formatRelativeTime 使用 Intl.RelativeTimeFormat 国际化
 
-TODO-FINAL [2.0h] [全部完成后]
+TODO-FINAL [2.0h] [全部完成后] ✅ DONE
     Phase 3 完整验证
     - 逐一执行第 11 节 V1-V30 验证清单
     - 修复发现的问题

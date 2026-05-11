@@ -27,6 +27,26 @@
     "result": "Result",
     "error": "Error"
   },
+  "session": {
+    "searchPlaceholder": "Search sessions / messages…",
+    "pinned": "Pinned",
+    "ungrouped": "Ungrouped",
+    "hideArchived": "Hide archived",
+    "showArchived": "Show {{count}} archived",
+    "noMatchingSessions": "No matching sessions",
+    "noSessions": "No sessions yet",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "setGroup": "Set Group",
+    "newGroup": "New Group",
+    "removeGroup": "Remove Group",
+    "export": "Export",
+    "rename": "Rename",
+    "delete": "Delete",
+    "deleteConfirm": "Are you sure you want to delete this session?"
+  },
   "toolApproval": {
     "title": "Tool Call Approval",
     "description": "An AI tool is requesting permission to execute. Review the details below.",

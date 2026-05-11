@@ -34,6 +34,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         migrate_v4(conn)?;
     }
 
+    if current_version < 5 {
+        migrate_v5(conn)?;
+    }
+
     Ok(())
 }
 
@@ -217,5 +221,18 @@ fn migrate_v4(conn: &Connection) -> Result<()> {
     )?;
 
     tracing::info!("Database migrated to version 4");
+    Ok(())
+}
+
+fn migrate_v5(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "
+        ALTER TABLE messages ADD COLUMN tool_calls TEXT;
+
+        INSERT INTO _schema_version (version) VALUES (5);
+        ",
+    )?;
+
+    tracing::info!("Database migrated to version 5");
     Ok(())
 }

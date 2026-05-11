@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   MoreHorizontal,
   Pin,
@@ -49,6 +50,7 @@ export function SessionItem({
   onSetGroup,
   onExport,
 }: SessionItemProps) {
+  const { t, i18n } = useTranslation("chat");
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const [newGroupInput, setNewGroupInput] = useState("");
@@ -58,7 +60,7 @@ export function SessionItem({
 
   const isArchived = session.status === "archived";
   const displayTitle = session.title || "New Chat";
-  const timeLabel = formatRelativeTime(session.last_message_at ?? session.updated_at);
+  const timeLabel = formatRelativeTime(session.last_message_at ?? session.updated_at, i18n.language);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -170,22 +172,22 @@ export function SessionItem({
         <DropdownMenuContent align="end" sideOffset={4} className="w-44">
           <DropdownMenuItem onClick={handleStartRename}>
             <Pencil className="mr-2 h-3.5 w-3.5" />
-            重命名
+            {t("session.rename")}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onTogglePin(session.id, !session.pinned)}>
             <Pin className="mr-2 h-3.5 w-3.5" />
-            {session.pinned ? "取消置顶" : "置顶"}
+            {session.pinned ? t("session.unpin") : t("session.pin")}
           </DropdownMenuItem>
 
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <FolderOpen className="mr-2 h-3.5 w-3.5" />
-              设置分组
+              {t("session.setGroup")}
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="w-40">
               {session.group_name && (
                 <DropdownMenuItem onClick={() => onSetGroup(session.id, null)}>
-                  取消分组
+                  {t("session.removeGroup")}
                 </DropdownMenuItem>
               )}
               {groups.map((g) => (
@@ -209,14 +211,14 @@ export function SessionItem({
                       if (e.key === "Enter") handleNewGroupCommit();
                       if (e.key === "Escape") setIsCreatingGroup(false);
                     }}
-                    placeholder="分组名称"
+                    placeholder={t("session.newGroup")}
                     className="h-6 px-1 py-0 text-sm"
                   />
                 </div>
               ) : (
                 <DropdownMenuItem onClick={() => setIsCreatingGroup(true)}>
                   <Plus className="mr-2 h-3.5 w-3.5" />
-                  新建分组
+                  {t("session.newGroup")}
                 </DropdownMenuItem>
               )}
             </DropdownMenuSubContent>
@@ -224,19 +226,19 @@ export function SessionItem({
 
           <DropdownMenuItem onClick={() => onExport(session.id)}>
             <Download className="mr-2 h-3.5 w-3.5" />
-            导出
+            {t("session.export")}
           </DropdownMenuItem>
 
           <DropdownMenuItem onClick={() => onArchive(session.id, !isArchived)}>
             {isArchived ? (
               <>
                 <ArchiveRestore className="mr-2 h-3.5 w-3.5" />
-                取消归档
+                {t("session.unarchive")}
               </>
             ) : (
               <>
                 <Archive className="mr-2 h-3.5 w-3.5" />
-                归档
+                {t("session.archive")}
               </>
             )}
           </DropdownMenuItem>
@@ -247,7 +249,7 @@ export function SessionItem({
             className="text-destructive focus:text-destructive"
           >
             <Trash2 className="mr-2 h-3.5 w-3.5" />
-            删除
+            {t("session.delete")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -255,20 +257,22 @@ export function SessionItem({
   );
 }
 
-function formatRelativeTime(dateStr: string): string {
+function formatRelativeTime(dateStr: string, locale = "en"): string {
   const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMin = Math.floor(diffMs / 60_000);
 
-  if (diffMin < 1) return "刚刚";
-  if (diffMin < 60) return `${diffMin}分钟前`;
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+
+  if (diffMin < 1) return rtf.format(0, "second");
+  if (diffMin < 60) return rtf.format(-diffMin, "minute");
 
   const diffHour = Math.floor(diffMin / 60);
-  if (diffHour < 24) return `${diffHour}小时前`;
+  if (diffHour < 24) return rtf.format(-diffHour, "hour");
 
   const diffDay = Math.floor(diffHour / 24);
-  if (diffDay < 7) return `${diffDay}天前`;
+  if (diffDay < 7) return rtf.format(-diffDay, "day");
 
-  return date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
+  return date.toLocaleDateString(locale, { month: "short", day: "numeric" });
 }

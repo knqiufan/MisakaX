@@ -291,8 +291,8 @@ fn import_single_session(
     for m in &es.messages {
         conn.execute(
             "INSERT INTO messages (id, session_id, role, content, token_usage, model,
-                thinking_content, attachments, status, created_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+                thinking_content, attachments, status, tool_calls, created_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
             rusqlite::params![
                 m.id,
                 m.session_id,
@@ -303,6 +303,7 @@ fn import_single_session(
                 m.thinking_content,
                 m.attachments,
                 m.status,
+                m.tool_calls,
                 m.created_at,
             ],
         )

@@ -1,0 +1,730 @@
+<?xml version='1.0' encoding='utf8'?>
+<nuitka-compilation-report nuitka_version="4.0.8" nuitka_commercial_version="not installed" mode="onefile" completion="error exit message (1)" exit_message="implicit-imports: Plugin issue while working on 'module '_bz2''. Please report the bug with the above traceback included.">
+  <module name="_bz2" kind="PythonExtensionModule" usage="import" reason="Extension module needed for standalone mode." source_path="${sys.prefix}\DLLs\_bz2.pyd">
+    <module_usages />
+  </module>
+  <module name="_collections_abc" kind="CompiledPythonModule" usage="import" reason="Technically required for CPython library startup." source_path="${sys.prefix}\Lib\_collections_abc.py">
+    <optimization-time pass="1" time="0.25" micro_passes="5" max_branch_merge="24" merged_total="7246" />
+    <module_usages>
+      <module_usage name="abc" finding="absolute" line="35" />
+      <module_usage name="sys" finding="absolute" line="36" />
+      <module_usage name="warnings" finding="absolute" line="1082" />
+      <module_usage name="warnings" finding="absolute" line="1091" />
+    </module_usages>
+  </module>
+  <module name="_compression" kind="CompiledPythonModule" usage="import" reason="Including as part of the non-excluded parts of standard library." source_path="${sys.prefix}\Lib\_compression.py">
+    <optimization-time pass="1" time="0.02" micro_passes="4" max_branch_merge="18" merged_total="724" />
+    <module_usages>
+      <module_usage name="io" finding="absolute" line="3" />
+      <module_usage name="sys" finding="absolute" line="4" />
+    </module_usages>
+  </module>
+  <module name="_weakrefset" kind="CompiledPythonModule" usage="import" reason="Technically required for CPython library startup." source_path="${sys.prefix}\Lib\_weakrefset.py">
+    <optimization-time pass="1" time="0.03" micro_passes="4" max_branch_merge="42" merged_total="940" />
+    <module_usages>
+      <module_usage name="_weakref" finding="absolute" line="5" />
+      <module_usage name="types" finding="absolute" line="6" />
+    </module_usages>
+  </module>
+  <module name="argparse" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\argparse.py">
+    <optimization-time pass="1" time="1.39" micro_passes="6" max_branch_merge="56" merged_total="17591" />
+    <module_usages>
+      <module_usage name="os" finding="absolute" line="88" />
+      <module_usage name="re" finding="absolute" line="89" />
+      <module_usage name="sys" finding="absolute" line="90" />
+      <module_usage name="gettext" finding="absolute" line="92" />
+      <module_usage name="copy" finding="absolute" line="146" />
+      <module_usage name="shutil" finding="absolute" line="170" />
+      <module_usage name="textwrap" finding="absolute" line="618" />
+      <module_usage name="textwrap" finding="absolute" line="623" />
+      <module_usage name="warnings" finding="absolute" line="878" />
+      <module_usage name="warnings" finding="absolute" line="1705" />
+      <module_usage name="warnings" finding="absolute" line="1734" />
+    </module_usages>
+  </module>
+  <module name="bz2" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\bz2.py">
+    <optimization-time pass="1" time="0.02" micro_passes="4" max_branch_merge="26" merged_total="687" />
+    <module_usages>
+      <module_usage name="io" finding="absolute" line="13" />
+      <module_usage name="os" finding="absolute" line="14" />
+      <module_usage name="_compression" finding="absolute" line="15" />
+      <module_usage name="_bz2" finding="absolute" line="17" />
+    </module_usages>
+  </module>
+  <module name="click" kind="CompiledPythonPackage" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\click\__init__.py" distribution="click">
+    <optimization-time pass="1" time="0.92" micro_passes="3" max_branch_merge="12" merged_total="46" />
+    <module_usages>
+      <module_usage name="os" finding="absolute" line="1" />
+      <module_usage name="__future__" finding="absolute" line="8" />
+      <module_usage name="click.core" finding="relative" line="10" />
+      <module_usage name="click.core" finding="relative" line="11" />
+      <module_usage name="click.core" finding="relative" line="12" />
+      <module_usage name="click.core" finding="relative" line="13" />
+      <module_usage name="click.core" finding="relative" line="14" />
+      <module_usage name="click.core" finding="relative" line="15" />
+      <module_usage name="click.core" finding="relative" line="16" />
+      <module_usage name="click.decorators" finding="relative" line="17" />
+      <module_usage name="click.decorators" finding="relative" line="18" />
+      <module_usage name="click.decorators" finding="relative" line="19" />
+      <module_usage name="click.decorators" finding="relative" line="20" />
+      <module_usage name="click.decorators" finding="relative" line="21" />
+      <module_usage name="click.decorators" finding="relative" line="22" />
+      <module_usage name="click.decorators" finding="relative" line="23" />
+      <module_usage name="click.decorators" finding="relative" line="24" />
+      <module_usage name="click.decorators" finding="relative" line="25" />
+      <module_usage name="click.decorators" finding="relative" line="26" />
+      <module_usage name="click.decorators" finding="relative" line="27" />
+      <module_usage name="click.exceptions" finding="relative" line="28" />
+      <module_usage name="click.exceptions" finding="relative" line="29" />
+      <module_usage name="click.exceptions" finding="relative" line="30" />
+      <module_usage name="click.exceptions" finding="relative" line="31" />
+      <module_usage name="click.exceptions" finding="relative" line="32" />
+      <module_usage name="click.exceptions" finding="relative" line="33" />
+      <module_usage name="click.exceptions" finding="relative" line="34" />
+      <module_usage name="click.exceptions" finding="relative" line="35" />
+      <module_usage name="click.exceptions" finding="relative" line="36" />
+      <module_usage name="click.formatting" finding="relative" line="37" />
+      <module_usage name="click.formatting" finding="relative" line="38" />
+      <module_usage name="click.globals" finding="relative" line="39" />
+      <module_usage name="click.termui" finding="relative" line="40" />
+      <module_usage name="click.termui" finding="relative" line="41" />
+      <module_usage name="click.termui" finding="relative" line="42" />
+      <module_usage name="click.termui" finding="relative" line="43" />
+      <module_usage name="click.termui" finding="relative" line="44" />
+      <module_usage name="click.termui" finding="relative" line="45" />
+      <module_usage name="click.termui" finding="relative" line="46" />
+      <module_usage name="click.termui" finding="relative" line="47" />
+      <module_usage name="click.termui" finding="relative" line="48" />
+      <module_usage name="click.termui" finding="relative" line="49" />
+      <module_usage name="click.termui" finding="relative" line="50" />
+      <module_usage name="click.termui" finding="relative" line="51" />
+      <module_usage name="click.types" finding="relative" line="52" />
+      <module_usage name="click.types" finding="relative" line="53" />
+      <module_usage name="click.types" finding="relative" line="54" />
+      <module_usage name="click.types" finding="relative" line="55" />
+      <module_usage name="click.types" finding="relative" line="56" />
+      <module_usage name="click.types" finding="relative" line="57" />
+      <module_usage name="click.types" finding="relative" line="58" />
+      <module_usage name="click.types" finding="relative" line="59" />
+      <module_usage name="click.types" finding="relative" line="60" />
+      <module_usage name="click.types" finding="relative" line="61" />
+      <module_usage name="click.types" finding="relative" line="62" />
+      <module_usage name="click.types" finding="relative" line="63" />
+      <module_usage name="click.types" finding="relative" line="64" />
+      <module_usage name="click.types" finding="relative" line="65" />
+      <module_usage name="click.utils" finding="relative" line="66" />
+      <module_usage name="click.utils" finding="relative" line="67" />
+      <module_usage name="click.utils" finding="relative" line="68" />
+      <module_usage name="click.utils" finding="relative" line="69" />
+      <module_usage name="click.utils" finding="relative" line="70" />
+      <module_usage name="click.utils" finding="relative" line="71" />
+      <module_usage name="warnings" finding="absolute" line="75" />
+      <module_usage name="click.core" finding="relative" line="78" />
+      <module_usage name="click.core" finding="relative" line="89" />
+      <module_usage name="click.parser" finding="relative" line="100" />
+      <module_usage name="importlib.metadata" finding="absolute" line="111" />
+      <module_usage name="warnings" finding="absolute" line="112" />
+    </module_usages>
+  </module>
+  <module name="copy" kind="CompiledPythonModule" usage="import" reason="Including as part of the non-excluded parts of standard library." source_path="${sys.prefix}\Lib\copy.py">
+    <optimization-time pass="1" time="0.08" micro_passes="5" max_branch_merge="30" merged_total="1519" />
+    <module_usages>
+      <module_usage name="types" finding="absolute" line="52" />
+      <module_usage name="weakref" finding="absolute" line="53" />
+      <module_usage name="copyreg" finding="absolute" line="54" />
+    </module_usages>
+  </module>
+  <module name="copyreg" kind="CompiledPythonModule" usage="import" reason="Technically required for CPython library startup." source_path="${sys.prefix}\Lib\copyreg.py">
+    <optimization-time pass="1" time="0.02" micro_passes="5" max_branch_merge="14" merged_total="627" />
+    <module_usages>
+      <module_usage name="functools" finding="absolute" line="34" />
+      <module_usage name="operator" finding="absolute" line="34" />
+    </module_usages>
+  </module>
+  <module name="csv" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\csv.py">
+    <optimization-time pass="1" time="0.09" micro_passes="6" max_branch_merge="35" merged_total="3409" />
+    <module_usages>
+      <module_usage name="re" finding="absolute" line="66" />
+      <module_usage name="types" finding="absolute" line="67" />
+      <module_usage name="_csv" finding="absolute" line="68" />
+      <module_usage name="_csv" finding="absolute" line="73" />
+      <module_usage name="io" finding="absolute" line="75" />
+    </module_usages>
+  </module>
+  <module name="email._header_value_parser" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\email\_header_value_parser.py">
+    <optimization-time pass="1" time="1.02" micro_passes="6" max_branch_merge="58" merged_total="26356" />
+    <module_usages>
+      <module_usage name="re" finding="absolute" line="70" />
+      <module_usage name="sys" finding="absolute" line="71" />
+      <module_usage name="urllib" finding="absolute" line="72" />
+      <module_usage name="string" finding="absolute" line="73" />
+      <module_usage name="operator" finding="absolute" line="74" />
+      <module_usage name="email" finding="absolute" line="75" />
+      <module_usage name="email._encoded_words" finding="relative" line="75" />
+      <module_usage name="email" finding="absolute" line="76" />
+      <module_usage name="email.errors" finding="relative" line="76" />
+      <module_usage name="email" finding="absolute" line="77" />
+      <module_usage name="email.utils" finding="relative" line="77" />
+    </module_usages>
+  </module>
+  <module name="email.contentmanager" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\email\contentmanager.py">
+    <optimization-time pass="1" time="0.62" micro_passes="5" max_branch_merge="15" merged_total="1246" />
+    <module_usages>
+      <module_usage name="binascii" finding="absolute" line="1" />
+      <module_usage name="email.charset" finding="absolute" line="2" />
+      <module_usage name="email.message" finding="absolute" line="3" />
+      <module_usage name="email.errors" finding="absolute" line="4" />
+      <module_usage name="email" finding="absolute" line="5" />
+      <module_usage name="email.quoprimime" finding="relative" line="5" />
+    </module_usages>
+  </module>
+  <module name="email.generator" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\email\generator.py">
+    <optimization-time pass="1" time="0.09" micro_passes="4" max_branch_merge="26" merged_total="1509" />
+    <module_usages>
+      <module_usage name="re" finding="absolute" line="9" />
+      <module_usage name="sys" finding="absolute" line="10" />
+      <module_usage name="time" finding="absolute" line="11" />
+      <module_usage name="random" finding="absolute" line="12" />
+      <module_usage name="copy" finding="absolute" line="14" />
+      <module_usage name="io" finding="absolute" line="15" />
+      <module_usage name="email.utils" finding="absolute" line="16" />
+      <module_usage name="email.errors" finding="absolute" line="17" />
+    </module_usages>
+  </module>
+  <module name="email.headerregistry" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\email\headerregistry.py">
+    <optimization-time pass="1" time="0.25" micro_passes="5" max_branch_merge="14" merged_total="3160" />
+    <module_usages>
+      <module_usage name="types" finding="absolute" line="6" />
+      <module_usage name="email" finding="absolute" line="8" />
+      <module_usage name="email.utils" finding="relative" line="8" />
+      <module_usage name="email" finding="absolute" line="9" />
+      <module_usage name="email.errors" finding="relative" line="9" />
+      <module_usage name="email" finding="absolute" line="10" />
+      <module_usage name="email._header_value_parser" finding="relative" line="10" />
+    </module_usages>
+  </module>
+  <module name="email.iterators" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\email\iterators.py">
+    <optimization-time pass="1" time="0.00" micro_passes="4" max_branch_merge="7" merged_total="203" />
+    <module_usages>
+      <module_usage name="sys" finding="absolute" line="14" />
+      <module_usage name="io" finding="absolute" line="15" />
+    </module_usages>
+  </module>
+  <module name="email.message" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\email\message.py">
+    <optimization-time pass="1" time="0.22" micro_passes="5" max_branch_merge="51" merged_total="5544" />
+    <module_usages>
+      <module_usage name="binascii" finding="absolute" line="9" />
+      <module_usage name="re" finding="absolute" line="10" />
+      <module_usage name="quopri" finding="absolute" line="11" />
+      <module_usage name="io" finding="absolute" line="12" />
+      <module_usage name="email" finding="absolute" line="15" />
+      <module_usage name="email.utils" finding="relative" line="15" />
+      <module_usage name="email" finding="absolute" line="16" />
+      <module_usage name="email.errors" finding="relative" line="16" />
+      <module_usage name="email._policybase" finding="absolute" line="17" />
+      <module_usage name="email" finding="absolute" line="18" />
+      <module_usage name="email.charset" finding="relative" line="18" />
+      <module_usage name="email._encoded_words" finding="absolute" line="19" />
+      <module_usage name="email.generator" finding="absolute" line="181" />
+      <module_usage name="email.generator" finding="absolute" line="204" />
+      <module_usage name="email.iterators" finding="absolute" line="980" />
+      <module_usage name="email.policy" finding="absolute" line="987" />
+    </module_usages>
+  </module>
+  <module name="email.policy" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\email\policy.py">
+    <optimization-time pass="1" time="0.08" micro_passes="4" max_branch_merge="20" merged_total="477" />
+    <module_usages>
+      <module_usage name="re" finding="absolute" line="5" />
+      <module_usage name="sys" finding="absolute" line="6" />
+      <module_usage name="email._policybase" finding="absolute" line="7" />
+      <module_usage name="email.utils" finding="absolute" line="8" />
+      <module_usage name="email.headerregistry" finding="absolute" line="9" />
+      <module_usage name="email.contentmanager" finding="absolute" line="10" />
+      <module_usage name="email.message" finding="absolute" line="11" />
+    </module_usages>
+  </module>
+  <module name="email.quoprimime" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\email\quoprimime.py">
+    <optimization-time pass="1" time="0.03" micro_passes="4" max_branch_merge="18" merged_total="680" />
+    <module_usages>
+      <module_usage name="re" finding="absolute" line="42" />
+      <module_usage name="string" finding="absolute" line="44" />
+    </module_usages>
+  </module>
+  <module name="genericpath" kind="CompiledPythonModule" usage="import" reason="Technically required for CPython library startup." source_path="${sys.prefix}\Lib\genericpath.py">
+    <optimization-time pass="1" time="0.03" micro_passes="5" max_branch_merge="12" merged_total="603" />
+    <module_usages>
+      <module_usage name="os" finding="absolute" line="6" />
+      <module_usage name="stat" finding="absolute" line="7" />
+    </module_usages>
+  </module>
+  <module name="gzip" kind="CompiledPythonModule" usage="import" reason="Including as part of the non-excluded parts of standard library." source_path="${sys.prefix}\Lib\gzip.py">
+    <optimization-time pass="1" time="0.09" micro_passes="5" max_branch_merge="30" merged_total="2483" />
+    <module_usages>
+      <module_usage name="_compression" finding="absolute" line="8" />
+      <module_usage name="builtins" finding="absolute" line="9" />
+      <module_usage name="io" finding="absolute" line="10" />
+      <module_usage name="os" finding="absolute" line="11" />
+      <module_usage name="struct" finding="absolute" line="12" />
+      <module_usage name="sys" finding="absolute" line="13" />
+      <module_usage name="time" finding="absolute" line="14" />
+      <module_usage name="weakref" finding="absolute" line="15" />
+      <module_usage name="zlib" finding="absolute" line="16" />
+      <module_usage name="warnings" finding="absolute" line="223" />
+      <module_usage name="errno" finding="absolute" line="310" />
+      <module_usage name="errno" finding="absolute" line="338" />
+      <module_usage name="errno" finding="absolute" line="348" />
+      <module_usage name="errno" finding="absolute" line="358" />
+      <module_usage name="io" finding="absolute" line="623" />
+    </module_usages>
+  </module>
+  <module name="importlib.metadata" kind="CompiledPythonPackage" usage="import" reason="Including as part of the non-excluded parts of standard library." source_path="${sys.prefix}\Lib\importlib\metadata\__init__.py">
+    <optimization-time pass="1" time="0.59" micro_passes="5" max_branch_merge="30" merged_total="4508" />
+    <module_usages>
+      <module_usage name="os" finding="absolute" line="1" />
+      <module_usage name="__future__" finding="absolute" line="1" />
+      <module_usage name="os" finding="absolute" line="3" />
+      <module_usage name="re" finding="absolute" line="4" />
+      <module_usage name="abc" finding="absolute" line="5" />
+      <module_usage name="sys" finding="absolute" line="6" />
+      <module_usage name="json" finding="absolute" line="7" />
+      <module_usage name="email" finding="absolute" line="8" />
+      <module_usage name="types" finding="absolute" line="9" />
+      <module_usage name="inspect" finding="absolute" line="10" />
+      <module_usage name="pathlib" finding="absolute" line="11" />
+      <module_usage name="zipfile" finding="absolute" line="12" />
+      <module_usage name="operator" finding="absolute" line="13" />
+      <module_usage name="textwrap" finding="absolute" line="14" />
+      <module_usage name="warnings" finding="absolute" line="15" />
+      <module_usage name="functools" finding="absolute" line="16" />
+      <module_usage name="itertools" finding="absolute" line="17" />
+      <module_usage name="posixpath" finding="absolute" line="18" />
+      <module_usage name="collections" finding="absolute" line="19" />
+      <module_usage name="importlib.metadata" finding="absolute" line="21" />
+      <module_usage name="importlib.metadata._meta" finding="relative" line="21" />
+      <module_usage name="importlib.metadata._collections" finding="absolute" line="22" />
+      <module_usage name="importlib.metadata._functools" finding="absolute" line="23" />
+      <module_usage name="importlib.metadata._itertools" finding="absolute" line="24" />
+      <module_usage name="importlib.metadata._meta" finding="absolute" line="25" />
+      <module_usage name="contextlib" finding="absolute" line="27" />
+      <module_usage name="importlib" finding="absolute" line="28" />
+      <module_usage name="importlib.abc" finding="absolute" line="29" />
+      <module_usage name="itertools" finding="absolute" line="30" />
+      <module_usage name="typing" finding="absolute" line="31" />
+      <module_usage name="importlib.metadata" finding="absolute" line="460" />
+      <module_usage name="importlib.metadata._adapters" finding="relative" line="460" />
+      <module_usage name="csv" finding="absolute" line="525" />
+      <module_usage name="ntpath" finding="absolute" line="947" />
+      <module_usage name="functools" finding="absolute" line="990" />
+    </module_usages>
+  </module>
+  <module name="importlib.metadata._adapters" kind="CompiledPythonModule" usage="import fromlist" reason="Including as part of the non-excluded parts of standard library." source_path="${sys.prefix}\Lib\importlib\metadata\_adapters.py">
+    <optimization-time pass="1" time="0.06" micro_passes="4" max_branch_merge="14" merged_total="324" />
+    <module_usages>
+      <module_usage name="functools" finding="absolute" line="1" />
+      <module_usage name="warnings" finding="absolute" line="2" />
+      <module_usage name="re" finding="absolute" line="3" />
+      <module_usage name="textwrap" finding="absolute" line="4" />
+      <module_usage name="email.message" finding="absolute" line="5" />
+      <module_usage name="importlib.metadata._text" finding="absolute" line="7" />
+      <module_usage name="functools" finding="absolute" line="11" />
+    </module_usages>
+  </module>
+  <module name="importlib.metadata._text" kind="CompiledPythonModule" usage="import" reason="Including as part of the non-excluded parts of standard library." source_path="${sys.prefix}\Lib\importlib\metadata\_text.py">
+    <optimization-time pass="1" time="0.02" micro_passes="5" max_branch_merge="17" merged_total="260" />
+    <module_usages>
+      <module_usage name="re" finding="absolute" line="1" />
+      <module_usage name="importlib.metadata._functools" finding="absolute" line="3" />
+    </module_usages>
+  </module>
+  <module name="io" kind="CompiledPythonModule" usage="import" reason="Technically required for CPython library startup." source_path="${sys.prefix}\Lib\io.py">
+    <optimization-time pass="1" time="0.02" micro_passes="4" max_branch_merge="13" merged_total="539" />
+    <module_usages>
+      <module_usage name="_io" finding="absolute" line="52" />
+      <module_usage name="abc" finding="absolute" line="53" />
+      <module_usage name="_io" finding="absolute" line="55" />
+      <module_usage name="_io" finding="absolute" line="95" />
+    </module_usages>
+  </module>
+  <module name="ntpath" kind="CompiledPythonModule" usage="import" reason="Technically required for CPython library startup." source_path="${sys.prefix}\Lib\ntpath.py">
+    <optimization-time pass="1" time="0.17" micro_passes="6" max_branch_merge="56" merged_total="5569" />
+    <module_usages>
+      <module_usage name="os" finding="absolute" line="20" />
+      <module_usage name="sys" finding="absolute" line="21" />
+      <module_usage name="genericpath" finding="absolute" line="22" />
+      <module_usage name="genericpath" finding="absolute" line="23" />
+      <module_usage name="_winapi" finding="absolute" line="45" />
+      <module_usage name="nt" finding="absolute" line="170" />
+      <module_usage name="nt" finding="absolute" line="277" />
+      <module_usage name="string" finding="absolute" line="411" />
+      <module_usage name="string" finding="absolute" line="422" />
+      <module_usage name="nt" finding="absolute" line="516" />
+      <module_usage name="nt" finding="absolute" line="558" />
+      <module_usage name="nt" finding="absolute" line="601" />
+      <module_usage name="nt" finding="absolute" line="893" />
+      <module_usage name="nt" finding="absolute" line="894" />
+      <module_usage name="nt" finding="absolute" line="895" />
+      <module_usage name="nt" finding="absolute" line="896" />
+      <module_usage name="nt" finding="absolute" line="897" />
+      <module_usage name="nt" finding="absolute" line="898" />
+      <module_usage name="nt" finding="absolute" line="905" />
+    </module_usages>
+  </module>
+  <module name="random" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\random.py">
+    <optimization-time pass="1" time="0.30" micro_passes="5" max_branch_merge="50" merged_total="3415" />
+    <module_usages>
+      <module_usage name="math" finding="absolute" line="53" />
+      <module_usage name="math" finding="absolute" line="54" />
+      <module_usage name="math" finding="absolute" line="55" />
+      <module_usage name="math" finding="absolute" line="56" />
+      <module_usage name="os" finding="absolute" line="57" />
+      <module_usage name="_collections_abc" finding="absolute" line="58" />
+      <module_usage name="operator" finding="absolute" line="59" />
+      <module_usage name="itertools" finding="absolute" line="60" />
+      <module_usage name="bisect" finding="absolute" line="61" />
+      <module_usage name="os" finding="absolute" line="62" />
+      <module_usage name="_random" finding="absolute" line="63" />
+      <module_usage name="_sha2" finding="absolute" line="160" />
+      <module_usage name="hashlib" finding="absolute" line="163" />
+      <module_usage name="warnings" finding="absolute" line="263" />
+      <module_usage name="statistics" finding="absolute" line="955" />
+      <module_usage name="time" finding="absolute" line="956" />
+      <module_usage name="argparse" finding="absolute" line="1004" />
+    </module_usages>
+  </module>
+  <module name="shutil" kind="CompiledPythonModule" usage="import" reason="Including as part of the non-excluded parts of standard library." source_path="${sys.prefix}\Lib\shutil.py">
+    <optimization-time pass="1" time="0.39" micro_passes="5" max_branch_merge="34" merged_total="8318" />
+    <module_usages>
+      <module_usage name="os" finding="absolute" line="7" />
+      <module_usage name="sys" finding="absolute" line="8" />
+      <module_usage name="stat" finding="absolute" line="9" />
+      <module_usage name="fnmatch" finding="absolute" line="10" />
+      <module_usage name="collections" finding="absolute" line="11" />
+      <module_usage name="errno" finding="absolute" line="12" />
+      <module_usage name="zlib" finding="absolute" line="15" />
+      <module_usage name="bz2" finding="absolute" line="22" />
+      <module_usage name="lzma" finding="excluded" line="29" exclusion_reason="Module is exact match of 'lzma' instructed by user to not follow to using '--nofollow-import-to'." />
+      <module_usage name="nt" finding="absolute" line="40" />
+      <module_usage name="_winapi" finding="absolute" line="43" />
+      <module_usage name="ntpath" finding="absolute" line="208" />
+      <module_usage name="ntpath" finding="absolute" line="210" />
+      <module_usage name="ntpath" finding="absolute" line="214" />
+      <module_usage name="ntpath" finding="absolute" line="216" />
+      <module_usage name="ntpath" finding="absolute" line="221" />
+      <module_usage name="ntpath" finding="absolute" line="222" />
+      <module_usage name="ntpath" finding="absolute" line="228" />
+      <module_usage name="ntpath" finding="absolute" line="304" />
+      <module_usage name="os" finding="absolute" line="306" />
+      <module_usage name="ntpath" finding="absolute" line="311" />
+      <module_usage name="ntpath" finding="absolute" line="366" />
+      <module_usage name="ntpath" finding="absolute" line="427" />
+      <module_usage name="ntpath" finding="absolute" line="444" />
+      <module_usage name="ntpath" finding="absolute" line="498" />
+      <module_usage name="ntpath" finding="absolute" line="499" />
+      <module_usage name="ntpath" finding="absolute" line="615" />
+      <module_usage name="ntpath" finding="absolute" line="623" />
+      <module_usage name="os" finding="absolute" line="663" />
+      <module_usage name="ntpath" finding="absolute" line="672" />
+      <module_usage name="ntpath" finding="absolute" line="674" />
+      <module_usage name="ntpath" finding="absolute" line="685" />
+      <module_usage name="os" finding="absolute" line="689" />
+      <module_usage name="os" finding="absolute" line="709" />
+      <module_usage name="os" finding="absolute" line="712" />
+      <module_usage name="os" finding="absolute" line="760" />
+      <module_usage name="os" finding="absolute" line="780" />
+      <module_usage name="ntpath" finding="absolute" line="787" />
+      <module_usage name="ntpath" finding="absolute" line="811" />
+      <module_usage name="ntpath" finding="absolute" line="843" />
+      <module_usage name="ntpath" finding="absolute" line="851" />
+      <module_usage name="ntpath" finding="absolute" line="858" />
+      <module_usage name="ntpath" finding="absolute" line="883" />
+      <module_usage name="ntpath" finding="absolute" line="884" />
+      <module_usage name="ntpath" finding="absolute" line="885" />
+      <module_usage name="ntpath" finding="absolute" line="886" />
+      <module_usage name="grp" finding="not-found" line="900" />
+      <module_usage name="pwd" finding="not-found" line="918" />
+      <module_usage name="tarfile" finding="absolute" line="958" />
+      <module_usage name="ntpath" finding="absolute" line="990" />
+      <module_usage name="zipfile" finding="absolute" line="1007" />
+      <module_usage name="ntpath" finding="absolute" line="1027" />
+      <module_usage name="ntpath" finding="absolute" line="1036" />
+      <module_usage name="ntpath" finding="absolute" line="1039" />
+      <module_usage name="ntpath" finding="absolute" line="1040" />
+      <module_usage name="ntpath" finding="absolute" line="1045" />
+      <module_usage name="ntpath" finding="absolute" line="1048" />
+      <module_usage name="zipfile" finding="absolute" line="1244" />
+      <module_usage name="ntpath" finding="absolute" line="1258" />
+      <module_usage name="tarfile" finding="absolute" line="1274" />
+      <module_usage name="ntpath" finding="absolute" line="1518" />
+      <module_usage name="ntpath" finding="absolute" line="1576" />
+      <module_usage name="ntpath" finding="absolute" line="1580" />
+    </module_usages>
+  </module>
+  <module name="stat" kind="CompiledPythonModule" usage="import" reason="Technically required for CPython library startup." source_path="${sys.prefix}\Lib\stat.py">
+    <optimization-time pass="1" time="0.02" micro_passes="5" max_branch_merge="7" merged_total="253" />
+    <module_usages>
+      <module_usage name="_stat" finding="absolute" line="205" />
+    </module_usages>
+  </module>
+  <module name="string" kind="CompiledPythonModule" usage="import" reason="Including as part of the non-excluded parts of standard library." source_path="${sys.prefix}\Lib\string.py">
+    <optimization-time pass="1" time="0.02" micro_passes="4" max_branch_merge="16" merged_total="798" />
+    <module_usages>
+      <module_usage name="_string" finding="absolute" line="21" />
+      <module_usage name="re" finding="absolute" line="52" />
+      <module_usage name="collections" finding="absolute" line="53" />
+      <module_usage name="collections.ChainMap" finding="not-found" line="53" />
+    </module_usages>
+  </module>
+  <module name="struct" kind="CompiledPythonModule" usage="import" reason="Including as part of the non-excluded parts of standard library." source_path="${sys.prefix}\Lib\struct.py">
+    <optimization-time pass="1" time="0.00" micro_passes="2" />
+    <module_usages>
+      <module_usage name="_struct" finding="absolute" line="13" />
+      <module_usage name="_struct" finding="absolute" line="14" />
+      <module_usage name="_struct" finding="absolute" line="15" />
+    </module_usages>
+  </module>
+  <module name="tarfile" kind="CompiledPythonModule" usage="import" reason="Including as part of the non-excluded parts of standard library." source_path="${sys.prefix}\Lib\tarfile.py">
+    <optimization-time pass="1" time="0.64" micro_passes="7" max_branch_merge="61" merged_total="18714" />
+    <module_usages>
+      <module_usage name="sys" finding="absolute" line="40" />
+      <module_usage name="os" finding="absolute" line="41" />
+      <module_usage name="io" finding="absolute" line="42" />
+      <module_usage name="shutil" finding="absolute" line="43" />
+      <module_usage name="stat" finding="absolute" line="44" />
+      <module_usage name="time" finding="absolute" line="45" />
+      <module_usage name="struct" finding="absolute" line="46" />
+      <module_usage name="copy" finding="absolute" line="47" />
+      <module_usage name="re" finding="absolute" line="48" />
+      <module_usage name="pwd" finding="not-found" line="51" />
+      <module_usage name="grp" finding="not-found" line="55" />
+      <module_usage name="zlib" finding="absolute" line="369" />
+      <module_usage name="bz2" finding="absolute" line="382" />
+      <module_usage name="lzma" finding="excluded" line="394" exclusion_reason="Module is exact match of 'lzma' instructed by user to not follow to using '--nofollow-import-to'." />
+      <module_usage name="ntpath" finding="absolute" line="773" />
+      <module_usage name="ntpath" finding="absolute" line="778" />
+      <module_usage name="ntpath" finding="absolute" line="783" />
+      <module_usage name="ntpath" finding="absolute" line="784" />
+      <module_usage name="ntpath" finding="absolute" line="785" />
+      <module_usage name="ntpath" finding="absolute" line="820" />
+      <module_usage name="ntpath" finding="absolute" line="826" />
+      <module_usage name="ntpath" finding="absolute" line="830" />
+      <module_usage name="ntpath" finding="absolute" line="832" />
+      <module_usage name="ntpath" finding="absolute" line="833" />
+      <module_usage name="ntpath" finding="absolute" line="834" />
+      <module_usage name="warnings" finding="absolute" line="930" />
+      <module_usage name="warnings" finding="absolute" line="939" />
+      <module_usage name="gzip" finding="absolute" line="1941" />
+      <module_usage name="bz2" finding="absolute" line="1974" />
+      <module_usage name="lzma" finding="excluded" line="2002" exclusion_reason="Module is exact match of 'lzma' instructed by user to not follow to using '--nofollow-import-to'." />
+      <module_usage name="ntpath" finding="absolute" line="2101" />
+      <module_usage name="ntpath" finding="absolute" line="2267" />
+      <module_usage name="warnings" finding="absolute" line="2305" />
+      <module_usage name="ntpath" finding="absolute" line="2377" />
+      <module_usage name="ntpath" finding="absolute" line="2445" />
+      <module_usage name="ntpath" finding="absolute" line="2458" />
+      <module_usage name="ntpath" finding="absolute" line="2656" />
+      <module_usage name="zlib" finding="absolute" line="2797" />
+    </module_usages>
+  </module>
+  <module name="uvicorn" kind="CompiledPythonPackage" usage="import path parent" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\uvicorn\__init__.py">
+    <optimization-time pass="1" time="0.09" micro_passes="2" max_branch_merge="3" merged_total="6" />
+    <module_usages>
+      <module_usage name="os" finding="absolute" line="1" />
+      <module_usage name="uvicorn.config" finding="absolute" line="1" />
+      <module_usage name="uvicorn.main" finding="absolute" line="2" />
+    </module_usages>
+  </module>
+  <module name="uvicorn._compat" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\uvicorn\_compat.py">
+    <optimization-time pass="1" time="0.02" micro_passes="2" max_branch_merge="2" merged_total="10" />
+    <module_usages>
+      <module_usage name="__future__" finding="absolute" line="1" />
+      <module_usage name="asyncio" finding="absolute" line="3" />
+      <module_usage name="sys" finding="absolute" line="4" />
+      <module_usage name="collections.abc" finding="not-found" line="5" />
+      <module_usage name="typing" finding="absolute" line="6" />
+      <module_usage name="asyncio" finding="absolute" line="13" />
+      <module_usage name="asyncio.iscoroutinefunction" finding="not-found" line="13" />
+    </module_usages>
+  </module>
+  <module name="uvicorn.loops.asyncio" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\uvicorn\loops\asyncio.py">
+    <optimization-time pass="1" time="0.00" micro_passes="3" max_branch_merge="2" merged_total="5" />
+    <module_usages>
+      <module_usage name="__future__" finding="absolute" line="1" />
+      <module_usage name="asyncio" finding="absolute" line="3" />
+      <module_usage name="sys" finding="absolute" line="4" />
+      <module_usage name="collections.abc" finding="not-found" line="5" />
+    </module_usages>
+  </module>
+  <module name="uvicorn.loops.auto" kind="CompiledPythonModule" usage="root_module" reason="Root module" source_path="${sys.prefix}\Lib\site-packages\uvicorn\loops\auto.py">
+    <optimization-time pass="1" time="0.09" micro_passes="3" max_branch_merge="4" merged_total="31" />
+    <module_usages>
+      <module_usage name="__future__" finding="absolute" line="1" />
+      <module_usage name="asyncio" finding="absolute" line="3" />
+      <module_usage name="collections.abc" finding="not-found" line="4" />
+      <module_usage name="uvloop" finding="not-found" line="9" />
+      <module_usage name="uvicorn.loops.asyncio" finding="absolute" line="11" />
+      <module_usage name="uvicorn.loops.uvloop" finding="absolute" line="15" />
+    </module_usages>
+  </module>
+  <module name="uvicorn.loops.uvloop" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\uvicorn\loops\uvloop.py">
+    <optimization-time pass="1" time="0.00" micro_passes="3" max_branch_merge="2" merged_total="5" />
+    <module_usages>
+      <module_usage name="__future__" finding="absolute" line="1" />
+      <module_usage name="asyncio" finding="absolute" line="3" />
+      <module_usage name="collections.abc" finding="not-found" line="4" />
+      <module_usage name="uvloop" finding="not-found" line="6" />
+    </module_usages>
+  </module>
+  <module name="uvicorn.protocols" kind="CompiledPythonPackage" usage="plugin:implicit-imports" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\uvicorn\protocols\__init__.py">
+    <optimization-time pass="1" time="0.00" micro_passes="2" />
+    <module_usages>
+      <module_usage name="os" finding="absolute" line="1" />
+    </module_usages>
+  </module>
+  <module name="uvicorn.protocols.websockets" kind="CompiledPythonPackage" usage="plugin:implicit-imports" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\uvicorn\protocols\websockets\__init__.py">
+    <optimization-time pass="1" time="0.02" micro_passes="2" />
+    <module_usages>
+      <module_usage name="os" finding="absolute" line="1" />
+    </module_usages>
+  </module>
+  <module name="uvicorn.protocols.websockets.websockets_impl" kind="CompiledPythonModule" usage="plugin:implicit-imports" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\uvicorn\protocols\websockets\websockets_impl.py">
+    <optimization-time pass="1" time="0.98" micro_passes="4" max_branch_merge="26" merged_total="1282" />
+    <module_usages>
+      <module_usage name="__future__" finding="absolute" line="1" />
+      <module_usage name="asyncio" finding="absolute" line="3" />
+      <module_usage name="http" finding="absolute" line="4" />
+      <module_usage name="logging" finding="absolute" line="5" />
+      <module_usage name="collections.abc" finding="not-found" line="6" />
+      <module_usage name="typing" finding="absolute" line="7" />
+      <module_usage name="urllib.parse" finding="absolute" line="8" />
+      <module_usage name="websockets" finding="absolute" line="10" />
+      <module_usage name="websockets.legacy.handshake" finding="absolute" line="11" />
+      <module_usage name="websockets.datastructures" finding="absolute" line="12" />
+      <module_usage name="websockets.exceptions" finding="absolute" line="13" />
+      <module_usage name="websockets.extensions.base" finding="absolute" line="14" />
+      <module_usage name="websockets.extensions.permessage_deflate" finding="absolute" line="15" />
+      <module_usage name="websockets.legacy.server" finding="absolute" line="16" />
+      <module_usage name="websockets.server" finding="absolute" line="17" />
+      <module_usage name="websockets.typing" finding="absolute" line="18" />
+      <module_usage name="uvicorn._types" finding="absolute" line="20" />
+      <module_usage name="uvicorn.config" finding="absolute" line="33" />
+      <module_usage name="uvicorn.logging" finding="absolute" line="34" />
+      <module_usage name="uvicorn.protocols.utils" finding="absolute" line="35" />
+      <module_usage name="uvicorn.server" finding="absolute" line="43" />
+    </module_usages>
+  </module>
+  <module name="uvicorn.server" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${sys.prefix}\Lib\site-packages\uvicorn\server.py">
+    <optimization-time pass="1" time="0.33" micro_passes="4" max_branch_merge="31" merged_total="1179" />
+    <distribution-usages>
+      <distribution-usage name="click" />
+    </distribution-usages>
+    <module_usages>
+      <module_usage name="__future__" finding="absolute" line="1" />
+      <module_usage name="asyncio" finding="absolute" line="3" />
+      <module_usage name="contextlib" finding="absolute" line="4" />
+      <module_usage name="logging" finding="absolute" line="5" />
+      <module_usage name="os" finding="absolute" line="6" />
+      <module_usage name="platform" finding="absolute" line="7" />
+      <module_usage name="signal" finding="absolute" line="8" />
+      <module_usage name="socket" finding="absolute" line="9" />
+      <module_usage name="sys" finding="absolute" line="10" />
+      <module_usage name="threading" finding="absolute" line="11" />
+      <module_usage name="time" finding="absolute" line="12" />
+      <module_usage name="collections.abc" finding="not-found" line="13" />
+      <module_usage name="email.utils" finding="absolute" line="14" />
+      <module_usage name="types" finding="absolute" line="15" />
+      <module_usage name="typing" finding="absolute" line="16" />
+      <module_usage name="click" finding="absolute" line="18" />
+      <module_usage name="uvicorn._compat" finding="absolute" line="20" />
+      <module_usage name="uvicorn.config" finding="absolute" line="21" />
+      <module_usage name="socket" finding="absolute" line="126" />
+    </module_usages>
+  </module>
+  <module name="weakref" kind="CompiledPythonModule" usage="import" reason="Technically required for CPython library startup." source_path="${sys.prefix}\Lib\weakref.py">
+    <optimization-time pass="1" time="0.17" micro_passes="4" max_branch_merge="32" merged_total="3667" />
+    <module_usages>
+      <module_usage name="_weakref" finding="absolute" line="12" />
+      <module_usage name="_weakrefset" finding="absolute" line="22" />
+      <module_usage name="_collections_abc" finding="absolute" line="24" />
+      <module_usage name="sys" finding="absolute" line="25" />
+      <module_usage name="itertools" finding="absolute" line="26" />
+      <module_usage name="copy" finding="absolute" line="183" />
+      <module_usage name="copy" finding="absolute" line="442" />
+      <module_usage name="atexit" finding="absolute" line="572" />
+      <module_usage name="gc" finding="absolute" line="649" />
+    </module_usages>
+  </module>
+  <performance>
+    <memory_usage name="after_launch" value="43802624" />
+  </performance>
+  <data_composer blob_size="None" />
+  <command_line>
+    <option value="--standalone" />
+    <option value="--onefile" />
+    <option value="--output-filename=misaka-agent" />
+    <option value="--output-dir=D:\code\Misaka-Tauri\agent\dist" />
+    <option value="--include-package=app" />
+    <option value="--include-module=uvicorn.workers" />
+    <option value="--include-module=uvicorn.lifespan.on" />
+    <option value="--include-module=uvicorn.protocols.http.auto" />
+    <option value="--include-module=uvicorn.protocols.http.h11_impl" />
+    <option value="--include-module=uvicorn.protocols.http.httptools_impl" />
+    <option value="--include-module=uvicorn.protocols.websockets.auto" />
+    <option value="--include-module=uvicorn.protocols.websockets.wsproto_impl" />
+    <option value="--include-module=uvicorn.logging" />
+    <option value="--include-module=uvicorn.loops.auto" />
+    <option value="--include-package=pydantic" />
+    <option value="--include-package=pydantic_core" />
+    <option value="--include-package=pydantic_settings" />
+    <option value="--include-package=fastapi" />
+    <option value="--include-package=starlette" />
+    <option value="--include-package=anyio" />
+    <option value="--include-package=httptools" />
+    <option value="--include-package=multiprocessing" />
+    <option value="--nofollow-import-to=_lzma" />
+    <option value="--nofollow-import-to=lzma" />
+    <option value="--assume-yes-for-downloads" />
+    <option value="--no-deployment-flag=self-execution" />
+    <option value="run.py" />
+  </command_line>
+  <plugins>
+    <plugin name="anti-bloat" user_enabled="no" />
+    <plugin name="data-files" user_enabled="no" />
+    <plugin name="delvewheel" user_enabled="no" />
+    <plugin name="dll-files" user_enabled="no" />
+    <plugin name="eventlet" user_enabled="no" />
+    <plugin name="gevent" user_enabled="no" />
+    <plugin name="gi" user_enabled="no" />
+    <plugin name="glfw" user_enabled="no" />
+    <plugin name="implicit-imports" user_enabled="no" />
+    <plugin name="kivy" user_enabled="no" />
+    <plugin name="matplotlib" user_enabled="no" />
+    <plugin name="multiprocessing" user_enabled="no" />
+    <plugin name="options-nanny" user_enabled="no" />
+    <plugin name="pbr-compat" user_enabled="no" />
+    <plugin name="pkg-resources" user_enabled="no" />
+    <plugin name="playwright" user_enabled="no" />
+    <plugin name="pywebview" user_enabled="no" />
+    <plugin name="spacy" user_enabled="no" />
+    <plugin name="transformers" user_enabled="no" />
+  </plugins>
+  <onefile cache_mode="temporary" unpack_dir="{TEMP}\onefile_{PID}_{TIME}" />
+  <distributions>
+    <distribution name="click" version="8.2.1" installer="conda" />
+  </distributions>
+  <python python_exe="${sys.prefix}\python.exe" python_flavor="Anaconda Python" python_version="3.13.9" os_name="Windows" os_release="11" arch_name="x86_64" filesystem_encoding="utf-8" gil="yes">
+    <search_path>
+      <path value="${cwd}" />
+      <path value="${sys.prefix}\DLLs" />
+      <path value="${sys.prefix}\Lib" />
+      <path value="${sys.prefix}" />
+      <path value="${sys.prefix}\Lib\site-packages" />
+      <path value="D:\learn\GitHub\powermem\src" />
+      <path value="${sys.prefix}\Lib\site-packages\win32" />
+      <path value="${sys.prefix}\Lib\site-packages\win32\lib" />
+      <path value="${sys.prefix}\Lib\site-packages\Pythonwin" />
+      <path value="D:\code\Misaka" />
+      <path value="${sys.prefix}\Lib\site-packages\setuptools\_vendor" />
+    </search_path>
+  </python>
+  <output run_filename="${cwd}\dist\misaka-agent.exe" />
+</nuitka-compilation-report>

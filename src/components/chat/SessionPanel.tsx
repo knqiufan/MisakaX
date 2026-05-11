@@ -283,7 +283,7 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
           {totalDisplay > 0 ? (
             <>
               {pinnedSessions.length > 0 && (
-                <SectionHeader label="置顶" />
+                <SectionHeader label={t("chat:session.pinned")} />
               )}
               {pinnedSessions.map(renderSessionItem)}
 
@@ -300,7 +300,7 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
               ))}
 
               {ungroupedSessions.length > 0 && groupedSessions.size > 0 && (
-                <SectionHeader label="未分组" />
+                <SectionHeader label={t("chat:session.ungrouped")} />
               )}
               {ungroupedSessions.map(renderSessionItem)}
             </>
@@ -335,6 +335,7 @@ function SessionPanelHeader({
   onNewSession: () => void;
   newSessionLabel: string;
 }) {
+  const { t } = useTranslation("chat");
   return (
     <div className="shrink-0 border-b border-[color:var(--border-muted)] bg-[color:var(--surface-sidebar)] px-3 pb-3 pt-3">
       <div className="flex w-full items-stretch gap-2">
@@ -343,7 +344,7 @@ function SessionPanelHeader({
           <Input
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="搜索会话 / 消息…"
+            placeholder={t("session.searchPlaceholder")}
             className={cn(
               "h-10 w-full rounded-[var(--radius-ui-md)] border-[color:var(--border-muted)]",
               "bg-[color:var(--surface-card)] pl-10 pr-3 text-sm shadow-none",
@@ -418,6 +419,7 @@ function ArchivedToggle({
   onToggle: () => void;
   onLoadArchived: () => void;
 }) {
+  const { t } = useTranslation("chat");
   const handleClick = () => {
     if (!show) onLoadArchived();
     onToggle();
@@ -430,17 +432,18 @@ function ArchivedToggle({
       className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-[var(--radius-button)] px-2 py-1.5 text-[0.6875rem] text-muted-foreground/60 transition-colors hover:bg-[color:var(--surface-hover)] hover:text-muted-foreground"
     >
       <Archive className="h-3 w-3" />
-      {show ? "隐藏归档" : `显示 ${count} 个归档`}
+      {show ? t("session.hideArchived") : t("session.showArchived", { count })}
     </button>
   );
 }
 
 function EmptySessionList({ hasSearch }: { hasSearch: boolean }) {
+  const { t } = useTranslation("chat");
   return (
     <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
       <MessageSquare className="h-8 w-8 text-muted-foreground/30" strokeWidth={1.15} />
       <p className="text-xs text-muted-foreground/70">
-        {hasSearch ? "未找到匹配的会话" : "暂无会话"}
+        {hasSearch ? t("session.noMatchingSessions") : t("session.noSessions")}
       </p>
     </div>
   );
