@@ -19,24 +19,18 @@ impl ProviderFactory {
     /// - 已知 Provider（openai/anthropic/google）直接匹配创建
     /// - 未知 Provider 根据 `api_compat` 字段选择兼容实现
     /// - 默认兼容模式为 OpenAI Chat Completions API
-    pub fn create(
-        config: &RouterConfig,
-        decrypted_key: &str,
-    ) -> Result<Box<dyn LlmProvider>> {
+    pub fn create(config: &RouterConfig, decrypted_key: &str) -> Result<Box<dyn LlmProvider>> {
         match config.provider.as_str() {
             "openai" => {
-                let provider =
-                    OpenAiProvider::new(decrypted_key, config.base_url.as_deref())?;
+                let provider = OpenAiProvider::new(decrypted_key, config.base_url.as_deref())?;
                 Ok(Box::new(provider))
             }
             "anthropic" => {
-                let provider =
-                    AnthropicProvider::new(decrypted_key, config.base_url.as_deref())?;
+                let provider = AnthropicProvider::new(decrypted_key, config.base_url.as_deref())?;
                 Ok(Box::new(provider))
             }
             "google" => {
-                let provider =
-                    GeminiProvider::new(decrypted_key, config.base_url.as_deref())?;
+                let provider = GeminiProvider::new(decrypted_key, config.base_url.as_deref())?;
                 Ok(Box::new(provider))
             }
             _ => Self::create_compat_provider(config, decrypted_key),
@@ -48,33 +42,20 @@ impl ProviderFactory {
         config: &RouterConfig,
         decrypted_key: &str,
     ) -> Result<Box<dyn LlmProvider>> {
-        let compat = config
-            .api_compat
-            .as_deref()
-            .unwrap_or("openai");
+        let compat = config.api_compat.as_deref().unwrap_or("openai");
 
-        let base_url = config
-            .base_url
-            .as_deref()
-            .ok_or_else(|| anyhow::anyhow!(
-                "Custom provider '{}' requires a base_url",
-                config.provider
-            ))?;
+        let base_url = config.base_url.as_deref().ok_or_else(|| {
+            anyhow::anyhow!("Custom provider '{}' requires a base_url", config.provider)
+        })?;
 
         match compat {
             "openai" => {
-                let provider = OpenAiCompatProvider::new(
-                    decrypted_key,
-                    base_url,
-                    &config.provider,
-                )?;
+                let provider =
+                    OpenAiCompatProvider::new(decrypted_key, base_url, &config.provider)?;
                 Ok(Box::new(provider))
             }
             "anthropic" => {
-                let provider = AnthropicProvider::new(
-                    decrypted_key,
-                    Some(base_url),
-                )?;
+                let provider = AnthropicProvider::new(decrypted_key, Some(base_url))?;
                 Ok(Box::new(provider))
             }
             other => Err(anyhow::anyhow!(

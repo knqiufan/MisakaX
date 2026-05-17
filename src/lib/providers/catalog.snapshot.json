@@ -1,0 +1,40 @@
+{
+  "openai": {
+    "openai": { "baseUrl": "https://api.openai.com/v1", "modelsPath": "/models" }
+  },
+  "anthropic": {
+    "anthropic": { "baseUrl": "https://api.anthropic.com", "modelsPath": "/v1/models" }
+  },
+  "google": {
+    "google": {
+      "baseUrl": "https://generativelanguage.googleapis.com",
+      "modelsPath": "/v1beta/models"
+    }
+  },
+  "deepseek": {
+    "openai": { "baseUrl": "https://api.deepseek.com/v1", "modelsPath": "/models" },
+    "anthropic": { "baseUrl": "https://api.deepseek.com/anthropic" }
+  },
+  "zhipu": {
+    "openai": { "baseUrl": "https://open.bigmodel.cn/api/paas/v4", "modelsPath": "/models" },
+    "anthropic": { "baseUrl": "https://open.bigmodel.cn/api/anthropic" }
+  },
+  "minimax": {
+    "openai": { "baseUrl": "https://api.minimaxi.com/v1", "modelsPath": "/models" }
+  },
+  "stepfun": {
+    "openai": { "baseUrl": "https://api.stepfun.com/v1", "modelsPath": "/models" }
+  },
+  "moonshot": {
+    "openai": { "baseUrl": "https://api.moonshot.cn/v1", "modelsPath": "/models" },
+    "anthropic": { "baseUrl": "https://api.moonshot.cn/anthropic" }
+  },
+  "siliconflow": {
+    "openai": { "baseUrl": "https://api.siliconflow.cn/v1", "modelsPath": "/models" }
+  },
+  "custom": {
+    "openai": { "baseUrl": "" },
+    "anthropic": { "baseUrl": "" },
+    "google": { "baseUrl": "" }
+  }
+}

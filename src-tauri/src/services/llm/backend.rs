@@ -117,10 +117,7 @@ impl ChatBackend for RigBackend {
 ///
 /// 当 `images` 非空时，构建包含文本和图片的多内容 User 消息；
 /// 否则仅返回纯文本消息。
-pub fn build_user_prompt(
-    content: &str,
-    images: &Option<Vec<ImageAttachment>>,
-) -> RigMessage {
+pub fn build_user_prompt(content: &str, images: &Option<Vec<ImageAttachment>>) -> RigMessage {
     let has_images = images.as_ref().is_some_and(|imgs| !imgs.is_empty());
 
     if !has_images {
@@ -134,16 +131,11 @@ pub fn build_user_prompt(
 
     for img in imgs {
         let media_type = parse_image_media_type(&img.media_type);
-        parts.push(UserContent::image_base64(
-            &img.data,
-            Some(media_type),
-            None,
-        ));
+        parts.push(UserContent::image_base64(&img.data, Some(media_type), None));
     }
 
     RigMessage::User {
-        content: OneOrMany::many(parts)
-            .expect("parts is guaranteed non-empty"),
+        content: OneOrMany::many(parts).expect("parts is guaranteed non-empty"),
     }
 }
 

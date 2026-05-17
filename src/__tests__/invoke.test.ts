@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { invoke, IpcError } from "@/lib/ipc/invoke";
+import { invoke, IpcError, sanitizeForLog } from "@/lib/ipc/invoke";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -50,6 +50,43 @@ describe("invoke wrapper", () => {
       command: "another_command",
       originalError: expect.stringContaining("Connection refused"),
     });
+  });
+
+  it("redacts sensitive values from IPC debug payloads", () => {
+    expect(
+      sanitizeForLog({
+        api_key: "sk-secret",
+        nested: { apiKey: "nested-secret" },
+        headers: { Authorization: "Bearer secret", "x-api-key": "x-secret" },
+        safe: "value",
+      }),
+    ).toEqual({
+      api_key: "<redacted>",
+      nested: { apiKey: "<redacted>" },
+      headers: {
+        Authorization: "<redacted>",
+        "x-api-key": "<redacted>",
+      },
+      safe: "value",
+    });
+  });
+
+  it("redacts revealed api keys from IPC debug results", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    mockTauriInvoke.mockResolvedValue("sk-revealed");
+
+    await invoke<string>("reveal_router_api_key", { id: "router-1" });
+
+    expect(logSpy).toHaveBeenLastCalledWith(
+      "[IPC] ← reveal_router_api_key",
+      "<redacted>",
+    );
+    expect(logSpy).not.toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining("sk-revealed"),
+    );
+
+    logSpy.mockRestore();
   });
 });
 

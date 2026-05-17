@@ -37,10 +37,7 @@ fn default_true() -> bool {
 impl McpServerEntry {
     fn to_config(&self, id: &str) -> Option<McpServerConfig> {
         let transport = if let Some(url) = &self.url {
-            let t_type = self
-                .transport_type
-                .as_deref()
-                .unwrap_or("http");
+            let t_type = self.transport_type.as_deref().unwrap_or("http");
             match t_type {
                 "sse" => McpTransport::Sse {
                     url: url.clone(),
@@ -80,11 +77,10 @@ impl McpConfigLoader {
             return Ok(Vec::new());
         }
 
-        let content = std::fs::read_to_string(path)
-            .context("Failed to read mcp.json")?;
+        let content = std::fs::read_to_string(path).context("Failed to read mcp.json")?;
 
-        let config_file: McpConfigFile = serde_json::from_str(&content)
-            .context("Failed to parse mcp.json")?;
+        let config_file: McpConfigFile =
+            serde_json::from_str(&content).context("Failed to parse mcp.json")?;
 
         let configs: Vec<McpServerConfig> = config_file
             .mcp_servers
@@ -113,11 +109,9 @@ impl McpConfigLoader {
                 Ok((id, name, transport_json, auto_connect, env_json))
             })?
             .filter_map(|row| {
-                let (id, name, transport_json, auto_connect, env_json) =
-                    row.ok()?;
+                let (id, name, transport_json, auto_connect, env_json) = row.ok()?;
 
-                let transport: McpTransport =
-                    serde_json::from_str(&transport_json).ok()?;
+                let transport: McpTransport = serde_json::from_str(&transport_json).ok()?;
                 let env: HashMap<String, String> = env_json
                     .and_then(|s| serde_json::from_str(&s).ok())
                     .unwrap_or_default();
@@ -137,10 +131,7 @@ impl McpConfigLoader {
     }
 
     /// 合并 file 和 db 两个来源的配置（file 优先）
-    pub fn load_all(
-        config_dir: &Path,
-        conn: &Connection,
-    ) -> Result<Vec<McpServerConfig>> {
+    pub fn load_all(config_dir: &Path, conn: &Connection) -> Result<Vec<McpServerConfig>> {
         let mcp_json_path = config_dir.join("mcp.json");
         let file_configs = Self::load_from_file(&mcp_json_path)?;
         let db_configs = Self::load_from_db(conn).unwrap_or_default();
@@ -180,8 +171,7 @@ impl McpConfigLoader {
         let content = serde_json::to_string_pretty(&template)
             .context("Failed to serialize mcp.json template")?;
 
-        std::fs::write(&path, content)
-            .context("Failed to write default mcp.json")?;
+        std::fs::write(&path, content).context("Failed to write default mcp.json")?;
 
         tracing::info!(path = %path.display(), "Created default mcp.json");
         Ok(())

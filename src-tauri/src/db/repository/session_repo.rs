@@ -36,10 +36,7 @@ impl SessionRepo {
         Self::find_by_id(conn, id)
     }
 
-    pub fn list(
-        conn: &Connection,
-        status: Option<&str>,
-    ) -> Result<Vec<Session>> {
+    pub fn list(conn: &Connection, status: Option<&str>) -> Result<Vec<Session>> {
         let status_filter = status.unwrap_or("active");
 
         let mut stmt = conn.prepare(

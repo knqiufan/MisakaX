@@ -36,7 +36,9 @@ impl LlmProvider for AnthropicProvider {
         system_prompt: Option<&str>,
         llm_config: &LlmConfig,
     ) -> Result<AgentHandle> {
-        let mut builder = self.client.agent(model_name)
+        let mut builder = self
+            .client
+            .agent(model_name)
             .temperature(llm_config.temperature);
         if let Some(prompt) = system_prompt {
             builder = builder.preamble(prompt);

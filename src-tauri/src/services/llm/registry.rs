@@ -15,12 +15,7 @@ pub struct ModelInfo {
 }
 
 impl ModelInfo {
-    pub fn builtin(
-        model_id: &str,
-        display_name: &str,
-        vision: bool,
-        thinking: bool,
-    ) -> Self {
+    pub fn builtin(model_id: &str, display_name: &str, vision: bool, thinking: bool) -> Self {
         Self {
             model_id: model_id.to_string(),
             display_name: display_name.to_string(),
@@ -33,20 +28,17 @@ impl ModelInfo {
     }
 }
 
-/// 模型注册表 — 合并内置模型与用户自定义模型
+/// 模型注册表 — 内置模型作为候选兜底；会话只使用用户显式启用的模型
 pub struct ModelRegistry;
 
 impl ModelRegistry {
-    /// 获取某个 Provider 下所有可用模型（内置 + 自定义）
+    /// 获取某个 Provider 下所有可用模型（仅启用的自定义模型）
     pub fn available_models(
         conn: &Connection,
         router_config_id: &str,
-        provider: &str,
+        _provider: &str,
     ) -> Result<Vec<ModelInfo>> {
-        let mut models = Self::builtin_models(provider);
-        let custom = Self::custom_models(conn, router_config_id)?;
-        models.extend(custom);
-        Ok(models)
+        Self::custom_models(conn, router_config_id)
     }
 
     /// 内置模型列表 — 按 Provider 分类
@@ -74,61 +66,28 @@ impl ModelRegistry {
 
     fn anthropic_models() -> Vec<ModelInfo> {
         vec![
-            ModelInfo::builtin(
-                "claude-sonnet-4-20250514",
-                "Claude Sonnet 4",
-                true,
-                true,
-            ),
-            ModelInfo::builtin(
-                "claude-opus-4-20250514",
-                "Claude Opus 4",
-                true,
-                true,
-            ),
-            ModelInfo::builtin(
-                "claude-haiku-4-5-20250514",
-                "Claude Haiku 4.5",
-                true,
-                false,
-            ),
+            ModelInfo::builtin("claude-sonnet-4-20250514", "Claude Sonnet 4", true, true),
+            ModelInfo::builtin("claude-opus-4-20250514", "Claude Opus 4", true, true),
+            ModelInfo::builtin("claude-haiku-4-5-20250514", "Claude Haiku 4.5", true, false),
         ]
     }
 
     fn gemini_models() -> Vec<ModelInfo> {
         vec![
-            ModelInfo::builtin(
-                "gemini-2.5-pro-preview-05-06",
-                "Gemini 2.5 Pro",
-                true,
-                true,
-            ),
-            ModelInfo::builtin(
-                "gemini-2.5-flash",
-                "Gemini 2.5 Flash",
-                true,
-                true,
-            ),
-            ModelInfo::builtin(
-                "gemini-2.0-flash",
-                "Gemini 2.0 Flash",
-                true,
-                false,
-            ),
+            ModelInfo::builtin("gemini-2.5-pro-preview-05-06", "Gemini 2.5 Pro", true, true),
+            ModelInfo::builtin("gemini-2.5-flash", "Gemini 2.5 Flash", true, true),
+            ModelInfo::builtin("gemini-2.0-flash", "Gemini 2.0 Flash", true, false),
         ]
     }
 
     /// 从 custom_models 表读取用户自定义模型
-    fn custom_models(
-        conn: &Connection,
-        router_config_id: &str,
-    ) -> Result<Vec<ModelInfo>> {
+    fn custom_models(conn: &Connection, router_config_id: &str) -> Result<Vec<ModelInfo>> {
         let mut stmt = conn.prepare(
             "SELECT model_id, display_name, supports_vision, supports_thinking,
                     max_tokens, context_window
              FROM custom_models
-             WHERE router_config_id = ?1
-             ORDER BY created_at ASC",
+             WHERE router_config_id = ?1 AND enabled = 1
+             ORDER BY sort_order ASC, created_at ASC",
         )?;
 
         let models = stmt

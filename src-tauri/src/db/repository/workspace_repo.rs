@@ -69,10 +69,7 @@ impl WorkspaceRepo {
 
     /// 删除指定路径的目录记录
     pub fn delete_by_path(conn: &Connection, path: &str) -> Result<bool> {
-        let affected = conn.execute(
-            "DELETE FROM recent_directories WHERE path = ?1",
-            [path],
-        )?;
+        let affected = conn.execute("DELETE FROM recent_directories WHERE path = ?1", [path])?;
         Ok(affected > 0)
     }
 

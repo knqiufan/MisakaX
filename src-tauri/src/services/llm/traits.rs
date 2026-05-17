@@ -64,8 +64,7 @@ pub struct StreamUsage {
 }
 
 /// 类型擦除的流式输出流
-pub type DeltaStream =
-    Pin<Box<dyn Stream<Item = Result<StreamDelta, anyhow::Error>> + Send>>;
+pub type DeltaStream = Pin<Box<dyn Stream<Item = Result<StreamDelta, anyhow::Error>> + Send>>;
 
 /// 将 rig-core 的 `MultiTurnStreamItem<R>` 转换为 `Option<StreamDelta>`
 ///

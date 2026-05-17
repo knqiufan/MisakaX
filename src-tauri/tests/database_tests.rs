@@ -6,8 +6,8 @@ fn test_init_database() {
     let db_path = temp_dir.path().join("test_init.db");
 
     let tables = {
-        let conn = misaka_x_lib::db::init_database(&db_path)
-            .expect("Failed to initialize test database");
+        let conn =
+            misaka_x_lib::db::init_database(&db_path).expect("Failed to initialize test database");
 
         let mut stmt = conn
             .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -19,9 +19,15 @@ fn test_init_database() {
             .collect();
 
         let version: i64 = conn
-            .query_row("SELECT MAX(version) FROM _schema_version", [], |row| row.get(0))
+            .query_row("SELECT MAX(version) FROM _schema_version", [], |row| {
+                row.get(0)
+            })
             .unwrap();
-        assert!(version >= 3, "Expected schema version >= 3, got {}", version);
+        assert!(
+            version >= 3,
+            "Expected schema version >= 3, got {}",
+            version
+        );
 
         tables
     };

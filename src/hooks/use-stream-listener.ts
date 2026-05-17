@@ -72,13 +72,26 @@ export function useStreamListener(sessionId: string | null) {
         setMessageStatus,
         setStreaming,
         setThinkingStreaming,
+        remapMessageId,
         addToolCall,
         updateToolCall,
       } = useChatStore.getState();
 
+      const ensureMessageId = (backendId: string) => {
+        const state = useChatStore.getState();
+        if (state.messages.some((m) => m.id === backendId)) return;
+
+        const { streamingMessageId } = state;
+        if (streamingMessageId && streamingMessageId !== backendId) {
+          remapMessageId(streamingMessageId, backendId);
+        }
+      };
+
       const u1 = await listen<StreamTokenEvent>("stream_token", (event) => {
         const { session_id, message_id, delta } = event.payload;
         if (session_id !== sessionId) return;
+
+        ensureMessageId(message_id);
 
         if (useChatStore.getState().isThinkingStreaming) {
           setThinkingStreaming(false);
@@ -94,6 +107,7 @@ export function useStreamListener(sessionId: string | null) {
           const { session_id, message_id, thinking_delta } = event.payload;
           if (session_id !== sessionId) return;
 
+          ensureMessageId(message_id);
           setThinkingStreaming(true);
 
           const store = useChatStore.getState();
@@ -121,6 +135,7 @@ export function useStreamListener(sessionId: string | null) {
           const { session_id, message_id, usage, was_aborted } = event.payload;
           if (session_id !== sessionId) return;
 
+          ensureMessageId(message_id);
           const status = was_aborted ? "aborted" : "complete";
           setMessageStatus(message_id, status);
           setStreaming(false);
@@ -146,6 +161,7 @@ export function useStreamListener(sessionId: string | null) {
         const detail = error.trim() || i18n.t("chat:streamError");
 
         if (message_id) {
+          ensureMessageId(message_id);
           const msg = useChatStore
             .getState()
             .messages.find((m) => m.id === message_id);
@@ -164,6 +180,7 @@ export function useStreamListener(sessionId: string | null) {
           const { session_id, message_id, tool_call_id, server_id, server_name, tool_name, arguments: args, status } = event.payload;
           if (session_id !== sessionId) return;
 
+          ensureMessageId(message_id);
           addToolCall(message_id, {
             id: tool_call_id,
             server_id,
@@ -186,6 +203,7 @@ export function useStreamListener(sessionId: string | null) {
           const { session_id, message_id, tool_call_id, result, error: toolError, status } = event.payload;
           if (session_id !== sessionId) return;
 
+          ensureMessageId(message_id);
           updateToolCall(message_id, tool_call_id, {
             result,
             error: toolError,

@@ -11,8 +11,7 @@ pub struct OpenAiProvider {
 
 impl OpenAiProvider {
     pub fn new(api_key: &str, base_url: Option<&str>) -> Result<Self> {
-        let mut builder = rig::providers::openai::CompletionsClient::builder()
-            .api_key(api_key);
+        let mut builder = rig::providers::openai::CompletionsClient::builder().api_key(api_key);
         if let Some(url) = base_url {
             builder = builder.base_url(url);
         }
@@ -34,7 +33,9 @@ impl LlmProvider for OpenAiProvider {
         system_prompt: Option<&str>,
         llm_config: &LlmConfig,
     ) -> Result<AgentHandle> {
-        let mut builder = self.client.agent(model_name)
+        let mut builder = self
+            .client
+            .agent(model_name)
             .temperature(llm_config.temperature);
         if let Some(prompt) = system_prompt {
             builder = builder.preamble(prompt);

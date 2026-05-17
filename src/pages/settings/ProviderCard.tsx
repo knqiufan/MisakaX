@@ -4,6 +4,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { RouterConfigView } from "@/lib/ipc";
+import { VENDOR_CATALOG, type VendorId } from "@/lib/providers/catalog";
+import {
+  PROVIDER_API_LABELS,
+  VENDOR_FALLBACK_LABELS,
+} from "./provider-dialog/catalog-ui";
 
 interface ProviderCardProps {
   config: RouterConfigView;
@@ -12,14 +17,6 @@ interface ProviderCardProps {
   onTest: () => void;
   testing?: boolean;
 }
-
-const PROVIDER_LABELS: Record<string, string> = {
-  openai: "OpenAI",
-  anthropic: "Anthropic",
-  google: "Google (Gemini)",
-  deepseek: "DeepSeek",
-  custom: "Custom (OpenAI Compatible)",
-};
 
 export function ProviderCard({
   config,
@@ -43,11 +40,14 @@ export function ProviderCard({
               {config.name}
             </span>
             <Badge variant="outline" className="text-xs">
-              {PROVIDER_LABELS[config.provider] ?? config.provider}
+              {PROVIDER_API_LABELS[config.provider]}
+            </Badge>
+            <Badge variant="secondary" className="text-xs">
+              {vendorLabel(t, config.vendor)}
             </Badge>
             {config.is_active && (
               <Badge variant="default" className="text-xs">
-                Default
+                {t("models.defaultProvider")}
               </Badge>
             )}
           </div>
@@ -59,6 +59,7 @@ export function ProviderCard({
 
         <div className="flex items-center gap-1">
           <Button
+            aria-label={t("models.testConnection")}
             variant="ghost"
             size="icon"
             onClick={onTest}
@@ -72,6 +73,7 @@ export function ProviderCard({
             )}
           </Button>
           <Button
+            aria-label={t("models.editProvider")}
             variant="ghost"
             size="icon"
             onClick={onEdit}
@@ -80,6 +82,7 @@ export function ProviderCard({
             <Pencil className="h-4 w-4" />
           </Button>
           <Button
+            aria-label={t("models.deleteProvider")}
             variant="ghost"
             size="icon"
             onClick={onDelete}
@@ -95,10 +98,13 @@ export function ProviderCard({
 }
 
 function ProviderIcon({ provider }: { provider: string }) {
-  const initial = (PROVIDER_LABELS[provider] ?? provider)
-    .charAt(0)
-    .toUpperCase();
+  const initial = provider.charAt(0).toUpperCase();
   return (
     <span className="text-sm font-bold text-primary">{initial}</span>
   );
+}
+
+function vendorLabel(t: ReturnType<typeof useTranslation>["t"], vendor: VendorId | null): string {
+  const id = vendor ?? "custom";
+  return t(VENDOR_CATALOG[id].labelKey, VENDOR_FALLBACK_LABELS[id]);
 }

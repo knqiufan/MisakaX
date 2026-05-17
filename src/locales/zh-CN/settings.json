@@ -26,12 +26,67 @@
     "model": "模型",
     "modelPlaceholder": "选择或输入模型名称",
     "setDefault": "设为默认",
+    "defaultProvider": "默认",
     "testConnection": "测试连接",
     "testing": "测试中...",
     "connectionSuccess": "连接成功",
     "connectionFailed": "连接失败",
+    "modelSaveFailed": "Provider 已保存，但模型清单保存失败",
     "noProviders": "尚未配置任何 Provider",
-    "noProvidersDesc": "添加 Provider 以开始使用 AI 模型"
+    "noProvidersDesc": "添加 Provider 以开始使用 AI 模型",
+    "providerNamePlaceholder": "我的 OpenAI"
+  },
+  "providers": {
+    "vendor": {
+      "label": "供应商品牌",
+      "homepage": "供应商官网",
+      "unsupported": "该供应商暂不支持当前接口类型",
+      "customEndpoint": "自定义端点",
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "google": "Google",
+      "deepseek": "DeepSeek",
+      "zhipu": "智谱 GLM",
+      "minimax": "MiniMax",
+      "stepfun": "阶跃星辰",
+      "moonshot": "Kimi",
+      "siliconflow": "硅基流动",
+      "custom": "自定义"
+    },
+    "apiKey": {
+      "get": "获取 API Key",
+      "keepExisting": "留空则保留当前密钥",
+      "reveal": "显示 API Key",
+      "revealFailed": "无法显示 API Key",
+      "toggleVisible": "切换 API Key 可见性"
+    },
+    "baseUrl": {
+      "autoFilled": "已根据供应商自动填充",
+      "customRequired": "自定义供应商需要手动填写接口地址"
+    },
+    "models": {
+      "available": "可用模型",
+      "onlySelected": "只有选中的模型会出现在对话页模型列表中。",
+      "fetch": "获取模型",
+      "fetchDialogTitle": "选择模型",
+      "fetchCount": "{{count}} 个模型",
+      "fetchFailed": "获取模型失败",
+      "search": "搜索模型",
+      "selectAll": "全选",
+      "empty": "尚未选择任何模型。",
+      "remove": "移除模型",
+      "test": "测试模型",
+      "testFailed": "模型测试失败",
+      "vision": "视觉",
+      "thinking": "思考"
+    },
+    "advanced": {
+      "title": "高级配置",
+      "temperature": "Temperature",
+      "temperatureHint": "控制输出随机性，数值越高越发散。",
+      "maxTokens": "Max tokens",
+      "maxTokensHint": "可选，限制单次回复可生成的最大 token 数。"
+    }
   },
   "mcp": {
     "title": "MCP",

@@ -6,11 +6,9 @@ pub struct SettingsRepo;
 
 impl SettingsRepo {
     pub fn get(conn: &Connection, key: &str) -> Result<Option<String>> {
-        let result = conn.query_row(
-            "SELECT value FROM settings WHERE key = ?1",
-            [key],
-            |row| row.get::<_, String>(0),
-        );
+        let result = conn.query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
+            row.get::<_, String>(0)
+        });
 
         match result {
             Ok(value) => Ok(Some(value)),

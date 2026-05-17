@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 use std::process::Child;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -27,12 +28,56 @@ pub struct SidecarStatusEvent {
 }
 
 // --------------------------------------------------------------------------- //
+//  Agent directory resolution
+// --------------------------------------------------------------------------- //
+
+/// Resolve the working directory for the Python sidecar (`uvicorn app.main:app`).
+///
+/// Resolution order:
+/// 1. Repo layout: `agent/` next to `src-tauri/` (from compile-time `CARGO_MANIFEST_DIR`) — fixes
+///    `tauri dev` where cwd is `src-tauri/` (naive `cwd.join("agent")` does not exist → Windows
+///    **ERROR_DIRECTORY 267** on spawn).
+/// 2. `agent/` next to the executable (packaged / portable installs).
+/// 3. `./agent` from process cwd (legacy).
+///
+/// If none exist, returns the repo-layout path for error messages / logs.
+pub fn resolve_agent_working_dir() -> PathBuf {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let from_repo_root = manifest_dir
+        .parent()
+        .map(|p| p.join("agent"))
+        .unwrap_or_else(|| manifest_dir.join("agent"));
+
+    if from_repo_root.is_dir() {
+        return from_repo_root;
+    }
+
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let beside_exe = dir.join("agent");
+            if beside_exe.is_dir() {
+                return beside_exe;
+            }
+        }
+    }
+
+    if let Ok(cwd) = std::env::current_dir() {
+        let cwd_agent = cwd.join("agent");
+        if cwd_agent.is_dir() {
+            return cwd_agent;
+        }
+    }
+
+    from_repo_root
+}
+
+// --------------------------------------------------------------------------- //
 //  SidecarManager
 // --------------------------------------------------------------------------- //
 
 pub struct SidecarManager {
     port: u16,
-    agent_dir: String,
+    agent_dir: PathBuf,
     max_retries: u32,
     status: Arc<Mutex<SidecarStatus>>,
     child: Arc<Mutex<Option<Child>>>,
@@ -41,7 +86,7 @@ pub struct SidecarManager {
 }
 
 impl SidecarManager {
-    pub fn new(agent_dir: String, port: u16) -> Self {
+    pub fn new(agent_dir: PathBuf, port: u16) -> Self {
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
         Self {
             port,
@@ -135,7 +180,10 @@ impl SidecarManager {
                     tracing::warn!("{}", msg);
                 }
                 Err(e) => {
-                    let msg = format!("Spawn failed: {} (attempt {}/{})", e, attempt, self.max_retries);
+                    let msg = format!(
+                        "Spawn failed: {} (attempt {}/{})",
+                        e, attempt, self.max_retries
+                    );
                     tracing::error!("{}", msg);
                 }
             }

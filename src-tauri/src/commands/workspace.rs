@@ -25,9 +25,7 @@ pub async fn browse_directory(
 
     builder = builder.set_title("Select Working Directory");
 
-    let result = builder
-        .blocking_pick_folder()
-        .map(|fp| fp.to_string());
+    let result = builder.blocking_pick_folder().map(|fp| fp.to_string());
 
     Ok(result)
 }
@@ -86,22 +84,14 @@ pub fn record_directory_usage(
 ) -> Result<(), String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     let id = uuid::Uuid::new_v4().to_string();
-    WorkspaceRepo::record_usage(
-        &conn,
-        &id,
-        &path,
-        display_name.as_deref(),
-    )
-    .map_err(|e| e.to_string())
+    WorkspaceRepo::record_usage(&conn, &id, &path, display_name.as_deref())
+        .map_err(|e| e.to_string())
 }
 
 // ─── remove_recent_directory Command ──────────────────────────────────
 
 #[tauri::command]
-pub fn remove_recent_directory(
-    state: State<'_, AppState>,
-    path: String,
-) -> Result<bool, String> {
+pub fn remove_recent_directory(state: State<'_, AppState>, path: String) -> Result<bool, String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     WorkspaceRepo::delete_by_path(&conn, &path).map_err(|e| e.to_string())
 }

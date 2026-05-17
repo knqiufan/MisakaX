@@ -20,7 +20,12 @@ import {
 import { modelsIpc } from "@/lib/ipc";
 import type { ImageAttachment, ProviderModels } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
-import { ModelSelector } from "./ModelSelector";
+import { ModelSelector, type FlatModel } from "./model-selector/ModelSelector";
+import {
+  isSelectedModelValid,
+  selectedModelLabel,
+  toFlatModels,
+} from "./model-selector/model-data";
 import { ImagePreview, type PendingImage } from "./ImagePreview";
 
 const MIN_HEIGHT = 36;
@@ -374,36 +379,41 @@ function InputToolbar({
 }
 
 function InputFooter({ t }: { t: (key: string) => string }) {
-  const { selectedModel, setSelectedModel } = useChatStore();
+  const { modelsVersion, selectedModel, setSelectedModel } = useChatStore();
   const [providerModels, setProviderModels] = useState<ProviderModels[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [modelListOpen, setModelListOpen] = useState(false);
 
   useEffect(() => {
-    modelsIpc.listAvailable().then(setProviderModels).catch(console.error);
-  }, []);
-
-  const flatModels = useMemo(() => {
-    return providerModels.flatMap((pm) =>
-      pm.models.map((m) => {
-        const label =
-          m.display_name?.trim() || m.model_id?.trim() || t("selectModel");
-        return {
-          id: `${pm.provider.id}:${m.model_id}`,
-          label,
-          provider: pm.provider.name?.trim() || pm.provider.id,
-        };
+    let cancelled = false;
+    setLoaded(false);
+    modelsIpc
+      .listAvailable()
+      .then((models) => {
+        if (!cancelled) setProviderModels(models);
       })
-    );
+      .catch(console.error)
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [modelsVersion]);
+
+  const flatModels: FlatModel[] = useMemo(() => {
+    return toFlatModels(providerModels, t("selectModel"));
   }, [providerModels, t]);
 
+  useEffect(() => {
+    if (!loaded || !selectedModel) return;
+    if (!isSelectedModelValid(selectedModel, flatModels)) {
+      setSelectedModel(null);
+    }
+  }, [flatModels, loaded, selectedModel, setSelectedModel]);
+
   const selectedLabel = useMemo(() => {
-    if (!selectedModel) return t("selectModel");
-    const found = flatModels.find((m) => m.id === selectedModel);
-    const fallback = selectedModel.includes(":")
-      ? selectedModel.split(":").pop()
-      : selectedModel;
-    const raw = found?.label ?? fallback;
-    return raw?.trim() ? raw.trim() : t("selectModel");
+    return selectedModelLabel(selectedModel, flatModels, t("selectModel"));
   }, [selectedModel, flatModels, t]);
 
   return (

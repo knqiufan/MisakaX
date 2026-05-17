@@ -1,3 +1,6 @@
+import type { ProviderApi, VendorId } from "@/lib/providers/catalog";
+import type { ModelInfo } from "./models";
+
 export interface AppConfig {
   language: string;
   theme: "light" | "dark" | "dim" | "system";
@@ -13,44 +16,121 @@ export interface AppConfig {
 export interface RouterConfig {
   id: string;
   name: string;
-  provider: string;
+  provider: ProviderApi;
+  vendor: VendorId | null;
   api_key_encrypted: string | null;
   model: string | null;
   base_url: string | null;
   config_json: string | null;
+  advanced_json: string | null;
   is_active: boolean;
   created_at: string;
+  api_compat: ProviderApi | null;
+}
+
+export interface AdvancedConfig {
+  temperature: number;
+  max_tokens: number | null;
+  proxy?: string | null;
 }
 
 export interface RouterConfigView {
   id: string;
   name: string;
-  provider: string;
+  provider: ProviderApi;
+  vendor: VendorId | null;
   api_key_masked: string;
   model: string | null;
   base_url: string | null;
+  api_compat: ProviderApi | null;
+  config_json: string | null;
+  advanced: AdvancedConfig;
   is_active: boolean;
   created_at: string;
 }
 
 export interface CreateRouterConfig {
   name: string;
-  provider: string;
+  provider: ProviderApi;
+  vendor?: VendorId;
   api_key: string;
   model?: string;
   base_url?: string;
   config_json?: string;
+  advanced?: AdvancedConfig;
   is_active?: boolean;
+  api_compat?: ProviderApi;
+}
+
+export interface CreateCustomModel {
+  model_id: string;
+  display_name: string;
+  supports_vision?: boolean;
+  supports_thinking?: boolean;
+  max_tokens?: number | null;
+  context_window?: number | null;
+  enabled?: boolean;
+  sort_order?: number;
+}
+
+export interface CreateRouterConfigWithModels {
+  config: CreateRouterConfig;
+  models: CreateCustomModel[];
 }
 
 export interface UpdateRouterConfig {
   name?: string;
-  provider?: string;
+  provider?: ProviderApi;
+  vendor?: VendorId;
   api_key?: string;
   model?: string;
   base_url?: string;
   config_json?: string;
+  advanced?: AdvancedConfig;
   is_active?: boolean;
+  api_compat?: ProviderApi;
+}
+
+export interface CustomModel {
+  id: string;
+  router_config_id: string;
+  model_id: string;
+  display_name: string;
+  supports_vision: boolean;
+  supports_thinking: boolean;
+  max_tokens: number | null;
+  context_window: number | null;
+  enabled: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface FetchModelsResult {
+  models: ModelInfo[];
+  source: "remote" | "fallback";
+  warning?: string;
+}
+
+export interface FetchProviderModelsRequest {
+  api: ProviderApi;
+  vendor: VendorId;
+  base_url?: string;
+  api_key: string;
+}
+
+export interface TestModelRequest {
+  api: ProviderApi;
+  vendor?: VendorId;
+  base_url?: string;
+  api_key: string;
+  model_id: string;
+  advanced?: AdvancedConfig;
+}
+
+export interface ModelTestResult {
+  success: boolean;
+  latency_ms: number;
+  message: string;
 }
 
 export interface ConnectionTestResult {

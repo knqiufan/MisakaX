@@ -2,8 +2,10 @@ use serde::Deserialize;
 use tauri::State;
 
 use crate::crypto;
+use crate::db::models::{AdvancedConfig, CreateCustomModel};
 use crate::db::repository::router_config_repo::RouterConfigView;
-use crate::db::repository::RouterConfigRepo;
+use crate::db::repository::{CustomModelRepo, RouterConfigRepo};
+use crate::services::llm::catalog::{models_url, ProviderApi};
 use crate::AppState;
 
 // ─── 请求类型 ─────────────────────────────────────────────────────────
@@ -12,10 +14,12 @@ use crate::AppState;
 pub struct CreateRouterConfig {
     pub name: String,
     pub provider: String,
+    pub vendor: Option<String>,
     pub api_key: String,
     pub model: Option<String>,
     pub base_url: Option<String>,
     pub config_json: Option<String>,
+    pub advanced: Option<AdvancedConfig>,
     pub is_active: Option<bool>,
     pub api_compat: Option<String>,
 }
@@ -24,12 +28,20 @@ pub struct CreateRouterConfig {
 pub struct UpdateRouterConfig {
     pub name: Option<String>,
     pub provider: Option<String>,
+    pub vendor: Option<String>,
     pub api_key: Option<String>,
     pub model: Option<String>,
     pub base_url: Option<String>,
     pub config_json: Option<String>,
+    pub advanced: Option<AdvancedConfig>,
     pub is_active: Option<bool>,
     pub api_compat: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateRouterConfigWithModels {
+    pub config: CreateRouterConfig,
+    pub models: Vec<CreateCustomModel>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -42,9 +54,7 @@ pub struct ConnectionTestResult {
 // ─── Commands ─────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub fn list_router_configs(
-    state: State<'_, AppState>,
-) -> Result<Vec<RouterConfigView>, String> {
+pub fn list_router_configs(state: State<'_, AppState>) -> Result<Vec<RouterConfigView>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     RouterConfigRepo::list_views(&db).map_err(|e| e.to_string())
 }
@@ -57,21 +67,42 @@ pub fn create_router_config(
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let id = uuid::Uuid::new_v4().to_string();
     let encrypted_key = crypto::encrypt(&config.api_key).map_err(|e| e.to_string())?;
+    let advanced_json = serialize_advanced(config.advanced.as_ref())?;
 
-    RouterConfigRepo::insert(
+    RouterConfigRepo::insert_with_metadata(
         &db,
         &id,
         &config.name,
         &config.provider,
+        config.vendor.as_deref(),
         &encrypted_key,
         config.model.as_deref(),
         config.base_url.as_deref(),
         config.config_json.as_deref(),
+        advanced_json.as_deref(),
         config.is_active.unwrap_or(false),
         config.api_compat.as_deref(),
     )
     .map_err(|e| e.to_string())?;
 
+    Ok(id)
+}
+
+#[tauri::command]
+pub fn create_router_config_with_models(
+    state: State<'_, AppState>,
+    request: CreateRouterConfigWithModels,
+) -> Result<String, String> {
+    let mut db = state.db.lock().map_err(|e| e.to_string())?;
+    let tx = db.transaction().map_err(|e| e.to_string())?;
+    let id = insert_router_config_record(&tx, &request.config)?;
+
+    for model in &request.models {
+        let model_id = uuid::Uuid::new_v4().to_string();
+        CustomModelRepo::insert(&tx, &model_id, &id, model).map_err(|e| e.to_string())?;
+    }
+
+    tx.commit().map_err(|e| e.to_string())?;
     Ok(id)
 }
 
@@ -94,17 +125,65 @@ pub fn update_router_config(
     updates
         .set_opt("name", &config.name)
         .set_opt("provider", &config.provider)
+        .set_opt("vendor", &config.vendor)
         .set_opt("api_key_encrypted", &encrypted_key)
         .set_opt("model", &config.model)
         .set_opt("base_url", &config.base_url)
         .set_opt("config_json", &config.config_json)
         .set_opt("api_compat", &config.api_compat);
 
+    let advanced_json = serialize_advanced(config.advanced.as_ref())?;
+    updates.set_opt("advanced_json", &advanced_json);
+
     if let Some(is_active) = config.is_active {
         updates.set("is_active", is_active as i32);
     }
 
     RouterConfigRepo::update(&db, &id, &updates.build()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn reveal_router_api_key(state: State<'_, AppState>, id: String) -> Result<String, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let config = RouterConfigRepo::find_by_id(&db, &id).map_err(|e| e.to_string())?;
+    let encrypted = config
+        .api_key_encrypted
+        .ok_or_else(|| "No API key configured".to_string())?;
+    crypto::decrypt(&encrypted).map_err(|e| e.to_string())
+}
+
+fn serialize_advanced(advanced: Option<&AdvancedConfig>) -> Result<Option<String>, String> {
+    advanced
+        .map(serde_json::to_string)
+        .transpose()
+        .map_err(|e| e.to_string())
+}
+
+fn insert_router_config_record(
+    conn: &rusqlite::Connection,
+    config: &CreateRouterConfig,
+) -> Result<String, String> {
+    let id = uuid::Uuid::new_v4().to_string();
+    let encrypted_key = crypto::encrypt(&config.api_key).map_err(|e| e.to_string())?;
+    let advanced_json = serialize_advanced(config.advanced.as_ref())?;
+
+    RouterConfigRepo::insert_with_metadata(
+        conn,
+        &id,
+        &config.name,
+        &config.provider,
+        config.vendor.as_deref(),
+        &encrypted_key,
+        config.model.as_deref(),
+        config.base_url.as_deref(),
+        config.config_json.as_deref(),
+        advanced_json.as_deref(),
+        config.is_active.unwrap_or(false),
+        config.api_compat.as_deref(),
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(id)
 }
 
 /// 轻量 SQL UPDATE 字段构建器
@@ -139,10 +218,7 @@ impl UpdateBuilder {
 }
 
 #[tauri::command]
-pub fn delete_router_config(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<(), String> {
+pub fn delete_router_config(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     RouterConfigRepo::delete(&db, &id).map_err(|e| e.to_string())
 }
@@ -152,10 +228,9 @@ pub async fn test_router_connection(
     state: State<'_, AppState>,
     id: String,
 ) -> Result<ConnectionTestResult, String> {
-    let (api_key, base_url, provider) = {
+    let (api_key, base_url, provider, vendor) = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
-        RouterConfigRepo::find_connection_info(&db, &id)
-            .map_err(|e| e.to_string())?
+        RouterConfigRepo::find_connection_info(&db, &id).map_err(|e| e.to_string())?
     };
 
     let decrypted_key = match api_key {
@@ -169,26 +244,32 @@ pub async fn test_router_connection(
         }
     };
 
-    let url = build_models_url(&provider, base_url.as_deref());
-
-    let client = reqwest::Client::new();
-    let mut request = client.get(&url).timeout(std::time::Duration::from_secs(10));
-
-    request = match provider.as_str() {
-        "anthropic" => request
-            .header("x-api-key", &decrypted_key)
-            .header("anthropic-version", "2023-06-01"),
-        "google" => {
-            let sep = if url.contains('?') { "&" } else { "?" };
-            let url_with_key = format!("{}{}key={}", url, sep, decrypted_key);
-            client
-                .get(&url_with_key)
-                .timeout(std::time::Duration::from_secs(10))
-        }
-        _ => request.header("Authorization", format!("Bearer {}", decrypted_key)),
+    let api = ProviderApi::parse(&provider)
+        .ok_or_else(|| format!("Unsupported provider api: {provider}"))?;
+    let vendor = vendor.as_deref().unwrap_or(provider.as_str());
+    let Some(url) = models_url(api, vendor, base_url.as_deref()) else {
+        return Ok(ConnectionTestResult {
+            success: false,
+            message: "Provider does not expose a model list endpoint".to_string(),
+            models: None,
+        });
     };
 
-    let response = request.send().await.map_err(|e| e.to_string())?;
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|_| "Failed to build HTTP client".to_string())?;
+    let mut request = client.get(&url);
+
+    request = match api {
+        ProviderApi::Anthropic => request
+            .header("x-api-key", &decrypted_key)
+            .header("anthropic-version", "2023-06-01"),
+        ProviderApi::Google => request.query(&[("key", &decrypted_key)]),
+        ProviderApi::OpenAi => request.bearer_auth(&decrypted_key),
+    };
+
+    let response = request.send().await.map_err(sanitize_request_error)?;
 
     if response.status().is_success() {
         Ok(ConnectionTestResult {
@@ -209,14 +290,11 @@ pub async fn test_router_connection(
 
 // ─── 内部辅助 ─────────────────────────────────────────────────────────
 
-fn build_models_url(provider: &str, base_url: Option<&str>) -> String {
-    match provider {
-        "anthropic" => "https://api.anthropic.com/v1/models".to_string(),
-        "google" => "https://generativelanguage.googleapis.com/v1/models".to_string(),
-        _ => {
-            let base = base_url.unwrap_or("https://api.openai.com");
-            format!("{}/v1/models", base.trim_end_matches('/'))
-        }
+fn sanitize_request_error(error: reqwest::Error) -> String {
+    if error.is_timeout() {
+        "Network request timed out".to_string()
+    } else {
+        "Network request failed".to_string()
     }
 }
 

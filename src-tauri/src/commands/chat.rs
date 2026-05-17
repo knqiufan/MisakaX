@@ -52,38 +52,25 @@ pub async fn send_message(
     // Step 2.5: 注入 MCP 工具描述到系统 prompt
     let mcp_bridge = McpToolBridge::new(std::sync::Arc::clone(&state.mcp_manager));
     if let Some(tool_desc) = mcp_bridge.tool_descriptions() {
-        let base_prompt = session
-            .system_prompt
-            .clone()
-            .unwrap_or_default();
+        let base_prompt = session.system_prompt.clone().unwrap_or_default();
         session.system_prompt = Some(format!("{}{}", base_prompt, tool_desc));
     }
 
     // Step 3: 解析模型标识
-    let model_spec = resolve_model_spec(
-        request.model_override.as_deref(),
-        session.model.as_deref(),
-    )?;
+    let model_spec =
+        resolve_model_spec(request.model_override.as_deref(), session.model.as_deref())?;
 
     // Step 4: 读取 RouterConfig，解密 API Key
-    let (router_config, decrypted_key) =
-        load_and_decrypt_config(&state, &model_spec.config_id)?;
+    let (router_config, decrypted_key) = load_and_decrypt_config(&state, &model_spec.config_id)?;
+    ensure_model_enabled(&state, &model_spec)?;
 
     // Step 5: 创建 assistant 消息占位
-    create_assistant_placeholder(
-        &state,
-        &assistant_msg_id,
-        &request.session_id,
-        &model_spec,
-    )?;
+    create_assistant_placeholder(&state, &assistant_msg_id, &request.session_id, &model_spec)?;
 
     // Step 6: 注册流，构建 Backend，执行流式调用
     let abort_flag = state.stream_registry.register(&request.session_id);
 
-    let llm_config = request
-        .llm_config
-        .unwrap_or_default()
-        .sanitized();
+    let llm_config = request.llm_config.unwrap_or_default().sanitized();
 
     let backend = RigBackend::from_config(&router_config, &decrypted_key, llm_config)
         .map_err(|e| format!("Failed to create backend: {e}"))?;
@@ -150,26 +137,22 @@ pub async fn regenerate_message(
             .map_err(|e| e.to_string())?
     };
 
-    // Step 2: 删除目标消息及之后的所有消息
-    {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        MessageRepo::delete_from(&db, &session_id, &message_id)
-            .map_err(|e| e.to_string())?;
-    }
-
-    // Step 3: 复用核心流程
-    let assistant_msg_id = uuid::Uuid::new_v4().to_string();
+    // Step 2: 删除前先验证模型，避免模型失效时破坏会话历史
     let (session, _) = load_session_context(&state, &session_id)?;
     let model_spec = resolve_model_spec(None, session.model.as_deref())?;
-    let (router_config, decrypted_key) =
-        load_and_decrypt_config(&state, &model_spec.config_id)?;
+    let (router_config, decrypted_key) = load_and_decrypt_config(&state, &model_spec.config_id)?;
+    ensure_model_enabled(&state, &model_spec)?;
 
-    create_assistant_placeholder(
-        &state,
-        &assistant_msg_id,
-        &session_id,
-        &model_spec,
-    )?;
+    // Step 3: 删除目标消息及之后的所有消息
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        MessageRepo::delete_from(&db, &session_id, &message_id).map_err(|e| e.to_string())?;
+    }
+
+    // Step 4: 复用核心流程
+    let assistant_msg_id = uuid::Uuid::new_v4().to_string();
+
+    create_assistant_placeholder(&state, &assistant_msg_id, &session_id, &model_spec)?;
 
     let abort_flag = state.stream_registry.register(&session_id);
     let images = parse_attachments_json(regen_ctx.user_attachments.as_deref());
@@ -292,10 +275,8 @@ fn load_session_context(
 ) -> Result<(crate::db::models::Session, Vec<crate::db::models::Message>), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
 
-    let session = SessionRepo::find_by_id(&db, session_id)
-        .map_err(|e| e.to_string())?;
-    let messages = MessageRepo::find_recent(&db, session_id, 50)
-        .map_err(|e| e.to_string())?;
+    let session = SessionRepo::find_by_id(&db, session_id).map_err(|e| e.to_string())?;
+    let messages = MessageRepo::find_recent(&db, session_id, 50).map_err(|e| e.to_string())?;
 
     Ok((session, messages))
 }
@@ -306,8 +287,7 @@ fn load_and_decrypt_config(
 ) -> Result<(crate::db::models::RouterConfig, String), String> {
     let config = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
-        RouterConfigRepo::find_by_id(&db, config_id)
-            .map_err(|e| e.to_string())?
+        RouterConfigRepo::find_by_id(&db, config_id).map_err(|e| e.to_string())?
     };
 
     let encrypted = config
@@ -317,6 +297,36 @@ fn load_and_decrypt_config(
     let decrypted_key = crypto::decrypt(encrypted).map_err(|e| e.to_string())?;
 
     Ok((config, decrypted_key))
+}
+
+fn ensure_model_enabled(state: &AppState, model_spec: &ModelSpec) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    ensure_model_enabled_for_config(&db, &model_spec.config_id, &model_spec.model_id)
+}
+
+#[cfg_attr(feature = "test-private", allow(dead_code))]
+pub fn ensure_model_enabled_for_config(
+    conn: &rusqlite::Connection,
+    config_id: &str,
+    model_id: &str,
+) -> Result<(), String> {
+    let exists = conn
+        .query_row(
+            "SELECT COUNT(*)
+             FROM custom_models
+             WHERE router_config_id = ?1 AND model_id = ?2 AND enabled = 1",
+            rusqlite::params![config_id, model_id],
+            |row| row.get::<_, i32>(0).map(|count| count > 0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    if exists {
+        Ok(())
+    } else {
+        Err(format!(
+            "Model is not enabled for this provider: {model_id}"
+        ))
+    }
 }
 
 fn create_assistant_placeholder(

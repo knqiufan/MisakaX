@@ -65,10 +65,12 @@ pub struct RouterConfig {
     pub id: String,
     pub name: String,
     pub provider: String,
+    pub vendor: Option<String>,
     pub api_key_encrypted: Option<String>,
     pub model: Option<String>,
     pub base_url: Option<String>,
     pub config_json: Option<String>,
+    pub advanced_json: Option<String>,
     pub is_active: bool,
     pub created_at: String,
     /// 接口兼容模式（仅自定义 Provider 使用）：
@@ -77,6 +79,30 @@ pub struct RouterConfig {
     /// `"anthropic"` = Anthropic 兼容接口
     #[serde(default)]
     pub api_compat: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdvancedConfig {
+    #[serde(default = "default_temperature")]
+    pub temperature: f32,
+    #[serde(default)]
+    pub max_tokens: Option<i32>,
+    #[serde(default)]
+    pub proxy: Option<String>,
+}
+
+impl Default for AdvancedConfig {
+    fn default() -> Self {
+        Self {
+            temperature: default_temperature(),
+            max_tokens: None,
+            proxy: None,
+        }
+    }
+}
+
+fn default_temperature() -> f32 {
+    0.7
 }
 
 /// 用户自定义模型（绑定到 router_configs）
@@ -90,6 +116,10 @@ pub struct CustomModel {
     pub supports_thinking: bool,
     pub max_tokens: Option<i32>,
     pub context_window: Option<i32>,
+    #[serde(default = "default_custom_model_enabled")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub sort_order: i32,
     pub created_at: String,
 }
 
@@ -104,6 +134,14 @@ pub struct CreateCustomModel {
     pub supports_thinking: bool,
     pub max_tokens: Option<i32>,
     pub context_window: Option<i32>,
+    #[serde(default = "default_custom_model_enabled")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub sort_order: i32,
+}
+
+fn default_custom_model_enabled() -> bool {
+    true
 }
 
 /// FTS5 全文搜索结果

@@ -1,6 +1,6 @@
-use rusqlite::Connection;
 use misaka_x_lib::db::migrations::run_migrations;
 use misaka_x_lib::db::repository::ToolPermissionRepo;
+use rusqlite::Connection;
 
 fn create_test_db() -> Connection {
     let conn = Connection::open_in_memory().unwrap();

@@ -6,14 +6,22 @@ fn make_config(provider: &str, base_url: Option<&str>, api_compat: Option<&str>)
         id: "test-id".to_string(),
         name: "Test".to_string(),
         provider: provider.to_string(),
+        vendor: None,
         api_key_encrypted: None,
         model: Some("test-model".to_string()),
         base_url: base_url.map(String::from),
         config_json: None,
+        advanced_json: None,
         is_active: true,
         created_at: "2025-01-01".to_string(),
         api_compat: api_compat.map(String::from),
     }
+}
+
+fn make_vendor_config(provider: &str, vendor: &str, base_url: &str) -> RouterConfig {
+    let mut config = make_config(provider, Some(base_url), None);
+    config.vendor = Some(vendor.to_string());
+    config
 }
 
 #[test]
@@ -29,6 +37,14 @@ fn test_create_openai_with_custom_base_url() {
     let config = make_config("openai", Some("https://my-proxy.com/v1"), None);
     let provider = ProviderFactory::create(&config, "sk-test-key-fake-12345678")
         .expect("Should create OpenAI provider with custom base URL");
+    assert_eq!(provider.provider_type(), "openai");
+}
+
+#[test]
+fn test_create_openai_provider_for_zhipu_vendor_uses_openai_api_style() {
+    let config = make_vendor_config("openai", "zhipu", "https://open.bigmodel.cn/api/paas/v4");
+    let provider = ProviderFactory::create(&config, "sk-test-key-fake-12345678")
+        .expect("Should create OpenAI provider for Zhipu OpenAI-compatible endpoint");
     assert_eq!(provider.provider_type(), "openai");
 }
 
@@ -78,7 +94,11 @@ fn test_custom_provider_without_base_url_fails() {
     let result = ProviderFactory::create(&config, "sk-test-key-fake-12345678");
     assert!(result.is_err());
     let err_msg = result.err().unwrap().to_string();
-    assert!(err_msg.contains("requires a base_url"), "Error: {}", err_msg);
+    assert!(
+        err_msg.contains("requires a base_url"),
+        "Error: {}",
+        err_msg
+    );
 }
 
 #[test]
@@ -87,7 +107,11 @@ fn test_unsupported_compat_fails() {
     let result = ProviderFactory::create(&config, "sk-test-key-fake-12345678");
     assert!(result.is_err());
     let err_msg = result.err().unwrap().to_string();
-    assert!(err_msg.contains("Unsupported api_compat"), "Error: {}", err_msg);
+    assert!(
+        err_msg.contains("Unsupported api_compat"),
+        "Error: {}",
+        err_msg
+    );
 }
 
 #[test]

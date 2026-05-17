@@ -73,10 +73,7 @@ pub fn update_session(
 // ─── delete_session Command ──────────────────────────────────────────
 
 #[tauri::command]
-pub fn delete_session(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<(), String> {
+pub fn delete_session(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     SessionRepo::delete(&conn, &id).map_err(|e| e.to_string())
 }
@@ -84,10 +81,7 @@ pub fn delete_session(
 // ─── search_sessions Command ─────────────────────────────────────────
 
 #[tauri::command]
-pub fn search_sessions(
-    state: State<'_, AppState>,
-    query: String,
-) -> Result<Vec<Session>, String> {
+pub fn search_sessions(state: State<'_, AppState>, query: String) -> Result<Vec<Session>, String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     SessionRepo::search(&conn, &query).map_err(|e| e.to_string())
 }
@@ -117,10 +111,7 @@ pub fn update_session_working_dir(
 // ─── get_session Command ─────────────────────────────────────────────
 
 #[tauri::command]
-pub fn get_session(
-    state: State<'_, AppState>,
-    session_id: String,
-) -> Result<Session, String> {
+pub fn get_session(state: State<'_, AppState>, session_id: String) -> Result<Session, String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     SessionRepo::find_by_id(&conn, &session_id).map_err(|e| e.to_string())
 }
@@ -128,11 +119,7 @@ pub fn get_session(
 // ─── pin_session Command ─────────────────────────────────────────────
 
 #[tauri::command]
-pub fn pin_session(
-    state: State<'_, AppState>,
-    id: String,
-    pinned: bool,
-) -> Result<(), String> {
+pub fn pin_session(state: State<'_, AppState>, id: String, pinned: bool) -> Result<(), String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     SessionRepo::pin_session(&conn, &id, pinned).map_err(|e| e.to_string())
 }
@@ -169,9 +156,7 @@ pub fn set_session_group(
 // ─── list_session_groups Command ────────────────────────────────────
 
 #[tauri::command]
-pub fn list_session_groups(
-    state: State<'_, AppState>,
-) -> Result<Vec<String>, String> {
+pub fn list_session_groups(state: State<'_, AppState>) -> Result<Vec<String>, String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     SessionRepo::list_groups(&conn).map_err(|e| e.to_string())
 }
@@ -203,8 +188,7 @@ pub fn export_sessions(
     let mut export_sessions = Vec::with_capacity(session_ids.len());
     for sid in &session_ids {
         let session = SessionRepo::find_by_id(&conn, sid).map_err(|e| e.to_string())?;
-        let messages =
-            MessageRepo::find_recent(&conn, sid, u32::MAX).map_err(|e| e.to_string())?;
+        let messages = MessageRepo::find_recent(&conn, sid, u32::MAX).map_err(|e| e.to_string())?;
         export_sessions.push(ExportSession { session, messages });
     }
 
@@ -258,10 +242,7 @@ pub fn import_sessions(
 
 // ─── 内部辅助 ────────────────────────────────────────────────────────
 
-fn import_single_session(
-    conn: &rusqlite::Connection,
-    es: &ExportSession,
-) -> Result<(), String> {
+fn import_single_session(conn: &rusqlite::Connection, es: &ExportSession) -> Result<(), String> {
     let s = &es.session;
     conn.execute(
         "INSERT INTO sessions (id, title, model, system_prompt, working_directory, project_name,

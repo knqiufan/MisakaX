@@ -6,20 +6,22 @@ import { Button } from "@/components/ui/button";
 import { useSettingsStore } from "@/stores";
 import { routerConfigsIpc } from "@/lib/ipc";
 import type {
-  RouterConfigView,
   CreateRouterConfig,
+  RouterConfigView,
   UpdateRouterConfig,
 } from "@/lib/ipc";
 import { ProviderCard } from "./ProviderCard";
 import { ProviderDialog } from "./ProviderDialog";
+import type { ProviderFormSubmitResult } from "./provider-dialog/hooks";
 
 export function ModelSettings() {
   const { t } = useTranslation("settings");
   const providers = useSettingsStore((s) => s.providers);
   const loadProviders = useSettingsStore((s) => s.loadProviders);
-  const addProvider = useSettingsStore((s) => s.addProvider);
+  const addProviderWithModels = useSettingsStore((s) => s.addProviderWithModels);
   const updateProvider = useSettingsStore((s) => s.updateProvider);
   const deleteProvider = useSettingsStore((s) => s.deleteProvider);
+  const replaceModels = useSettingsStore((s) => s.replaceModels);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProvider, setEditingProvider] =
@@ -77,20 +79,38 @@ export function ModelSettings() {
   );
 
   const handleSubmit = useCallback(
-    async (data: CreateRouterConfig | UpdateRouterConfig) => {
+    async (data: ProviderFormSubmitResult) => {
+      let handledModelError = false;
       try {
         if (editingProvider) {
-          await updateProvider(editingProvider.id, data as UpdateRouterConfig);
+          await updateProvider(editingProvider.id, data.config as UpdateRouterConfig);
+          if (data.models) {
+            try {
+              await replaceModels(editingProvider.id, data.models);
+            } catch (err) {
+              handledModelError = true;
+              await loadProviders();
+              toast.error(t("models.modelSaveFailed", "Provider saved, but models failed"), {
+                description: String(err),
+              });
+              throw err;
+            }
+          }
         } else {
-          await addProvider(data as CreateRouterConfig);
+          await addProviderWithModels({
+            config: data.config as CreateRouterConfig,
+            models: data.models ?? [],
+          });
         }
         toast.success(t("common:success"));
       } catch (err) {
-        toast.error(t("common:error"), { description: String(err) });
+        if (!handledModelError) {
+          toast.error(t("common:error"), { description: String(err) });
+        }
         throw err;
       }
     },
-    [editingProvider, updateProvider, addProvider, t]
+    [editingProvider, updateProvider, replaceModels, addProviderWithModels, loadProviders, t]
   );
 
   return (

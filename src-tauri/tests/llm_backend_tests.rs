@@ -76,6 +76,7 @@ fn make_message(id: &str, role: &str, content: &str, attachments: Option<&str>) 
         thinking_content: None,
         attachments: attachments.map(|s| s.to_string()),
         status: "complete".to_string(),
+        tool_calls: None,
         created_at: "2025-01-01T00:00:00".to_string(),
     }
 }

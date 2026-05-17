@@ -166,10 +166,7 @@ impl SidecarClient {
     }
 
     /// Phase 4: Send a chat request to the agent.
-    pub async fn chat(
-        &self,
-        request: &AgentChatRequest,
-    ) -> Result<AgentChatResponse, String> {
+    pub async fn chat(&self, request: &AgentChatRequest) -> Result<AgentChatResponse, String> {
         let url = format!("{}/agent/chat", self.base_url);
         self.client
             .post(&url)
@@ -184,10 +181,7 @@ impl SidecarClient {
 
     /// Phase 4: Start a streaming chat request, returning the raw response
     /// for SSE parsing.
-    pub async fn stream(
-        &self,
-        request: &AgentChatRequest,
-    ) -> Result<reqwest::Response, String> {
+    pub async fn stream(&self, request: &AgentChatRequest) -> Result<reqwest::Response, String> {
         let url = format!("{}/agent/stream", self.base_url);
         self.client
             .post(&url)

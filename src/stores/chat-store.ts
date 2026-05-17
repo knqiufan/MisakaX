@@ -14,6 +14,7 @@ interface ChatState {
   streamingMessageId: string | null;
   isThinkingStreaming: boolean;
   selectedModel: string | null;
+  modelsVersion: number;
 
   setActiveSession: (id: string | null) => void;
   setActiveSessionData: (session: Session | null) => void;
@@ -33,8 +34,10 @@ interface ChatState {
   setStreaming: (streaming: boolean, messageId?: string | null) => void;
   setThinkingStreaming: (streaming: boolean) => void;
   setSelectedModel: (model: string | null) => void;
+  bumpModels: () => void;
   clearMessages: () => void;
   loadMessages: (sessionId: string) => Promise<void>;
+  remapMessageId: (oldId: string, newId: string) => void;
   addToolCall: (messageId: string, toolCall: ToolCall) => void;
   updateToolCall: (messageId: string, toolCallId: string, patch: Partial<ToolCall>) => void;
 }
@@ -51,6 +54,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streamingMessageId: null,
   isThinkingStreaming: false,
   selectedModel: null,
+  modelsVersion: 0,
 
   setActiveSession: (id) => set({ activeSessionId: id }),
   setActiveSessionData: (session) => {
@@ -140,6 +144,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setSelectedModel: (model) => set({ selectedModel: model }),
 
+  bumpModels: () => set((state) => ({ modelsVersion: state.modelsVersion + 1 })),
+
   clearMessages: () =>
     set({ messages: [], isStreaming: false, streamingMessageId: null, isThinkingStreaming: false }),
 
@@ -153,6 +159,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ loading: false });
     }
   },
+
+  remapMessageId: (oldId, newId) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === oldId ? { ...m, id: newId } : m
+      ),
+      streamingMessageId:
+        state.streamingMessageId === oldId ? newId : state.streamingMessageId,
+    })),
 
   addToolCall: (messageId, toolCall) =>
     set((state) => ({

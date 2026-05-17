@@ -109,11 +109,13 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
         const detail =
           err instanceof IpcError ? err.originalError : String(err);
         const shown = `${t("sendFailed")}: ${detail}`;
+        const currentId =
+          useChatStore.getState().streamingMessageId ?? assistantId;
         const assistant = useChatStore
           .getState()
-          .messages.find((m) => m.id === assistantId);
+          .messages.find((m) => m.id === currentId);
         if (assistant?.status !== "error") {
-          updateMessageError(assistantId, shown);
+          updateMessageError(currentId, shown);
         }
         setStreaming(false);
         toast.error(t("errorOccurred"), {
@@ -171,11 +173,13 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
         const detail =
           err instanceof IpcError ? err.originalError : String(err);
         const shown = `${t("sendFailed")}: ${detail}`;
+        const currentId =
+          useChatStore.getState().streamingMessageId ?? assistantId;
         const assistant = useChatStore
           .getState()
-          .messages.find((m) => m.id === assistantId);
+          .messages.find((m) => m.id === currentId);
         if (assistant?.status !== "error") {
-          updateMessageError(assistantId, shown);
+          updateMessageError(currentId, shown);
         }
         setStreaming(false);
         toast.error(t("errorOccurred"), {

@@ -66,8 +66,7 @@ fn test_insert_and_find_user_message() {
 fn test_insert_user_message_with_attachments() {
     let conn = setup_db();
     let attachments = r#"[{"data":"base64","media_type":"image/png","file_name":"test.png"}]"#;
-    MessageRepo::insert_user_message(&conn, "m1", "s1", "Look at this", Some(attachments))
-        .unwrap();
+    MessageRepo::insert_user_message(&conn, "m1", "s1", "Look at this", Some(attachments)).unwrap();
 
     let messages = MessageRepo::find_recent(&conn, "s1", 10).unwrap();
     assert_eq!(messages.len(), 1);
@@ -142,9 +141,32 @@ fn test_find_recent_with_limit() {
 #[test]
 fn test_find_recent_returns_chronological_order() {
     let conn = setup_db();
-    insert_message_at(&conn, "m1", "s1", "user", "First", "2025-01-01T00:01:00", None);
-    insert_assistant_at(&conn, "m2", "s1", "Response", "gpt-4o", "2025-01-01T00:02:00");
-    insert_message_at(&conn, "m3", "s1", "user", "Second", "2025-01-01T00:03:00", None);
+    insert_message_at(
+        &conn,
+        "m1",
+        "s1",
+        "user",
+        "First",
+        "2025-01-01T00:01:00",
+        None,
+    );
+    insert_assistant_at(
+        &conn,
+        "m2",
+        "s1",
+        "Response",
+        "gpt-4o",
+        "2025-01-01T00:02:00",
+    );
+    insert_message_at(
+        &conn,
+        "m3",
+        "s1",
+        "user",
+        "Second",
+        "2025-01-01T00:03:00",
+        None,
+    );
 
     let messages = MessageRepo::find_recent(&conn, "s1", 10).unwrap();
     assert_eq!(messages.len(), 3);
@@ -203,8 +225,23 @@ fn test_find_before_with_limit() {
 #[test]
 fn test_find_regeneration_context() {
     let conn = setup_db();
-    insert_message_at(&conn, "m1", "s1", "user", "First user msg", "2025-01-01T00:01:00", None);
-    insert_assistant_at(&conn, "m2", "s1", "First response", "gpt-4o", "2025-01-01T00:02:00");
+    insert_message_at(
+        &conn,
+        "m1",
+        "s1",
+        "user",
+        "First user msg",
+        "2025-01-01T00:01:00",
+        None,
+    );
+    insert_assistant_at(
+        &conn,
+        "m2",
+        "s1",
+        "First response",
+        "gpt-4o",
+        "2025-01-01T00:02:00",
+    );
     insert_message_at(
         &conn,
         "m3",
@@ -214,7 +251,14 @@ fn test_find_regeneration_context() {
         "2025-01-01T00:03:00",
         None,
     );
-    insert_assistant_at(&conn, "m4", "s1", "Second response", "gpt-4o", "2025-01-01T00:04:00");
+    insert_assistant_at(
+        &conn,
+        "m4",
+        "s1",
+        "Second response",
+        "gpt-4o",
+        "2025-01-01T00:04:00",
+    );
 
     let ctx = MessageRepo::find_regeneration_context(&conn, "s1", "m4").unwrap();
     assert_eq!(ctx.user_content, "Second user msg");
@@ -238,7 +282,14 @@ fn test_find_regeneration_context_with_attachments() {
         "2025-01-01T00:01:00",
         Some(attachments),
     );
-    insert_assistant_at(&conn, "m2", "s1", "I see an image", "gpt-4o", "2025-01-01T00:02:00");
+    insert_assistant_at(
+        &conn,
+        "m2",
+        "s1",
+        "I see an image",
+        "gpt-4o",
+        "2025-01-01T00:02:00",
+    );
 
     let ctx = MessageRepo::find_regeneration_context(&conn, "s1", "m2").unwrap();
     assert_eq!(ctx.user_content, "Look at this");
@@ -250,8 +301,23 @@ fn test_find_regeneration_context_with_attachments() {
 #[test]
 fn test_delete_from() {
     let conn = setup_db();
-    insert_message_at(&conn, "m1", "s1", "user", "Keep me", "2025-01-01T00:01:00", None);
-    insert_assistant_at(&conn, "m2", "s1", "Keep me too", "gpt-4o", "2025-01-01T00:02:00");
+    insert_message_at(
+        &conn,
+        "m1",
+        "s1",
+        "user",
+        "Keep me",
+        "2025-01-01T00:01:00",
+        None,
+    );
+    insert_assistant_at(
+        &conn,
+        "m2",
+        "s1",
+        "Keep me too",
+        "gpt-4o",
+        "2025-01-01T00:02:00",
+    );
     insert_message_at(
         &conn,
         "m3",
@@ -261,7 +327,14 @@ fn test_delete_from() {
         "2025-01-01T00:03:00",
         None,
     );
-    insert_assistant_at(&conn, "m4", "s1", "Delete me", "gpt-4o", "2025-01-01T00:04:00");
+    insert_assistant_at(
+        &conn,
+        "m4",
+        "s1",
+        "Delete me",
+        "gpt-4o",
+        "2025-01-01T00:04:00",
+    );
 
     MessageRepo::delete_from(&conn, "s1", "m3").unwrap();
 
@@ -276,8 +349,11 @@ fn test_delete_from() {
 #[test]
 fn test_different_sessions_are_isolated() {
     let conn = setup_db();
-    conn.execute("INSERT INTO sessions (id, title) VALUES ('s2', 'Test2')", [])
-        .unwrap();
+    conn.execute(
+        "INSERT INTO sessions (id, title) VALUES ('s2', 'Test2')",
+        [],
+    )
+    .unwrap();
 
     MessageRepo::insert_user_message(&conn, "m1", "s1", "Session 1", None).unwrap();
     MessageRepo::insert_user_message(&conn, "m2", "s2", "Session 2", None).unwrap();
@@ -330,8 +406,24 @@ fn test_update_usage() {
 #[test]
 fn test_delete_single_message() {
     let conn = setup_db();
-    insert_message_at(&conn, "m1", "s1", "user", "First", "2025-01-01T00:01:00", None);
-    insert_message_at(&conn, "m2", "s1", "user", "Second", "2025-01-01T00:02:00", None);
+    insert_message_at(
+        &conn,
+        "m1",
+        "s1",
+        "user",
+        "First",
+        "2025-01-01T00:01:00",
+        None,
+    );
+    insert_message_at(
+        &conn,
+        "m2",
+        "s1",
+        "user",
+        "Second",
+        "2025-01-01T00:02:00",
+        None,
+    );
 
     MessageRepo::delete(&conn, "m1").unwrap();
 
@@ -345,8 +437,7 @@ fn test_delete_single_message() {
 #[test]
 fn test_fts_search_finds_user_messages() {
     let conn = setup_db();
-    MessageRepo::insert_user_message(&conn, "m1", "s1", "Rust programming language", None)
-        .unwrap();
+    MessageRepo::insert_user_message(&conn, "m1", "s1", "Rust programming language", None).unwrap();
     MessageRepo::insert_user_message(&conn, "m2", "s1", "Python scripting", None).unwrap();
 
     let results = MessageRepo::search_fts(&conn, "Rust", None, 10).unwrap();
@@ -377,13 +468,14 @@ fn test_fts_search_finds_assistant_messages() {
 #[test]
 fn test_fts_search_filters_by_session() {
     let conn = setup_db();
-    conn.execute("INSERT INTO sessions (id, title) VALUES ('s2', 'Test2')", [])
-        .unwrap();
+    conn.execute(
+        "INSERT INTO sessions (id, title) VALUES ('s2', 'Test2')",
+        [],
+    )
+    .unwrap();
 
-    MessageRepo::insert_user_message(&conn, "m1", "s1", "Shared keyword unique", None)
-        .unwrap();
-    MessageRepo::insert_user_message(&conn, "m2", "s2", "Also has keyword unique", None)
-        .unwrap();
+    MessageRepo::insert_user_message(&conn, "m1", "s1", "Shared keyword unique", None).unwrap();
+    MessageRepo::insert_user_message(&conn, "m2", "s2", "Also has keyword unique", None).unwrap();
 
     let all = MessageRepo::search_fts(&conn, "unique", None, 10).unwrap();
     assert_eq!(all.len(), 2);

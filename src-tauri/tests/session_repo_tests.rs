@@ -39,7 +39,10 @@ fn create_session_with_working_directory() {
     .unwrap();
 
     assert_eq!(session.id, "sess-2");
-    assert_eq!(session.working_directory, Some("/home/user/my-project".to_string()));
+    assert_eq!(
+        session.working_directory,
+        Some("/home/user/my-project".to_string())
+    );
     assert_eq!(session.project_name, Some("my-project".to_string()));
     assert_eq!(session.model, Some("config1:gpt-4".to_string()));
 }
@@ -48,14 +51,8 @@ fn create_session_with_working_directory() {
 fn create_session_extracts_project_name_from_path() {
     let conn = create_test_db();
 
-    let session = SessionRepo::create(
-        &conn,
-        "sess-3",
-        None,
-        None,
-        Some("D:\\code\\Misaka-Tauri"),
-    )
-    .unwrap();
+    let session =
+        SessionRepo::create(&conn, "sess-3", None, None, Some("D:\\code\\Misaka-Tauri")).unwrap();
 
     assert_eq!(session.project_name, Some("Misaka-Tauri".to_string()));
 }
@@ -64,8 +61,14 @@ fn create_session_extracts_project_name_from_path() {
 fn create_session_persists_to_sqlite() {
     let conn = create_test_db();
 
-    SessionRepo::create(&conn, "sess-persist", Some("Persisted"), None, Some("/tmp/project"))
-        .unwrap();
+    SessionRepo::create(
+        &conn,
+        "sess-persist",
+        Some("Persisted"),
+        None,
+        Some("/tmp/project"),
+    )
+    .unwrap();
 
     let loaded = SessionRepo::find_by_id(&conn, "sess-persist").unwrap();
     assert_eq!(loaded.title, Some("Persisted".to_string()));
@@ -81,11 +84,13 @@ fn update_working_directory_sets_new_dir() {
 
     SessionRepo::create(&conn, "sess-upd", None, None, None).unwrap();
 
-    SessionRepo::update_working_directory(&conn, "sess-upd", Some("/new/path/project-x"))
-        .unwrap();
+    SessionRepo::update_working_directory(&conn, "sess-upd", Some("/new/path/project-x")).unwrap();
 
     let session = SessionRepo::find_by_id(&conn, "sess-upd").unwrap();
-    assert_eq!(session.working_directory, Some("/new/path/project-x".to_string()));
+    assert_eq!(
+        session.working_directory,
+        Some("/new/path/project-x".to_string())
+    );
     assert_eq!(session.project_name, Some("project-x".to_string()));
 }
 

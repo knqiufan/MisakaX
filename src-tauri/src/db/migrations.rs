@@ -38,6 +38,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         migrate_v5(conn)?;
     }
 
+    if current_version < 6 {
+        migrate_v6(conn)?;
+    }
+
     Ok(())
 }
 
@@ -234,5 +238,85 @@ fn migrate_v5(conn: &Connection) -> Result<()> {
     )?;
 
     tracing::info!("Database migrated to version 5");
+    Ok(())
+}
+
+fn migrate_v6(conn: &Connection) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute_batch(
+        "
+        ALTER TABLE router_configs ADD COLUMN vendor TEXT;
+        ALTER TABLE router_configs ADD COLUMN advanced_json TEXT;
+
+        ALTER TABLE custom_models ADD COLUMN enabled INTEGER DEFAULT 1;
+        ALTER TABLE custom_models ADD COLUMN sort_order INTEGER DEFAULT 0;
+
+        UPDATE router_configs
+        SET vendor = CASE
+            WHEN provider IN ('deepseek', 'zhipu', 'minimax', 'stepfun', 'moonshot', 'siliconflow')
+                THEN provider
+            ELSE 'custom'
+        END
+        WHERE vendor IS NULL;
+
+        UPDATE router_configs
+        SET provider = CASE
+            WHEN provider IN ('openai', 'anthropic', 'google') THEN provider
+            WHEN api_compat IN ('openai', 'anthropic', 'google') THEN api_compat
+            ELSE 'openai'
+        END
+        WHERE provider NOT IN ('openai', 'anthropic', 'google');
+
+        ",
+    )?;
+    inject_builtin_models_for_existing_configs(&tx)?;
+    tx.execute("INSERT INTO _schema_version (version) VALUES (6)", [])?;
+    tx.commit()?;
+
+    tracing::info!("Database migrated to version 6");
+    Ok(())
+}
+
+fn inject_builtin_models_for_existing_configs(conn: &Connection) -> Result<()> {
+    let configs = list_router_configs_for_model_injection(conn)?;
+    for (router_config_id, provider) in configs {
+        let models = crate::services::llm::ModelRegistry::builtin_models(&provider);
+        for (index, model) in models.iter().enumerate() {
+            insert_builtin_model(conn, &router_config_id, model, index as i32)?;
+        }
+    }
+    Ok(())
+}
+
+fn list_router_configs_for_model_injection(conn: &Connection) -> Result<Vec<(String, String)>> {
+    let mut stmt = conn.prepare("SELECT id, provider FROM router_configs")?;
+    let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+    rows.collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(Into::into)
+}
+
+fn insert_builtin_model(
+    conn: &Connection,
+    router_config_id: &str,
+    model: &crate::services::llm::ModelInfo,
+    sort_order: i32,
+) -> Result<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO custom_models (
+            id, router_config_id, model_id, display_name, supports_vision,
+            supports_thinking, max_tokens, context_window, enabled, sort_order
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9)",
+        rusqlite::params![
+            uuid::Uuid::new_v4().to_string(),
+            router_config_id,
+            model.model_id,
+            model.display_name,
+            model.supports_vision as i32,
+            model.supports_thinking as i32,
+            model.max_tokens,
+            model.context_window,
+            sort_order,
+        ],
+    )?;
     Ok(())
 }

@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 
+use crate::db::models::AdvancedConfig;
 use crate::db::models::RouterConfig;
 
 /// 前端展示用的脱敏视图
@@ -9,9 +10,13 @@ pub struct RouterConfigView {
     pub id: String,
     pub name: String,
     pub provider: String,
+    pub vendor: Option<String>,
     pub api_key_masked: String,
     pub model: Option<String>,
     pub base_url: Option<String>,
+    pub api_compat: Option<String>,
+    pub config_json: Option<String>,
+    pub advanced: AdvancedConfig,
     pub is_active: bool,
     pub created_at: String,
 }
@@ -21,8 +26,8 @@ pub struct RouterConfigRepo;
 impl RouterConfigRepo {
     pub fn find_by_id(conn: &Connection, id: &str) -> Result<RouterConfig> {
         conn.query_row(
-            "SELECT id, name, provider, api_key_encrypted, model, base_url,
-                    config_json, is_active, created_at, api_compat
+            "SELECT id, name, provider, vendor, api_key_encrypted, model, base_url,
+                    config_json, advanced_json, is_active, created_at, api_compat
              FROM router_configs WHERE id = ?1",
             [id],
             Self::map_row,
@@ -32,8 +37,8 @@ impl RouterConfigRepo {
 
     pub fn list_all(conn: &Connection) -> Result<Vec<RouterConfig>> {
         let mut stmt = conn.prepare(
-            "SELECT id, name, provider, api_key_encrypted, model, base_url,
-                    config_json, is_active, created_at, api_compat
+            "SELECT id, name, provider, vendor, api_key_encrypted, model, base_url,
+                    config_json, advanced_json, is_active, created_at, api_compat
              FROM router_configs ORDER BY created_at DESC",
         )?;
 
@@ -74,18 +79,51 @@ impl RouterConfigRepo {
         is_active: bool,
         api_compat: Option<&str>,
     ) -> Result<()> {
+        Self::insert_with_metadata(
+            conn,
+            id,
+            name,
+            provider,
+            None,
+            api_key_encrypted,
+            model,
+            base_url,
+            config_json,
+            None,
+            is_active,
+            api_compat,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn insert_with_metadata(
+        conn: &Connection,
+        id: &str,
+        name: &str,
+        provider: &str,
+        vendor: Option<&str>,
+        api_key_encrypted: &str,
+        model: Option<&str>,
+        base_url: Option<&str>,
+        config_json: Option<&str>,
+        advanced_json: Option<&str>,
+        is_active: bool,
+        api_compat: Option<&str>,
+    ) -> Result<()> {
         conn.execute(
-            "INSERT INTO router_configs (id, name, provider, api_key_encrypted, model,
-             base_url, config_json, is_active, api_compat)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO router_configs (id, name, provider, vendor, api_key_encrypted,
+             model, base_url, config_json, advanced_json, is_active, api_compat)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             rusqlite::params![
                 id,
                 name,
                 provider,
+                vendor,
                 api_key_encrypted,
                 model,
                 base_url,
                 config_json,
+                advanced_json,
                 is_active as i32,
                 api_compat,
             ],
@@ -96,7 +134,7 @@ impl RouterConfigRepo {
     pub fn update(
         conn: &Connection,
         id: &str,
-        updates: &[(& str, Box<dyn rusqlite::types::ToSql>)],
+        updates: &[(&str, Box<dyn rusqlite::types::ToSql>)],
     ) -> Result<()> {
         if updates.is_empty() {
             return Ok(());
@@ -126,10 +164,7 @@ impl RouterConfigRepo {
     }
 
     pub fn delete(conn: &Connection, id: &str) -> Result<()> {
-        let affected = conn.execute(
-            "DELETE FROM router_configs WHERE id = ?1",
-            [id],
-        )?;
+        let affected = conn.execute("DELETE FROM router_configs WHERE id = ?1", [id])?;
 
         if affected == 0 {
             anyhow::bail!("Router config not found: {}", id);
@@ -138,12 +173,11 @@ impl RouterConfigRepo {
     }
 
     pub fn verify_exists(conn: &Connection, id: &str) -> Result<()> {
-        let exists: bool = conn
-            .query_row(
-                "SELECT COUNT(*) FROM router_configs WHERE id = ?1",
-                [id],
-                |row| row.get::<_, i32>(0).map(|c| c > 0),
-            )?;
+        let exists: bool = conn.query_row(
+            "SELECT COUNT(*) FROM router_configs WHERE id = ?1",
+            [id],
+            |row| row.get::<_, i32>(0).map(|c| c > 0),
+        )?;
 
         if !exists {
             anyhow::bail!("Router config not found: {}", id);
@@ -154,15 +188,17 @@ impl RouterConfigRepo {
     pub fn find_connection_info(
         conn: &Connection,
         id: &str,
-    ) -> Result<(Option<String>, Option<String>, String)> {
+    ) -> Result<(Option<String>, Option<String>, String, Option<String>)> {
         conn.query_row(
-            "SELECT api_key_encrypted, base_url, provider FROM router_configs WHERE id = ?1",
+            "SELECT api_key_encrypted, base_url, provider, vendor
+             FROM router_configs WHERE id = ?1",
             [id],
             |row| {
                 Ok((
                     row.get::<_, Option<String>>(0)?,
                     row.get::<_, Option<String>>(1)?,
                     row.get::<_, String>(2)?,
+                    row.get::<_, Option<String>>(3)?,
                 ))
             },
         )
@@ -174,13 +210,15 @@ impl RouterConfigRepo {
             id: row.get(0)?,
             name: row.get(1)?,
             provider: row.get(2)?,
-            api_key_encrypted: row.get(3)?,
-            model: row.get(4)?,
-            base_url: row.get(5)?,
-            config_json: row.get(6)?,
-            is_active: row.get::<_, i32>(7)? != 0,
-            created_at: row.get(8)?,
-            api_compat: row.get(9)?,
+            vendor: row.get(3)?,
+            api_key_encrypted: row.get(4)?,
+            model: row.get(5)?,
+            base_url: row.get(6)?,
+            config_json: row.get(7)?,
+            advanced_json: row.get(8)?,
+            is_active: row.get::<_, i32>(9)? != 0,
+            created_at: row.get(10)?,
+            api_compat: row.get(11)?,
         })
     }
 
@@ -196,11 +234,20 @@ impl RouterConfigRepo {
             id: config.id,
             name: config.name,
             provider: config.provider,
+            vendor: config.vendor,
             api_key_masked,
             model: config.model,
             base_url: config.base_url,
+            api_compat: config.api_compat,
+            config_json: config.config_json,
+            advanced: parse_advanced_config(config.advanced_json.as_deref()),
             is_active: config.is_active,
             created_at: config.created_at,
         }
     }
+}
+
+fn parse_advanced_config(raw: Option<&str>) -> AdvancedConfig {
+    raw.and_then(|json| serde_json::from_str(json).ok())
+        .unwrap_or_default()
 }

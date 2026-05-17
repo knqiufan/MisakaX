@@ -74,11 +74,7 @@ impl MessageRepo {
         Ok(())
     }
 
-    pub fn find_recent(
-        conn: &Connection,
-        session_id: &str,
-        limit: u32,
-    ) -> Result<Vec<Message>> {
+    pub fn find_recent(conn: &Connection, session_id: &str, limit: u32) -> Result<Vec<Message>> {
         let mut stmt = conn.prepare(
             "SELECT id, session_id, role, content, token_usage, model,
                     thinking_content, attachments, status, tool_calls, created_at
@@ -88,10 +84,7 @@ impl MessageRepo {
              LIMIT ?2",
         )?;
 
-        let rows = stmt.query_map(
-            rusqlite::params![session_id, limit],
-            Self::map_row,
-        )?;
+        let rows = stmt.query_map(rusqlite::params![session_id, limit], Self::map_row)?;
 
         Self::collect_reversed(rows)
     }
@@ -151,12 +144,11 @@ impl MessageRepo {
             )
             .context("No user message found before target")?;
 
-        let user_created_at: String = conn
-            .query_row(
-                "SELECT created_at FROM messages WHERE id = ?1",
-                [&user_msg_id],
-                |row| row.get(0),
-            )?;
+        let user_created_at: String = conn.query_row(
+            "SELECT created_at FROM messages WHERE id = ?1",
+            [&user_msg_id],
+            |row| row.get(0),
+        )?;
 
         let mut stmt = conn.prepare(
             "SELECT id, session_id, role, content, token_usage, model,
@@ -181,11 +173,7 @@ impl MessageRepo {
         })
     }
 
-    pub fn update_status(
-        conn: &Connection,
-        msg_id: &str,
-        status: &str,
-    ) -> Result<()> {
+    pub fn update_status(conn: &Connection, msg_id: &str, status: &str) -> Result<()> {
         conn.execute(
             "UPDATE messages SET status = ?1 WHERE id = ?2",
             rusqlite::params![status, msg_id],
@@ -193,11 +181,7 @@ impl MessageRepo {
         Ok(())
     }
 
-    pub fn update_usage(
-        conn: &Connection,
-        msg_id: &str,
-        usage_json: &str,
-    ) -> Result<()> {
+    pub fn update_usage(conn: &Connection, msg_id: &str, usage_json: &str) -> Result<()> {
         conn.execute(
             "UPDATE messages SET token_usage = ?1 WHERE id = ?2",
             rusqlite::params![usage_json, msg_id],
@@ -210,11 +194,7 @@ impl MessageRepo {
         Ok(())
     }
 
-    pub fn delete_from(
-        conn: &Connection,
-        session_id: &str,
-        message_id: &str,
-    ) -> Result<()> {
+    pub fn delete_from(conn: &Connection, session_id: &str, message_id: &str) -> Result<()> {
         let created_at: String = conn
             .query_row(
                 "SELECT created_at FROM messages WHERE id = ?1 AND session_id = ?2",
@@ -252,7 +232,8 @@ impl MessageRepo {
                  JOIN sessions AS s ON s.id = m.session_id
                  WHERE messages_fts MATCH ?1 AND f.session_id = ?2
                  ORDER BY rank
-                 LIMIT ?3".to_string(),
+                 LIMIT ?3"
+                    .to_string(),
                 vec![
                     Box::new(fts_query.clone()) as Box<dyn rusqlite::types::ToSql>,
                     Box::new(sid.to_string()),
@@ -268,7 +249,8 @@ impl MessageRepo {
                  JOIN sessions AS s ON s.id = m.session_id
                  WHERE messages_fts MATCH ?1
                  ORDER BY rank
-                 LIMIT ?2".to_string(),
+                 LIMIT ?2"
+                    .to_string(),
                 vec![
                     Box::new(fts_query.clone()) as Box<dyn rusqlite::types::ToSql>,
                     Box::new(limit),
@@ -294,13 +276,7 @@ impl MessageRepo {
         Ok(rows.filter_map(|r| r.ok()).collect())
     }
 
-    fn sync_fts(
-        conn: &Connection,
-        msg_id: &str,
-        content: &str,
-        session_id: &str,
-        role: &str,
-    ) {
+    fn sync_fts(conn: &Connection, msg_id: &str, content: &str, session_id: &str, role: &str) {
         if content.is_empty() {
             return;
         }
@@ -323,7 +299,8 @@ impl MessageRepo {
             model: row.get(5)?,
             thinking_content: row.get(6)?,
             attachments: row.get(7)?,
-            status: row.get::<_, Option<String>>(8)?
+            status: row
+                .get::<_, Option<String>>(8)?
                 .unwrap_or_else(|| "complete".to_string()),
             tool_calls: row.get(9)?,
             created_at: row.get(10)?,
@@ -331,10 +308,7 @@ impl MessageRepo {
     }
 
     fn collect_reversed(
-        rows: rusqlite::MappedRows<
-            '_,
-            impl FnMut(&rusqlite::Row) -> rusqlite::Result<Message>,
-        >,
+        rows: rusqlite::MappedRows<'_, impl FnMut(&rusqlite::Row) -> rusqlite::Result<Message>>,
     ) -> Result<Vec<Message>> {
         let mut messages: Vec<Message> = rows.filter_map(|r| r.ok()).collect();
         messages.reverse();
@@ -346,7 +320,10 @@ impl MessageRepo {
 fn build_fts_query(raw: &str) -> String {
     raw.split_whitespace()
         .map(|w| {
-            let sanitized: String = w.chars().filter(|c| !matches!(c, '"' | '\'' | '*')).collect();
+            let sanitized: String = w
+                .chars()
+                .filter(|c| !matches!(c, '"' | '\'' | '*'))
+                .collect();
             format!("\"{}\"*", sanitized)
         })
         .collect::<Vec<_>>()

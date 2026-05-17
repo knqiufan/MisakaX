@@ -1,5 +1,5 @@
+use misaka_x_lib::services::llm::{ModelInfo, ModelRegistry};
 use rusqlite::Connection;
-use misaka_x_lib::services::llm::{ModelRegistry, ModelInfo};
 
 fn setup_test_db() -> Connection {
     let conn = Connection::open_in_memory().unwrap();
@@ -27,6 +27,8 @@ fn setup_test_db() -> Connection {
             supports_thinking INTEGER DEFAULT 0,
             max_tokens INTEGER,
             context_window INTEGER,
+            enabled INTEGER DEFAULT 1,
+            sort_order INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (router_config_id) REFERENCES router_configs(id) ON DELETE CASCADE,
             UNIQUE (router_config_id, model_id)
@@ -119,7 +121,10 @@ fn test_custom_models_scoped_to_config() {
 
     let models = ModelRegistry::available_models(&conn, "rc-1", "openai").unwrap();
     let custom_count = models.iter().filter(|m| m.is_custom).count();
-    assert_eq!(custom_count, 0, "Custom models from rc-2 should not appear for rc-1");
+    assert_eq!(
+        custom_count, 0,
+        "Custom models from rc-2 should not appear for rc-1"
+    );
 }
 
 #[test]

@@ -32,10 +32,7 @@ impl McpServerRepo {
         Ok(())
     }
 
-    pub fn find_by_id(
-        conn: &Connection,
-        id: &str,
-    ) -> Result<McpServerRecord> {
+    pub fn find_by_id(conn: &Connection, id: &str) -> Result<McpServerRecord> {
         conn.query_row(
             "SELECT id, name, transport_json, auto_connect, env_json,
                     created_at, updated_at
@@ -80,17 +77,12 @@ impl McpServerRepo {
     }
 
     pub fn delete(conn: &Connection, id: &str) -> Result<()> {
-        conn.execute(
-            "DELETE FROM mcp_servers WHERE id = ?1",
-            [id],
-        )
-        .context("Failed to delete MCP server")?;
+        conn.execute("DELETE FROM mcp_servers WHERE id = ?1", [id])
+            .context("Failed to delete MCP server")?;
         Ok(())
     }
 
-    fn map_row(
-        row: &rusqlite::Row<'_>,
-    ) -> rusqlite::Result<McpServerRecord> {
+    fn map_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<McpServerRecord> {
         Ok(McpServerRecord {
             id: row.get(0)?,
             name: row.get(1)?,

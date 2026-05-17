@@ -10,8 +10,8 @@ use rmcp::transport::streamable_http_client::{
 };
 
 use super::types::{
-    McpClient, McpServerConfig, McpServerHandle, McpServerInfo, McpServerStatus,
-    McpToolInfo, McpTransport,
+    McpClient, McpServerConfig, McpServerHandle, McpServerInfo, McpServerStatus, McpToolInfo,
+    McpTransport,
 };
 
 /// MCP Server 管理器
@@ -33,10 +33,8 @@ impl McpManager {
     pub async fn connect(&self, config: McpServerConfig) -> Result<()> {
         let server_id = config.id.clone();
 
-        self.servers.insert(
-            server_id.clone(),
-            McpServerHandle::new(config.clone()),
-        );
+        self.servers
+            .insert(server_id.clone(), McpServerHandle::new(config.clone()));
 
         self.update_status(&server_id, McpServerStatus::Connecting);
 
@@ -58,10 +56,7 @@ impl McpManager {
             }
             Err(e) => {
                 let err_msg = e.to_string();
-                self.update_status(
-                    &server_id,
-                    McpServerStatus::Error(err_msg.clone()),
-                );
+                self.update_status(&server_id, McpServerStatus::Error(err_msg.clone()));
                 tracing::error!(server_id = %server_id, error = %err_msg, "MCP connect failed");
                 Err(e)
             }
@@ -134,8 +129,7 @@ impl McpManager {
             }
         };
 
-        let params = CallToolRequestParams::new(tool_name.to_string())
-            .with_arguments(arguments);
+        let params = CallToolRequestParams::new(tool_name.to_string()).with_arguments(arguments);
 
         let result = peer
             .call_tool(params)
@@ -213,9 +207,7 @@ impl McpManager {
 
     /// 获取指定 Server 的重试次数
     pub fn retry_count(&self, server_id: &str) -> u32 {
-        self.servers
-            .get(server_id)
-            .map_or(0, |h| h.retry_count)
+        self.servers.get(server_id).map_or(0, |h| h.retry_count)
     }
 
     /// 递增重试计数
@@ -269,12 +261,8 @@ impl McpManager {
             McpTransport::Stdio { command, args } => {
                 self.connect_stdio(command, args, &config.env).await
             }
-            McpTransport::Http { url, headers } => {
-                self.connect_http(url, headers).await
-            }
-            McpTransport::Sse { url, headers } => {
-                self.connect_http(url, headers).await
-            }
+            McpTransport::Http { url, headers } => self.connect_http(url, headers).await,
+            McpTransport::Sse { url, headers } => self.connect_http(url, headers).await,
         }
     }
 
@@ -292,10 +280,11 @@ impl McpManager {
             cmd.env(key, value);
         }
 
-        let transport = TokioChildProcess::new(cmd)
-            .context("Failed to spawn MCP server process")?;
+        let transport =
+            TokioChildProcess::new(cmd).context("Failed to spawn MCP server process")?;
 
-        let client = ().serve(transport)
+        let client = ()
+            .serve(transport)
             .await
             .map_err(|e| anyhow::anyhow!("MCP client initialization failed: {e}"))?;
 
@@ -314,16 +303,14 @@ impl McpManager {
         url: &str,
         headers: &HashMap<String, String>,
     ) -> Result<(McpClient, Vec<rmcp::model::Tool>)> {
-        let mut transport_config =
-            StreamableHttpClientTransportConfig::with_uri(url);
+        let mut transport_config = StreamableHttpClientTransportConfig::with_uri(url);
 
         if !headers.is_empty() {
             let mut header_map = std::collections::HashMap::new();
             for (key, value) in headers {
-                let name = http::HeaderName::from_bytes(key.as_bytes())
-                    .context("Invalid header name")?;
-                let val = http::HeaderValue::from_str(value)
-                    .context("Invalid header value")?;
+                let name =
+                    http::HeaderName::from_bytes(key.as_bytes()).context("Invalid header name")?;
+                let val = http::HeaderValue::from_str(value).context("Invalid header value")?;
                 header_map.insert(name, val);
             }
             transport_config = transport_config.custom_headers(header_map);
@@ -331,7 +318,8 @@ impl McpManager {
 
         let transport = StreamableHttpClientTransport::from_config(transport_config);
 
-        let client = ().serve(transport)
+        let client = ()
+            .serve(transport)
             .await
             .map_err(|e| anyhow::anyhow!("MCP HTTP client initialization failed: {e}"))?;
 

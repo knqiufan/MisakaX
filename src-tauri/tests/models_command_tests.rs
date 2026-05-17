@@ -14,8 +14,16 @@ fn setup_test_db() -> Connection {
 fn insert_router_config(conn: &Connection, id: &str, provider: &str) {
     let encrypted = crypto::encrypt("sk-test-key-fake-12345678").unwrap();
     RouterConfigRepo::insert(
-        conn, id, "Test Provider", provider, &encrypted,
-        None, None, None, true, None,
+        conn,
+        id,
+        "Test Provider",
+        provider,
+        &encrypted,
+        None,
+        None,
+        None,
+        true,
+        None,
     )
     .unwrap();
 }
@@ -34,6 +42,8 @@ fn test_insert_custom_model() {
         supports_thinking: false,
         max_tokens: Some(4096),
         context_window: Some(128000),
+        enabled: true,
+        sort_order: 0,
     };
 
     CustomModelRepo::insert(&conn, "cm-1", "rc-1", &model).unwrap();
@@ -61,6 +71,8 @@ fn test_insert_custom_model_minimal() {
         supports_thinking: false,
         max_tokens: None,
         context_window: None,
+        enabled: true,
+        sort_order: 0,
     };
 
     CustomModelRepo::insert(&conn, "cm-1", "rc-1", &model).unwrap();
@@ -84,6 +96,8 @@ fn test_delete_custom_model() {
         supports_thinking: false,
         max_tokens: None,
         context_window: None,
+        enabled: true,
+        sort_order: 0,
     };
 
     CustomModelRepo::insert(&conn, "cm-del", "rc-1", &model).unwrap();
@@ -113,6 +127,8 @@ fn test_custom_models_unique_constraint() {
         supports_thinking: false,
         max_tokens: None,
         context_window: None,
+        enabled: true,
+        sort_order: 0,
     };
 
     CustomModelRepo::insert(&conn, "cm-1", "rc-1", &model).unwrap();
@@ -124,10 +140,15 @@ fn test_custom_models_unique_constraint() {
         supports_thinking: false,
         max_tokens: None,
         context_window: None,
+        enabled: true,
+        sort_order: 0,
     };
 
     let result = CustomModelRepo::insert(&conn, "cm-2", "rc-1", &model2);
-    assert!(result.is_err(), "Should fail on duplicate (router_config_id, model_id)");
+    assert!(
+        result.is_err(),
+        "Should fail on duplicate (router_config_id, model_id)"
+    );
 }
 
 #[test]
@@ -143,6 +164,8 @@ fn test_multiple_custom_models_per_provider() {
             supports_thinking: false,
             max_tokens: None,
             context_window: None,
+            enabled: true,
+            sort_order: i,
         };
         CustomModelRepo::insert(&conn, &format!("cm-{}", i), "rc-1", &model).unwrap();
     }
@@ -150,6 +173,78 @@ fn test_multiple_custom_models_per_provider() {
     let models = ModelRegistry::available_models(&conn, "rc-1", "openai").unwrap();
     let custom_count = models.iter().filter(|m| m.is_custom).count();
     assert_eq!(custom_count, 5);
+}
+
+#[test]
+fn test_available_models_only_returns_enabled_custom_models() {
+    let conn = setup_test_db();
+    insert_router_config(&conn, "rc-1", "openai");
+
+    let enabled = CreateCustomModel {
+        model_id: "enabled-model".to_string(),
+        display_name: "Enabled Model".to_string(),
+        supports_vision: false,
+        supports_thinking: false,
+        max_tokens: None,
+        context_window: None,
+        enabled: true,
+        sort_order: 2,
+    };
+    let disabled = CreateCustomModel {
+        model_id: "disabled-model".to_string(),
+        display_name: "Disabled Model".to_string(),
+        supports_vision: false,
+        supports_thinking: false,
+        max_tokens: None,
+        context_window: None,
+        enabled: false,
+        sort_order: 1,
+    };
+
+    CustomModelRepo::insert(&conn, "cm-enabled", "rc-1", &enabled).unwrap();
+    CustomModelRepo::insert(&conn, "cm-disabled", "rc-1", &disabled).unwrap();
+
+    let models = ModelRegistry::available_models(&conn, "rc-1", "openai").unwrap();
+
+    assert_eq!(models.len(), 1);
+    assert_eq!(models[0].model_id, "enabled-model");
+}
+
+#[test]
+fn test_list_and_replace_custom_models() {
+    let mut conn = setup_test_db();
+    insert_router_config(&conn, "rc-1", "openai");
+
+    let models = vec![
+        CreateCustomModel {
+            model_id: "model-b".to_string(),
+            display_name: "Model B".to_string(),
+            supports_vision: false,
+            supports_thinking: false,
+            max_tokens: None,
+            context_window: None,
+            enabled: true,
+            sort_order: 2,
+        },
+        CreateCustomModel {
+            model_id: "model-a".to_string(),
+            display_name: "Model A".to_string(),
+            supports_vision: true,
+            supports_thinking: false,
+            max_tokens: Some(4096),
+            context_window: Some(8192),
+            enabled: false,
+            sort_order: 1,
+        },
+    ];
+
+    CustomModelRepo::replace_all(&mut conn, "rc-1", &models).unwrap();
+    let stored = CustomModelRepo::list_by_router(&conn, "rc-1").unwrap();
+
+    assert_eq!(stored.len(), 2);
+    assert_eq!(stored[0].model_id, "model-a");
+    assert!(!stored[0].enabled);
+    assert_eq!(stored[1].model_id, "model-b");
 }
 
 // ─── ModelInfo structure tests ───────────────────────────────────────

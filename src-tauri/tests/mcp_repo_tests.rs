@@ -1,6 +1,6 @@
-use rusqlite::Connection;
 use misaka_x_lib::db::migrations::run_migrations;
 use misaka_x_lib::db::repository::{McpServerRecord, McpServerRepo};
+use rusqlite::Connection;
 
 fn create_test_db() -> Connection {
     let conn = Connection::open_in_memory().unwrap();
@@ -14,9 +14,15 @@ fn test_migration_v3_creates_mcp_servers_table() {
     let conn = create_test_db();
 
     let version: i64 = conn
-        .query_row("SELECT MAX(version) FROM _schema_version", [], |row| row.get(0))
+        .query_row("SELECT MAX(version) FROM _schema_version", [], |row| {
+            row.get(0)
+        })
         .unwrap();
-    assert!(version >= 3, "Expected schema version >= 3, got {}", version);
+    assert!(
+        version >= 3,
+        "Expected schema version >= 3, got {}",
+        version
+    );
 
     conn.execute(
         "INSERT INTO mcp_servers (id, name, transport_json) VALUES ('t1', 'Test', '{}')",

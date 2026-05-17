@@ -4,6 +4,4 @@ pub mod types;
 
 pub use config::McpConfigLoader;
 pub use manager::McpManager;
-pub use types::{
-    McpServerConfig, McpServerInfo, McpServerStatus, McpToolInfo, McpTransport,
-};
+pub use types::{McpServerConfig, McpServerInfo, McpServerStatus, McpToolInfo, McpTransport};

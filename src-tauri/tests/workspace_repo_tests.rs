@@ -91,8 +91,7 @@ fn find_recent_ordered_by_last_used_desc() {
 fn record_usage_inserts_new_directory() {
     let conn = create_test_db();
 
-    WorkspaceRepo::record_usage(&conn, "id1", "/home/user/project", Some("project"))
-        .unwrap();
+    WorkspaceRepo::record_usage(&conn, "id1", "/home/user/project", Some("project")).unwrap();
 
     let dirs = WorkspaceRepo::find_recent(&conn, 10).unwrap();
     assert_eq!(dirs.len(), 1);
@@ -105,12 +104,9 @@ fn record_usage_inserts_new_directory() {
 fn record_usage_increments_count_on_duplicate_path() {
     let conn = create_test_db();
 
-    WorkspaceRepo::record_usage(&conn, "id1", "/home/user/project", Some("project"))
-        .unwrap();
-    WorkspaceRepo::record_usage(&conn, "id2", "/home/user/project", Some("project"))
-        .unwrap();
-    WorkspaceRepo::record_usage(&conn, "id3", "/home/user/project", Some("project"))
-        .unwrap();
+    WorkspaceRepo::record_usage(&conn, "id1", "/home/user/project", Some("project")).unwrap();
+    WorkspaceRepo::record_usage(&conn, "id2", "/home/user/project", Some("project")).unwrap();
+    WorkspaceRepo::record_usage(&conn, "id3", "/home/user/project", Some("project")).unwrap();
 
     let dirs = WorkspaceRepo::find_recent(&conn, 10).unwrap();
     assert_eq!(dirs.len(), 1);

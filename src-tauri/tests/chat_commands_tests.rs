@@ -75,3 +75,60 @@ fn test_send_message_result_serialize() {
     assert!(json.contains("\"user_message_id\":\"u1\""));
     assert!(json.contains("\"assistant_message_id\":\"a1\""));
 }
+
+#[cfg(feature = "test-private")]
+mod enabled_model_guard {
+    use misaka_x_lib::commands::chat::ensure_model_enabled_for_config;
+    use rusqlite::Connection;
+
+    fn setup_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+        misaka_x_lib::db::migrations::run_migrations(&conn).unwrap();
+        conn
+    }
+
+    #[test]
+    fn accepts_enabled_custom_model() {
+        let conn = setup_db();
+        conn.execute(
+            "INSERT INTO router_configs (id, name, provider)
+             VALUES ('rc-1', 'OpenAI', 'openai')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO custom_models (
+                id, router_config_id, model_id, display_name, enabled
+             ) VALUES ('cm-1', 'rc-1', 'gpt-4o', 'GPT-4o', 1)",
+            [],
+        )
+        .unwrap();
+
+        let result = ensure_model_enabled_for_config(&conn, "rc-1", "gpt-4o");
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn rejects_disabled_custom_model() {
+        let conn = setup_db();
+        conn.execute(
+            "INSERT INTO router_configs (id, name, provider)
+             VALUES ('rc-1', 'OpenAI', 'openai')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO custom_models (
+                id, router_config_id, model_id, display_name, enabled
+             ) VALUES ('cm-1', 'rc-1', 'gpt-4o', 'GPT-4o', 0)",
+            [],
+        )
+        .unwrap();
+
+        let result = ensure_model_enabled_for_config(&conn, "rc-1", "gpt-4o");
+
+        assert!(result.is_err());
+    }
+}

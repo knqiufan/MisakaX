@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import type { RouterConfigView } from "@/lib/ipc";
+import { useChatStore } from "@/stores/chat-store";
 import { useSettingsStore } from "@/stores/settings-store";
 
 vi.mock("@/lib/ipc", () => ({
@@ -9,15 +11,23 @@ vi.mock("@/lib/ipc", () => ({
   routerConfigsIpc: {
     list: vi.fn(),
     create: vi.fn(),
+    createWithModels: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    revealApiKey: vi.fn(),
+  },
+  modelsIpc: {
+    fetchProviderModels: vi.fn(),
+    testModel: vi.fn(),
+    replaceCustom: vi.fn(),
   },
 }));
 
-import { settingsIpc, routerConfigsIpc } from "@/lib/ipc";
+import { settingsIpc, routerConfigsIpc, modelsIpc } from "@/lib/ipc";
 
 const mockSettingsIpc = vi.mocked(settingsIpc);
 const mockRouterConfigsIpc = vi.mocked(routerConfigsIpc);
+const mockModelsIpc = vi.mocked(modelsIpc);
 
 const mockConfig = {
   language: "en",
@@ -31,13 +41,17 @@ const mockConfig = {
   auto_start_sidecar: false,
 };
 
-const mockProvider = {
+const mockProvider: RouterConfigView = {
   id: "prov-1",
   name: "OpenAI",
   provider: "openai",
+  vendor: "openai",
   api_key_masked: "sk-...***",
   model: "gpt-4o",
   base_url: null,
+  api_compat: "openai",
+  config_json: null,
+  advanced: { temperature: 0.7, max_tokens: null, proxy: null },
   is_active: true,
   created_at: "2026-01-01T00:00:00Z",
 };
@@ -47,9 +61,11 @@ describe("useSettingsStore", () => {
     useSettingsStore.setState({
       config: null,
       providers: [],
+      modelsVersion: 0,
       loading: false,
       error: null,
     });
+    useChatStore.setState({ modelsVersion: 0 });
     vi.clearAllMocks();
   });
 
@@ -127,6 +143,39 @@ describe("useSettingsStore", () => {
       const state = useSettingsStore.getState();
       expect(state.providers).toEqual([]);
       expect(state.loading).toBe(false);
+    });
+
+    it("should bump modelsVersion after deleting provider", async () => {
+      useSettingsStore.setState({ providers: [mockProvider], modelsVersion: 3 });
+      mockRouterConfigsIpc.delete.mockResolvedValue(undefined);
+
+      await useSettingsStore.getState().deleteProvider("prov-1");
+
+      expect(useSettingsStore.getState().modelsVersion).toBe(4);
+    });
+  });
+
+  describe("model list versioning", () => {
+    it("should bump modelsVersion after updating provider metadata", async () => {
+      mockRouterConfigsIpc.update.mockResolvedValue(undefined);
+      mockRouterConfigsIpc.list.mockResolvedValue([mockProvider]);
+
+      await useSettingsStore.getState().updateProvider("prov-1", {
+        name: "Renamed",
+      });
+
+      expect(useSettingsStore.getState().modelsVersion).toBe(1);
+    });
+
+    it("should bump modelsVersion after replacing custom models", async () => {
+      mockModelsIpc.replaceCustom.mockResolvedValue(undefined);
+
+      await useSettingsStore.getState().replaceModels("prov-1", [
+        { model_id: "gpt-4o", display_name: "GPT-4o", enabled: true },
+      ]);
+
+      expect(useSettingsStore.getState().modelsVersion).toBe(1);
+      expect(useChatStore.getState().modelsVersion).toBe(1);
     });
   });
 

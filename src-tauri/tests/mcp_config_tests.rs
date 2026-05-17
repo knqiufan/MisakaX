@@ -157,7 +157,11 @@ fn test_ensure_default_config_does_not_overwrite() {
     let dir = tempfile::tempdir().unwrap();
     let mcp_path = dir.path().join("mcp.json");
 
-    std::fs::write(&mcp_path, r#"{"mcpServers":{"my-server":{"command":"test"}}}"#).unwrap();
+    std::fs::write(
+        &mcp_path,
+        r#"{"mcpServers":{"my-server":{"command":"test"}}}"#,
+    )
+    .unwrap();
     McpConfigLoader::ensure_default_config(dir.path()).unwrap();
 
     let content = std::fs::read_to_string(&mcp_path).unwrap();

@@ -70,11 +70,7 @@ impl ToolPermissionRepo {
         Ok(records)
     }
 
-    pub fn reset(
-        conn: &Connection,
-        server_id: &str,
-        tool_name: &str,
-    ) -> Result<()> {
+    pub fn reset(conn: &Connection, server_id: &str, tool_name: &str) -> Result<()> {
         conn.execute(
             "DELETE FROM tool_permissions WHERE server_id = ?1 AND tool_name = ?2",
             rusqlite::params![server_id, tool_name],

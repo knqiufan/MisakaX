@@ -41,17 +41,16 @@ pub fn run() {
     let db_path = config::db_path().expect("Failed to determine database path");
     let conn = db::init_database(&db_path).expect("Failed to initialize database");
 
-    let agent_dir = std::env::current_dir()
-        .map(|d| d.join("agent"))
-        .unwrap_or_else(|_| std::path::PathBuf::from("agent"));
+    let agent_dir = sidecar::resolve_agent_working_dir();
+    tracing::info!(
+        path = %agent_dir.display(),
+        "Python sidecar working directory"
+    );
 
     let sidecar_port = app_config.sidecar_port;
     let auto_start = app_config.auto_start_sidecar;
 
-    let sidecar = Arc::new(SidecarManager::new(
-        agent_dir.to_str().unwrap_or("agent").to_string(),
-        sidecar_port,
-    ));
+    let sidecar = Arc::new(SidecarManager::new(agent_dir, sidecar_port));
 
     let sidecar_client = SidecarClient::new(sidecar_port);
 
@@ -59,8 +58,7 @@ pub fn run() {
 
     let mcp_configs = {
         let config_root = config::config_dir().unwrap_or_default();
-        services::mcp::McpConfigLoader::load_all(&config_root, &conn)
-            .unwrap_or_default()
+        services::mcp::McpConfigLoader::load_all(&config_root, &conn).unwrap_or_default()
     };
 
     tauri::Builder::default()
@@ -89,12 +87,18 @@ pub fn run() {
             commands::settings::get_system_info,
             commands::router_configs::list_router_configs,
             commands::router_configs::create_router_config,
+            commands::router_configs::create_router_config_with_models,
             commands::router_configs::update_router_config,
             commands::router_configs::delete_router_config,
+            commands::router_configs::reveal_router_api_key,
             commands::router_configs::test_router_connection,
             commands::models::list_available_models,
+            commands::models::list_custom_models,
             commands::models::add_custom_model,
+            commands::models::replace_custom_models,
             commands::models::delete_custom_model,
+            commands::models::fetch_provider_models,
+            commands::models::test_model,
             commands::chat::send_message,
             commands::chat::stop_generation,
             commands::chat::regenerate_message,
@@ -178,10 +182,7 @@ pub fn run() {
                     return;
                 }
 
-                tracing::info!(
-                    count = auto_configs.len(),
-                    "Auto-connecting MCP servers"
-                );
+                tracing::info!(count = auto_configs.len(), "Auto-connecting MCP servers");
 
                 for config in auto_configs {
                     let server_name = config.name.clone();
@@ -216,10 +217,7 @@ fn start_mcp_health_loop(app: tauri::AppHandle, manager: Arc<McpManager>) {
 
     tauri::async_runtime::spawn(async move {
         loop {
-            tokio::time::sleep(std::time::Duration::from_secs(
-                MCP_HEALTH_INTERVAL_SECS,
-            ))
-            .await;
+            tokio::time::sleep(std::time::Duration::from_secs(MCP_HEALTH_INTERVAL_SECS)).await;
 
             let servers = manager.list_servers();
             for info in servers {

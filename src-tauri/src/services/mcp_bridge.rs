@@ -60,9 +60,7 @@ impl McpToolBridge {
         let server_id = self
             .manager
             .find_server_for_tool(tool_name)
-            .ok_or_else(|| {
-                anyhow::anyhow!("No MCP Server found for tool '{}'", tool_name)
-            })?;
+            .ok_or_else(|| anyhow::anyhow!("No MCP Server found for tool '{}'", tool_name))?;
 
         self.manager
             .call_tool(&server_id, tool_name, arguments)

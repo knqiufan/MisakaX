@@ -26,12 +26,67 @@
     "model": "Model",
     "modelPlaceholder": "Select or enter model name",
     "setDefault": "Set as Default",
+    "defaultProvider": "Default",
     "testConnection": "Test Connection",
     "testing": "Testing...",
     "connectionSuccess": "Connection successful",
     "connectionFailed": "Connection failed",
+    "modelSaveFailed": "Provider saved, but the model list failed to save",
     "noProviders": "No providers configured",
-    "noProvidersDesc": "Add a provider to start using AI models"
+    "noProvidersDesc": "Add a provider to start using AI models",
+    "providerNamePlaceholder": "My OpenAI"
+  },
+  "providers": {
+    "vendor": {
+      "label": "Provider vendor",
+      "homepage": "Vendor website",
+      "unsupported": "This vendor does not support the selected API type yet",
+      "customEndpoint": "Custom endpoint",
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "google": "Google",
+      "deepseek": "DeepSeek",
+      "zhipu": "GLM",
+      "minimax": "MiniMax",
+      "stepfun": "StepFun",
+      "moonshot": "Kimi",
+      "siliconflow": "SiliconFlow",
+      "custom": "Custom"
+    },
+    "apiKey": {
+      "get": "Get API Key",
+      "keepExisting": "Leave empty to keep the current key",
+      "reveal": "Reveal API key",
+      "revealFailed": "Failed to reveal API key",
+      "toggleVisible": "Toggle API key visibility"
+    },
+    "baseUrl": {
+      "autoFilled": "Auto-filled from the selected vendor",
+      "customRequired": "Custom vendors require a manual base URL"
+    },
+    "models": {
+      "available": "Available models",
+      "onlySelected": "Only selected models appear in chat.",
+      "fetch": "Fetch models",
+      "fetchDialogTitle": "Select models",
+      "fetchCount": "{{count}} models",
+      "fetchFailed": "Failed to fetch models",
+      "search": "Search models",
+      "selectAll": "Select all",
+      "empty": "No models selected yet.",
+      "remove": "Remove model",
+      "test": "Test model",
+      "testFailed": "Model test failed",
+      "vision": "Vision",
+      "thinking": "Thinking"
+    },
+    "advanced": {
+      "title": "Advanced configuration",
+      "temperature": "Temperature",
+      "temperatureHint": "Controls response randomness. Higher values are more creative.",
+      "maxTokens": "Max tokens",
+      "maxTokensHint": "Optional limit for the maximum generated tokens in one response."
+    }
   },
   "mcp": {
     "title": "MCP",
