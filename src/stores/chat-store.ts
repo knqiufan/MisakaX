@@ -2,6 +2,26 @@ import { create } from "zustand";
 import type { Message, Session, ToolCall } from "@/lib/ipc";
 import { chatIpc, sessionsIpc } from "@/lib/ipc";
 
+const SELECTED_MODEL_KEY = "misakax:selectedModel";
+
+function readCachedModel(): string | null {
+  try {
+    return localStorage.getItem(SELECTED_MODEL_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedModel(model: string | null) {
+  try {
+    if (model) {
+      localStorage.setItem(SELECTED_MODEL_KEY, model);
+    } else {
+      localStorage.removeItem(SELECTED_MODEL_KEY);
+    }
+  } catch { /* noop */ }
+}
+
 interface ChatState {
   sessions: Session[];
   activeSessionId: string | null;
@@ -53,7 +73,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isStreaming: false,
   streamingMessageId: null,
   isThinkingStreaming: false,
-  selectedModel: null,
+  selectedModel: readCachedModel(),
   modelsVersion: 0,
 
   setActiveSession: (id) => set({ activeSessionId: id }),
@@ -142,7 +162,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setThinkingStreaming: (streaming) => set({ isThinkingStreaming: streaming }),
 
-  setSelectedModel: (model) => set({ selectedModel: model }),
+  setSelectedModel: (model) => {
+    writeCachedModel(model);
+    set({ selectedModel: model });
+  },
 
   bumpModels: () => set((state) => ({ modelsVersion: state.modelsVersion + 1 })),
 

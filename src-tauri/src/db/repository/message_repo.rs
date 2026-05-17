@@ -80,7 +80,7 @@ impl MessageRepo {
                     thinking_content, attachments, status, tool_calls, created_at
              FROM messages
              WHERE session_id = ?1
-             ORDER BY created_at DESC
+             ORDER BY created_at DESC, rowid DESC
              LIMIT ?2",
         )?;
 
@@ -108,7 +108,7 @@ impl MessageRepo {
                     thinking_content, attachments, status, tool_calls, created_at
              FROM messages
              WHERE session_id = ?1 AND created_at < ?2
-             ORDER BY created_at DESC
+             ORDER BY created_at DESC, rowid DESC
              LIMIT ?3",
         )?;
 
@@ -138,7 +138,7 @@ impl MessageRepo {
             .query_row(
                 "SELECT content, id, attachments FROM messages
                  WHERE session_id = ?1 AND role = 'user' AND created_at < ?2
-                 ORDER BY created_at DESC LIMIT 1",
+                 ORDER BY created_at DESC, rowid DESC LIMIT 1",
                 rusqlite::params![session_id, target_created_at],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
@@ -155,7 +155,7 @@ impl MessageRepo {
                     thinking_content, attachments, status, tool_calls, created_at
              FROM messages
              WHERE session_id = ?1 AND created_at < ?2
-             ORDER BY created_at ASC",
+             ORDER BY created_at ASC, rowid ASC",
         )?;
 
         let rows = stmt.query_map(

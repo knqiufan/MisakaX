@@ -104,6 +104,7 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
 
   const handleSelect = useCallback(
     async (id: string) => {
+      if (id === activeSessionId) return;
       try {
         const session = await sessionsIpc.get(id);
         setActiveSessionData(session);
@@ -111,7 +112,7 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
         console.error("Failed to load session:", err);
       }
     },
-    [setActiveSessionData]
+    [activeSessionId, setActiveSessionData]
   );
 
   const handleRename = useCallback(
