@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 const MAX_FILE_SIZE: u64 = 5 * 1024 * 1024;
 const BINARY_PROBE_SIZE: usize = 8 * 1024;
@@ -65,6 +66,56 @@ pub fn fs_write_text_file(
     content: String,
 ) -> Result<(), String> {
     write_text_file_inner(Path::new(&working_dir), Path::new(&path), &content)
+}
+
+#[tauri::command]
+pub fn fs_reveal_in_explorer(working_dir: String, path: String) -> Result<(), String> {
+    reveal_in_explorer_inner(Path::new(&working_dir), Path::new(&path))
+}
+
+pub fn reveal_in_explorer_inner(root: &Path, target: &Path) -> Result<(), String> {
+    validate_under_root(root, target)?;
+    if !target.exists() {
+        return Err(format!("Path does not exist: {}", target.display()));
+    }
+    spawn_reveal_command(target)
+}
+
+#[cfg(target_os = "windows")]
+fn spawn_reveal_command(target: &Path) -> Result<(), String> {
+    let arg = format!("/select,{}", target.display());
+    Command::new("explorer")
+        .arg(arg)
+        .spawn()
+        .map(|_| ())
+        .map_err(|err| format!("Failed to launch explorer: {err}"))
+}
+
+#[cfg(target_os = "macos")]
+fn spawn_reveal_command(target: &Path) -> Result<(), String> {
+    Command::new("open")
+        .arg("-R")
+        .arg(target)
+        .spawn()
+        .map(|_| ())
+        .map_err(|err| format!("Failed to launch Finder: {err}"))
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn spawn_reveal_command(target: &Path) -> Result<(), String> {
+    let dir = if target.is_dir() {
+        target.to_path_buf()
+    } else {
+        target
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| target.to_path_buf())
+    };
+    Command::new("xdg-open")
+        .arg(dir)
+        .spawn()
+        .map(|_| ())
+        .map_err(|err| format!("Failed to launch xdg-open: {err}"))
 }
 
 fn list_dir_inner(root: &Path, target: &Path) -> Result<Vec<FsEntry>, String> {

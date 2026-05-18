@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { FolderOpen, FolderX, PanelRightOpen, RefreshCw } from "lucide-react";
+import { FolderOpen, FolderTree, FolderX, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -137,13 +137,13 @@ function WorkspaceBarSet({
             onClick={onToggleExplorer}
             disabled={!onToggleExplorer || explorerOpen}
             className="size-9 shrink-0 rounded-[var(--radius-ui-md)] border-[color:var(--border-muted)]"
-            aria-label="Open workspace explorer"
+            aria-label={t("openExplorer")}
           >
-            <PanelRightOpen className="h-4 w-4 text-muted-foreground" />
+            <FolderTree className="h-4 w-4 text-muted-foreground" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">
-          Workspace Explorer
+          {t("openExplorer")}
         </TooltipContent>
       </Tooltip>
     </div>

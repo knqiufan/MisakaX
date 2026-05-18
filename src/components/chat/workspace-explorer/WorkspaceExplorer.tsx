@@ -1,4 +1,5 @@
 import { PanelRightClose } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   Group as PanelGroup,
@@ -18,6 +19,7 @@ interface WorkspaceExplorerProps {
 }
 
 export function WorkspaceExplorer({ workingDir }: WorkspaceExplorerProps) {
+  const { t } = useTranslation("workspace");
   const { setOpen, openTab } = useWorkspaceExplorerStore();
   const { activeTab, handleChange, handleSave } = useFileEditor(workingDir);
 
@@ -27,15 +29,21 @@ export function WorkspaceExplorer({ workingDir }: WorkspaceExplorerProps) {
       openTab(path, content);
     } catch (error) {
       console.error("Failed to open file:", error);
-      toast.error("无法打开文件");
+      toast.error(t("explorer.openFileFailed"));
     }
   };
 
   return (
-    <aside className="flex h-full min-w-0 flex-col border-l border-[color:var(--border-muted)] bg-[color:var(--surface-sidebar)]">
+    <aside
+      className={
+        "flex h-full min-w-0 flex-col border-l border-[color:var(--border-muted)] " +
+        "bg-[color:var(--surface-sidebar)] " +
+        "animate-in fade-in slide-in-from-right-4 ease-out duration-[220ms]"
+      }
+    >
       <div className="flex h-10 shrink-0 items-center justify-between border-b border-[color:var(--border-muted)] px-3">
         <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          Workspace
+          {t("explorer.title")}
         </h2>
         <Button
           type="button"
@@ -43,7 +51,7 @@ export function WorkspaceExplorer({ workingDir }: WorkspaceExplorerProps) {
           size="icon"
           onClick={() => setOpen(false)}
           className="size-7 rounded-[var(--radius-ui-sm)]"
-          aria-label="Collapse workspace explorer"
+          aria-label={t("explorer.collapse")}
         >
           <PanelRightClose className="size-4" />
         </Button>
@@ -54,7 +62,7 @@ export function WorkspaceExplorer({ workingDir }: WorkspaceExplorerProps) {
         </Panel>
         <PanelResizeHandle className="h-px bg-[color:var(--border-muted)] hover:bg-[color:var(--border-strong)]" />
         <Panel id="editor" minSize="30%">
-          <div className="flex h-full min-h-0 flex-col">
+          <div className="flex h-full min-h-0 flex-col bg-[color:var(--surface-card)]">
             <EditorTabs onSave={handleSave} />
             <EditorPane tab={activeTab} onChange={handleChange} />
           </div>

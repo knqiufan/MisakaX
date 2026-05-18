@@ -23,5 +23,29 @@
   "remove": "Remove",
   "noWorkingDir": "No working directory set",
   "selectDir": "Select directory",
-  "switchDir": "Switch directory"
+  "switchDir": "Switch directory",
+  "openExplorer": "Open workspace panel",
+  "explorer": {
+    "title": "Workspace",
+    "collapse": "Collapse workspace panel",
+    "treeTitle": "Explorer",
+    "refreshTree": "Refresh file tree",
+    "loadTreeFailed": "Failed to load workspace tree",
+    "openFileFailed": "Failed to open file",
+    "openInExplorer": "Reveal in File Explorer",
+    "copyPath": "Copy full path",
+    "pathCopied": "Path copied",
+    "noFileOpen": "No file open",
+    "selectFileHint": "Select a file on the left to start editing",
+    "closeTab": "Close {{name}}",
+    "activeFile": "Active file: {{name}}",
+    "unsavedTitle": "Save changes?",
+    "unsavedDescription": "{{name}} has unsaved changes.",
+    "saveAction": "Save",
+    "discardAction": "Discard",
+    "cancelAction": "Cancel",
+    "fileSaved": "Saved {{name}}",
+    "saveFailed": "Failed to save",
+    "openInExplorerFailed": "Failed to reveal in File Explorer"
+  }
 }

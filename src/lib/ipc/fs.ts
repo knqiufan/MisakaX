@@ -16,4 +16,7 @@ export const fsIpc = {
 
   writeTextFile: (workingDir: string, path: string, content: string) =>
     invoke<void>("fs_write_text_file", { workingDir, path, content }),
+
+  revealInExplorer: (workingDir: string, path: string) =>
+    invoke<void>("fs_reveal_in_explorer", { workingDir, path }),
 };

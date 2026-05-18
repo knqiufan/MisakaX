@@ -17,7 +17,7 @@
   "regenerate": "Regenerate",
   "attach": "Attach image",
   "composer": {
-    "attach": "Attach",
+    "attach": "Add attachment",
     "attachImage": "Upload image",
     "attachText": "Upload Markdown / text",
     "attachWorkspaceFile": "Choose from workspace…",

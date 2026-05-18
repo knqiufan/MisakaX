@@ -106,6 +106,7 @@ pub fn run() {
             commands::fs_explorer::fs_list_dir,
             commands::fs_explorer::fs_read_text_file,
             commands::fs_explorer::fs_write_text_file,
+            commands::fs_explorer::fs_reveal_in_explorer,
             commands::workspace::browse_directory,
             commands::workspace::validate_directory,
             commands::workspace::get_recent_directories,

@@ -1,6 +1,6 @@
 # Codex Monitor 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-05-18
+**最后审阅 / Last reviewed:** 2026-05-19
 
 ## 目录
 
@@ -15,6 +15,7 @@
 9. [设置面板按钮与控件](#9-设置面板按钮与控件)
 10. [弹出菜单系统 (Popover)](#10-弹出菜单系统-popover)
 11. [下拉选择控件](#11-下拉选择控件)
+11.1 [右键菜单 (ContextMenu)](#111-右键菜单-contextmenu)
 12. [开关与分段控件](#12-开关与分段控件)
 13. [模态框按钮](#13-模态框按钮)
 14. [Toast 提示按钮](#14-toast-提示按钮)
@@ -2398,3 +2399,28 @@ RELEASE:    150ms ease  (transform, box-shadow, background-color, filter)
 | Primary 渐变起 | 蓝色 | `#62b7ff` |
 | Primary 渐变止 | 绿色 | `#4fe3a3` |
 | 关闭按钮 hover | 红色 | `#e81123` |
+
+---
+
+## 11.1 右键菜单 (ContextMenu)
+
+**实现位置**：`src/components/ui/context-menu.tsx`（基于 `radix-ui` 的 `ContextMenu`）。
+
+### 11.1.1 适用场景
+
+- 文件树节点、消息条目等需要二级操作但「显式按钮会喧宾夺主」的密集列表。
+- **不得**用 ContextMenu 承载主要操作；主操作必须保留在显式按钮、Dropdown 或 Toolbar 中。
+
+### 11.1.2 视觉规范
+
+- 复用 `DropdownMenuContent` 的视觉语言：圆角 `var(--radius-ui-lg)`、边框 `var(--border-strong)`、`bg-popover/95` + `backdrop-blur-xl` + `shadow-lg`。
+- 入场动画**只允许** `animate-in fade-in-0`，不得使用 `zoom-in*` 或大幅 `slide-*`，与全局动效规范一致。
+- Item 高度与 Dropdown 对齐（`py-1.5`、`text-sm`），图标统一 `size-4`，左侧 8px gap。
+- 提供 `ContextMenuSeparator` 分组；分组数量 ≤ 3，超过应抽象为子菜单或 Popover。
+
+### 11.1.3 行为约束
+
+- 必须正确阻止默认浏览器右键菜单（Radix Trigger 已内置）。
+- 危险操作使用 `variant="destructive"`，并以分隔线与其它操作分组到菜单底部。
+- 文案必须 i18n：禁止在 `ContextMenuItem` 内硬编码语言字符串。
+- 触发后若调用了 Tauri IPC，失败必须通过 `toast.error` 反馈，并使用语义化的 i18n key（如 `workspace.explorer.openInExplorerFailed`）。

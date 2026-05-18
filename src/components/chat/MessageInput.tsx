@@ -164,7 +164,6 @@ export function MessageInput({
           trigger={
             <AttachButton
               label={t("composer.attach")}
-              onClick={() => undefined}
               disabled={disabled}
             />
           }

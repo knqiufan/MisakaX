@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,6 +18,7 @@ interface EditorTabsProps {
 }
 
 export function EditorTabs({ onSave }: EditorTabsProps) {
+  const { t } = useTranslation("workspace");
   const { tabs, activePath, setActive, closeTab } = useWorkspaceExplorerStore();
   const [pendingClose, setPendingClose] = useState<OpenTab | null>(null);
 
@@ -32,42 +34,33 @@ export function EditorTabs({ onSave }: EditorTabsProps) {
 
   return (
     <>
-      <div className="flex h-9 shrink-0 items-center overflow-x-auto border-b border-[color:var(--border-muted)] bg-[color:var(--surface-topbar)]">
+      <div
+        className={cn(
+          "flex h-10 shrink-0 items-center gap-1 overflow-x-auto px-2 pt-1.5",
+          "border-b border-[color:var(--border-muted)] bg-[color:var(--surface-topbar)]"
+        )}
+      >
         {tabs.length === 0 ? (
-          <span className="px-3 text-xs text-muted-foreground">No file open</span>
+          <span className="px-2 text-xs text-muted-foreground">
+            {t("explorer.noFileOpen")}
+          </span>
         ) : (
           tabs.map((tab) => (
-            <button
+            <EditorTab
               key={tab.path}
-              type="button"
-              onClick={() => setActive(tab.path)}
-              className={cn(
-                "group flex h-full max-w-[180px] items-center gap-2 border-r px-3 text-xs",
-                "border-[color:var(--border-muted)] transition-colors duration-[var(--ds-dur-fast)]",
-                tab.path === activePath
-                  ? "bg-[color:var(--surface-card)] text-foreground"
-                  : "text-muted-foreground hover:bg-[color:var(--surface-hover)] hover:text-foreground"
-              )}
-              title={tab.path}
-            >
-              <span className="truncate">{fileName(tab.path)}</span>
-              {tab.dirty ? <span className="text-sm leading-none">•</span> : null}
-              <span
-                role="button"
-                tabIndex={0}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  requestClose(tab);
-                }}
-                className="rounded-sm p-0.5 text-muted-foreground hover:bg-[color:var(--surface-hover)] hover:text-foreground"
-                aria-label={`Close ${fileName(tab.path)}`}
-              >
-                <X className="size-3" />
-              </span>
-            </button>
+              tab={tab}
+              active={tab.path === activePath}
+              onActivate={() => setActive(tab.path)}
+              onClose={() => requestClose(tab)}
+              closeLabel={t("explorer.closeTab", { name: fileName(tab.path) })}
+            />
           ))
         )}
-        {activeName ? <span className="sr-only">Active file: {activeName}</span> : null}
+        {activeName ? (
+          <span className="sr-only">
+            {t("explorer.activeFile", { name: activeName })}
+          </span>
+        ) : null}
       </div>
       <UnsavedDialog
         tab={pendingClose}
@@ -87,6 +80,64 @@ export function EditorTabs({ onSave }: EditorTabsProps) {
   );
 }
 
+interface EditorTabProps {
+  tab: OpenTab;
+  active: boolean;
+  onActivate: () => void;
+  onClose: () => void;
+  closeLabel: string;
+}
+
+function EditorTab({ tab, active, onActivate, onClose, closeLabel }: EditorTabProps) {
+  return (
+    <button
+      type="button"
+      onClick={onActivate}
+      title={tab.path}
+      className={cn(
+        "group relative flex h-8 max-w-[200px] shrink-0 items-center gap-1.5 rounded-t-[var(--radius-ui-md)]",
+        "border border-b-0 px-2.5 text-xs",
+        "transition-colors duration-[var(--ds-dur-fast)] ease-out",
+        active
+          ? "border-[color:var(--border-muted)] bg-[color:var(--surface-card)] text-foreground"
+          : "border-transparent text-muted-foreground hover:bg-[color:var(--surface-hover)] hover:text-foreground"
+      )}
+    >
+      <span className="truncate font-medium">{fileName(tab.path)}</span>
+      {tab.dirty ? (
+        <span
+          aria-hidden
+          className="ms-0.5 inline-block size-1.5 rounded-full bg-primary/80"
+        />
+      ) : null}
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={(event) => {
+          event.stopPropagation();
+          onClose();
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          event.stopPropagation();
+          onClose();
+        }}
+        className={cn(
+          "ms-1 flex size-4 items-center justify-center rounded-[var(--radius-ui-xs)]",
+          "text-muted-foreground/80 transition-colors duration-[var(--ds-dur-fast)]",
+          "opacity-0 hover:bg-[color:var(--surface-control-hover)] hover:text-foreground",
+          "group-hover:opacity-100",
+          active && "opacity-100"
+        )}
+        aria-label={closeLabel}
+      >
+        <X className="size-3" />
+      </span>
+    </button>
+  );
+}
+
 function UnsavedDialog({
   tab,
   onCancel,
@@ -98,24 +149,27 @@ function UnsavedDialog({
   onDiscard: () => void;
   onSave: () => Promise<void>;
 }) {
+  const { t } = useTranslation("workspace");
   return (
     <Dialog open={Boolean(tab)} onOpenChange={(open) => !open && onCancel()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>保存更改？</DialogTitle>
+          <DialogTitle>{t("explorer.unsavedTitle")}</DialogTitle>
           <DialogDescription>
-            {tab ? `${fileName(tab.path)} 有未保存的更改。` : ""}
+            {tab
+              ? t("explorer.unsavedDescription", { name: fileName(tab.path) })
+              : ""}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onCancel}>
-            取消
+            {t("explorer.cancelAction")}
           </Button>
           <Button type="button" variant="outline" onClick={onDiscard}>
-            丢弃
+            {t("explorer.discardAction")}
           </Button>
           <Button type="button" onClick={onSave}>
-            保存
+            {t("explorer.saveAction")}
           </Button>
         </DialogFooter>
       </DialogContent>

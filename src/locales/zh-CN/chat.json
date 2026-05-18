@@ -17,7 +17,7 @@
   "regenerate": "重新生成",
   "attach": "附加图片",
   "composer": {
-    "attach": "附加",
+    "attach": "添加附件",
     "attachImage": "上传图片",
     "attachText": "上传 Markdown / 文本",
     "attachWorkspaceFile": "从工作区选择…",

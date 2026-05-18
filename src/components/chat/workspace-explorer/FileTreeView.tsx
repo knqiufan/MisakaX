@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,6 +13,7 @@ interface FileTreeViewProps {
 }
 
 export function FileTreeView({ workingDir, onOpenFile }: FileTreeViewProps) {
+  const { t } = useTranslation("workspace");
   const [entries, setEntries] = useState<FsEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -21,20 +23,22 @@ export function FileTreeView({ workingDir, onOpenFile }: FileTreeViewProps) {
       setEntries(await fsIpc.listDir(workingDir, workingDir));
     } catch (error) {
       console.error("Failed to load workspace tree:", error);
-      toast.error("无法读取工作区文件树");
+      toast.error(t("explorer.loadTreeFailed"));
     } finally {
       setLoading(false);
     }
-  }, [workingDir]);
+  }, [workingDir, t]);
 
   useEffect(() => {
     void loadRoot();
   }, [loadRoot]);
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col border-b border-[color:var(--border-muted)]">
+    <section className="flex min-h-0 flex-1 flex-col">
       <div className="flex h-9 items-center justify-between border-b border-[color:var(--border-muted)] px-3">
-        <span className="text-xs font-medium text-muted-foreground">Explorer</span>
+        <span className="text-xs font-medium text-muted-foreground">
+          {t("explorer.treeTitle")}
+        </span>
         <Button
           type="button"
           variant="ghost"
@@ -42,9 +46,9 @@ export function FileTreeView({ workingDir, onOpenFile }: FileTreeViewProps) {
           onClick={loadRoot}
           disabled={loading}
           className="size-7 rounded-[var(--radius-ui-sm)]"
-          aria-label="Refresh file tree"
+          aria-label={t("explorer.refreshTree")}
         >
-          <RefreshCw className="size-3.5" />
+          <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
         </Button>
       </div>
       <ScrollArea className="min-h-0 flex-1">

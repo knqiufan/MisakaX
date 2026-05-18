@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口三栏结构、会话侧栏工具区、对话页顶栏、设置页 Provider 弹窗与对话页模型选择器的布局语义和样式约定。 |
 | **受众** | 负责 `AppShell`、`Sidebar`、`ChatPage`、`SessionPanel`、`WorkspaceBar`、`ModelSettings`、`ProviderDialog` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-05-18 |
+| **最后审阅** | 2026-05-19 |
 
 ## 相关文档
 
@@ -113,6 +113,32 @@ MisakaX 主界面在逻辑上划分为：
 
 - 前端只能通过后端 `fs_*` IPC 读取和写入文件；后端必须校验目标路径位于当前工作目录下。
 - 大文件与二进制文件应被拒绝并给出用户可理解的错误反馈，避免卡死编辑器或将二进制误送入文本编辑流程。
+- 「在文件资源管理器中打开」必须由后端命令（`fs_reveal_in_explorer`）实现，统一进行 `validate_under_root` 校验后调用系统进程（Windows `explorer /select,`，macOS `open -R`，Linux `xdg-open` 目录）。前端不得直接拼接 shell 命令打开任意路径。
+
+### 5.4 入口图标与文案
+
+- `WorkspaceBar` 右侧打开 Explorer 的按钮**禁止**使用 `PanelRight*` 等通用「侧栏开关」图标，因其指向性不足；应使用具备工作区/文件树语义的图标（推荐 `FolderTree`）。Tooltip 与 `aria-label` 必须走 `workspace.openExplorer` 这类 i18n key，不得硬编码英文。
+- Explorer 面板自身的标题、收起按钮、文件树标题、刷新按钮、空状态提示、tab 关闭、未保存对话框等**全部文案都必须 i18n**；新增子区域时优先在 `workspace.explorer.*` 命名空间下扩展，避免 chat / common 命名空间被工作区强耦合。
+
+### 5.5 Explorer 入场动画
+
+- Explorer 由 `WorkspaceBar` 切换打开时，**整个 `<aside>` 容器**使用 `animate-in fade-in slide-in-from-right-4 ease-out duration-[220ms]` 作为出场动画，时长贴齐 `--ds-dur-slow`；不得使用桌面 Agent 风格忌讳的缩放/位移幅度大的入场。
+- 由于 `react-resizable-panels` 的 Panel 宽度切换是即时的，入场动画必须挂在 Explorer 内层容器上（而非 Panel 外层），让用户视觉焦点落在内容渐入上，从而弱化宽度硬切的突兀感。
+- 关闭无需逆向动画，与桌面应用关闭侧栏的直觉一致（瞬时让位给主内容区）。
+
+### 5.6 文件树右键菜单
+
+- 文件树节点（无论文件或目录）必须支持原生右键菜单（基于 `ContextMenu` 组件），至少包含「在文件资源管理器中打开」「复制完整路径」两个入口。
+- 「在文件资源管理器中打开」必须通过 `fs_reveal_in_explorer` IPC 实现；前端在失败时通过 Sonner `toast.error` 反馈，文案走 `workspace.explorer.openInExplorerFailed`。
+- 「复制完整路径」使用 `@tauri-apps/plugin-clipboard-manager`，成功后用 `toast.success` 反馈，禁止滥用浏览器 `navigator.clipboard` 在桌面端绕过 Tauri 权限。
+
+### 5.7 Monaco Tab 与编辑面板美化
+
+- `EditorTabs` 容器使用 `h-10`、`px-2 pt-1.5`，tab 自身**必须圆角**：使用 `rounded-t-[var(--radius-ui-md)]`；不得保留直角 tab。
+- Tab 选中态通过「与编辑面板同色的背景 + 顶部圆角 + 边框」表达视觉连续，未选中态默认隐藏关闭按钮（`opacity-0 group-hover:opacity-100`），桌面端避免视觉噪音。
+- 脏标记使用 `size-1.5` 圆点（`bg-primary/80`），禁止使用大号 bullet 或文字「•」。
+- `EditorPane` 容器使用 `rounded-tl-[var(--radius-ui-md)]` 与 Tabs 形成连贯轮廓；Monaco 选项强制开启 `smoothScrolling`、`cursorBlinking: "smooth"`、`padding: { top: 10, bottom: 10 }`，并把滚动条尺寸控制在 10px 以贴合现代 Agent 风格。
+- 「未选择文件」占位区禁止只放一行文字；使用低饱和图标容器（`size-12` 圆角卡片 + 弱化图标）+ 短句提示，与 `ChatEmptyState` 保持同一调性。
 
 ## 6. 小结
 
