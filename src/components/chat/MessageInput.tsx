@@ -1,15 +1,15 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
-  type KeyboardEvent,
+  type ChangeEvent,
   type ClipboardEvent,
   type DragEvent,
+  type KeyboardEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { Send, Square, ChevronDown, Paperclip } from "lucide-react";
+import { Send, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,57 +17,64 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { modelsIpc } from "@/lib/ipc";
-import type { ImageAttachment, ProviderModels } from "@/lib/ipc";
+import type { MessageAttachment } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
-import { ModelSelector, type FlatModel } from "./model-selector/ModelSelector";
+import { useComposerStore, type PendingAttachment } from "@/stores/composer-store";
+import { AttachButton } from "./composer/AttachButton";
+import { AttachmentMenu } from "./composer/AttachmentMenu";
+import { AttachmentPreview } from "./composer/AttachmentPreview";
+import { ComposerFooter } from "./composer/ComposerFooter";
 import {
-  isSelectedModelValid,
-  selectedModelLabel,
-  toFlatModels,
-} from "./model-selector/model-data";
-import { ImagePreview, type PendingImage } from "./ImagePreview";
+  ACCEPTED_ATTACHMENT_TYPES,
+  MAX_IMAGE_SIZE,
+  MAX_TEXT_ATTACHMENT_SIZE,
+  canSendComposerMessage,
+  classifyAttachment,
+  inferTextMime,
+} from "./composer/attachment-utils";
 
 const MIN_HEIGHT = 36;
 const MAX_HEIGHT = 200;
-const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
-const ALLOWED_IMAGE_TYPES = [
-  "image/png",
-  "image/jpeg",
-  "image/gif",
-  "image/webp",
-];
 
 interface MessageInputProps {
   onSend: (
     content: string,
     modelOverride?: string,
-    images?: ImageAttachment[]
+    attachments?: MessageAttachment[]
   ) => void;
   onStop: () => void;
   disabled?: boolean;
+  onPickWorkspaceFile?: () => void;
 }
 
-export function MessageInput({ onSend, onStop, disabled }: MessageInputProps) {
+export function MessageInput({
+  onSend,
+  onStop,
+  disabled = false,
+  onPickWorkspaceFile,
+}: MessageInputProps) {
   const { t } = useTranslation("chat");
   const { isStreaming, selectedModel } = useChatStore();
+  const { attachments, addAttachment, removeAttachment, clearAttachments } =
+    useComposerStore();
   const [content, setContent] = useState("");
-  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
 
-  const canSend =
-    (content.trim().length > 0 || pendingImages.length > 0) &&
-    !disabled &&
-    !isStreaming;
+  const canSend = canSendComposerMessage({
+    content,
+    attachmentCount: attachments.length,
+    disabled,
+    isStreaming,
+  });
 
   const adjustHeight = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    const scrollH = el.scrollHeight;
-    el.style.height = `${Math.min(Math.max(scrollH, MIN_HEIGHT), MAX_HEIGHT)}px`;
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, MIN_HEIGHT), MAX_HEIGHT)}px`;
   }, []);
 
   useEffect(() => {
@@ -76,26 +83,14 @@ export function MessageInput({ onSend, onStop, disabled }: MessageInputProps) {
 
   const handleSend = useCallback(() => {
     const trimmed = content.trim();
-    if ((!trimmed && pendingImages.length === 0) || isStreaming) return;
-
-    const images: ImageAttachment[] | undefined =
-      pendingImages.length > 0
-        ? pendingImages.map((img) => ({
-            type: "base64",
-            data: img.data,
-            mime_type: img.mime_type,
-          }))
-        : undefined;
-
-    onSend(trimmed, selectedModel ?? undefined, images);
+    if (!canSend) return;
+    onSend(trimmed, selectedModel ?? undefined, toMessageAttachments(attachments));
     setContent("");
-    setPendingImages([]);
+    clearAttachments();
     requestAnimationFrame(() => {
-      if (textareaRef.current) {
-        textareaRef.current.style.height = `${MIN_HEIGHT}px`;
-      }
+      if (textareaRef.current) textareaRef.current.style.height = `${MIN_HEIGHT}px`;
     });
-  }, [content, isStreaming, onSend, selectedModel, pendingImages]);
+  }, [attachments, canSend, clearAttachments, content, onSend, selectedModel]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -109,58 +104,33 @@ export function MessageInput({ onSend, onStop, disabled }: MessageInputProps) {
 
   const processFiles = useCallback(
     (files: FileList | File[]) => {
-      const fileArray = Array.from(files);
-      for (const file of fileArray) {
-        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-          console.warn(`Unsupported image type: ${file.type}`);
-          continue;
+      Array.from(files).forEach((file) => {
+        const classification = classifyAttachment(file.type, file.name);
+        if (!classification.supported) {
+          console.warn(`Unsupported attachment type: ${file.name} (${file.type})`);
+          return;
         }
-        if (file.size > MAX_IMAGE_SIZE) {
-          console.warn(
-            `Image too large: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB > 10MB)`
-          );
-          continue;
+        if (classification.kind === "image") {
+          readImageAttachment(file, addAttachment);
+          return;
         }
-
-        const reader = new FileReader();
-        reader.onload = () => {
-          const base64 = (reader.result as string).split(",")[1];
-          if (!base64) return;
-
-          setPendingImages((prev) => [
-            ...prev,
-            {
-              id: crypto.randomUUID(),
-              data: base64,
-              mime_type: file.type,
-              name: file.name,
-              size: file.size,
-            },
-          ]);
-        };
-        reader.readAsDataURL(file);
-      }
+        if (classification.kind === "text") {
+          readTextAttachment(file, addAttachment);
+        }
+      });
     },
-    []
+    [addAttachment]
   );
 
   const handlePaste = useCallback(
     (e: ClipboardEvent<HTMLTextAreaElement>) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-
-      const imageFiles: File[] = [];
-      for (const item of Array.from(items)) {
-        if (item.type.startsWith("image/")) {
-          const file = item.getAsFile();
-          if (file) imageFiles.push(file);
-        }
-      }
-
-      if (imageFiles.length > 0) {
-        e.preventDefault();
-        processFiles(imageFiles);
-      }
+      const files = Array.from(e.clipboardData?.items ?? [])
+        .filter((item) => item.type.startsWith("image/"))
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => Boolean(file));
+      if (files.length === 0) return;
+      e.preventDefault();
+      processFiles(files);
     },
     [processFiles]
   );
@@ -182,129 +152,98 @@ export function MessageInput({ onSend, onStop, disabled }: MessageInputProps) {
       e.preventDefault();
       e.stopPropagation();
       setIsDragOver(false);
-
-      const files = e.dataTransfer?.files;
-      if (files && files.length > 0) {
-        processFiles(files);
-      }
+      if (e.dataTransfer?.files?.length) processFiles(e.dataTransfer.files);
     },
     [processFiles]
   );
-
-  const handleAttachClick = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
-  const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files;
-      if (files && files.length > 0) {
-        processFiles(files);
-      }
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    },
-    [processFiles]
-  );
-
-  const handleRemoveImage = useCallback((id: string) => {
-    setPendingImages((prev) => prev.filter((img) => img.id !== id));
-  }, []);
 
   return (
     <div className="shrink-0 border-t border-[color:var(--border-muted)] bg-[color:var(--surface-topbar)] px-4 py-3">
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={cn(
-          "flex flex-col rounded-[var(--radius-ui-lg)]",
-          "border bg-[color:var(--surface-card)]",
-          "px-3 py-1.5 transition-colors duration-[var(--ds-dur-fast)]",
-          isDragOver
-            ? "border-primary/50 bg-primary/5"
-            : "border-[color:var(--border-muted)] focus-within:border-[color:var(--border-strong)]"
-        )}
-      >
-        <ImagePreview images={pendingImages} onRemove={handleRemoveImage} />
-
-        <div className="flex items-center gap-2">
-          <AttachButton onClick={handleAttachClick} t={t} />
-
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            placeholder={t("inputPlaceholder")}
-            disabled={disabled}
-            rows={1}
-            className={cn(
-              "min-h-[36px] max-h-[200px] flex-1 resize-none bg-transparent",
-              "text-sm leading-snug text-foreground outline-none",
-              "placeholder:text-muted-foreground/55",
-              "disabled:cursor-not-allowed disabled:opacity-50"
-            )}
-            style={{ height: `${MIN_HEIGHT}px` }}
+      <div className="flex items-end gap-2">
+        <AttachmentMenu
+          trigger={
+            <AttachButton
+              label={t("composer.attach")}
+              onClick={() => undefined}
+              disabled={disabled}
+            />
+          }
+          labels={{
+            image: t("composer.attachImage"),
+            text: t("composer.attachText"),
+            workspace: t("composer.attachWorkspaceFile"),
+            planned: t("composer.plannedDocuments"),
+            comingSoon: t("composer.comingSoon"),
+          }}
+          onPickImages={() => imageInputRef.current?.click()}
+          onPickText={() => textInputRef.current?.click()}
+          onPickWorkspace={() => onPickWorkspaceFile?.()}
+        />
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={cn(
+            "flex min-w-0 flex-1 flex-col rounded-[var(--radius-ui-lg)]",
+            "border bg-[color:var(--surface-card)]",
+            "px-3 py-1.5 transition-colors duration-[var(--ds-dur-fast)]",
+            isDragOver
+              ? "border-primary/50 bg-primary/5"
+              : "border-[color:var(--border-muted)] focus-within:border-[color:var(--border-strong)]"
+          )}
+        >
+          <AttachmentPreview
+            attachments={attachments}
+            onRemove={removeAttachment}
           />
-
-          <InputToolbar
-            isStreaming={isStreaming}
-            canSend={canSend}
-            onSend={handleSend}
-            onStop={onStop}
-            t={t}
-          />
+          <div className="flex items-center gap-2">
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              placeholder={t("inputPlaceholder")}
+              disabled={disabled}
+              rows={1}
+              className={cn(
+                "min-h-[36px] max-h-[200px] flex-1 resize-none bg-transparent",
+                "py-2 text-sm leading-[20px] text-foreground outline-none",
+                "placeholder:text-muted-foreground/55",
+                "disabled:cursor-not-allowed disabled:opacity-50"
+              )}
+              style={{ height: `${MIN_HEIGHT}px` }}
+            />
+            <InputToolbar
+              isStreaming={isStreaming}
+              canSend={canSend}
+              onSend={handleSend}
+              onStop={onStop}
+              t={t}
+            />
+          </div>
         </div>
       </div>
-
       <input
-        ref={fileInputRef}
+        ref={imageInputRef}
         type="file"
-        accept={ALLOWED_IMAGE_TYPES.join(",")}
+        accept="image/png,image/jpeg,image/gif,image/webp"
         multiple
-        onChange={handleFileChange}
+        onChange={(e) => handleFileChange(e, processFiles)}
         className="hidden"
         aria-hidden
       />
-
-      <InputFooter t={t} />
+      <input
+        ref={textInputRef}
+        type="file"
+        accept={ACCEPTED_ATTACHMENT_TYPES}
+        multiple
+        onChange={(e) => handleFileChange(e, processFiles)}
+        className="hidden"
+        aria-hidden
+      />
+      <ComposerFooter t={t} />
     </div>
-  );
-}
-
-function AttachButton({
-  onClick,
-  t,
-}: {
-  onClick: () => void;
-  t: (key: string) => string;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={onClick}
-          aria-label={t("attach")}
-          className={cn(
-            "inline-flex size-8 shrink-0 items-center justify-center rounded-full",
-            "border border-[color:var(--cm-border-strong)]",
-            "bg-[color:var(--cm-surface-panel-solid)]",
-            "text-muted-foreground",
-            "transition-colors duration-[var(--ds-dur-fast)]",
-            "hover:text-foreground"
-          )}
-        >
-          <Paperclip className="size-3.5" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="text-xs">
-        {t("attach")}
-      </TooltipContent>
-    </Tooltip>
   );
 }
 
@@ -334,8 +273,7 @@ function InputToolbar({
             className={cn(
               "size-8 shrink-0 rounded-full",
               "border border-[color:rgba(255,107,107,0.6)]",
-              "bg-[color:rgba(255,107,107,0.12)]",
-              "text-[#ff6b6b]",
+              "bg-[color:rgba(255,107,107,0.12)] text-[#ff6b6b]",
               "hover:bg-[color:rgba(255,107,107,0.2)] hover:text-[#ff6b6b]"
             )}
           >
@@ -362,10 +300,9 @@ function InputToolbar({
           className={cn(
             "size-8 shrink-0 rounded-full",
             "border border-[color:var(--cm-border-emphasis)]",
-            "bg-[color:var(--cm-surface-panel-strong)]",
-            "text-foreground",
+            "bg-[color:var(--cm-surface-panel-strong)] text-foreground",
             "hover:bg-[color:var(--cm-surface-panel-solid)]",
-            "disabled:opacity-50 disabled:cursor-not-allowed"
+            "disabled:cursor-not-allowed disabled:opacity-50"
           )}
         >
           <Send className="size-3.5" />
@@ -378,69 +315,78 @@ function InputToolbar({
   );
 }
 
-function InputFooter({ t }: { t: (key: string) => string }) {
-  const { modelsVersion, selectedModel, setSelectedModel } = useChatStore();
-  const [providerModels, setProviderModels] = useState<ProviderModels[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [modelListOpen, setModelListOpen] = useState(false);
+function handleFileChange(
+  e: ChangeEvent<HTMLInputElement>,
+  processFiles: (files: FileList | File[]) => void
+) {
+  if (e.target.files?.length) processFiles(e.target.files);
+  e.target.value = "";
+}
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoaded(false);
-    modelsIpc
-      .listAvailable()
-      .then((models) => {
-        if (!cancelled) setProviderModels(models);
-      })
-      .catch(console.error)
-      .finally(() => {
-        if (!cancelled) setLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [modelsVersion]);
+function readImageAttachment(
+  file: File,
+  addAttachment: (attachment: PendingAttachment) => void
+) {
+  if (file.size > MAX_IMAGE_SIZE) {
+    console.warn(`Image too large: ${file.name}`);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const base64 = (reader.result as string).split(",")[1];
+    if (!base64) return;
+    addAttachment({
+      id: crypto.randomUUID(),
+      kind: "image",
+      data: base64,
+      media_type: file.type,
+      file_name: file.name,
+      size: file.size,
+    });
+  };
+  reader.readAsDataURL(file);
+}
 
-  const flatModels: FlatModel[] = useMemo(() => {
-    return toFlatModels(providerModels, t("selectModel"));
-  }, [providerModels, t]);
+function readTextAttachment(
+  file: File,
+  addAttachment: (attachment: PendingAttachment) => void
+) {
+  if (file.size > MAX_TEXT_ATTACHMENT_SIZE) {
+    console.warn(`Text attachment too large: ${file.name}`);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    addAttachment({
+      id: crypto.randomUUID(),
+      kind: "text",
+      extracted_text: String(reader.result ?? ""),
+      mime: inferTextMime(file),
+      file_name: file.name,
+      size: file.size,
+    });
+  };
+  reader.readAsText(file);
+}
 
-  useEffect(() => {
-    if (!loaded || !selectedModel) return;
-    if (!isSelectedModelValid(selectedModel, flatModels)) {
-      setSelectedModel(null);
-    }
-  }, [flatModels, loaded, selectedModel, setSelectedModel]);
-
-  const selectedLabel = useMemo(() => {
-    return selectedModelLabel(selectedModel, flatModels, t("selectModel"));
-  }, [selectedModel, flatModels, t]);
-
-  return (
-    <div className="mt-1.5 flex items-center gap-2 px-1">
-      <ModelSelector
-        models={flatModels}
-        selectedModel={selectedModel}
-        onSelect={setSelectedModel}
-        open={modelListOpen}
-        onOpenChange={setModelListOpen}
-        trigger={
-          <button
-            type="button"
-            onClick={() => setModelListOpen(!modelListOpen)}
-            className={cn(
-              "inline-flex items-center gap-1 rounded-full px-2.5 py-1",
-              "bg-[color:var(--cm-surface-panel-strong)]",
-              "text-[11px] text-muted-foreground",
-              "transition-colors duration-[var(--ds-dur-fast)]",
-              "hover:bg-[color:var(--cm-surface-panel-solid)] hover:text-foreground"
-            )}
-          >
-            <span className="max-w-[120px] truncate">{selectedLabel}</span>
-            <ChevronDown className="size-3 opacity-70" />
-          </button>
+function toMessageAttachments(
+  attachments: PendingAttachment[]
+): MessageAttachment[] | undefined {
+  if (attachments.length === 0) return undefined;
+  return attachments.map((attachment) =>
+    attachment.kind === "image"
+      ? {
+          kind: "image",
+          data: attachment.data,
+          media_type: attachment.media_type,
+          file_name: attachment.file_name,
         }
-      />
-    </div>
+      : {
+          kind: "text",
+          extracted_text: attachment.extracted_text,
+          mime: attachment.mime,
+          file_name: attachment.file_name,
+          size: attachment.size,
+        }
   );
 }

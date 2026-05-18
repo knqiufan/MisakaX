@@ -190,16 +190,28 @@ export interface TokenUsage {
   total_tokens: number;
 }
 
-export interface ImageAttachment {
-  type: string;
-  data: string;
-  mime_type: string;
-}
+export type MessageAttachment =
+  | {
+      kind: "image";
+      data: string;
+      media_type: string;
+      file_name?: string;
+    }
+  | {
+      kind: "text";
+      extracted_text: string;
+      mime: string;
+      file_name: string;
+      size: number;
+    };
+
+export type ImageAttachment = MessageAttachment;
 
 export interface SendMessageRequest {
   session_id: string;
   content: string;
-  images?: ImageAttachment[];
+  attachments?: MessageAttachment[];
+  images?: MessageAttachment[];
   model_override?: string;
   llm_config?: Record<string, unknown>;
 }

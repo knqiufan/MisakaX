@@ -3,16 +3,16 @@ use tauri::{AppHandle, State};
 
 use crate::crypto;
 use crate::db::repository::{MessageRepo, RouterConfigRepo, SessionRepo};
-use crate::services::llm::backend::ImageAttachment;
+use crate::services::llm::backend::MessageAttachment;
 use crate::services::llm::config::LlmConfig;
 use crate::services::llm::RigBackend;
 use crate::services::mcp_bridge::McpToolBridge;
 use crate::AppState;
 
-/// 将附件 JSON 字符串反序列化为 ImageAttachment 列表
-fn parse_attachments_json(json: Option<&str>) -> Option<Vec<ImageAttachment>> {
-    json.and_then(|s| serde_json::from_str::<Vec<ImageAttachment>>(s).ok())
-        .filter(|imgs| !imgs.is_empty())
+/// 将附件 JSON 字符串反序列化为 MessageAttachment 列表
+fn parse_attachments_json(json: Option<&str>) -> Option<Vec<MessageAttachment>> {
+    json.and_then(|s| serde_json::from_str::<Vec<MessageAttachment>>(s).ok())
+        .filter(|attachments| !attachments.is_empty())
 }
 
 // ─── 请求/响应类型 ─────────────────────────────────────────────────────
@@ -27,7 +27,8 @@ pub struct SendMessageResult {
 pub struct SendMessageRequest {
     pub session_id: String,
     pub content: String,
-    pub images: Option<Vec<ImageAttachment>>,
+    #[serde(default, alias = "images")]
+    pub attachments: Option<Vec<MessageAttachment>>,
     pub model_override: Option<String>,
     pub llm_config: Option<LlmConfig>,
 }
@@ -83,7 +84,7 @@ pub async fn send_message(
                 &session,
                 &history,
                 &request.content,
-                &request.images,
+                &request.attachments,
                 &model_spec.model_id,
                 abort_flag,
                 &assistant_msg_id,
@@ -155,7 +156,7 @@ pub async fn regenerate_message(
     create_assistant_placeholder(&state, &assistant_msg_id, &session_id, &model_spec)?;
 
     let abort_flag = state.stream_registry.register(&session_id);
-    let images = parse_attachments_json(regen_ctx.user_attachments.as_deref());
+    let attachments = parse_attachments_json(regen_ctx.user_attachments.as_deref());
 
     let backend = RigBackend::from_config(
         &router_config,
@@ -172,7 +173,7 @@ pub async fn regenerate_message(
                 &session,
                 &regen_ctx.messages_before,
                 &regen_ctx.user_content,
-                &images,
+                &attachments,
                 &model_spec.model_id,
                 abort_flag,
                 &assistant_msg_id,
@@ -255,9 +256,9 @@ fn save_user_message(
     let db = state.db.lock().map_err(|e| e.to_string())?;
 
     let attachments_json = request
-        .images
+        .attachments
         .as_ref()
-        .map(|imgs| serde_json::to_string(imgs).unwrap_or_default());
+        .map(|attachments| serde_json::to_string(attachments).unwrap_or_default());
 
     MessageRepo::insert_user_message(
         &db,

@@ -7,7 +7,7 @@
 - **壳层布局、主导航收起语义、会话列表工具区、对话页工作目录顶栏**等专项约定：见 [shell-and-workspace-ui-spec.md](./shell-and-workspace-ui-spec.md)。  
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 
-**最后审阅 / Last reviewed:** 2026-05-10
+**最后审阅 / Last reviewed:** 2026-05-18
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -59,6 +59,9 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 
 - 附件按钮、文本域、发送/停止按钮放在同一 `flex` 行时，使用 **`items-center`** 做垂直居中；避免在单行默认高度下配合过高的 `min-height` 使用 `items-end`，否则圆形图标按钮容易视觉上“沉底”。
 - 同行圆形图标按钮宜统一触控尺寸（例如均为 `size-8`），附件与发送样式对齐。
+- 新版 Composer 中，附件入口使用外置左侧圆形 `+` 按钮，不放入输入框内部；按钮与输入容器同属一行，输入容器内部只承载附件预览、文本域与发送/停止按钮。
+- `textarea` 单行态必须通过 `leading-[20px]` 与 `py-2` 保证文本视觉垂直居中；禁止只用 `min-h-[36px]` 撑高文本域，否则占位符会贴近左上角。
+- 附件预览支持图片缩略图与文本文件卡片两类；非图片附件不得伪装成图片缩略图，应使用文件图标、文件名与大小信息表达。
 
 ### 4.4 空页面与占位符 (Empty States)
 - 空页面设计应具有**引导性**。

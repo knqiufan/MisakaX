@@ -1,4 +1,5 @@
 pub mod chat;
+pub mod fs_explorer;
 pub mod mcp;
 pub mod models;
 pub mod router_configs;

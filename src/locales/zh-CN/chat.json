@@ -16,6 +16,18 @@
   "copied": "已复制",
   "regenerate": "重新生成",
   "attach": "附加图片",
+  "composer": {
+    "attach": "附加",
+    "attachImage": "上传图片",
+    "attachText": "上传 Markdown / 文本",
+    "attachWorkspaceFile": "从工作区选择…",
+    "plannedDocuments": "PDF / Word / Excel",
+    "comingSoon": "即将支持",
+    "mcp": "MCP 工具",
+    "mcpEmpty": "未连接任何 MCP 服务器",
+    "skill": "Skill",
+    "skillComingSoon": "Skill 模块开发中"
+  },
   "thinkingStreaming": "思考中…",
   "thinkingDone": "思考过程",
   "tokenUsage": "Token 用量",

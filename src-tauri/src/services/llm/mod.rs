@@ -8,7 +8,8 @@ pub mod streaming;
 pub mod traits;
 
 pub use backend::{
-    build_rig_chat_history, build_user_prompt, ChatBackend, ImageAttachment, RigBackend,
+    build_rig_chat_history, build_user_prompt, ChatBackend, ImageAttachment, MessageAttachment,
+    RigBackend,
 };
 pub use catalog::{
     chat_url, endpoint, google_generate_url, models_url, supported_vendors, ProviderApi,

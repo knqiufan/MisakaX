@@ -1,11 +1,18 @@
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { MessageSquare, Plus } from "lucide-react";
+import {
+  Group as PanelGroup,
+  Panel,
+  Separator as PanelResizeHandle,
+} from "react-resizable-panels";
 import { Button } from "@/components/ui/button";
 import { WorkspaceSelector } from "@/components/chat/WorkspaceSelector";
 import { ChatView } from "@/components/chat/ChatView";
 import { SessionPanel } from "@/components/chat/SessionPanel";
+import { WorkspaceExplorer } from "@/components/chat/workspace-explorer/WorkspaceExplorer";
 import { useChatStore } from "@/stores/chat-store";
+import { useWorkspaceExplorerStore } from "@/stores/workspace-explorer-store";
 import { sessionsIpc } from "@/lib/ipc";
 
 export function ChatPage() {
@@ -17,6 +24,8 @@ export function ChatPage() {
     setActiveSessionData,
     updateActiveSessionWorkingDir,
   } = useChatStore();
+  const { open: explorerOpen, setOpen: setExplorerOpen } =
+    useWorkspaceExplorerStore();
 
   const handleNewSession = useCallback(() => {
     setShowWorkspaceSelector(true);
@@ -63,10 +72,24 @@ export function ChatPage() {
       <div className="flex min-w-0 flex-1 flex-col">
         {activeSession ? (
           <>
-            <ChatView
-              session={activeSession}
-              onChangeDir={handleChangeWorkingDir}
-            />
+            <PanelGroup orientation="horizontal" id="misakax-chat-explorer">
+              <Panel id="chat" defaultSize={explorerOpen ? "70%" : "100%"} minSize="40%">
+                <ChatView
+                  session={activeSession}
+                  onChangeDir={handleChangeWorkingDir}
+                  onToggleExplorer={() => setExplorerOpen(true)}
+                  explorerOpen={explorerOpen}
+                />
+              </Panel>
+              {explorerOpen && activeSession.working_directory ? (
+                <>
+                  <PanelResizeHandle className="w-px bg-[color:var(--border-muted)] hover:bg-[color:var(--border-strong)]" />
+                  <Panel id="explorer" defaultSize="30%" minSize="18%" maxSize="55%">
+                    <WorkspaceExplorer workingDir={activeSession.working_directory} />
+                  </Panel>
+                </>
+              ) : null}
+            </PanelGroup>
             <WorkspaceSelector
               open={showWorkspaceSelector}
               onOpenChange={setShowWorkspaceSelector}

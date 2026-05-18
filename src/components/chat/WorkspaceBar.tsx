@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { FolderOpen, FolderX, RefreshCw } from "lucide-react";
+import { FolderOpen, FolderX, PanelRightOpen, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 interface WorkspaceBarProps {
   workingDir: string | null;
   onChangeDir: () => void;
+  onToggleExplorer?: () => void;
+  explorerOpen?: boolean;
 }
 
 const barShellClass = cn(
@@ -18,14 +20,27 @@ const barShellClass = cn(
   "bg-[color:var(--surface-topbar)] px-5 py-3 backdrop-blur-[2px]"
 );
 
-export function WorkspaceBar({ workingDir, onChangeDir }: WorkspaceBarProps) {
+export function WorkspaceBar({
+  workingDir,
+  onChangeDir,
+  onToggleExplorer,
+  explorerOpen = false,
+}: WorkspaceBarProps) {
   const { t } = useTranslation("workspace");
 
   if (!workingDir) {
     return <WorkspaceBarUnset t={t} onSelectDir={onChangeDir} />;
   }
 
-  return <WorkspaceBarSet t={t} workingDir={workingDir} onChangeDir={onChangeDir} />;
+  return (
+    <WorkspaceBarSet
+      t={t}
+      workingDir={workingDir}
+      onChangeDir={onChangeDir}
+      onToggleExplorer={onToggleExplorer}
+      explorerOpen={explorerOpen}
+    />
+  );
 }
 
 function WorkspaceBarUnset({
@@ -61,10 +76,14 @@ function WorkspaceBarSet({
   t,
   workingDir,
   onChangeDir,
+  onToggleExplorer,
+  explorerOpen,
 }: {
   t: (k: string) => string;
   workingDir: string;
   onChangeDir: () => void;
+  onToggleExplorer?: () => void;
+  explorerOpen: boolean;
 }) {
   const dirName = extractDirName(workingDir);
 
@@ -107,6 +126,24 @@ function WorkspaceBarSet({
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">
           {t("switchDir")}
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={onToggleExplorer}
+            disabled={!onToggleExplorer || explorerOpen}
+            className="size-9 shrink-0 rounded-[var(--radius-ui-md)] border-[color:var(--border-muted)]"
+            aria-label="Open workspace explorer"
+          >
+            <PanelRightOpen className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">
+          Workspace Explorer
         </TooltipContent>
       </Tooltip>
     </div>

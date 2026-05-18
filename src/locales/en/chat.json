@@ -16,6 +16,18 @@
   "copied": "Copied",
   "regenerate": "Regenerate",
   "attach": "Attach image",
+  "composer": {
+    "attach": "Attach",
+    "attachImage": "Upload image",
+    "attachText": "Upload Markdown / text",
+    "attachWorkspaceFile": "Choose from workspace…",
+    "plannedDocuments": "PDF / Word / Excel",
+    "comingSoon": "Coming soon",
+    "mcp": "MCP tools",
+    "mcpEmpty": "No MCP servers connected",
+    "skill": "Skill",
+    "skillComingSoon": "Skill module is under development"
+  },
   "thinkingStreaming": "Thinking…",
   "thinkingDone": "Thought process",
   "tokenUsage": "Token usage",

@@ -7,6 +7,7 @@ export { chatIpc } from "./chat";
 export { modelsIpc } from "./models";
 export { sidecarIpc } from "./sidecar";
 export { mcpIpc } from "./mcp";
+export { fsIpc } from "./fs";
 export type {
   AppConfig,
   RouterConfig,
@@ -28,6 +29,7 @@ export type {
   MessageRole,
   MessageStatus,
   TokenUsage,
+  MessageAttachment,
   ImageAttachment,
   SendMessageRequest,
   SendMessageResult,
@@ -53,3 +55,4 @@ export type { CreateSessionParams, UpdateSessionWorkingDirParams } from "./sessi
 export type { ModelInfo, ProviderModels } from "./models";
 export type { SidecarStatus, SidecarStatusEvent } from "./sidecar";
 export type { McpServerConfigInput, McpTransportInput } from "./mcp";
+export type { FsEntry } from "./fs";

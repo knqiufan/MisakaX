@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { listen } from "@tauri-apps/api/event";
 import { useChatStore } from "@/stores/chat-store";
 import { chatIpc, IpcError } from "@/lib/ipc";
-import type { Session, ImageAttachment, ToolCallRequestEvent } from "@/lib/ipc";
+import type { Session, MessageAttachment, ToolCallRequestEvent } from "@/lib/ipc";
 import { useStreamListener } from "@/hooks/use-stream-listener";
 import { WorkspaceBar } from "./WorkspaceBar";
 import { MessageList } from "./MessageList";
@@ -15,9 +15,16 @@ import { ToolApprovalDialog } from "./ToolApprovalDialog";
 interface ChatViewProps {
   session: Session;
   onChangeDir: () => void;
+  onToggleExplorer?: () => void;
+  explorerOpen?: boolean;
 }
 
-export function ChatView({ session, onChangeDir }: ChatViewProps) {
+export function ChatView({
+  session,
+  onChangeDir,
+  onToggleExplorer,
+  explorerOpen = false,
+}: ChatViewProps) {
   const { t } = useTranslation("chat");
   const {
     messages,
@@ -57,10 +64,10 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
     async (
       content: string,
       modelOverride?: string,
-      images?: ImageAttachment[]
+      attachments?: MessageAttachment[]
     ) => {
       const attachmentsJson =
-        images && images.length > 0 ? JSON.stringify(images) : null;
+        attachments && attachments.length > 0 ? JSON.stringify(attachments) : null;
 
       const userMessage = {
         id: crypto.randomUUID(),
@@ -98,7 +105,7 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
         await chatIpc.sendMessage({
           session_id: session.id,
           content,
-          images,
+          attachments,
           model_override: modelOverride,
         });
         if (isFirstMessage) {
@@ -202,7 +209,12 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <WorkspaceBar workingDir={session.working_directory} onChangeDir={onChangeDir} />
+      <WorkspaceBar
+        workingDir={session.working_directory}
+        onChangeDir={onChangeDir}
+        onToggleExplorer={onToggleExplorer}
+        explorerOpen={explorerOpen}
+      />
       {messages.length === 0 && !isStreaming ? (
         <ChatEmptyState />
       ) : (
@@ -213,7 +225,11 @@ export function ChatView({ session, onChangeDir }: ChatViewProps) {
           onRegenerate={handleRegenerate}
         />
       )}
-      <MessageInput onSend={handleSend} onStop={handleStop} />
+      <MessageInput
+        onSend={handleSend}
+        onStop={handleStop}
+        onPickWorkspaceFile={onToggleExplorer}
+      />
       <ToolApprovalDialog
         request={pendingApproval}
         onDismiss={() => setPendingApproval(null)}

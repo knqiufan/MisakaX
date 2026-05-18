@@ -1,6 +1,6 @@
 # Codex Monitor 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-05-17
+**最后审阅 / Last reviewed:** 2026-05-18
 
 ## 目录
 
@@ -692,17 +692,16 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
   padding: 0;
   border-radius: 999px;                         /* 正圆形 */
   cursor: pointer;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  align-self: flex-start;
-  margin-top: 5px;                              /* 与文本对齐微调 */
+  align-self: flex-end;
 }
 ```
 
-**尺寸：** 28×28px 正圆
+**尺寸：** 新版对话 Composer 使用 36×36px 正圆，图标为 `Plus`；按钮放在输入框容器外部左侧，不放在 textarea 内部。
 
 **Hover 状态：**
 ```css
@@ -724,6 +723,15 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 ```
 
 ### 5.5 上下文环形图 (`.composer-context-ring`)
+
+### 5.5 Composer 底部触发器（Model / MCP / Skill）
+
+- Composer 底部可并列展示模型选择、MCP 工具视图与 Skill 选择扩展口，三者均使用紧凑胶囊 trigger。
+- Trigger 背景使用 `--cm-surface-panel-strong`，hover 使用 `--cm-surface-panel-solid`，仅做颜色/背景变化，不使用位移或缩放。
+- MCP trigger 只用于查看当前连接的 server 与 tool 列表，不直接执行工具调用；Skill trigger 在模块未完成时显示占位，但保留多选状态接口。
+- Trigger 文案需支持截断，最大宽度约 120px，数量角标可内联显示为 `MCP (3)` 形式。
+
+### 5.6 上下文环形图 (`.composer-context-ring`)
 
 虽然不算按钮，但是一个重要的交互元素：
 
@@ -2336,7 +2344,7 @@ RELEASE:    150ms ease  (transform, box-shadow, background-color, filter)
 | 工作区添加 | 22px | 22px | 0 | 999px | 13px |
 | All Threads 添加 | 24px | 24px | 0 | 999px | — |
 | Composer action | 30px | 30px | 0 | 999px | 12px |
-| Composer attach | 28px | 28px | 0 | 999px | — |
+| Composer attach | 36px | 36px | 0 | 999px | 16px |
 | Diff row action | 22px | 22px | 0 | 999px | — |
 | Git root button | auto | auto | 7px 11px | 999px | 12px |
 | Commit button | 100% | auto | 10px 14px | 14px | 12px |

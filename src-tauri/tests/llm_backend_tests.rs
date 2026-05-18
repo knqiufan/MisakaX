@@ -1,6 +1,6 @@
 use misaka_x_lib::db::models::Message;
 use misaka_x_lib::services::llm::backend::{
-    build_rig_chat_history, build_user_prompt, ImageAttachment,
+    build_rig_chat_history, build_user_prompt, ImageAttachment, MessageAttachment,
 };
 use rig::completion::message::Message as RigMessage;
 
@@ -179,8 +179,8 @@ fn test_build_user_prompt_text_only() {
 
 #[test]
 fn test_build_user_prompt_with_empty_images() {
-    let images: Option<Vec<ImageAttachment>> = Some(vec![]);
-    let prompt = build_user_prompt("Hello", &images);
+    let attachments: Option<Vec<MessageAttachment>> = Some(vec![]);
+    let prompt = build_user_prompt("Hello", &attachments);
     match &prompt {
         RigMessage::User { content } => {
             assert_eq!(content.len(), 1);
@@ -191,12 +191,12 @@ fn test_build_user_prompt_with_empty_images() {
 
 #[test]
 fn test_build_user_prompt_with_single_image() {
-    let images = Some(vec![ImageAttachment {
+    let attachments = Some(vec![MessageAttachment::Image {
         data: "base64data".to_string(),
         media_type: "image/png".to_string(),
         file_name: Some("test.png".to_string()),
     }]);
-    let prompt = build_user_prompt("Describe this image", &images);
+    let prompt = build_user_prompt("Describe this image", &attachments);
     match &prompt {
         RigMessage::User { content } => {
             assert_eq!(content.len(), 2);
@@ -207,24 +207,24 @@ fn test_build_user_prompt_with_single_image() {
 
 #[test]
 fn test_build_user_prompt_with_multiple_images() {
-    let images = Some(vec![
-        ImageAttachment {
+    let attachments = Some(vec![
+        MessageAttachment::Image {
             data: "img1_base64".to_string(),
             media_type: "image/png".to_string(),
             file_name: None,
         },
-        ImageAttachment {
+        MessageAttachment::Image {
             data: "img2_base64".to_string(),
             media_type: "image/jpeg".to_string(),
             file_name: None,
         },
-        ImageAttachment {
+        MessageAttachment::Image {
             data: "img3_base64".to_string(),
             media_type: "image/webp".to_string(),
             file_name: None,
         },
     ]);
-    let prompt = build_user_prompt("Compare these images", &images);
+    let prompt = build_user_prompt("Compare these images", &attachments);
     match &prompt {
         RigMessage::User { content } => {
             assert_eq!(content.len(), 4);

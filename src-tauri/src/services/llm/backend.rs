@@ -16,12 +16,93 @@ use crate::services::llm::streaming::{StreamResult, StreamSession};
 
 use super::traits::LlmProvider;
 
-/// 图片附件数据（Base64 编码）
+/// 图片附件数据（Base64 编码）。保留独立结构以兼容既有测试与旧消息 JSON。
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ImageAttachment {
     pub data: String,
     pub media_type: String,
     pub file_name: Option<String>,
+}
+
+/// 通用消息附件。当前支持图片与已提取文本；PDF/Office 文档先在前端占位。
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum MessageAttachment {
+    Image {
+        data: String,
+        media_type: String,
+        file_name: Option<String>,
+    },
+    Text {
+        extracted_text: String,
+        mime: String,
+        file_name: String,
+        size: u64,
+    },
+}
+
+impl From<ImageAttachment> for MessageAttachment {
+    fn from(image: ImageAttachment) -> Self {
+        Self::Image {
+            data: image.data,
+            media_type: image.media_type,
+            file_name: image.file_name,
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for MessageAttachment {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        match value.get("kind").and_then(|kind| kind.as_str()) {
+            Some("image") => deserialize_image_attachment(value).map_err(serde::de::Error::custom),
+            Some("text") => deserialize_text_attachment(value).map_err(serde::de::Error::custom),
+            None if value.get("data").is_some() => {
+                deserialize_image_attachment(value).map_err(serde::de::Error::custom)
+            }
+            other => Err(serde::de::Error::custom(format!(
+                "unknown attachment kind: {other:?}"
+            ))),
+        }
+    }
+}
+
+fn deserialize_image_attachment(
+    value: serde_json::Value,
+) -> std::result::Result<MessageAttachment, String> {
+    Ok(MessageAttachment::Image {
+        data: required_string(&value, "data")?,
+        media_type: required_string(&value, "media_type")?,
+        file_name: value
+            .get("file_name")
+            .and_then(|name| name.as_str())
+            .map(ToString::to_string),
+    })
+}
+
+fn deserialize_text_attachment(
+    value: serde_json::Value,
+) -> std::result::Result<MessageAttachment, String> {
+    Ok(MessageAttachment::Text {
+        extracted_text: required_string(&value, "extracted_text")?,
+        mime: required_string(&value, "mime")?,
+        file_name: required_string(&value, "file_name")?,
+        size: value
+            .get("size")
+            .and_then(|size| size.as_u64())
+            .unwrap_or(0),
+    })
+}
+
+fn required_string(value: &serde_json::Value, key: &str) -> std::result::Result<String, String> {
+    value
+        .get(key)
+        .and_then(|field| field.as_str())
+        .map(ToString::to_string)
+        .ok_or_else(|| format!("missing attachment field: {key}"))
 }
 
 /// 对话后端策略 trait — Phase 4 兼容性的关键抽象
@@ -40,7 +121,7 @@ pub trait ChatBackend: Send + Sync {
         session: &Session,
         messages: &[Message],
         user_content: &str,
-        images: &Option<Vec<ImageAttachment>>,
+        attachments: &Option<Vec<MessageAttachment>>,
         model_id: &str,
         abort_flag: Arc<AtomicBool>,
         message_id: &str,
@@ -84,7 +165,7 @@ impl ChatBackend for RigBackend {
         session: &Session,
         messages: &[Message],
         user_content: &str,
-        images: &Option<Vec<ImageAttachment>>,
+        attachments: &Option<Vec<MessageAttachment>>,
         model_id: &str,
         abort_flag: Arc<AtomicBool>,
         message_id: &str,
@@ -96,7 +177,7 @@ impl ChatBackend for RigBackend {
         )?;
 
         let chat_history = build_rig_chat_history(messages);
-        let prompt = build_user_prompt(user_content, images);
+        let prompt = build_user_prompt(user_content, attachments);
 
         let stream_session = StreamSession::new(
             message_id.to_string(),
@@ -113,30 +194,73 @@ impl ChatBackend for RigBackend {
 
 // ─── 消息构建辅助函数 ────────────────────────────────────────────────
 
-/// 构建当前用户的 prompt（支持文本 + 图片多模态）
+/// 构建当前用户的 prompt（支持文本附件 + 图片多模态）
 ///
 /// 当 `images` 非空时，构建包含文本和图片的多内容 User 消息；
 /// 否则仅返回纯文本消息。
-pub fn build_user_prompt(content: &str, images: &Option<Vec<ImageAttachment>>) -> RigMessage {
-    let has_images = images.as_ref().is_some_and(|imgs| !imgs.is_empty());
+pub fn build_user_prompt(
+    content: &str,
+    attachments: &Option<Vec<MessageAttachment>>,
+) -> RigMessage {
+    let prompt_text = build_prompt_text(content, attachments);
+    let images = collect_image_attachments(attachments);
 
-    if !has_images {
-        return RigMessage::user(content);
+    if images.is_empty() {
+        return RigMessage::user(prompt_text);
     }
 
-    let imgs = images.as_ref().unwrap();
-    let mut parts: Vec<UserContent> = Vec::with_capacity(1 + imgs.len());
+    let mut parts: Vec<UserContent> = Vec::with_capacity(1 + images.len());
 
-    parts.push(UserContent::text(content));
+    parts.push(UserContent::text(prompt_text));
 
-    for img in imgs {
-        let media_type = parse_image_media_type(&img.media_type);
-        parts.push(UserContent::image_base64(&img.data, Some(media_type), None));
+    for (data, mime) in images {
+        let media_type = parse_image_media_type(mime);
+        parts.push(UserContent::image_base64(data, Some(media_type), None));
     }
 
     RigMessage::User {
         content: OneOrMany::many(parts).expect("parts is guaranteed non-empty"),
     }
+}
+
+fn build_prompt_text(content: &str, attachments: &Option<Vec<MessageAttachment>>) -> String {
+    let Some(items) = attachments else {
+        return content.to_string();
+    };
+
+    let mut text_parts: Vec<String> = items
+        .iter()
+        .filter_map(|item| match item {
+            MessageAttachment::Text {
+                extracted_text,
+                mime,
+                file_name,
+                ..
+            } => Some(format!(
+                "[file: {file_name} ({mime})]\n{extracted_text}\n[/file]"
+            )),
+            MessageAttachment::Image { .. } => None,
+        })
+        .collect();
+    text_parts.push(content.to_string());
+    text_parts.join("\n\n")
+}
+
+fn collect_image_attachments(attachments: &Option<Vec<MessageAttachment>>) -> Vec<(&str, &str)> {
+    attachments
+        .as_ref()
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| match item {
+                    MessageAttachment::Image {
+                        data, media_type, ..
+                    } => Some((data.as_str(), media_type.as_str())),
+                    MessageAttachment::Text { .. } => None,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// 将 MIME type 字符串解析为 rig-core 的 ImageMediaType
@@ -172,13 +296,13 @@ pub fn build_rig_chat_history(messages: &[Message]) -> Vec<RigMessage> {
 
 /// 从历史 User 消息中还原多模态内容
 fn build_history_user_message(msg: &Message) -> RigMessage {
-    let images = msg
+    let attachments = msg
         .attachments
         .as_deref()
-        .and_then(|json| serde_json::from_str::<Vec<ImageAttachment>>(json).ok())
-        .filter(|imgs| !imgs.is_empty());
+        .and_then(|json| serde_json::from_str::<Vec<MessageAttachment>>(json).ok())
+        .filter(|items| !items.is_empty());
 
-    build_user_prompt(&msg.content, &images)
+    build_user_prompt(&msg.content, &attachments)
 }
 
 // Phase 4 预留接口（当前注释，Phase 4 时解注释并实现）
