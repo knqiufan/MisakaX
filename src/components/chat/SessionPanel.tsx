@@ -264,7 +264,7 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
     ungroupedSessions.length;
 
   return (
-    <div className="flex h-full w-[260px] shrink-0 flex-col border-r border-[color:var(--border-muted)] bg-sidebar">
+    <div className="flex h-full min-w-0 w-full flex-col border-r border-[color:var(--border-muted)] bg-sidebar">
       <SessionPanelHeader
         searchQuery={searchQuery}
         onSearchChange={handleSearch}

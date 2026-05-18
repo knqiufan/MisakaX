@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口三栏结构、会话侧栏工具区、对话页顶栏、设置页 Provider 弹窗与对话页模型选择器的布局语义和样式约定。 |
 | **受众** | 负责 `AppShell`、`Sidebar`、`ChatPage`、`SessionPanel`、`WorkspaceBar`、`ModelSettings`、`ProviderDialog` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-05-19 |
+| **最后审阅** | 2026-05-19（v2） |
 
 ## 相关文档
 
@@ -34,6 +34,14 @@ MisakaX 主界面在逻辑上划分为：
 ### 1.2 视觉连续性
 
 会话栏与主导航同属左侧信息架构，分割线、背景可使用 `--border-muted`、`--surface-sidebar` 等令牌保持与整体设计系统一致。
+
+### 1.3 会话栏与主内容区可拖拽分栏（必须遵守）
+
+- `SessionPanel`（第 2 列）与「主内容区」（第 3 列）应被同一个 `react-resizable-panels` 的 `PanelGroup`（`orientation="horizontal"`）包裹，使用户可拖拽改变两者宽度比。
+- `SessionPanel` Panel 约束：`defaultSize="18%"`、`minSize="14%"`、`maxSize="32%"`；超过 32% 时主内容区可读性下降，低于 14% 时会话列表会出现搜索/列表挤压，禁止突破。
+- 分隔条（`PanelResizeHandle`）必须使用 `w-px bg-[color:var(--border-muted)] hover:bg-[color:var(--border-strong)]` 的极细样式，**不得**使用粗线或带阴影的拖拽条，与桌面 Agent 克制原则保持一致。
+- 由于 react-resizable-panels v4 已**移除** `autoSaveId`，本项目暂不持久化两栏比例，刷新后回归默认值；后续若需要持久化，使用 `defaultLayout + onLayoutChanged + localStorage` 自行实现，不要回退到旧版 prop。
+- `SessionPanel` 自身**禁止**再设固定宽度（如 `w-[260px]`），宽度完全由父 Panel 控制；其根容器使用 `flex h-full w-full min-w-0 flex-col`。
 
 ---
 
@@ -108,12 +116,18 @@ MisakaX 主界面在逻辑上划分为：
 - 点击文本文件后在 Explorer 内打开 tab，tab 标题显示文件名，完整路径通过 `title` 或 Tooltip 暴露。
 - 编辑器使用 Monaco；脏文件 tab 必须显示圆点，`Ctrl/Cmd + S` 保存成功后圆点消失。
 - 关闭脏 tab 时必须提供保存、丢弃、取消三种选择；不得静默丢弃用户修改。
+- **Tabs + Editor 必须按需挂载（必须遵守）**：
+  - 当 `tabs.length === 0` 时，Explorer **仅渲染** `FileTreeView`，让文件树占满整个面板高度；禁止保留「No file open + 空 Monaco 占位」造成的双层视觉冗余。
+  - 当用户从文件树点击文件、打开第一个 tab 时，再挂载 `react-resizable-panels` 把面板拆分为上下两栏（树 + Tabs/Editor）。
+  - 当用户关闭最后一个 tab、`tabs.length` 回到 0 时，立即移除下半部 Panel，回到文件树独占布局。
+  - 该条件渲染应在 `WorkspaceExplorer` 组件内完成，禁止把该决策上提到 `ChatPage`。
 
 ### 5.3 安全与边界
 
 - 前端只能通过后端 `fs_*` IPC 读取和写入文件；后端必须校验目标路径位于当前工作目录下。
 - 大文件与二进制文件应被拒绝并给出用户可理解的错误反馈，避免卡死编辑器或将二进制误送入文本编辑流程。
 - 「在文件资源管理器中打开」必须由后端命令（`fs_reveal_in_explorer`）实现，统一进行 `validate_under_root` 校验后调用系统进程（Windows `explorer /select,`，macOS `open -R`，Linux `xdg-open` 目录）。前端不得直接拼接 shell 命令打开任意路径。
+- **Windows `/select,` 必须用 `CommandExt::raw_arg` 自行拼接命令行**：Rust 标准的 `Command::arg` 会对含空格的参数加引号，把整段 `/select,"D:\path with space\foo.txt"` 一起引起来变成 `"/select,..."`，explorer 解析失败时**会回退到打开「文档」目录**。必须使用 `raw_arg(format!("/select,\"{}\"", path.replace('/', "\\")))`，并把分隔符规范化为 `\`。
 
 ### 5.4 入口图标与文案
 
@@ -128,9 +142,14 @@ MisakaX 主界面在逻辑上划分为：
 
 ### 5.6 文件树右键菜单
 
-- 文件树节点（无论文件或目录）必须支持原生右键菜单（基于 `ContextMenu` 组件），至少包含「在文件资源管理器中打开」「复制完整路径」两个入口。
-- 「在文件资源管理器中打开」必须通过 `fs_reveal_in_explorer` IPC 实现；前端在失败时通过 Sonner `toast.error` 反馈，文案走 `workspace.explorer.openInExplorerFailed`。
-- 「复制完整路径」使用 `@tauri-apps/plugin-clipboard-manager`，成功后用 `toast.success` 反馈，禁止滥用浏览器 `navigator.clipboard` 在桌面端绕过 Tauri 权限。
+- 文件树节点（无论文件或目录）必须支持原生右键菜单（基于 `ContextMenu` 组件）。
+- 文件节点的菜单（自上而下，按业务重要性排序）：
+  1. **在当前对话中引用**（`explorer.mentionInChat`，`AtSign` 图标）— **仅文件**；触发后把该文件加入 Composer 的 mention 列表（见 [frontend-ui-guidelines.md §4.3.x Mention Pill](./frontend-ui-guidelines.md)），并以 toast 反馈「已引用 {name}」。
+  2. **在文件资源管理器中打开**（`explorer.openInExplorer`，`FolderSearch` 图标）— 调用 `fs_reveal_in_explorer`；失败走 `workspace.explorer.openInExplorerFailed` 的 `toast.error`。
+  3. **复制完整路径**（`explorer.copyPath`，`Copy` 图标）— 使用 `@tauri-apps/plugin-clipboard-manager` 的 `writeText`，禁止用浏览器 `navigator.clipboard` 绕过 Tauri 权限。
+- 目录节点菜单不展示「在当前对话中引用」（避免引用整目录带来的歧义与 token 浪费）。
+- 菜单分组使用 `ContextMenuSeparator`：mention 与其它项之间一条；reveal 与 copy 之间一条。
+- 菜单触发的 Tauri IPC 失败必须给出 `toast.error` + i18n key；禁止仅在 console 打印吞错误。
 
 ### 5.7 Monaco Tab 与编辑面板美化
 

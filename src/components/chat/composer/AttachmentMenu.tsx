@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
-import { FileImage, FileText, FolderOpen, FileClock } from "lucide-react";
+import { FileImage, FileText, FolderOpen } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -15,14 +14,22 @@ interface AttachmentMenuProps {
     image: string;
     text: string;
     workspace: string;
-    planned: string;
-    comingSoon: string;
   };
   onPickImages: () => void;
   onPickText: () => void;
   onPickWorkspace: () => void;
 }
 
+/**
+ * Composer 附件下拉菜单。
+ *
+ * UI 约定（与设计规范一致）：
+ * - 仅保留实际可用的入口，不展示「即将支持」等占位项；
+ * - 不使用 `DropdownMenuLabel` 作为分组标题，菜单只承载选项；
+ * - 每个 item 统一为 `图标 + 文案` 排版（图标 `size-4` + 8px gap），
+ *   保持上下行宽度与对齐一致；
+ * - 触发器（trigger）由调用方传入，本组件只承担菜单部分。
+ */
 export function AttachmentMenu({
   trigger,
   labels,
@@ -33,26 +40,14 @@ export function AttachmentMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-      <DropdownMenuContent align="start" side="top" className="w-60">
-        <DropdownMenuLabel className="text-xs text-muted-foreground">
-          {labels.image}
-        </DropdownMenuLabel>
+      <DropdownMenuContent align="start" side="top" className="w-56">
         <DropdownMenuItem onSelect={onPickImages}>
           <FileImage className="size-4" />
           {labels.image}
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel className="text-xs text-muted-foreground">
-          {labels.text}
-        </DropdownMenuLabel>
         <DropdownMenuItem onSelect={onPickText}>
           <FileText className="size-4" />
-          Markdown / Text
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled>
-          <FileClock className="size-4" />
-          <span className="min-w-0 flex-1 truncate">{labels.planned}</span>
-          <span className="text-[10px] text-muted-foreground">{labels.comingSoon}</span>
+          {labels.text}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={onPickWorkspace}>

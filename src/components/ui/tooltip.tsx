@@ -40,13 +40,23 @@ function TooltipContent({
         data-slot="tooltip-content"
         sideOffset={sideOffset}
         className={cn(
-          "z-[calc(var(--ds-layer-modal)+2)] w-fit max-w-xs origin-(--radix-tooltip-content-transform-origin) rounded-md border border-[color:var(--border-strong)] bg-popover px-3 py-2 text-xs leading-snug tracking-tight text-balance text-popover-foreground shadow-lg backdrop-blur-md animate-in fade-in-0 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
+          "z-[var(--ds-layer-modal)] pointer-events-none w-fit max-w-[260px]",
+          "origin-(--radix-tooltip-content-transform-origin)",
+          "rounded-[var(--radius-ui-md)]",
+          "border border-[color:var(--border-strong)]/70",
+          "bg-[color:var(--surface-popover,var(--popover))]/95 backdrop-blur-md",
+          "px-2 py-1 text-[12px] font-medium leading-[18px] tracking-tight",
+          "text-popover-foreground/95 text-balance",
+          "shadow-[0_10px_24px_-12px_rgba(0,0,0,0.45),0_2px_6px_-1px_rgba(0,0,0,0.25)]",
+          "animate-in fade-in-0 ease-out duration-[120ms]",
+          "data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1",
+          "data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1",
+          "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
           className
         )}
         {...props}
       >
         {children}
-        <TooltipPrimitive.Arrow className="-translate-y-px z-50 size-2.5 rounded-[2px] border border-[color:var(--border-strong)] bg-popover fill-popover" />
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>
   );

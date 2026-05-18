@@ -83,9 +83,19 @@ pub fn reveal_in_explorer_inner(root: &Path, target: &Path) -> Result<(), String
 
 #[cfg(target_os = "windows")]
 fn spawn_reveal_command(target: &Path) -> Result<(), String> {
-    let arg = format!("/select,{}", target.display());
+    use std::os::windows::process::CommandExt;
+
+    // explorer.exe 自行解析命令行（不走 argv），且对 `/select,` 后的路径要求：
+    // 1. 必须使用 Windows 反斜杠分隔符；
+    // 2. 含空格的路径需用双引号包裹；
+    // 3. 整段 `/select,"PATH"` 必须作为单一命令行 token —— Rust 标准的 `Command::arg`
+    //    会对含空格的参数自动加引号，把整段一起引起来变成 `"/select,..."`，
+    //    explorer 解析失败时**会回退到打开「文档」目录**，这正是用户报告的 BUG。
+    // 因此这里使用 `raw_arg` 自行拼接命令行，绕过 stdlib 的转义算法。
+    let normalized = target.to_string_lossy().replace('/', "\\");
+    let raw = format!("/select,\"{}\"", normalized);
     Command::new("explorer")
-        .arg(arg)
+        .raw_arg(&raw)
         .spawn()
         .map(|_| ())
         .map_err(|err| format!("Failed to launch explorer: {err}"))

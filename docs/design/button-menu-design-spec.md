@@ -1,6 +1,6 @@
 # Codex Monitor 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-05-19
+**最后审阅 / Last reviewed:** 2026-05-19（v2）
 
 ## 目录
 
@@ -2195,6 +2195,19 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 }
 ```
 
+### 15.6 Radix Tooltip 实施约束（必读，新增）
+
+`src/components/ui/tooltip.tsx` 是项目内统一的 Radix 封装，所有 UI 改动必须基于该封装而**非**重新自实现：
+
+- **尺寸**：使用 `px-2 py-1` + `text-[12px] font-medium leading-[18px] tracking-tight`；**禁止**使用 `px-3 py-2` 这种与按钮文字气泡同尺寸的 padding，会让 Tooltip 看起来像一个对话框。
+- **颜色**：背景 `bg-[color:var(--surface-popover,var(--popover))]/95 backdrop-blur-md`；文字 `text-popover-foreground/95 text-balance`；边框 `border-[color:var(--border-strong)]/70`（70% 透明度，让边缘融入而非生硬）。
+- **圆角**：必须用 `rounded-[var(--radius-ui-md)]`，与 Dropdown/ContextMenu 共享圆角语言；不得退回 `rounded-md` 这种字面值。
+- **阴影**：使用双层柔阴影 `shadow-[0_10px_24px_-12px_rgba(0,0,0,0.45),0_2px_6px_-1px_rgba(0,0,0,0.25)]`，避免单层硬阴影。
+- **箭头（Arrow）**：默认**不渲染** `TooltipPrimitive.Arrow`。旧实现里带边框的小三角在多种 side 下会与气泡边框错位、形成「断角」视觉缺陷，现已删除。
+- **入场动画**：`animate-in fade-in-0 ease-out duration-[120ms]` + `data-[side=*]:slide-in-from-*-1`；不得使用 `slide-in-from-*-2` 等大于 4px 的位移，避免桌面感丢失。
+- **z-index**：使用 `z-[var(--ds-layer-modal)]`；**禁止**使用 `z-[calc(var(--ds-layer-modal)+2)]` 这种 magic 偏移，Modal 之上再有 toast 等更高层级时由 toast 自己处理。
+- **指针**：`pointer-events-none`，避免遮挡其它控件。
+
 ---
 
 ## 16. 窗口控制按钮
@@ -2424,3 +2437,9 @@ RELEASE:    150ms ease  (transform, box-shadow, background-color, filter)
 - 危险操作使用 `variant="destructive"`，并以分隔线与其它操作分组到菜单底部。
 - 文案必须 i18n：禁止在 `ContextMenuItem` 内硬编码语言字符串。
 - 触发后若调用了 Tauri IPC，失败必须通过 `toast.error` 反馈，并使用语义化的 i18n key（如 `workspace.explorer.openInExplorerFailed`）。
+
+### 11.1.4 文件树节点菜单（项目专用约定）
+
+文件树节点的 ContextMenu 内容、顺序与 i18n key 已在
+[shell-and-workspace-ui-spec.md §5.6](./shell-and-workspace-ui-spec.md) 中规范化。
+新增/调整文件树右键菜单时必须**同时**满足该处约定与本节通用 ContextMenu 行为约束。

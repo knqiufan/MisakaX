@@ -7,7 +7,7 @@
 - **壳层布局、主导航收起语义、会话列表工具区、对话页工作目录顶栏**等专项约定：见 [shell-and-workspace-ui-spec.md](./shell-and-workspace-ui-spec.md)。  
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 
-**最后审阅 / Last reviewed:** 2026-05-19
+**最后审阅 / Last reviewed:** 2026-05-19（v2）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -66,6 +66,23 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
   - `AttachButton` 作为 `DropdownMenuTrigger asChild` 的 child 时，**必须**用 `forwardRef` 实现，并把 trigger 注入的 `ref` 与 `...rest` props 透传到底层 `<button>`，否则 Dropdown 的 click/keyboard handler 与定位 anchor 都无法生效，会出现「按钮点击无反应」的回归。
   - **禁止**给 trigger 的 child 元素再传 `onClick={() => undefined}` 等占位回调；Radix Slot 会保留 child 已声明的事件，且空回调可能掩盖真正的 trigger 行为。
   - 文案使用 `chat.composer.attach` 等 i18n key，桌面端中文 UI 优先使用「添加附件」等动名词组合，避免单字「附加」造成歧义。
+
+### 4.3.x Composer 行内对齐与 Mention Pill（新增）
+
+- Composer 顶层 `<div>` 必须使用 **`flex items-center gap-2`**：之前曾用 `items-end` 导致圆形附件按钮与输入框的中线错位（按钮整体下沉一格）。**任何**在 Composer 同一行放置「附件按钮 + 输入容器 + 发送按钮」的实现都必须遵守 `items-center`。
+- 文件树「@ 引用」加入的工作区文件必须在 Composer 的输入容器内、`AttachmentPreview` **之上**以 chip（pill）的形式展示，组件为 `MentionPills`：
+  - 视觉：`h-6` 高度、`rounded-full`、`border border-[color:var(--border-muted)] bg-[color:var(--surface-card-strong)]`，左侧 `AtSign` 图标使用 `text-primary/80`；
+  - 行为：hover 显示删除 `X`，删除 = `composer-store.removeMention(id)`；
+  - 数据：用 `mention.relPath` 作为 `title` 显示完整相对路径，`mention.name` 作为主标题；
+  - 发送：在 `handleSend` 中通过 `composeMessageContent(trimmed, mentions)` 把 `@rel/path` 前置到正文（多个引用以空格连接，加两个换行隔开正文），发送成功后 `clearMentions()`；
+  - 状态：mention 列表持久化作用域仅在当前 Composer 生命周期内，**禁止**与 attachments 混淆为同一数组。
+- `canSendComposerMessage` 的可发送判定必须把 `mentions.length` 计入「有 payload」，否则仅引用文件无文本时按钮会异常禁用。
+
+### 4.3.y Composer 附件下拉菜单（新增）
+
+- `AttachmentMenu` 仅渲染**实际可用**的入口；禁止保留「即将支持」「Coming soon」之类的临时占位项，避免给用户希望落空。
+- 菜单内**不得**出现 `DropdownMenuLabel`（分组标题）；菜单内容只承载选项 item，统一 `图标 size-4 + 8px gap + 文案` 排版。
+- 图片入口（`onPickImages`）的 `<input type="file">` 必须使用 `ACCEPTED_IMAGE_TYPES`（仅 IMAGE MIME）；Markdown / 文本入口必须使用 `ACCEPTED_TEXT_TYPES`（.md/.markdown/.txt + 对应 MIME），**不得**把 PDF/Office 等当前不支持的扩展名也加入 accept，否则用户能选中却又被前端拒绝。
 
 ### 4.4 空页面与占位符 (Empty States)
 - 空页面设计应具有**引导性**。

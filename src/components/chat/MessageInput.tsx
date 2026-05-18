@@ -19,13 +19,19 @@ import {
 } from "@/components/ui/tooltip";
 import type { MessageAttachment } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
-import { useComposerStore, type PendingAttachment } from "@/stores/composer-store";
+import {
+  useComposerStore,
+  type PendingAttachment,
+  type PendingFileMention,
+} from "@/stores/composer-store";
 import { AttachButton } from "./composer/AttachButton";
 import { AttachmentMenu } from "./composer/AttachmentMenu";
 import { AttachmentPreview } from "./composer/AttachmentPreview";
 import { ComposerFooter } from "./composer/ComposerFooter";
+import { MentionPills } from "./composer/MentionPill";
 import {
-  ACCEPTED_ATTACHMENT_TYPES,
+  ACCEPTED_IMAGE_TYPES,
+  ACCEPTED_TEXT_TYPES,
   MAX_IMAGE_SIZE,
   MAX_TEXT_ATTACHMENT_SIZE,
   canSendComposerMessage,
@@ -54,9 +60,17 @@ export function MessageInput({
   onPickWorkspaceFile,
 }: MessageInputProps) {
   const { t } = useTranslation("chat");
+  const { t: tw } = useTranslation("workspace");
   const { isStreaming, selectedModel } = useChatStore();
-  const { attachments, addAttachment, removeAttachment, clearAttachments } =
-    useComposerStore();
+  const {
+    attachments,
+    addAttachment,
+    removeAttachment,
+    clearAttachments,
+    mentions,
+    removeMention,
+    clearMentions,
+  } = useComposerStore();
   const [content, setContent] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -65,7 +79,7 @@ export function MessageInput({
 
   const canSend = canSendComposerMessage({
     content,
-    attachmentCount: attachments.length,
+    attachmentCount: attachments.length + mentions.length,
     disabled,
     isStreaming,
   });
@@ -84,13 +98,24 @@ export function MessageInput({
   const handleSend = useCallback(() => {
     const trimmed = content.trim();
     if (!canSend) return;
-    onSend(trimmed, selectedModel ?? undefined, toMessageAttachments(attachments));
+    const finalContent = composeMessageContent(trimmed, mentions);
+    onSend(finalContent, selectedModel ?? undefined, toMessageAttachments(attachments));
     setContent("");
     clearAttachments();
+    clearMentions();
     requestAnimationFrame(() => {
       if (textareaRef.current) textareaRef.current.style.height = `${MIN_HEIGHT}px`;
     });
-  }, [attachments, canSend, clearAttachments, content, onSend, selectedModel]);
+  }, [
+    attachments,
+    canSend,
+    clearAttachments,
+    clearMentions,
+    content,
+    mentions,
+    onSend,
+    selectedModel,
+  ]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -159,7 +184,7 @@ export function MessageInput({
 
   return (
     <div className="shrink-0 border-t border-[color:var(--border-muted)] bg-[color:var(--surface-topbar)] px-4 py-3">
-      <div className="flex items-end gap-2">
+      <div className="flex items-center gap-2">
         <AttachmentMenu
           trigger={
             <AttachButton
@@ -171,8 +196,6 @@ export function MessageInput({
             image: t("composer.attachImage"),
             text: t("composer.attachText"),
             workspace: t("composer.attachWorkspaceFile"),
-            planned: t("composer.plannedDocuments"),
-            comingSoon: t("composer.comingSoon"),
           }}
           onPickImages={() => imageInputRef.current?.click()}
           onPickText={() => textInputRef.current?.click()}
@@ -191,6 +214,11 @@ export function MessageInput({
               : "border-[color:var(--border-muted)] focus-within:border-[color:var(--border-strong)]"
           )}
         >
+          <MentionPills
+            mentions={mentions}
+            onRemove={removeMention}
+            removeLabel={(name) => tw("explorer.mentionRemove", { name })}
+          />
           <AttachmentPreview
             attachments={attachments}
             onRemove={removeAttachment}
@@ -226,7 +254,7 @@ export function MessageInput({
       <input
         ref={imageInputRef}
         type="file"
-        accept="image/png,image/jpeg,image/gif,image/webp"
+        accept={ACCEPTED_IMAGE_TYPES}
         multiple
         onChange={(e) => handleFileChange(e, processFiles)}
         className="hidden"
@@ -235,7 +263,7 @@ export function MessageInput({
       <input
         ref={textInputRef}
         type="file"
-        accept={ACCEPTED_ATTACHMENT_TYPES}
+        accept={ACCEPTED_TEXT_TYPES}
         multiple
         onChange={(e) => handleFileChange(e, processFiles)}
         className="hidden"
@@ -366,6 +394,21 @@ function readTextAttachment(
     });
   };
   reader.readAsText(file);
+}
+
+/**
+ * 把 mention 列表拼接到正文之前，格式为：`@rel/path1 @rel/path2\n\n正文`。
+ * 后端按普通 Markdown 文本处理，但 prompt 中显式带上 `@xxx` 让模型把
+ * 这些路径理解为对工作区文件的引用。空 mention 时原样返回正文。
+ */
+function composeMessageContent(
+  trimmed: string,
+  mentions: PendingFileMention[]
+): string {
+  if (mentions.length === 0) return trimmed;
+  const prefix = mentions.map((mention) => `@${mention.relPath}`).join(" ");
+  if (trimmed.length === 0) return prefix;
+  return `${prefix}\n\n${trimmed}`;
 }
 
 function toMessageAttachments(

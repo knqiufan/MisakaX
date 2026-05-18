@@ -1,5 +1,13 @@
 import { useCallback, useState } from "react";
-import { ChevronRight, Copy, File, Folder, FolderOpen, FolderSearch } from "lucide-react";
+import {
+  AtSign,
+  ChevronRight,
+  Copy,
+  File,
+  Folder,
+  FolderOpen,
+  FolderSearch,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -12,6 +20,8 @@ import {
 } from "@/components/ui/context-menu";
 import { fsIpc, type FsEntry } from "@/lib/ipc";
 import { cn } from "@/lib/utils";
+import { useComposerStore } from "@/stores/composer-store";
+import { basenameOf, toWorkspaceRelativePath } from "../composer/attachment-utils";
 
 interface FileTreeNodeProps {
   entry: FsEntry;
@@ -30,6 +40,7 @@ export function FileTreeNode({
   const [expanded, setExpanded] = useState(false);
   const [children, setChildren] = useState<FsEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const addMention = useComposerStore((state) => state.addMention);
 
   const handleClick = useCallback(async () => {
     if (!entry.is_dir) {
@@ -66,6 +77,17 @@ export function FileTreeNode({
     }
   }, [entry.path, t]);
 
+  const handleMention = useCallback(() => {
+    const relPath = toWorkspaceRelativePath(workingDir, entry.path);
+    addMention({
+      id: crypto.randomUUID(),
+      absPath: entry.path,
+      relPath,
+      name: basenameOf(entry.path),
+    });
+    toast.success(t("explorer.mentionAdded", { name: entry.name }));
+  }, [entry.name, entry.path, workingDir, addMention, t]);
+
   return (
     <div>
       <ContextMenu>
@@ -85,17 +107,15 @@ export function FileTreeNode({
             <span className="min-w-0 flex-1 truncate">{entry.name}</span>
           </button>
         </ContextMenuTrigger>
-        <ContextMenuContent>
-          <ContextMenuItem onSelect={handleReveal}>
-            <FolderSearch className="size-4" />
-            {t("explorer.openInExplorer")}
-          </ContextMenuItem>
-          <ContextMenuSeparator />
-          <ContextMenuItem onSelect={handleCopyPath}>
-            <Copy className="size-4" />
-            {t("explorer.copyPath")}
-          </ContextMenuItem>
-        </ContextMenuContent>
+        <NodeContextMenu
+          isFile={!entry.is_dir}
+          onMention={handleMention}
+          onReveal={handleReveal}
+          onCopyPath={handleCopyPath}
+          mentionLabel={t("explorer.mentionInChat")}
+          revealLabel={t("explorer.openInExplorer")}
+          copyLabel={t("explorer.copyPath")}
+        />
       </ContextMenu>
       {expanded
         ? children.map((child) => (
@@ -109,6 +129,49 @@ export function FileTreeNode({
           ))
         : null}
     </div>
+  );
+}
+
+interface NodeContextMenuProps {
+  isFile: boolean;
+  onMention: () => void;
+  onReveal: () => void;
+  onCopyPath: () => void;
+  mentionLabel: string;
+  revealLabel: string;
+  copyLabel: string;
+}
+
+function NodeContextMenu({
+  isFile,
+  onMention,
+  onReveal,
+  onCopyPath,
+  mentionLabel,
+  revealLabel,
+  copyLabel,
+}: NodeContextMenuProps) {
+  return (
+    <ContextMenuContent>
+      {isFile ? (
+        <>
+          <ContextMenuItem onSelect={onMention}>
+            <AtSign className="size-4" />
+            {mentionLabel}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+        </>
+      ) : null}
+      <ContextMenuItem onSelect={onReveal}>
+        <FolderSearch className="size-4" />
+        {revealLabel}
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem onSelect={onCopyPath}>
+        <Copy className="size-4" />
+        {copyLabel}
+      </ContextMenuItem>
+    </ContextMenuContent>
   );
 }
 
