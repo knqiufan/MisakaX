@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口三栏结构、会话侧栏工具区、对话页顶栏、设置页 Provider 弹窗与对话页模型选择器的布局语义和样式约定。 |
 | **受众** | 负责 `AppShell`、`Sidebar`、`ChatPage`、`SessionPanel`、`WorkspaceBar`、`ModelSettings`、`ProviderDialog` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-05-19（v2） |
+| **最后审阅** | 2026-06-05（v3） |
 
 ## 相关文档
 
@@ -118,9 +118,12 @@ MisakaX 主界面在逻辑上划分为：
 - 关闭脏 tab 时必须提供保存、丢弃、取消三种选择；不得静默丢弃用户修改。
 - **Tabs + Editor 必须按需挂载（必须遵守）**：
   - 当 `tabs.length === 0` 时，Explorer **仅渲染** `FileTreeView`，让文件树占满整个面板高度；禁止保留「No file open + 空 Monaco 占位」造成的双层视觉冗余。
-  - 当用户从文件树点击文件、打开第一个 tab 时，再挂载 `react-resizable-panels` 把面板拆分为上下两栏（树 + Tabs/Editor）。
-  - 当用户关闭最后一个 tab、`tabs.length` 回到 0 时，立即移除下半部 Panel，回到文件树独占布局。
+  - 当用户从文件树点击文件、打开第一个 tab 时，再挂载 `react-resizable-panels`（`orientation="horizontal"`）把面板拆分为**左树右编**两栏：树 Panel 默认约 `32%`、`minSize` `22%`、`maxSize` `50%`；编辑器 Panel `minSize` `35%`。
+  - 当用户关闭最后一个 tab、`tabs.length` 回到 0 时，立即移除编辑器 Panel，回到文件树独占布局。
   - 该条件渲染应在 `WorkspaceExplorer` 组件内完成，禁止把该决策上提到 `ChatPage`。
+- **Explorer 顶栏唯一标题（必须遵守）**：
+  - 顶栏仅展示 `explorer.title`（工作区）一层 section 标题；**禁止**在 `FileTreeView` 内再渲染 `treeTitle` 等第二套标题。
+  - 文件树刷新按钮并入顶栏（`RefreshCw` + `explorer.refreshTree`），与收起按钮并列；`FileTreeView` 通过 `refreshKey` 响应刷新，不向子树重复暴露标题行。
 
 ### 5.3 安全与边界
 
@@ -132,13 +135,15 @@ MisakaX 主界面在逻辑上划分为：
 ### 5.4 入口图标与文案
 
 - `WorkspaceBar` 右侧打开 Explorer 的按钮**禁止**使用 `PanelRight*` 等通用「侧栏开关」图标，因其指向性不足；应使用具备工作区/文件树语义的图标（推荐 `FolderTree`）。Tooltip 与 `aria-label` 必须走 `workspace.openExplorer` 这类 i18n key，不得硬编码英文。
-- Explorer 面板自身的标题、收起按钮、文件树标题、刷新按钮、空状态提示、tab 关闭、未保存对话框等**全部文案都必须 i18n**；新增子区域时优先在 `workspace.explorer.*` 命名空间下扩展，避免 chat / common 命名空间被工作区强耦合。
+- Explorer 面板自身的标题、收起按钮、顶栏刷新、空状态提示、tab 关闭、未保存对话框等**全部文案都必须 i18n**；新增子区域时优先在 `workspace.explorer.*` 命名空间下扩展，避免 chat / common 命名空间被工作区强耦合。
 
 ### 5.5 Explorer 入场动画
 
 - Explorer 由 `WorkspaceBar` 切换打开时，**整个 `<aside>` 容器**使用 `animate-in fade-in slide-in-from-right-4 ease-out duration-[220ms]` 作为出场动画，时长贴齐 `--ds-dur-slow`；不得使用桌面 Agent 风格忌讳的缩放/位移幅度大的入场。
 - 由于 `react-resizable-panels` 的 Panel 宽度切换是即时的，入场动画必须挂在 Explorer 内层容器上（而非 Panel 外层），让用户视觉焦点落在内容渐入上，从而弱化宽度硬切的突兀感。
-- 关闭无需逆向动画，与桌面应用关闭侧栏的直觉一致（瞬时让位给主内容区）。
+- **打开第一个 tab 时**：编辑器列（`EditorColumn`）使用 `animate-in fade-in slide-in-from-right-2 ease-out duration-[var(--ds-dur-slow)]`；`EditorPane` 在 tab 切换时对 `tab.path` 使用 `key` + `fade-in duration-[var(--ds-dur-fast)]` 做轻量内容过渡；禁止缩放。
+- 关闭最后一个 tab 或收起 Explorer **无需**逆向动画，与桌面应用关闭侧栏的直觉一致（瞬时让位给主内容区）。
+- `prefers-reduced-motion` 下依赖全局 motion token 缩短时长（见 `tokens-motion.css`）。
 
 ### 5.6 文件树右键菜单
 
@@ -153,11 +158,12 @@ MisakaX 主界面在逻辑上划分为：
 
 ### 5.7 Monaco Tab 与编辑面板美化
 
-- `EditorTabs` 容器使用 `h-10`、`px-2 pt-1.5`，tab 自身**必须圆角**：使用 `rounded-t-[var(--radius-ui-md)]`；不得保留直角 tab。
-- Tab 选中态通过「与编辑面板同色的背景 + 顶部圆角 + 边框」表达视觉连续，未选中态默认隐藏关闭按钮（`opacity-0 group-hover:opacity-100`），桌面端避免视觉噪音。
+- `EditorTabs` 容器使用 `h-9`、与编辑器同背景 `bg-[color:var(--surface-card)]`、底部分割线；Tab 采用 **VS Code 扁平风格**：无 `rounded-t` 浏览器叠层，激活态用 `border-b-2 border-primary`，未选中 `border-b-2 border-transparent` + hover 背景。
+- 未选中 Tab 默认隐藏关闭按钮（`opacity-0 group-hover:opacity-100`），激活 Tab 常显关闭按钮，桌面端避免视觉噪音。
 - 脏标记使用 `size-1.5` 圆点（`bg-primary/80`），禁止使用大号 bullet 或文字「•」。
-- `EditorPane` 容器使用 `rounded-tl-[var(--radius-ui-md)]` 与 Tabs 形成连贯轮廓；Monaco 选项强制开启 `smoothScrolling`、`cursorBlinking: "smooth"`、`padding: { top: 10, bottom: 10 }`，并把滚动条尺寸控制在 10px 以贴合现代 Agent 风格。
-- 「未选择文件」占位区禁止只放一行文字；使用低饱和图标容器（`size-12` 圆角卡片 + 弱化图标）+ 短句提示，与 `ChatEmptyState` 保持同一调性。
+- `EditorBreadcrumb`：`h-7`、`text-[11px]`、`text-muted-foreground`，展示工作区相对路径，`truncate` + `title` 完整路径；位于 Tab 栏与 Monaco 之间。
+- `EditorPane` Monaco 区域**贴边铺满**，禁止 `rounded-tl` 等与 Tab 叠层的圆角衔接；Monaco 选项强制开启 `smoothScrolling`、`cursorBlinking: "smooth"`、`overviewRulerBorder: false`、`padding: { top: 10, bottom: 10 }`，滚动条尺寸 10px。
+- 「未选择文件」占位区禁止只放一行文字；使用低饱和图标容器（`size-12` 圆角卡片 + 弱化图标）+ 短句提示（含「左侧」语义），与 `ChatEmptyState` 保持同一调性。
 
 ## 6. 小结
 

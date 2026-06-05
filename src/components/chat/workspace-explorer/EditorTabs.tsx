@@ -36,26 +36,20 @@ export function EditorTabs({ onSave }: EditorTabsProps) {
     <>
       <div
         className={cn(
-          "flex h-10 shrink-0 items-center gap-1 overflow-x-auto px-2 pt-1.5",
-          "border-b border-[color:var(--border-muted)] bg-[color:var(--surface-topbar)]"
+          "flex h-9 shrink-0 items-stretch gap-0 overflow-x-auto",
+          "border-b border-[color:var(--border-muted)] bg-[color:var(--surface-card)]"
         )}
       >
-        {tabs.length === 0 ? (
-          <span className="px-2 text-xs text-muted-foreground">
-            {t("explorer.noFileOpen")}
-          </span>
-        ) : (
-          tabs.map((tab) => (
-            <EditorTab
-              key={tab.path}
-              tab={tab}
-              active={tab.path === activePath}
-              onActivate={() => setActive(tab.path)}
-              onClose={() => requestClose(tab)}
-              closeLabel={t("explorer.closeTab", { name: fileName(tab.path) })}
-            />
-          ))
-        )}
+        {tabs.map((tab) => (
+          <EditorTab
+            key={tab.path}
+            tab={tab}
+            active={tab.path === activePath}
+            onActivate={() => setActive(tab.path)}
+            onClose={() => requestClose(tab)}
+            closeLabel={t("explorer.closeTab", { name: fileName(tab.path) })}
+          />
+        ))}
         {activeName ? (
           <span className="sr-only">
             {t("explorer.activeFile", { name: activeName })}
@@ -95,12 +89,11 @@ function EditorTab({ tab, active, onActivate, onClose, closeLabel }: EditorTabPr
       onClick={onActivate}
       title={tab.path}
       className={cn(
-        "group relative flex h-8 max-w-[200px] shrink-0 items-center gap-1.5 rounded-t-[var(--radius-ui-md)]",
-        "border border-b-0 px-2.5 text-xs",
+        "group relative flex h-full max-w-[200px] shrink-0 items-center gap-1.5 px-3 text-xs",
         "transition-colors duration-[var(--ds-dur-fast)] ease-out",
         active
-          ? "border-[color:var(--border-muted)] bg-[color:var(--surface-card)] text-foreground"
-          : "border-transparent text-muted-foreground hover:bg-[color:var(--surface-hover)] hover:text-foreground"
+          ? "border-b-2 border-primary text-foreground"
+          : "border-b-2 border-transparent text-muted-foreground hover:bg-[color:var(--surface-hover)] hover:text-foreground"
       )}
     >
       <span className="truncate font-medium">{fileName(tab.path)}</span>

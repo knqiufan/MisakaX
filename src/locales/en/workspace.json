@@ -28,7 +28,6 @@
   "explorer": {
     "title": "Workspace",
     "collapse": "Collapse workspace panel",
-    "treeTitle": "Explorer",
     "refreshTree": "Refresh file tree",
     "loadTreeFailed": "Failed to load workspace tree",
     "openFileFailed": "Failed to open file",

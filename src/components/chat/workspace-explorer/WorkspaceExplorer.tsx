@@ -1,4 +1,5 @@
-import { PanelRightClose } from "lucide-react";
+import { useCallback, useState } from "react";
+import { PanelRightClose, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -10,8 +11,7 @@ import { Button } from "@/components/ui/button";
 import { fsIpc } from "@/lib/ipc";
 import { useWorkspaceExplorerStore } from "@/stores/workspace-explorer-store";
 import { FileTreeView } from "./FileTreeView";
-import { EditorTabs } from "./EditorTabs";
-import { EditorPane } from "./EditorPane";
+import { EditorColumn } from "./EditorColumn";
 import { useFileEditor } from "./useFileEditor";
 
 interface WorkspaceExplorerProps {
@@ -20,15 +20,24 @@ interface WorkspaceExplorerProps {
 
 /**
  * 工作区面板。设计语义：
- * 1. **无打开 tab 时**：仅渲染文件树，占满整个面板高度，避免下方出现「空 tab + 占位编辑器」的视觉冗余。
- * 2. **有打开 tab 时**：上半部为文件树，下半部为 Tabs + Monaco 编辑器，
- *    使用 react-resizable-panels 提供垂直可拖拽分栏。
- * 3. **关闭最后一个 tab** 后自动回到状态 1（由 `tabs.length === 0` 驱动）。
+ * 1. **无打开 tab 时**：仅渲染文件树，占满整个面板高度。
+ * 2. **有打开 tab 时**：左文件树、右 Tabs + Monaco，水平可拖拽分栏。
+ * 3. **关闭最后一个 tab** 后自动回到状态 1。
  */
 export function WorkspaceExplorer({ workingDir }: WorkspaceExplorerProps) {
   const { t } = useTranslation("workspace");
   const { setOpen, openTab, tabs } = useWorkspaceExplorerStore();
   const { activeTab, handleChange, handleSave } = useFileEditor(workingDir);
+  const [treeRefreshKey, setTreeRefreshKey] = useState(0);
+  const [treeLoading, setTreeLoading] = useState(false);
+
+  const handleTreeLoadingChange = useCallback((loading: boolean) => {
+    setTreeLoading(loading);
+  }, []);
+
+  const refreshTree = useCallback(() => {
+    setTreeRefreshKey((key) => key + 1);
+  }, []);
 
   const openFile = async (path: string) => {
     try {
@@ -41,6 +50,12 @@ export function WorkspaceExplorer({ workingDir }: WorkspaceExplorerProps) {
   };
 
   const hasOpenTabs = tabs.length > 0;
+  const treeProps = {
+    workingDir,
+    onOpenFile: openFile,
+    refreshKey: treeRefreshKey,
+    onLoadingChange: handleTreeLoadingChange,
+  };
 
   return (
     <aside
@@ -52,19 +67,22 @@ export function WorkspaceExplorer({ workingDir }: WorkspaceExplorerProps) {
     >
       <ExplorerHeader
         title={t("explorer.title")}
+        refreshLabel={t("explorer.refreshTree")}
         collapseLabel={t("explorer.collapse")}
+        treeLoading={treeLoading}
+        onRefresh={refreshTree}
         onCollapse={() => setOpen(false)}
       />
       {hasOpenTabs ? (
         <ExplorerSplitLayout
           workingDir={workingDir}
           activeTab={activeTab}
-          onOpenFile={openFile}
+          treeProps={treeProps}
           onChange={handleChange}
           onSave={handleSave}
         />
       ) : (
-        <FileTreeView workingDir={workingDir} onOpenFile={openFile} />
+        <FileTreeView {...treeProps} />
       )}
     </aside>
   );
@@ -72,11 +90,17 @@ export function WorkspaceExplorer({ workingDir }: WorkspaceExplorerProps) {
 
 function ExplorerHeader({
   title,
+  refreshLabel,
   collapseLabel,
+  treeLoading,
+  onRefresh,
   onCollapse,
 }: {
   title: string;
+  refreshLabel: string;
   collapseLabel: string;
+  treeLoading: boolean;
+  onRefresh: () => void;
   onCollapse: () => void;
 }) {
   return (
@@ -84,16 +108,29 @@ function ExplorerHeader({
       <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
         {title}
       </h2>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        onClick={onCollapse}
-        className="size-7 rounded-[var(--radius-ui-sm)]"
-        aria-label={collapseLabel}
-      >
-        <PanelRightClose className="size-4" />
-      </Button>
+      <div className="flex items-center gap-0.5">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={onRefresh}
+          disabled={treeLoading}
+          className="size-7 rounded-[var(--radius-ui-sm)]"
+          aria-label={refreshLabel}
+        >
+          <RefreshCw className={`size-3.5 ${treeLoading ? "animate-spin" : ""}`} />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={onCollapse}
+          className="size-7 rounded-[var(--radius-ui-sm)]"
+          aria-label={collapseLabel}
+        >
+          <PanelRightClose className="size-4" />
+        </Button>
+      </div>
     </div>
   );
 }
@@ -101,7 +138,12 @@ function ExplorerHeader({
 interface ExplorerSplitLayoutProps {
   workingDir: string;
   activeTab: ReturnType<typeof useFileEditor>["activeTab"];
-  onOpenFile: (path: string) => void;
+  treeProps: {
+    workingDir: string;
+    onOpenFile: (path: string) => void;
+    refreshKey: number;
+    onLoadingChange: (loading: boolean) => void;
+  };
   onChange: ReturnType<typeof useFileEditor>["handleChange"];
   onSave: ReturnType<typeof useFileEditor>["handleSave"];
 }
@@ -109,21 +151,23 @@ interface ExplorerSplitLayoutProps {
 function ExplorerSplitLayout({
   workingDir,
   activeTab,
-  onOpenFile,
+  treeProps,
   onChange,
   onSave,
 }: ExplorerSplitLayoutProps) {
   return (
-    <PanelGroup orientation="vertical" id="misakax-workspace-explorer">
-      <Panel id="tree" defaultSize="34%" minSize="20%">
-        <FileTreeView workingDir={workingDir} onOpenFile={onOpenFile} />
+    <PanelGroup orientation="horizontal" id="misakax-workspace-explorer">
+      <Panel id="tree" defaultSize="32%" minSize="22%" maxSize="50%">
+        <FileTreeView {...treeProps} />
       </Panel>
-      <PanelResizeHandle className="h-px bg-[color:var(--border-muted)] hover:bg-[color:var(--border-strong)]" />
-      <Panel id="editor" minSize="30%">
-        <div className="flex h-full min-h-0 flex-col bg-[color:var(--surface-card)]">
-          <EditorTabs onSave={onSave} />
-          <EditorPane tab={activeTab} onChange={onChange} />
-        </div>
+      <PanelResizeHandle className="w-px bg-[color:var(--border-muted)] hover:bg-[color:var(--border-strong)] transition-colors duration-[var(--ds-dur-fast)]" />
+      <Panel id="editor" minSize="35%">
+        <EditorColumn
+          workingDir={workingDir}
+          activeTab={activeTab}
+          onChange={onChange}
+          onSave={onSave}
+        />
       </Panel>
     </PanelGroup>
   );

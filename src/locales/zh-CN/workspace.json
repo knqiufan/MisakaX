@@ -28,7 +28,6 @@
   "explorer": {
     "title": "工作区",
     "collapse": "收起工作区面板",
-    "treeTitle": "文件浏览器",
     "refreshTree": "刷新文件树",
     "loadTreeFailed": "无法读取工作区文件树",
     "openFileFailed": "无法打开文件",

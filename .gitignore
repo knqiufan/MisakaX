@@ -45,9 +45,8 @@ desktop.ini
 # ===== Others =====
 learning/
 
-# ===== Claude Code =====
-.claude/skills/learning-builder/
-.claude/hooks/review-config.json
-
-# ===== Hooks secrets =====
-.cursor/hooks/review-config.json
+# ===== Agent IDE config (local only, do not publish) =====
+.claude/
+.cursor/
+.codex/
+.agents/
