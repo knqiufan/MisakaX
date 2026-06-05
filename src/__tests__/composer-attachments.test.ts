@@ -37,10 +37,11 @@ describe("composer attachment classification", () => {
     ).toEqual({ kind: "planned", supported: false });
   });
 
-  it("publishes a single accept string for the file picker", () => {
+  it("publishes accept strings without planned PDF/Office extensions", () => {
     expect(ACCEPTED_ATTACHMENT_TYPES).toContain("image/png");
     expect(ACCEPTED_ATTACHMENT_TYPES).toContain(".md");
-    expect(ACCEPTED_ATTACHMENT_TYPES).toContain(".pdf");
+    expect(ACCEPTED_ATTACHMENT_TYPES).not.toContain(".pdf");
+    expect(ACCEPTED_ATTACHMENT_TYPES).not.toContain(".docx");
   });
 });
 
