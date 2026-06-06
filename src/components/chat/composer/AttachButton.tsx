@@ -25,10 +25,10 @@ export const AttachButton = forwardRef<HTMLButtonElement, AttachButtonProps>(
             {...rest}
             className={cn(
               "inline-flex size-9 shrink-0 items-center justify-center rounded-full",
-              "border border-[color:var(--cm-border-strong)]",
-              "bg-[color:var(--cm-surface-panel-strong)]",
+              "border border-[color:var(--border-strong)]",
+              "bg-[color:var(--surface-card-strong)]",
               "text-muted-foreground transition-colors duration-[var(--ds-dur-fast)]",
-              "hover:bg-[color:var(--cm-surface-panel-solid)] hover:text-foreground",
+              "hover:bg-[color:var(--surface-card-strong)] hover:text-foreground",
               "disabled:cursor-not-allowed disabled:opacity-50",
               className
             )}

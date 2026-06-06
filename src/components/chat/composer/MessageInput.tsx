@@ -313,9 +313,9 @@ function InputToolbar({
           aria-label={t("send")}
           className={cn(
             "size-8 shrink-0 rounded-full",
-            "border border-[color:var(--cm-border-emphasis)]",
-            "bg-[color:var(--cm-surface-panel-strong)] text-foreground",
-            "hover:bg-[color:var(--cm-surface-panel-solid)]",
+            "border border-[color:var(--border-strong)]",
+            "bg-[color:var(--surface-card-strong)] text-foreground",
+            "hover:bg-[color:var(--surface-card-strong)]",
             "disabled:cursor-not-allowed disabled:opacity-50"
           )}
         >

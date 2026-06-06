@@ -78,7 +78,7 @@ function TextAttachmentCard({
         "px-2 py-2"
       )}
     >
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-ui-sm)] bg-[color:var(--cm-surface-panel-strong)] text-muted-foreground">
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-ui-sm)] bg-[color:var(--surface-card-strong)] text-muted-foreground">
         <FileText className="size-4" />
       </div>
       <div className="min-w-0">

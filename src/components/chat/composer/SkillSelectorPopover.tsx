@@ -41,9 +41,9 @@ export function SkillSelectorPopover({
           type="button"
           className={cn(
             "inline-flex items-center gap-1 rounded-full px-2.5 py-1",
-            "bg-[color:var(--cm-surface-panel-strong)] text-[11px] text-muted-foreground",
+            "bg-[color:var(--surface-card-strong)] text-[11px] text-muted-foreground",
             "transition-colors duration-[var(--ds-dur-fast)]",
-            "hover:bg-[color:var(--cm-surface-panel-solid)] hover:text-foreground"
+            "hover:bg-[color:var(--surface-card-strong)] hover:text-foreground"
           )}
         >
           <span className="max-w-[120px] truncate">{label}</span>
