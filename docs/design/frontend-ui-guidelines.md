@@ -7,7 +7,7 @@
 - **壳层布局、主导航收起语义、会话列表工具区、对话页工作目录顶栏**等专项约定：见 [shell-and-workspace-ui-spec.md](./shell-and-workspace-ui-spec.md)。  
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 
-**最后审阅 / Last reviewed:** 2026-06-07（v5）
+**最后审阅 / Last reviewed:** 2026-06-07（v6）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -114,6 +114,18 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
   - 容器 `w-full`，内容 100% 宽度平铺，不设气泡背景与边框，以纯文本/Markdown 形式直接输出。
   - 错误态仍使用 `border-destructive/45 bg-destructive/8` 等语义色容器（见 4.5）。
   - 底部悬停仍显示 Copy / Regenerate + TokenBadge。
+
+### 4.6.x Assistant 消息可读宽度与底色
+
+- Assistant 消息容器使用 `max-w-[min(100%,48rem)] mx-auto` 约束可读宽度。
+- 内容区域使用 `bg-[color:var(--surface-card)]/50 rounded-[var(--radius-ui-lg)] px-4 py-3` 提供视觉区分。
+- 不形成气泡，不与 User 消息样式混淆。
+
+### 4.6.y ToolCallBlock 状态行
+
+- 工具调用默认折叠为一行紧凑状态指示：状态图标 + 工具名(truncate) + 服务器名(truncate) + 耗时 + chevron。
+- pending 使用静态圆点（`size-2 rounded-full bg-muted-foreground/40`），running 使用蓝色 spinner。
+- 展开动画仅 `fade-in + slide-in-from-top-1`，不使用缩放。
 
 ## 5. 总结
 
