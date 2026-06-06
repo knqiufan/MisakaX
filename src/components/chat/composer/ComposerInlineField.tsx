@@ -130,7 +130,7 @@ function ComposerInlineFieldInner({
 
   return (
     <div
-      className={cn("flex min-w-0 flex-1 flex-wrap items-center gap-x-0.5 gap-y-1", hasMentions && "py-0.5")}
+      className={cn("flex min-w-0 flex-1 flex-wrap items-center gap-x-0.5", hasMentions)}
       onCopy={handleCopy}
     >
       {segments.map((segment, index) => {

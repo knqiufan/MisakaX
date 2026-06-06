@@ -205,7 +205,7 @@ export function MessageInput({
           className={cn(
             "flex min-w-0 flex-1 flex-col rounded-[var(--radius-ui-lg)]",
             "border bg-[color:var(--surface-card)]",
-            "px-3 py-1.5 transition-colors duration-[var(--ds-dur-fast)]",
+            "px-3 transition-colors duration-[var(--ds-dur-fast)]",
             isDragOver
               ? "border-primary/50 bg-primary/5"
               : "border-[color:var(--border-muted)] focus-within:border-[color:var(--border-strong)]"

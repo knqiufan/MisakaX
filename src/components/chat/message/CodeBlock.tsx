@@ -57,7 +57,7 @@ export function CodeBlock({ code, language, className }: CodeBlockProps) {
           type="button"
           onClick={handleCopy}
           className={cn(
-            "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5",
+            "inline-flex items-center gap-1 rounded-md px-1.5",
             "text-[10px] text-muted-foreground/60",
             "transition-colors duration-[var(--ds-dur-fast)]",
             "opacity-0 group-hover/code:opacity-100",

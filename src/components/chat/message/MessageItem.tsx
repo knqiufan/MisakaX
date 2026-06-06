@@ -44,7 +44,7 @@ export function MessageItem({
           <UserMessageActions message={message} onRegenerate={onRegenerate} />
         </div>
       ) : (
-        <div className="mx-auto w-full max-w-[min(100%,48rem)] flex flex-col gap-1">
+        <div className="mx-auto w-full  flex flex-col gap-1">
           {hasThinking && (
             <ThinkingBlock
               content={message.thinking_content ?? ""}
@@ -218,7 +218,7 @@ function MarkdownContent({ content }: { content: string }) {
           return (
             <code
               className={cn(
-                "rounded-[4px] bg-[color:rgba(255,255,255,0.08)] px-1.5 py-0.5",
+                "rounded-[4px] bg-[color:rgba(255,255,255,0.08)] px-1.5",
                 "text-[0.8125em] font-mono text-foreground/90",
                 className
               )}

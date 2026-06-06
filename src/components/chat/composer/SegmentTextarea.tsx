@@ -79,9 +79,8 @@ export function SegmentTextarea({
       rows={1}
       wrap="off"
       className={cn(
-        "max-h-[200px] resize-none py-2 text-sm leading-[20px]",
+        "max-h-[200px] resize-none py-2.5 text-sm leading-[20px]",
         "text-foreground outline-none placeholder:text-muted-foreground/55",
-        "focus-visible:ring-2 focus-visible:ring-ring/35 focus-visible:outline-none",
         "disabled:cursor-not-allowed disabled:opacity-50",
         hasHighlight ? "bg-sky-500/20" : "bg-transparent",
         isLastText
