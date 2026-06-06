@@ -73,5 +73,8 @@
     "alwaysAllow": "始终允许",
     "deny": "拒绝",
     "countdown": "{{seconds}}秒后自动拒绝"
+  },
+  "toolLogs": {
+    "empty": "暂无工具调用"
   }
 }

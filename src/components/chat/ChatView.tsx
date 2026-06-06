@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { listen } from "@tauri-apps/api/event";
 import { useChatStore } from "@/stores/chat-store";
+import { useToolLogsStore } from "@/stores/tool-logs-store";
 import { chatIpc, IpcError } from "@/lib/ipc";
 import type { Session, MessageAttachment, ToolCallRequestEvent } from "@/lib/ipc";
 import { useStreamListener } from "@/hooks/use-stream-listener";
@@ -47,6 +48,19 @@ export function ChatView({
   useEffect(() => {
     loadMessages(session.id);
   }, [session.id, loadMessages]);
+
+  const { addToolCall, clearToolCalls } = useToolLogsStore();
+
+  useEffect(() => {
+    clearToolCalls();
+    for (const msg of messages) {
+      if (msg.tool_calls) {
+        for (const tc of msg.tool_calls) {
+          addToolCall(tc);
+        }
+      }
+    }
+  }, [messages, clearToolCalls, addToolCall]);
 
   useEffect(() => {
     const unlisten = listen<ToolCallRequestEvent>(

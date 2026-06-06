@@ -73,5 +73,8 @@
     "alwaysAllow": "Always Allow",
     "deny": "Deny",
     "countdown": "Auto-deny in {{seconds}}s"
+  },
+  "toolLogs": {
+    "empty": "No tool calls yet"
   }
 }

@@ -49,6 +49,8 @@
     "fileSaved": "Saved {{name}}",
     "saveFailed": "Failed to save",
     "openInExplorerFailed": "Failed to reveal in File Explorer",
-    "mentionReadFailed": "Failed to read file content"
+    "mentionReadFailed": "Failed to read file content",
+    "workspace": "Workspace",
+    "toolLogs": "Tool Logs"
   }
 }
