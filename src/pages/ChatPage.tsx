@@ -74,7 +74,7 @@ export function ChatPage() {
       <Panel id="sessions" defaultSize="18%" minSize="14%" maxSize="32%">
         <SessionPanel onNewSession={handleNewSession} />
       </Panel>
-      <PanelResizeHandle className="w-px bg-[color:var(--border-muted)] hover:bg-[color:var(--border-strong)] transition-colors duration-[var(--ds-dur-fast)]" />
+      <PanelResizeHandle className="w-[2px] bg-[color:var(--border-muted)] hover:bg-[color:var(--border-strong)] transition-colors duration-[var(--ds-dur-fast)]" />
       <Panel id="main" minSize="50%">
         <MainArea
           activeSession={activeSession}
@@ -133,7 +133,7 @@ function MainArea({
   return (
     <div className="flex h-full min-w-0 flex-col">
       <PanelGroup orientation="horizontal" id="misakax-chat-explorer">
-        <Panel id="chat" defaultSize="70%" minSize="40%">
+        <Panel id="chat" defaultSize="70%" minSize="55%">
           <ChatView
             session={activeSession}
             onChangeDir={onChangeWorkingDir}
@@ -143,7 +143,7 @@ function MainArea({
         </Panel>
         {explorerOpen && activeSession.working_directory ? (
           <>
-            <PanelResizeHandle className="w-px bg-[color:var(--border-muted)] hover:bg-[color:var(--border-strong)] transition-colors duration-[var(--ds-dur-fast)]" />
+            <PanelResizeHandle className="w-[2px] bg-[color:var(--border-muted)] hover:bg-[color:var(--border-strong)] transition-colors duration-[var(--ds-dur-fast)]" />
             <Panel id="explorer" defaultSize="30%" minSize="18%" maxSize="55%">
               <WorkspaceExplorer workingDir={activeSession.working_directory} />
             </Panel>
