@@ -162,7 +162,7 @@ export function SessionItem({
         <DropdownMenuTrigger
           onClick={(e) => e.stopPropagation()}
           className={cn(
-            "flex h-6 w-6 shrink-0 items-center justify-center rounded-[var(--radius-button)] text-muted-foreground/60 opacity-0 transition-opacity duration-[var(--ds-dur-fast)] hover:bg-[color:var(--surface-hover)] hover:text-foreground",
+            "flex h-6 w-6 shrink-0 items-center justify-center rounded-[var(--radius-button)] text-muted-foreground/60 opacity-40 transition-opacity duration-[var(--ds-dur-fast)] hover:bg-[color:var(--surface-hover)] hover:text-foreground",
             "group-hover:opacity-100",
             isActive && "opacity-100"
           )}
