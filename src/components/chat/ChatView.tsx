@@ -214,6 +214,7 @@ export function ChatView({
         onChangeDir={onChangeDir}
         onToggleExplorer={onToggleExplorer}
         explorerOpen={explorerOpen}
+        onToggleToolLogs={() => {}}
       />
       {messages.length === 0 && !isStreaming ? (
         <ChatEmptyState />

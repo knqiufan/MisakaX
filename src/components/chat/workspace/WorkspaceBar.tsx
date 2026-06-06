@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { FolderOpen, FolderTree, FolderX, RefreshCw } from "lucide-react";
+import { FolderOpen, FolderTree, FolderX, RefreshCw, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -13,6 +13,8 @@ interface WorkspaceBarProps {
   onChangeDir: () => void;
   onToggleExplorer?: () => void;
   explorerOpen?: boolean;
+  onToggleToolLogs?: () => void;
+  toolLogsOpen?: boolean;
 }
 
 const barShellClass = cn(
@@ -25,6 +27,8 @@ export function WorkspaceBar({
   onChangeDir,
   onToggleExplorer,
   explorerOpen = false,
+  onToggleToolLogs,
+  toolLogsOpen,
 }: WorkspaceBarProps) {
   const { t } = useTranslation("workspace");
 
@@ -39,6 +43,8 @@ export function WorkspaceBar({
       onChangeDir={onChangeDir}
       onToggleExplorer={onToggleExplorer}
       explorerOpen={explorerOpen}
+      onToggleToolLogs={onToggleToolLogs}
+      toolLogsOpen={toolLogsOpen}
     />
   );
 }
@@ -78,12 +84,16 @@ function WorkspaceBarSet({
   onChangeDir,
   onToggleExplorer,
   explorerOpen,
+  onToggleToolLogs,
+  toolLogsOpen,
 }: {
   t: (k: string) => string;
   workingDir: string;
   onChangeDir: () => void;
   onToggleExplorer?: () => void;
   explorerOpen: boolean;
+  onToggleToolLogs?: () => void;
+  toolLogsOpen?: boolean;
 }) {
   const dirName = extractDirName(workingDir);
 
@@ -146,6 +156,26 @@ function WorkspaceBarSet({
           {t("openExplorer")}
         </TooltipContent>
       </Tooltip>
+      {onToggleToolLogs && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={onToggleToolLogs}
+              disabled={toolLogsOpen}
+              className="size-9 shrink-0 rounded-[var(--radius-ui-md)] border-[color:var(--border-muted)]"
+              aria-label="Tool Logs"
+            >
+              <Terminal className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">
+            Tool Logs
+          </TooltipContent>
+        </Tooltip>
+      )}
     </div>
   );
 }
