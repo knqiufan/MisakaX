@@ -42,13 +42,13 @@ export function ToolCallBlock({ toolCall }: ToolCallBlockProps) {
       >
         <StatusIcon status={toolCall.status} />
         <Wrench className="size-3 text-muted-foreground/70" />
-        <span className="font-medium text-foreground/90">
+        <span className="min-w-0 truncate font-medium text-foreground/90">
           {toolCall.tool_name}
         </span>
         <span className="text-muted-foreground/60">·</span>
-        <span className="flex items-center gap-1 text-muted-foreground/60">
+        <span className="flex min-w-0 shrink items-center gap-1 text-muted-foreground/60">
           <Server className="size-2.5" />
-          {toolCall.server_name}
+          <span className="truncate">{toolCall.server_name}</span>
         </span>
         {elapsed !== null && (
           <span className="ml-auto flex items-center gap-1 text-muted-foreground/50">
@@ -58,13 +58,13 @@ export function ToolCallBlock({ toolCall }: ToolCallBlockProps) {
         )}
         <ChevronRight
           className={cn(
-            "ml-auto size-3 text-muted-foreground/50 transition-transform duration-[var(--ds-dur-fast)]",
+            "size-3 shrink-0 text-muted-foreground/50 transition-transform duration-[var(--ds-dur-fast)]",
             expanded && "rotate-90",
-            elapsed !== null && "ml-2"
+            elapsed === null ? "ml-auto" : "ml-1"
           )}
         />
       </CollapsibleTrigger>
-      <CollapsibleContent>
+      <CollapsibleContent className="animate-in fade-in-0 slide-in-from-top-1 ease-out duration-[var(--ds-dur-fast)] data-[state=closed]:animate-out data-[state=closed]:fade-out-0">
         <div
           className={cn(
             "mt-1 space-y-2 rounded-[var(--radius-ui-md)] px-3 py-2.5",
@@ -99,9 +99,7 @@ export function ToolCallBlock({ toolCall }: ToolCallBlockProps) {
 function StatusIcon({ status }: { status: ToolCall["status"] }) {
   switch (status) {
     case "pending":
-      return (
-        <Loader2 className="size-3.5 animate-spin text-muted-foreground/60" />
-      );
+      return <span className="size-2 shrink-0 rounded-full bg-muted-foreground/40" />;
     case "running":
       return (
         <Loader2 className="size-3.5 animate-spin text-primary" />
@@ -133,8 +131,9 @@ function DetailSection({
 function statusContainerStyle(status: ToolCall["status"]): string {
   switch (status) {
     case "pending":
+      return "";
     case "running":
-      return "border border-[color:var(--border-muted)] bg-[color:var(--surface-card)]/60";
+      return "border border-primary/20 bg-primary/5";
     case "complete":
       return "border border-emerald-500/20 bg-emerald-500/5";
     case "error":
