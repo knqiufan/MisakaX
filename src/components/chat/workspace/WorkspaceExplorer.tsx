@@ -8,12 +8,10 @@ import {
   Separator as PanelResizeHandle,
 } from "react-resizable-panels";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { fsIpc } from "@/lib/ipc";
 import { useWorkspaceExplorerStore } from "@/stores/workspace-explorer-store";
 import { FileTreeView } from "./FileTreeView";
 import { EditorColumn } from "./EditorColumn";
-import { ToolLogsPanel } from "./ToolLogsPanel";
 import { useFileEditor } from "./useFileEditor";
 
 interface WorkspaceExplorerProps {
@@ -87,22 +85,7 @@ export function WorkspaceExplorer({ workingDir }: WorkspaceExplorerProps) {
         onRefresh={refreshTree}
         onCollapse={() => setOpen(false)}
       />
-      <Tabs defaultValue="workspace" className="flex min-h-0 flex-1 flex-col">
-        <TabsList className="mx-2 mt-2 shrink-0">
-          <TabsTrigger value="workspace">
-            {t("explorer.workspace", { defaultValue: "Workspace" })}
-          </TabsTrigger>
-          <TabsTrigger value="toolLogs">
-            {t("explorer.toolLogs", { defaultValue: "Tool Logs" })}
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="workspace" className="min-h-0 flex-1">
-          {workspaceContent}
-        </TabsContent>
-        <TabsContent value="toolLogs" className="min-h-0 flex-1">
-          <ToolLogsPanel />
-        </TabsContent>
-      </Tabs>
+      <div className="flex min-h-0 flex-1 flex-col">{workspaceContent}</div>
     </aside>
   );
 }

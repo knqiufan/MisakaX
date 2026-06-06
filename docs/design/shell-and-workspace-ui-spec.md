@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口三栏结构、会话侧栏工具区、对话页顶栏、设置页 Provider 弹窗与对话页模型选择器的布局语义和样式约定。 |
 | **受众** | 负责 `AppShell`、`Sidebar`、`ChatPage`、`SessionPanel`、`WorkspaceBar`、`ModelSettings`、`ProviderDialog` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-06-07（v4） |
+| **最后审阅** | 2026-06-07（v5） |
 
 ## 相关文档
 
@@ -82,15 +82,14 @@ MisakaX 主界面在逻辑上划分为：
 
 ### 3.4 工具栏按钮（Tool Logs）
 
-- WorkspaceBar 右侧新增 Tool Logs 按钮（Terminal 图标）和可选 Review 按钮。
+- WorkspaceBar 右侧可放置 Tool Logs 按钮（Terminal 图标）和可选 Review 按钮。
 - 按钮统一 `size-9`，`rounded-[var(--radius-ui-md)]`，仅颜色/背景过渡。
-- 点击后切换右侧 Task Side Panel 的活动 tab。
+- Tool Logs 入口与 Workspace Explorer 解耦；不在 Explorer 内嵌 tab 切换。
 
-### 3.5 右侧 Task Side Panel tab 结构
+### 3.5 右侧 Workspace Explorer 内容区
 
-- Workspace Explorer 扩展为 tab 面板，包含 Workspace（文件树 + 编辑器）和 Tool Logs 两个 tab。
-- Tab 使用 shadcn/ui Tabs 组件，默认选中 Workspace。
-- Tool Logs tab 按时间序列展示当前会话全部工具调用。
+- Workspace Explorer **仅**展示工作区：无打开 tab 时为文件树；有打开 tab 时为左树右编辑器的水平分栏。
+- 不在 Explorer 顶部放置 shadcn/ui Tabs 或二级 tab 条；工具日志等辅助面板须独立承载（例如后续单独的侧栏或浮层）。
 
 ---
 
