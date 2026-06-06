@@ -7,10 +7,10 @@ import {
   Separator as PanelResizeHandle,
 } from "react-resizable-panels";
 import { Button } from "@/components/ui/button";
-import { WorkspaceSelector } from "@/components/chat/WorkspaceSelector";
+import { WorkspaceSelector } from "@/components/chat/workspace/WorkspaceSelector";
 import { ChatView } from "@/components/chat/ChatView";
-import { SessionPanel } from "@/components/chat/SessionPanel";
-import { WorkspaceExplorer } from "@/components/chat/workspace-explorer/WorkspaceExplorer";
+import { SessionPanel } from "@/components/chat/session/SessionPanel";
+import { WorkspaceExplorer } from "@/components/chat/workspace/WorkspaceExplorer";
 import { useChatStore } from "@/stores/chat-store";
 import { useWorkspaceExplorerStore } from "@/stores/workspace-explorer-store";
 import { sessionsIpc } from "@/lib/ipc";

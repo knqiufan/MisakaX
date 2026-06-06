@@ -6,7 +6,7 @@ import {
   updateMentionInSegments,
   type ComposerCursor,
   type ComposerSegment,
-} from "@/components/chat/composer/composer-segment";
+} from "@/components/chat/composer/composerSegment";
 
 export type PendingAttachment =
   | {

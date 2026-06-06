@@ -6,9 +6,9 @@ import { useChatStore } from "@/stores/chat-store";
 import { chatIpc, IpcError } from "@/lib/ipc";
 import type { Session, MessageAttachment, ToolCallRequestEvent } from "@/lib/ipc";
 import { useStreamListener } from "@/hooks/use-stream-listener";
-import { WorkspaceBar } from "./WorkspaceBar";
-import { MessageList } from "./MessageList";
-import { MessageInput } from "./MessageInput";
+import { WorkspaceBar } from "./workspace/WorkspaceBar";
+import { MessageList } from "./message/MessageList";
+import { MessageInput } from "./composer/MessageInput";
 import { ChatEmptyState } from "./ChatEmptyState";
 import { ToolApprovalDialog } from "./ToolApprovalDialog";
 

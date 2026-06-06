@@ -9,7 +9,7 @@ import {
   handleSegmentDelete,
   type ComposerCursor,
   type ComposerSegment,
-} from "./composer-segment";
+} from "./composerSegment";
 import { InlineMentionChip } from "./MentionPill";
 import { SegmentTextarea } from "./SegmentTextarea";
 import { useComposerTextSelection } from "./useComposerTextSelection";

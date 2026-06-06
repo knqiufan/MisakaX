@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { ToolCallRequestEvent } from "@/lib/ipc";
 import { mcpIpc } from "@/lib/ipc/mcp";
-import { CodeBlock } from "./CodeBlock";
+import { CodeBlock } from "./message/CodeBlock";
 
 interface ToolApprovalDialogProps {
   request: ToolCallRequestEvent | null;

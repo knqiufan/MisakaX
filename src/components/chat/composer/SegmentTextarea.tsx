@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, type ClipboardEvent, type KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
-import type { LocalTextSelection } from "./composer-text-selection";
+import type { LocalTextSelection } from "./composerTextSelection";
 
 const MIN_HEIGHT = 36;
 const MAX_HEIGHT = 200;

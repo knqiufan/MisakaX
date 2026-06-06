@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
-import type { ComposerCursor, ComposerSegment } from "./composer-segment";
+import type { ComposerCursor, ComposerSegment } from "./composerSegment";
 import {
   buildFullTextSelection,
   getLocalSelectionForSegment,
@@ -10,7 +10,7 @@ import {
   selectionFromTextarea,
   type ComposerTextSelection,
   type LocalTextSelection,
-} from "./composer-text-selection";
+} from "./composerTextSelection";
 
 interface UseComposerTextSelectionOptions {
   segments: ComposerSegment[];

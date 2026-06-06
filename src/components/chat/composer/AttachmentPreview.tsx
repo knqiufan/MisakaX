@@ -1,7 +1,7 @@
 import { FileText, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PendingAttachment } from "@/stores/composer-store";
-import { formatFileSize } from "./attachment-utils";
+import { formatFileSize } from "./attachmentUtils";
 
 interface AttachmentPreviewProps {
   attachments: PendingAttachment[];

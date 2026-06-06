@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { ModelSelector, type FlatModel } from "@/components/chat/ModelSelector";
+import { ModelSelector } from "@/components/chat/model-selector/ModelSelector";
+import type { FlatModel } from "@/components/chat/model-selector/types";
 import { useAppStore } from "@/stores/app-store";
 
 vi.mock("react-i18next", () => ({

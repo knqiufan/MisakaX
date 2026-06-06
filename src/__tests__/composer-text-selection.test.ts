@@ -4,8 +4,8 @@ import {
   getLocalSelectionForSegment,
   isFullTextSelection,
   normalizeTextSelection,
-} from "@/components/chat/composer/composer-text-selection";
-import type { ComposerSegment } from "@/components/chat/composer/composer-segment";
+} from "@/components/chat/composer/composerTextSelection";
+import type { ComposerSegment } from "@/components/chat/composer/composerSegment";
 
 function text(id: string, value: string): ComposerSegment {
   return { type: "text", id, value };

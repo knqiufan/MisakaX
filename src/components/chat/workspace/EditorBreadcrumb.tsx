@@ -1,4 +1,4 @@
-import { toWorkspaceRelativePath } from "../composer/attachment-utils";
+import { toWorkspaceRelativePath } from "../composer/attachmentUtils";
 
 interface EditorBreadcrumbProps {
   workingDir: string;

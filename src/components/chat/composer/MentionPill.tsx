@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { PendingFileMention } from "@/stores/composer-store";
-import { ChipStatusIcon, getFileTypeColorClass } from "./file-type-icon";
+import { ChipStatusIcon, getFileTypeColorClass } from "./FileTypeIcon";
 
 interface MentionPillsProps {
   mentions: PendingFileMention[];

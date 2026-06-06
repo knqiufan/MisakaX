@@ -21,7 +21,7 @@ import {
 import { fsIpc, type FsEntry } from "@/lib/ipc";
 import { cn } from "@/lib/utils";
 import { useComposerStore } from "@/stores/composer-store";
-import { basenameOf, toWorkspaceRelativePath } from "../composer/attachment-utils";
+import { basenameOf, toWorkspaceRelativePath } from "../composer/attachmentUtils";
 
 interface FileTreeNodeProps {
   entry: FsEntry;

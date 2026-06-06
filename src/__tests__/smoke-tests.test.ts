@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { extractDirName } from "@/components/chat/WorkspaceBar";
+import { extractDirName } from "@/components/chat/workspace/WorkspaceBar";
 import { useChatStore } from "@/stores/chat-store";
 import type { Message } from "@/lib/ipc";
 

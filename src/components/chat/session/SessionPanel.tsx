@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SessionItem } from "./SessionItem";
-import { MessageSearchResults } from "./MessageSearchResults";
+import { MessageSearchResults } from "../message/MessageSearchResults";
 import { sessionsIpc } from "@/lib/ipc";
 import type { Session, MessageSearchResult } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";

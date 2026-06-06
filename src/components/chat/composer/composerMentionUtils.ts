@@ -4,7 +4,7 @@ import {
   collectMentions,
   countSendableFromSegments,
   type ComposerSegment,
-} from "./composer-segment";
+} from "./composerSegment";
 
 export function mentionsToWorkspaceAttachments(
   segments: ComposerSegment[]

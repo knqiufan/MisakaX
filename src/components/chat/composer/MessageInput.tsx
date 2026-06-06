@@ -22,17 +22,17 @@ import {
   useComposerStore,
   type PendingAttachment,
 } from "@/stores/composer-store";
-import { AttachButton } from "./composer/AttachButton";
-import { AttachmentMenu } from "./composer/AttachmentMenu";
-import { AttachmentPreview } from "./composer/AttachmentPreview";
-import { ComposerFooter } from "./composer/ComposerFooter";
-import { ComposerInlineField } from "./composer/ComposerInlineField";
-import { getDocumentPlainText } from "./composer/composer-segment";
+import { AttachButton } from "./AttachButton";
+import { AttachmentMenu } from "./AttachmentMenu";
+import { AttachmentPreview } from "./AttachmentPreview";
+import { ComposerFooter } from "./ComposerFooter";
+import { ComposerInlineField } from "./ComposerInlineField";
+import { getDocumentPlainText } from "./composerSegment";
 import {
   buildOutgoingContent,
   countSendableMentions,
   mentionsToWorkspaceAttachments,
-} from "./composer/composer-mention-utils";
+} from "./composerMentionUtils";
 import {
   ACCEPTED_IMAGE_TYPES,
   ACCEPTED_TEXT_TYPES,
@@ -41,7 +41,7 @@ import {
   canSendComposerMessage,
   classifyAttachment,
   inferTextMime,
-} from "./composer/attachment-utils";
+} from "./attachmentUtils";
 
 interface MessageInputProps {
   onSend: (

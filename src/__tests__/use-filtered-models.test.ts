@@ -6,8 +6,8 @@ import {
 import {
   isSelectedModelValid,
   selectedModelLabel,
-} from "@/components/chat/model-selector/model-data";
-import type { FlatModel } from "@/components/chat/ModelSelector";
+} from "@/components/chat/model-selector/modelData";
+import type { FlatModel } from "@/components/chat/model-selector/types";
 
 describe("model selector filtering", () => {
   it("filters by model id, label, router name, and vendor label", () => {

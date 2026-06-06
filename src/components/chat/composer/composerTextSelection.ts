@@ -1,5 +1,5 @@
-import type { ComposerCursor, ComposerSegment } from "./composer-segment";
-import { getSegmentId } from "./composer-segment";
+import type { ComposerCursor, ComposerSegment } from "./composerSegment";
+import { getSegmentId } from "./composerSegment";
 
 export interface ComposerTextSelection {
   anchor: ComposerCursor;

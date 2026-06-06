@@ -9,7 +9,7 @@ import {
   isSelectedModelValid,
   selectedModelLabel,
   toFlatModels,
-} from "../model-selector/model-data";
+} from "../model-selector/modelData";
 import { McpStatusPopover } from "./McpStatusPopover";
 import { SkillSelectorPopover } from "./SkillSelectorPopover";
 

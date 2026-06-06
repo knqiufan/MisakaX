@@ -3,12 +3,12 @@ import {
   ACCEPTED_ATTACHMENT_TYPES,
   canSendComposerMessage,
   classifyAttachment,
-} from "@/components/chat/composer/attachment-utils";
+} from "@/components/chat/composer/attachmentUtils";
 import {
   buildOutgoingContent,
   countSendableMentions,
   mentionsToWorkspaceAttachments,
-} from "@/components/chat/composer/composer-mention-utils";
+} from "@/components/chat/composer/composerMentionUtils";
 import {
   buildOutgoingFromSegments,
   createEmptyDocument,
@@ -16,7 +16,7 @@ import {
   handleSegmentDelete,
   insertMentionAtCursor,
   type ComposerSegment,
-} from "@/components/chat/composer/composer-segment";
+} from "@/components/chat/composer/composerSegment";
 import type { PendingFileMention } from "@/stores/composer-store";
 
 describe("composer attachment classification", () => {
