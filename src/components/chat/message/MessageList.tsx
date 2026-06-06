@@ -59,7 +59,7 @@ export function MessageList({
         ref={containerRef}
         className="h-full overflow-y-auto scroll-smooth"
       >
-        <div className="mx-auto max-w-3xl py-4">
+        <div className="py-4 px-2">
           {messages.map((msg) => {
             const isCurrentStreaming = msg.id === streamingMessageId;
             return (

@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check, Copy, RefreshCw, User, Bot, AlertTriangle } from "lucide-react";
+import { Check, Copy, RefreshCw, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Message, TokenUsage } from "@/lib/ipc";
 import { CodeBlock } from "./CodeBlock";
@@ -31,64 +31,79 @@ export function MessageItem({
   return (
     <div
       className={cn(
-        "group/msg flex gap-3 px-4 py-3",
-        isUser ? "justify-end" : "justify-start"
+        "group/msg px-4 py-2",
+        isUser ? "flex justify-end" : "w-full"
       )}
     >
-      {!isUser && <AssistantAvatar />}
-      <div
-        className={cn("flex max-w-[85%] flex-col gap-1", isUser && "items-end")}
+      {isUser ? (
+        <div className="flex max-w-[80%] flex-col items-end gap-1">
+          <MessageBubble message={message} isUser={isUser} />
+          <UserMessageActions message={message} onRegenerate={onRegenerate} />
+        </div>
+      ) : (
+        <div className="flex w-full flex-col gap-1">
+          {hasThinking && (
+            <ThinkingBlock
+              content={message.thinking_content ?? ""}
+              isStreaming={isThinkingStreaming}
+            />
+          )}
+          {hasToolCalls && (
+            <div className="flex w-full flex-col gap-0.5">
+              {message.tool_calls!.map((tc) => (
+                <ToolCallBlock key={tc.id} toolCall={tc} />
+              ))}
+            </div>
+          )}
+          <MessageBubble message={message} isUser={isUser} />
+          {isStreaming && message.status === "streaming" && (
+            <StreamingIndicator className="ml-1" />
+          )}
+          <MessageFooter message={message} onRegenerate={onRegenerate} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UserMessageActions({
+  message,
+  onRegenerate,
+}: {
+  message: Message;
+  onRegenerate?: (id: string) => void;
+}) {
+  const { t } = useTranslation("chat");
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(message.content).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [message.content]);
+
+  const handleRegenerate = useCallback(() => {
+    onRegenerate?.(message.id);
+  }, [message.id, onRegenerate]);
+
+  return (
+    <div className="flex items-center gap-1 opacity-0 transition-opacity duration-[var(--ds-dur-fast)] group-hover/msg:opacity-100">
+      <ActionButton
+        onClick={handleCopy}
+        label={copied ? t("copied") : t("copyMessage")}
       >
-        {hasThinking && (
-          <ThinkingBlock
-            content={message.thinking_content ?? ""}
-            isStreaming={isThinkingStreaming}
-          />
+        {copied ? (
+          <Check className="size-3 text-emerald-400" />
+        ) : (
+          <Copy className="size-3" />
         )}
-        {hasToolCalls && (
-          <div className="flex w-full flex-col gap-0.5">
-            {message.tool_calls!.map((tc) => (
-              <ToolCallBlock key={tc.id} toolCall={tc} />
-            ))}
-          </div>
-        )}
-        <MessageBubble message={message} isUser={isUser} />
-        {isStreaming && message.status === "streaming" && (
-          <StreamingIndicator className="ml-1" />
-        )}
-        <MessageFooter
-          message={message}
-          isUser={isUser}
-          onRegenerate={onRegenerate}
-        />
-      </div>
-      {isUser && <UserAvatar />}
-    </div>
-  );
-}
-
-function UserAvatar() {
-  return (
-    <div
-      className={cn(
-        "flex size-7 shrink-0 items-center justify-center rounded-full",
-        "bg-primary/15 text-primary"
+      </ActionButton>
+      {onRegenerate && (
+        <ActionButton onClick={handleRegenerate} label={t("regenerate")}>
+          <RefreshCw className="size-3" />
+        </ActionButton>
       )}
-    >
-      <User className="size-3.5" />
-    </div>
-  );
-}
-
-function AssistantAvatar() {
-  return (
-    <div
-      className={cn(
-        "flex size-7 shrink-0 items-center justify-center rounded-full",
-        "bg-[color:var(--surface-card-strong)] text-muted-foreground"
-      )}
-    >
-      <Bot className="size-3.5" />
     </div>
   );
 }
@@ -125,15 +140,33 @@ function MessageBubble({
 
   const attachedImages = parseAttachments(message.attachments);
 
+  if (isUser) {
+    return (
+      <div
+        className={cn(
+          "rounded-[var(--radius-ui-lg)] px-3.5 py-2.5 text-sm leading-relaxed",
+          "bg-primary text-primary-foreground"
+        )}
+      >
+        {attachedImages.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {attachedImages.map((img, i) => (
+              <img
+                key={i}
+                src={`data:${img.mime_type};base64,${img.data}`}
+                alt=""
+                className="max-h-48 max-w-[200px] rounded-[var(--radius-ui-md)] object-contain"
+              />
+            ))}
+          </div>
+        )}
+        <p className="whitespace-pre-wrap">{message.content}</p>
+      </div>
+    );
+  }
+
   return (
-    <div
-      className={cn(
-        "rounded-[var(--radius-ui-lg)] px-3.5 py-2.5 text-sm leading-relaxed",
-        isUser
-          ? "bg-primary text-primary-foreground"
-          : "bg-[color:var(--surface-card)] text-foreground"
-      )}
-    >
+    <div className="w-full text-sm leading-relaxed text-foreground">
       {attachedImages.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-2">
           {attachedImages.map((img, i) => (
@@ -146,11 +179,7 @@ function MessageBubble({
           ))}
         </div>
       )}
-      {isUser ? (
-        <p className="whitespace-pre-wrap">{message.content}</p>
-      ) : (
-        <MarkdownContent content={message.content} />
-      )}
+      <MarkdownContent content={message.content} />
     </div>
   );
 }
@@ -279,18 +308,16 @@ function MarkdownContent({ content }: { content: string }) {
 
 function MessageFooter({
   message,
-  isUser,
   onRegenerate,
 }: {
   message: Message;
-  isUser: boolean;
   onRegenerate?: (id: string) => void;
 }) {
   const { t } = useTranslation("chat");
   const [copied, setCopied] = useState(false);
 
   const parsedUsage = parseTokenUsage(message.token_usage);
-  const showActions = !isUser && message.status === "complete";
+  const showActions = message.status === "complete";
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(message.content).then(() => {

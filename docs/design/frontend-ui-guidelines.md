@@ -7,7 +7,7 @@
 - **壳层布局、主导航收起语义、会话列表工具区、对话页工作目录顶栏**等专项约定：见 [shell-and-workspace-ui-spec.md](./shell-and-workspace-ui-spec.md)。  
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 
-**最后审阅 / Last reviewed:** 2026-06-05（v4）
+**最后审阅 / Last reviewed:** 2026-06-07（v5）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -100,6 +100,20 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - 容器使用 **低强度破坏性语义色**：`border-destructive/45`、`bg-destructive/8`、`text-destructive`，附 `AlertTriangle` 图标，并设 `role="alert"`。
 - 禁止在此状态使用悬停位移动效；与 [按钮/菜单规范](./button-menu-design-spec.md) 一致，仅颜色/背景过渡。
 - 用户可见的错误还应通过 **Sonner `toast.error`**（`ChatView` 中 IPC `catch`）补充提示；`stream_error` 事件仅负责在助手仍为 `streaming` 时写入 `updateMessageError`，避免与 `catch` 重复 Toast 或覆盖已由 `catch` 写入的错误文案。
+
+### 4.6 对话消息列表布局（MessageList / MessageItem）
+
+- **列表容器**（`MessageList`）不设 `max-w-*` 居中限制，消息撑满父容器可用宽度；仅保留少量水平 padding（`px-2`）提供呼吸空间。
+- **无头像**：`MessageItem` 不渲染任何 Avatar 图标（User / Assistant），仅显示对话内容。
+- **User 消息**：
+  - 整条消息 `flex justify-end` 靠右停靠。
+  - 气泡容器 `max-w-[80%]`，文字较短时自动收窄，文字超长时最大不超过父容器 80%。
+  - 保留圆角背景气泡样式（`bg-primary text-primary-foreground`，`rounded-[var(--radius-ui-lg)]`）。
+  - 气泡下方悬停显示 **复制** 和 **重新生成** 小图标按钮（`size-6`，hover 出现，`opacity-0 → group-hover/msg:opacity-100`）。
+- **Assistant 消息**：
+  - 容器 `w-full`，内容 100% 宽度平铺，不设气泡背景与边框，以纯文本/Markdown 形式直接输出。
+  - 错误态仍使用 `border-destructive/45 bg-destructive/8` 等语义色容器（见 4.5）。
+  - 底部悬停仍显示 Copy / Regenerate + TokenBadge。
 
 ## 5. 总结
 
