@@ -36,6 +36,7 @@ export function ToolCallBlock({ toolCall }: ToolCallBlockProps) {
           "text-xs",
           "transition-colors duration-[var(--ds-dur-fast)]",
           "hover:bg-[color:var(--surface-hover)]",
+          "focus-visible:ring-2 focus-visible:ring-ring/35 focus-visible:ring-offset-1 focus-visible:outline-none",
           statusContainerStyle(toolCall.status)
         )}
       >

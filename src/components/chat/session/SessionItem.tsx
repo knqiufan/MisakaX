@@ -117,7 +117,7 @@ export function SessionItem({
         if (e.key === "Enter" && !isEditing) onSelect(session.id);
       }}
       className={cn(
-        "group relative flex w-full cursor-pointer items-center gap-2 rounded-[var(--radius-button)] px-2.5 py-2 text-left text-sm outline-none",
+        "group relative flex w-full cursor-pointer items-center gap-2 rounded-[var(--radius-button)] px-2.5 py-2 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/35 focus-visible:ring-offset-1",
         "transition-[background-color,color] duration-[var(--ds-dur-fast)] ease-out",
         isArchived && "opacity-50",
         isActive
