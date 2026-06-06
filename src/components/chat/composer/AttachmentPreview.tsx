@@ -48,7 +48,7 @@ function ImageAttachmentCard({
         src={`data:${attachment.media_type};base64,${attachment.data}`}
         alt={attachment.file_name}
         className={cn(
-          "size-16 rounded-[var(--radius-ui-md)] object-cover",
+          "size-14 rounded-[var(--radius-ui-md)] object-cover",
           "border border-[color:var(--border-muted)] bg-[color:var(--surface-card)]"
         )}
       />
@@ -73,7 +73,7 @@ function TextAttachmentCard({
   return (
     <div
       className={cn(
-        "group/thumb relative flex max-w-[220px] items-center gap-2 rounded-[var(--radius-ui-md)]",
+        "group/thumb relative flex max-w-[200px] items-center gap-2 rounded-[var(--radius-ui-md)]",
         "border border-[color:var(--border-muted)] bg-[color:var(--surface-card)]",
         "px-2 py-2"
       )}
