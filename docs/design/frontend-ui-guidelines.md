@@ -71,13 +71,14 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 
 - Composer 顶层 `<div>` 必须使用 **`flex items-center gap-2`**；输入行内 `ComposerInlineField` 必须带 **`flex-1 min-w-0`**，发送按钮 `shrink-0` 贴右，禁止仅按内容宽度收缩导致按钮悬空中部。
 - 数据模型为 **`ComposerSegment[]`**（`text` 与 `mention` 交错），引用插入当前 `composerCursor` 位置（`insertMentionAtCursor`），而非固定堆在输入框最前。`normalizeSegments` 会 **prune 掉 mention 之间的空 text 段**，避免空 `textarea` 默认宽度把 chip 撑开；仅保留末尾 text 段作为输入区。
-- `ComposerInlineField` 按 segment 渲染多个 text `textarea` 与 `InlineMentionChip` 交错；**仅最后一个 text segment** 使用 `flex-1 min-w-[8rem]`，前面的 text segment 用 `w-auto min-w-[1ch]` 收缩。
-- `InlineMentionChip` 视觉（对齐 Cursor 暗色块）：
-  - ready：`h-6`、`rounded-md`、`bg-[color:var(--surface-control)]`，`FileTypeIcon` + 文件名同色（如 `.tsx` → `text-sky-400`）；
+- `ComposerInlineField` 按 segment 渲染多个 `SegmentTextarea` 与 `InlineMentionChip` 交错；**仅最后一个 text segment** 使用 `flex-1 min-w-[2rem]` 撑满剩余宽度，前面的 text segment 用 **`scrollWidth` 动态测宽**（`shrink-0`、`whitespace-nowrap`、`wrap="off"`），**禁止** `cols={1}` 或 `Nch` 固定宽度（中文会竖排）。
+- `InlineMentionChip` 视觉（透明蓝底，对齐 Cursor 行内引用）：
+  - ready：`h-6`、`rounded-md`、`border border-sky-400/30`、`bg-sky-500/10`，`FileTypeIcon` + 文件名同色（如 `.tsx` → `text-sky-400`）；
   - loading：`opacity-60` + `Loader2`；
   - error：`bg-destructive/8` + `AlertTriangle` + `text-destructive`；
   - **禁止**显示删除 `X` 按钮；删除通过 **Backspace**（光标在 text 段 offset=0 时删前一个 mention）或 **Delete**（光标在 text 段末尾时删后一个 mention）完成。
 - 引用触发后通过 `focusRequestId` + `composerCursor` 自动 focus 到插入点后的 text segment；**不**弹出「已引用」成功 toast（失败仍 `toast.error`）。
+- **跨段全选**：多 `textarea` 无法原生跨 chip 选区；`Ctrl/Cmd+A` 由 `useComposerTextSelection` 选中全部 text segment（chip 不参与），各段 `bg-sky-500/20` 高亮；`Ctrl+C` 复制纯文本；`Backspace/Delete` 清空全部文本但保留 chip。
 - 发送：`ready` mentions 走 `mentionsToWorkspaceAttachments(segments)`；展示正文用 `buildOutgoingFromSegments` 按 segment 顺序交错 `@relPath` 与文本；发送成功后 `clearMentions()` 重置为 `createEmptyDocument()`。
 - `canSendComposerMessage` 使用 `getDocumentPlainText(segments)` 作为 `content`，`countSendableFromSegments` + `attachments.length` 作为 `attachmentCount`。
 - `AttachmentPreview` 仍在 segment 行**之上**，与 workspace 引用语义分离。

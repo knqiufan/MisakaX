@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, type ClipboardEvent, type KeyboardEvent } from "react";
+import { useCallback, useEffect, type ClipboardEvent, type KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
 import {
+  clearAllTextContent,
   findLastTextSegmentIndex,
+  getDocumentPlainText,
   getSegmentId,
   handleSegmentBackspace,
   handleSegmentDelete,
@@ -9,9 +11,8 @@ import {
   type ComposerSegment,
 } from "./composer-segment";
 import { InlineMentionChip } from "./MentionPill";
-
-const MIN_HEIGHT = 36;
-const MAX_HEIGHT = 200;
+import { SegmentTextarea } from "./SegmentTextarea";
+import { useComposerTextSelection } from "./useComposerTextSelection";
 
 interface ComposerInlineFieldProps {
   segments: ComposerSegment[];
@@ -42,23 +43,18 @@ function ComposerInlineFieldInner({
   placeholder,
   disabled,
 }: ComposerInlineFieldProps) {
-  const textareaRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map());
   const lastTextIndex = findLastTextSegmentIndex(segments);
   const hasMentions = segments.some((s) => s.type === "mention");
 
-  const adjustHeight = useCallback((el: HTMLTextAreaElement) => {
-    el.style.height = "auto";
-    el.style.height = `${Math.min(Math.max(el.scrollHeight, MIN_HEIGHT), MAX_HEIGHT)}px`;
-  }, []);
-
-  const focusSegment = useCallback((segmentId: string, offset?: number) => {
-    const el = textareaRefs.current.get(segmentId);
-    if (!el) return;
-    el.focus();
-    const pos = offset ?? el.value.length;
-    el.setSelectionRange(pos, pos);
-    adjustHeight(el);
-  }, [adjustHeight]);
+  const {
+    registerRef,
+    focusSegment,
+    isAllTextSelected,
+    handleSelectAllKey,
+    handleSelectReport,
+    getSegmentHighlight,
+    clearSelection,
+  } = useComposerTextSelection({ segments, onCursorChange });
 
   useEffect(() => {
     if (focusRequestId <= 0) return;
@@ -66,86 +62,104 @@ function ComposerInlineFieldInner({
     if (targetId) focusSegment(targetId, composerCursor?.offset);
   }, [focusRequestId, composerCursor, focusSegment]);
 
-  useEffect(() => {
-    textareaRefs.current.forEach((el) => adjustHeight(el));
-  }, [segments, adjustHeight]);
+  const handleClearAllText = useCallback(() => {
+    const result = clearAllTextContent(segments);
+    onSegmentsChange(result.segments, result.cursor);
+    clearSelection();
+    requestAnimationFrame(() => focusSegment(result.cursor.segmentId, 0));
+  }, [segments, onSegmentsChange, clearSelection, focusSegment]);
 
-  const reportCursor = useCallback((segmentId: string, el: HTMLTextAreaElement) => {
-    onCursorChange({ segmentId, offset: el.selectionStart });
-  }, [onCursorChange]);
-
-  const handleTextKeyDown = useCallback((segmentId: string, e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Backspace" && !e.nativeEvent.isComposing) {
-      const cursor = { segmentId, offset: e.currentTarget.selectionStart };
-      const result = handleSegmentBackspace(segments, cursor);
-      if (result.handled) {
-        e.preventDefault();
-        onSegmentsChange(result.segments, result.cursor);
-        requestAnimationFrame(() => focusSegment(result.cursor.segmentId, result.cursor.offset));
-        return;
-      }
-    }
-    if (e.key === "Delete" && !e.nativeEvent.isComposing) {
-      const cursor = { segmentId, offset: e.currentTarget.selectionStart };
-      const result = handleSegmentDelete(segments, cursor);
-      if (result.handled) {
-        e.preventDefault();
-        onSegmentsChange(result.segments, result.cursor);
-        requestAnimationFrame(() => focusSegment(result.cursor.segmentId, result.cursor.offset));
-        return;
-      }
-    }
-    onKeyDown(e);
-  }, [segments, onSegmentsChange, focusSegment, onKeyDown]);
-
-  return (
-    <div className={cn("flex min-w-0 flex-1 flex-wrap items-center gap-1", hasMentions && "py-0.5")}>
-      {segments.map((segment, index) => renderSegment(segment, index))}
-    </div>
+  const handleCopy = useCallback(
+    (e: ClipboardEvent<HTMLDivElement>) => {
+      if (!isAllTextSelected) return;
+      e.preventDefault();
+      e.clipboardData.setData("text/plain", getDocumentPlainText(segments));
+    },
+    [isAllTextSelected, segments]
   );
 
-  function renderSegment(segment: ComposerSegment, index: number) {
-    if (segment.type === "mention") {
-      return <InlineMentionChip key={getSegmentId(segment)} mention={segment.mention} />;
-    }
-    const isLastText = index === lastTextIndex;
-    const showPlaceholder = isLastText && !hasMentions && segment.value.length === 0;
-    const inlineWidth =
-      !isLastText && segment.value.length > 0
-        ? `${Math.max(1, segment.value.length)}ch`
-        : undefined;
+  const handleTextKeyDown = useCallback(
+    (segmentId: string, e: KeyboardEvent<HTMLTextAreaElement>) => {
+      if (handleSelectAllKey(segmentId, e)) return;
 
-    return (
-      <textarea
-        key={segment.id}
-        ref={(el) => {
-          if (el) textareaRefs.current.set(segment.id, el);
-          else textareaRefs.current.delete(segment.id);
-        }}
-        value={segment.value}
-        onChange={(e) => onTextChange(segment.id, e.target.value)}
-        onKeyDown={(e) => handleTextKeyDown(segment.id, e)}
-        onKeyUp={(e) => reportCursor(segment.id, e.currentTarget)}
-        onSelect={(e) => reportCursor(segment.id, e.currentTarget)}
-        onFocus={(e) => reportCursor(segment.id, e.currentTarget)}
-        onPaste={onPaste}
-        placeholder={showPlaceholder ? placeholder : ""}
-        disabled={disabled}
-        rows={1}
-        cols={isLastText ? undefined : 1}
-        className={cn(
-          "max-h-[200px] resize-none bg-transparent py-2 text-sm leading-[20px]",
-          "text-foreground outline-none placeholder:text-muted-foreground/55",
-          "disabled:cursor-not-allowed disabled:opacity-50",
-          isLastText
-            ? "min-h-[36px] min-w-[2rem] flex-1 [field-sizing:content]"
-            : "min-h-[36px] min-w-0 max-w-full [field-sizing:content]"
-        )}
-        style={{
-          height: `${MIN_HEIGHT}px`,
-          width: inlineWidth,
-        }}
-      />
-    );
-  }
+      if (
+        isAllTextSelected &&
+        (e.key === "Backspace" || e.key === "Delete") &&
+        !e.nativeEvent.isComposing
+      ) {
+        e.preventDefault();
+        handleClearAllText();
+        return;
+      }
+
+      if (e.key === "Backspace" && !e.nativeEvent.isComposing) {
+        const cursor = { segmentId, offset: e.currentTarget.selectionStart };
+        const result = handleSegmentBackspace(segments, cursor);
+        if (result.handled) {
+          e.preventDefault();
+          clearSelection();
+          onSegmentsChange(result.segments, result.cursor);
+          requestAnimationFrame(() => focusSegment(result.cursor.segmentId, result.cursor.offset));
+          return;
+        }
+      }
+      if (e.key === "Delete" && !e.nativeEvent.isComposing) {
+        const cursor = { segmentId, offset: e.currentTarget.selectionStart };
+        const result = handleSegmentDelete(segments, cursor);
+        if (result.handled) {
+          e.preventDefault();
+          clearSelection();
+          onSegmentsChange(result.segments, result.cursor);
+          requestAnimationFrame(() => focusSegment(result.cursor.segmentId, result.cursor.offset));
+          return;
+        }
+      }
+      onKeyDown(e);
+    },
+    [
+      segments,
+      isAllTextSelected,
+      handleSelectAllKey,
+      handleClearAllText,
+      onSegmentsChange,
+      focusSegment,
+      clearSelection,
+      onKeyDown,
+    ]
+  );
+
+  return (
+    <div
+      className={cn("flex min-w-0 flex-1 flex-wrap items-center gap-x-0.5 gap-y-1", hasMentions && "py-0.5")}
+      onCopy={handleCopy}
+    >
+      {segments.map((segment, index) => {
+        if (segment.type === "mention") {
+          return <InlineMentionChip key={getSegmentId(segment)} mention={segment.mention} />;
+        }
+        const isLastText = index === lastTextIndex;
+        const showPlaceholder = isLastText && !hasMentions && segment.value.length === 0;
+        return (
+          <SegmentTextarea
+            key={segment.id}
+            segmentId={segment.id}
+            value={segment.value}
+            isLastText={isLastText}
+            showPlaceholder={showPlaceholder}
+            placeholder={placeholder}
+            disabled={disabled}
+            highlightRange={getSegmentHighlight(segment.id, segment.value)}
+            onChange={(value) => {
+              clearSelection();
+              onTextChange(segment.id, value);
+            }}
+            onKeyDown={(e) => handleTextKeyDown(segment.id, e)}
+            onPaste={onPaste}
+            onSelectReport={(el) => handleSelectReport(segment.id, el)}
+            registerRef={registerRef}
+          />
+        );
+      })}
+    </div>
+  );
 }

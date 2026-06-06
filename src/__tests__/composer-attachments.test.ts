@@ -117,14 +117,24 @@ describe("insertMentionAtCursor", () => {
     const first = insertMentionAtCursor(
       segments,
       { segmentId: "t1", offset: 0 },
-      makeMention({ id: "m1", name: "Makefile" })
+      makeMention({
+        id: "m1",
+        absPath: "d:/proj/Makefile",
+        relPath: "Makefile",
+        name: "Makefile",
+      })
     );
     segments = first.segments;
-    const cursorSeg = segments.find((s) => s.type === "text");
+    const trailing = segments.find((s) => s.type === "text");
     const second = insertMentionAtCursor(
       segments,
-      { segmentId: cursorSeg?.type === "text" ? cursorSeg.id : "t1", offset: 0 },
-      makeMention({ id: "m2", name: "README_JP.md", relPath: "README_JP.md" })
+      { segmentId: trailing?.type === "text" ? trailing.id : "t1", offset: 0 },
+      makeMention({
+        id: "m2",
+        absPath: "d:/proj/README_JP.md",
+        relPath: "README_JP.md",
+        name: "README_JP.md",
+      })
     );
     expect(second.segments.filter((s) => s.type === "mention")).toHaveLength(2);
     expect(second.segments.filter((s) => s.type === "text")).toHaveLength(1);

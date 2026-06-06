@@ -169,6 +169,16 @@ export function findLastTextSegmentIndex(segments: ComposerSegment[]): number {
   return findLastTextIndex(segments);
 }
 
+export function clearAllTextContent(
+  segments: ComposerSegment[]
+): { segments: ComposerSegment[]; cursor: ComposerCursor } {
+  const cleared = segments.map((seg) =>
+    seg.type === "text" ? { ...seg, value: "" } : seg
+  );
+  const next = normalizeSegments(cleared);
+  return { segments: next, cursor: defaultCursor(next) };
+}
+
 function resolveInsertPosition(
   segments: ComposerSegment[],
   cursor: ComposerCursor | null
