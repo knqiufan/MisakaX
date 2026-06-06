@@ -91,7 +91,7 @@ function UserMessageActions({
   }, [message.id, onRegenerate]);
 
   return (
-    <div className="flex items-center gap-1 opacity-0 transition-opacity duration-[var(--ds-dur-fast)] group-hover/msg:opacity-100">
+    <div className="flex items-center gap-1 opacity-0 transition-opacity duration-[var(--ds-dur-fast)] group-hover/msg:opacity-100 focus-within:opacity-100">
       <ActionButton
         onClick={handleCopy}
         label={copied ? t("copied") : t("copyMessage")}
@@ -336,7 +336,7 @@ function MessageFooter({
   if (!showActions && !parsedUsage) return null;
 
   return (
-    <div className="flex items-center gap-2 px-1 pt-0.5 opacity-0 transition-opacity duration-[var(--ds-dur-fast)] group-hover/msg:opacity-100">
+    <div className="flex items-center gap-2 px-1 pt-0.5 opacity-0 transition-opacity duration-[var(--ds-dur-fast)] group-hover/msg:opacity-100 focus-within:opacity-100">
       {showActions && (
         <>
           <ActionButton
@@ -377,7 +377,7 @@ function ActionButton({
       title={label}
       aria-label={label}
       className={cn(
-        "inline-flex size-6 items-center justify-center rounded-md",
+        "inline-flex size-7 items-center justify-center rounded-md",
         "text-muted-foreground/60",
         "transition-colors duration-[var(--ds-dur-fast)]",
         "hover:bg-[color:var(--surface-hover)] hover:text-foreground"
