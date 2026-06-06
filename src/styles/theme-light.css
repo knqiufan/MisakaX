@@ -30,6 +30,12 @@ html:not(.dark) {
   --surface-active: rgba(80, 160, 255, 0.18);
   --surface-popover: rgba(252, 252, 254, 0.98);
 
+  /* --cm-* compatibility aliases — resolve to generic tokens */
+  --cm-surface-panel-strong: var(--surface-card-strong);
+  --cm-surface-panel-solid: var(--surface-card-strong);
+  --cm-border-emphasis: var(--border-strong);
+  --cm-border-strong: var(--border-strong);
+
   --status-success: rgba(30, 155, 110, 0.9);
   --status-warning: rgba(215, 120, 20, 0.9);
   --status-error: rgba(200, 45, 45, 0.9);

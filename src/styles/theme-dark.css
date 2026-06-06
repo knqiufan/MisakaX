@@ -31,6 +31,12 @@ html.dark {
   --surface-active: rgba(100, 200, 255, 0.16);
   --surface-popover: rgba(14, 16, 24, 0.98);
 
+  /* --cm-* compatibility aliases — resolve to generic tokens */
+  --cm-surface-panel-strong: var(--surface-card-strong);
+  --cm-surface-panel-solid: var(--surface-card-strong);
+  --cm-border-emphasis: var(--border-strong);
+  --cm-border-strong: var(--border-strong);
+
   --status-success: rgba(120, 235, 190, 0.95);
   --status-warning: rgba(255, 175, 85, 0.95);
   --status-error: rgba(255, 110, 110, 0.95);
