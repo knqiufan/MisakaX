@@ -60,7 +60,8 @@ export function MessageList({
         className="h-full overflow-y-auto scroll-smooth"
       >
         <div className="py-4 px-2">
-          {messages.map((msg) => {
+          {messages.map((msg, idx) => {
+            const prevRole = idx > 0 ? messages[idx - 1].role : null;
             const isCurrentStreaming = msg.id === streamingMessageId;
             return (
               <MessageItem
@@ -71,6 +72,7 @@ export function MessageList({
                 onRegenerate={
                   msg.role === "assistant" ? onRegenerate : undefined
                 }
+                prevRole={prevRole}
               />
             );
           })}

@@ -16,6 +16,7 @@ interface MessageItemProps {
   isStreaming?: boolean;
   isThinkingStreaming?: boolean;
   onRegenerate?: (messageId: string) => void;
+  prevRole?: string | null;
 }
 
 export function MessageItem({
@@ -23,6 +24,7 @@ export function MessageItem({
   isStreaming,
   isThinkingStreaming,
   onRegenerate,
+  prevRole,
 }: MessageItemProps) {
   const isUser = message.role === "user";
   const hasThinking = !isUser && (!!message.thinking_content || isThinkingStreaming);
@@ -31,7 +33,8 @@ export function MessageItem({
   return (
     <div
       className={cn(
-        "group/msg px-4 py-2",
+        "group/msg px-4",
+        prevRole !== message.role ? "pt-4 pb-1" : "pt-1 pb-1",
         isUser ? "flex justify-end" : "w-full"
       )}
     >
@@ -41,7 +44,7 @@ export function MessageItem({
           <UserMessageActions message={message} onRegenerate={onRegenerate} />
         </div>
       ) : (
-        <div className="flex w-full flex-col gap-1">
+        <div className="mx-auto w-full max-w-[min(100%,48rem)] flex flex-col gap-1">
           {hasThinking && (
             <ThinkingBlock
               content={message.thinking_content ?? ""}
@@ -166,7 +169,7 @@ function MessageBubble({
   }
 
   return (
-    <div className="w-full text-sm leading-relaxed text-foreground">
+    <div className="w-full rounded-[var(--radius-ui-lg)] bg-[color:var(--surface-card)]/50 px-4 py-3 text-sm leading-relaxed text-foreground">
       {attachedImages.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-2">
           {attachedImages.map((img, i) => (
