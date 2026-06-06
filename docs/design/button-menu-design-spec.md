@@ -1,6 +1,6 @@
 # Codex Monitor 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-05-19（v2）
+**最后审阅 / Last reviewed:** 2026-06-07（v3）
 
 ## 目录
 
@@ -67,31 +67,31 @@
 
 | 令牌 | 透明度 | 用途 |
 |------|--------|------|
-| `--cm-surface-row` | 44% | 行默认背景 |
-| `--cm-surface-panel-soft` | 56% | 柔和面板 |
-| `--cm-surface-panel` | 64% | 标准面板 |
-| `--cm-surface-panel-strong` | 72% | 强化面板（按钮默认背景） |
-| `--cm-surface-panel-elevated` | 78% | 抬高面板（输入框） |
-| `--cm-surface-panel-quiet` | 80% | 安静面板 |
-| `--cm-surface-panel-loud` | 84% | 响亮面板 |
-| `--cm-surface-panel-hover` | 90% | 悬停面板 |
-| `--cm-surface-panel-solid` | 92% | 实色面板（hover 加强） |
-| `--cm-surface-panel-active` | 96% (基于 surface-active) | 激活面板 |
+| `--surface-row` | 44% | 行默认背景 |
+| `--surface-panel-soft` | 56% | 柔和面板 |
+| `--surface-panel` | 64% | 标准面板 |
+| `--surface-panel-strong` | 72% | 强化面板（按钮默认背景） |
+| `--surface-panel-elevated` | 78% | 抬高面板（输入框） |
+| `--surface-panel-quiet` | 80% | 安静面板 |
+| `--surface-panel-loud` | 84% | 响亮面板 |
+| `--surface-panel-hover` | 90% | 悬停面板 |
+| `--surface-panel-solid` | 92% | 实色面板（hover 加强） |
+| `--surface-panel-active` | 96% (基于 surface-active) | 激活面板 |
 
 ### 1.5 CM 边框令牌
 
 | 令牌 | 透明度 | 用途 |
 |------|--------|------|
-| `--cm-border-soft` | 72% | 柔和边框 |
-| `--cm-border-default` | 78% | 默认边框 |
-| `--cm-border-strong` | 82% | 强化边框 |
-| `--cm-border-emphasis` | 84% | 强调边框 |
-| `--cm-border-elevated` | 86% | 抬高边框 |
-| `--cm-border-heavy` | 88% | 厚重边框 |
-| `--cm-border-hover` | 92% | 悬停边框 |
-| `--cm-border-contrast` | 100% | 最高对比边框 |
-| `--cm-border-accent` | 36% (基于 border-accent) | 强调色边框 |
-| `--cm-border-accent-strong` | 46% (基于 border-accent) | 强化强调色边框 |
+| `--border-soft` | 72% | 柔和边框 |
+| `--border-default` | 78% | 默认边框 |
+| `--border-strong` | 82% | 强化边框 |
+| `--border-emphasis` | 84% | 强调边框 |
+| `--border-elevated` | 86% | 抬高边框 |
+| `--border-heavy` | 88% | 厚重边框 |
+| `--border-hover` | 92% | 悬停边框 |
+| `--border-contrast` | 100% | 最高对比边框 |
+| `--border-accent` | 36% (基于 border-accent) | 强调色边框 |
+| `--border-accent-strong` | 46% (基于 border-accent) | 强化强调色边框 |
 
 ---
 
@@ -127,29 +127,28 @@ button {
 
 ```css
 button:hover:not(:disabled) {
-  transform: translateY(-1px);        /* 向上浮动 1px */
-  box-shadow: 0 12px 18px rgba(0, 0, 0, 0.2);  /* 加深阴影 */
+  background-color: ...; /* keep existing color change */
+  box-shadow: none;
+  transform: none;
 }
 ```
 
 **行为：**
-- 按钮向上浮动 1px（translateY(-1px)）
-- 阴影扩展至 `0 12px 18px rgba(0,0,0,0.2)`
+- 不浮动、不扩展阴影，仅颜色/背景过渡
 - 过渡时间：150ms，ease 缓动
 
 #### Active（按下）状态
 
 ```css
 button:active:not(:disabled) {
-  transform: scale(0.97);              /* 缩小至 97% */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);  /* 收缩阴影 */
-  transition-duration: 50ms;           /* 极快响应 */
+  transform: none;
+  box-shadow: none;
+  transition-duration: 50ms;
 }
 ```
 
 **行为：**
-- 按钮缩小至 97%（`scale(0.97)`）
-- 阴影收缩至 `0 4px 8px rgba(0,0,0,0.15)`
+- 不缩放、不收缩阴影，仅颜色/背景过渡
 - 过渡时间极短：50ms（按下是一瞬间的操作）
 - 松开后恢复，150ms ease
 
@@ -193,8 +192,8 @@ button:disabled {
 | 字重 | 600 |
 
 **Hover 状态：**
-- 继承基础 hover：`translateY(-1px)` + `box-shadow: 0 12px 18px rgba(0,0,0,0.2)`
-- 注意：基础 hover 的阴影会覆盖 primary 自身的阴影，按下后阴影更小
+- 继承基础 hover：`transform: none; box-shadow: none`，仅颜色/背景过渡
+- 基础 hover/active 无位移、无缩放，仅颜色变化
 
 **Active 状态：**
 ```css
@@ -202,18 +201,18 @@ button:disabled {
   filter: brightness(0.92);  /* 变暗 8% */
 }
 ```
-- 继承基础 active：`scale(0.97)` + 50ms
+- 继承基础 active：`transform: none; box-shadow: none` + 50ms
 - 额外降低亮度至 92%（使渐变颜色稍微变暗）
 
 **完整交互序列：**
 ```
 Normal:   scale(1),   shadow=0 12px 22px accent,  brightness(1)
  ↓ hover
-Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)
+Hover:    transform=none, shadow=none, brightness(1)
  ↓ press
-Active:   scale(0.97), shadow=0 4px 8px black, brightness(0.92)  [50ms]
+Active:   transform=none, shadow=none, brightness(0.92)  [50ms]
  ↓ release
-Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
+Hover:    transform=none, shadow=none, brightness(1)  [150ms]
 ```
 
 ### 3.2 Secondary（次要按钮）
@@ -234,10 +233,10 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 | 圆角 | 10px |
 
 **Hover 状态：**
-- 继承基础 hover：`translateY(-1px)` + `0 12px 18px rgba(0,0,0,0.2)`
+- 继承基础 hover：`transform: none; box-shadow: none`
 
 **Active 状态：**
-- 继承基础 active：`scale(0.97)` + `0 4px 8px rgba(0,0,0,0.15)` + 50ms
+- 继承基础 active：`transform: none; box-shadow: none` + 50ms
 
 ### 3.3 Ghost（幽灵按钮）
 
@@ -258,7 +257,7 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 | 圆角 | 10px |
 
 **Hover 状态：**
-- 继承基础 hover：`translateY(-1px)` + `0 12px 18px rgba(0,0,0,0.2)`
+- 继承基础 hover：`transform: none; box-shadow: none`
 
 **Active 状态：**
 ```css
@@ -266,7 +265,7 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
   background: rgba(255, 255, 255, 0.06);
 }
 ```
-- 继承基础 active：`scale(0.97)` + 50ms
+- 继承基础 active：`transform: none; box-shadow: none` + 50ms
 - 额外添加微弱白色背景 `rgba(255,255,255,0.06)`
 
 ---
@@ -482,7 +481,7 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
   height: 22px;
   border-radius: 999px;                    /* 正圆形 */
   border: 1px solid var(--border-stronger); /* rgba(255,255,255,0.18) */
-  background: var(--cm-surface-panel-loud); /* surface-card 84% */
+  background: var(--surface-panel-loud); /* surface-card 84% */
   color: var(--text-muted);
   display: inline-flex;
   align-items: center;
@@ -524,7 +523,7 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
   height: 24px;
   border-radius: 999px;                    /* 正圆形 */
   border: 1px solid var(--border-stronger);
-  background: var(--cm-surface-panel-loud);
+  background: var(--surface-panel-loud);
   color: var(--text-muted);
   display: inline-flex;
   align-items: center;
@@ -569,8 +568,8 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 
 ```css
 .composer-action {
-  border: 1px solid var(--cm-border-emphasis);   /* border-subtle 84% */
-  background: var(--cm-surface-panel-strong);     /* surface-card 72% */
+  border: 1px solid var(--border-emphasis);   /* border-subtle 84% */
+  background: var(--surface-panel-strong);     /* surface-card 72% */
   color: var(--text-strong);                      /* 纯白 */
   padding: 0;
   border-radius: 999px;                           /* 正圆形 */
@@ -597,8 +596,8 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 | 宽高 | 30×30px | 32×32px |
 | 形状 | 正圆 (999px) | 正圆 |
 | 图标 | 12×12px | 12×12px |
-| 边框 | `--cm-border-emphasis` | 同 |
-| 背景 | `--cm-surface-panel-strong` | 同 |
+| 边框 | `--border-emphasis` | 同 |
+| 背景 | `--surface-panel-strong` | 同 |
 
 **Light 主题变体：**
 ```css
@@ -611,7 +610,7 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 **Hover 状态：**
 ```css
 .composer-action:hover {
-  background: var(--cm-surface-panel-solid);   /* surface-card 92% — 更实 */
+  background: var(--surface-panel-solid);   /* surface-card 92% — 更实 */
   color: var(--text-strong);                    /* 保持白色 */
 }
 ```
@@ -687,8 +686,8 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 
 ```css
 .composer-attach {
-  border: 1px solid var(--cm-border-strong);    /* border-subtle 82% */
-  background: var(--cm-surface-panel-solid);    /* surface-card 92% */
+  border: 1px solid var(--border-strong);    /* border-subtle 82% */
+  background: var(--surface-panel-solid);    /* surface-card 92% */
   color: var(--text-muted);
   padding: 0;
   border-radius: 999px;                         /* 正圆形 */
@@ -707,7 +706,7 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 **Hover 状态：**
 ```css
 .composer-attach:hover {
-  background: var(--cm-surface-panel-solid);   /* 保持 */
+  background: var(--surface-panel-solid);   /* 保持 */
   color: var(--text-strong);                    /* 文字变亮 */
 }
 ```
@@ -728,7 +727,7 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 ### 5.5 Composer 底部触发器（Model / MCP / Skill）
 
 - Composer 底部可并列展示模型选择、MCP 工具视图与 Skill 选择扩展口，三者均使用紧凑胶囊 trigger。
-- Trigger 背景使用 `--cm-surface-panel-strong`，hover 使用 `--cm-surface-panel-solid`，仅做颜色/背景变化，不使用位移或缩放。
+- Trigger 背景使用 `--surface-panel-strong`，hover 使用 `--surface-panel-solid`，仅做颜色/背景变化，不使用位移或缩放。
 - MCP trigger 只用于查看当前连接的 server 与 tool 列表，不直接执行工具调用；Skill trigger 在模块未完成时显示占位，但保留多选状态接口。
 - Trigger 文案需支持截断，最大宽度约 120px，数量角标可内联显示为 `MCP (3)` 形式。
 
@@ -1049,8 +1048,8 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
   padding: 7px 11px;
   font-size: 12px;
   border-radius: 999px;                       /* 胶囊形 */
-  border: 1px solid var(--cm-border-default);
-  background: var(--cm-surface-panel);        /* surface-card 64% */
+  border: 1px solid var(--border-default);
+  background: var(--surface-panel);        /* surface-card 64% */
   color: var(--text-emphasis);                /* white 90% */
   box-shadow: none;
   transform: none;
@@ -1064,8 +1063,8 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 ```css
 .git-root-button:hover:not(:disabled),
 .git-root-button:focus-visible {
-  background: var(--cm-surface-panel-hover);   /* surface-card 90% */
-  border-color: var(--cm-border-hover);        /* border-subtle 92% */
+  background: var(--surface-panel-hover);   /* surface-card 90% */
+  border-color: var(--border-hover);        /* border-subtle 92% */
   box-shadow: none;
   transform: none;
   outline: none;
@@ -1076,19 +1075,19 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 ```css
 .git-root-button.primary {
   background: color-mix(in srgb,
-    var(--cm-surface-panel-hover) 72%,
+    var(--surface-panel-hover) 72%,
     var(--surface-active) 28%
   );                                           /* 混合 hover 面板 + 蓝调 */
-  border-color: var(--cm-border-accent-strong);
+  border-color: var(--border-accent-strong);
   color: var(--text-strong);
 }
 
 .git-root-button.primary:hover:not(:disabled) {
   background: color-mix(in srgb,
-    var(--cm-surface-panel-hover) 58%,
+    var(--surface-panel-hover) 58%,
     var(--surface-active) 42%
   );                                           /* 蓝调比例增加 */
-  border-color: var(--cm-border-accent-strong);
+  border-color: var(--border-accent-strong);
 }
 ```
 
@@ -1119,8 +1118,8 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
   font-size: 12px;
   font-weight: 600;
   color: var(--text-emphasis);
-  background: var(--cm-surface-panel);
-  border: 1px solid var(--cm-border-default);
+  background: var(--surface-panel);
+  border: 1px solid var(--border-default);
   border-radius: 14px;
   cursor: pointer;
   box-shadow: none;
@@ -1134,8 +1133,8 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 **Hover 状态：**
 ```css
 .commit-button:hover:not(:disabled) {
-  background: var(--cm-surface-panel-hover);
-  border-color: var(--cm-border-accent-strong);  /* 边框变蓝 */
+  background: var(--surface-panel-hover);
+  border-color: var(--border-accent-strong);  /* 边框变蓝 */
   color: var(--text-strong);
   box-shadow: none;
   transform: none;
@@ -1163,8 +1162,8 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
   width: 26px;
   height: 26px;
   border-radius: 999px;
-  border: 1px solid var(--cm-border-soft);
-  background: var(--cm-surface-panel-soft);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-panel-soft);
   color: var(--text-muted);
   cursor: pointer;
   transition: background 160ms ease,
@@ -1186,8 +1185,8 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 **Hover 状态：**
 ```css
 .commit-message-generate-button:hover:not(:disabled) {
-  background: var(--cm-surface-panel-hover);
-  border-color: var(--cm-border-hover);
+  background: var(--surface-panel-hover);
+  border-color: var(--border-hover);
   color: var(--text-emphasis);
 }
 ```
@@ -1205,8 +1204,8 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
   font-size: 12px;
   font-weight: 600;
   color: var(--text-emphasis);
-  background: var(--cm-surface-row);           /* surface-card 44% */
-  border: 1px solid var(--cm-border-default);
+  background: var(--surface-row);           /* surface-card 44% */
+  border: 1px solid var(--border-default);
   border-radius: 14px;
   cursor: pointer;
   box-shadow: none;
@@ -1220,8 +1219,8 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 **Hover 状态：**
 ```css
 .push-button:hover:not(:disabled) {
-  background: var(--cm-surface-panel-hover);
-  border-color: var(--cm-border-accent-strong);
+  background: var(--surface-panel-hover);
+  border-color: var(--border-accent-strong);
   color: var(--text-strong);
   box-shadow: none;
   transform: none;
@@ -1238,8 +1237,8 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  border: 1px solid var(--cm-border-default);
-  background: var(--cm-surface-panel);
+  border: 1px solid var(--border-default);
+  background: var(--surface-panel);
   color: var(--text-muted);
   cursor: pointer;
   padding: 0;
@@ -1257,8 +1256,8 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 **Hover 状态：**
 ```css
 .diff-branch-refresh:hover:not(:disabled) {
-  background: var(--cm-surface-panel-hover);
-  border-color: var(--cm-border-hover);
+  background: var(--surface-panel-hover);
+  border-color: var(--border-hover);
   color: var(--text-strong);
   box-shadow: none;
   transform: none;
@@ -1641,7 +1640,7 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
   gap: 6px;
   padding: 4px 8px;
   border-radius: 999px;                      /* 胶囊形 */
-  background: var(--cm-surface-panel-strong); /* surface-card 72% */
+  background: var(--surface-panel-strong); /* surface-card 72% */
   width: max-content;
 }
 ```
@@ -1717,8 +1716,8 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 
 ```css
 .git-panel-select-input {
-  border: 1px solid var(--cm-border-default);
-  background: var(--cm-surface-panel);
+  border: 1px solid var(--border-default);
+  background: var(--surface-panel);
   color: var(--text-emphasis);
   font-size: 12px;
   font-weight: 600;
@@ -1746,8 +1745,8 @@ Hover:    translateY(-1px), shadow=0 12px 18px black, brightness(1)  [150ms]
 ```css
 .git-panel-select-input:hover,
 .git-panel-select-input:focus-visible {
-  background-color: var(--cm-surface-panel-hover);
-  border-color: var(--cm-border-hover);
+  background-color: var(--surface-panel-hover);
+  border-color: var(--border-hover);
   outline: none;
 }
 ```
@@ -2394,10 +2393,10 @@ RELEASE:    150ms ease  (transform, box-shadow, background-color, filter)
 | 元素 | 背景色 | 边框色 |
 |------|--------|--------|
 | Thread row `.active` | `color-mix(in srgb, var(--surface-active) 96%, transparent)` | `color-mix(in srgb, var(--border-accent) 42%, transparent)` |
-| Workspace row `.active` | `var(--cm-surface-panel-active)` | `var(--cm-border-accent-strong)` |
-| Diff row `.active` | `var(--cm-surface-panel-active)` | `inset 0 0 0 1px color-mix(in srgb, var(--cm-border-accent) 65%, transparent)` |
-| Git log entry `.active` | `var(--cm-surface-panel-active)` | `inset 0 0 0 1px color-mix(in srgb, var(--cm-border-accent) 65%, transparent)` |
-| Per-file edit row `.active` | `var(--cm-surface-panel-active)` | `inset 0 0 0 1px color-mix(in srgb, var(--cm-border-accent) 55%, transparent)` |
+| Workspace row `.active` | `var(--surface-panel-active)` | `var(--border-accent-strong)` |
+| Diff row `.active` | `var(--surface-panel-active)` | `inset 0 0 0 1px color-mix(in srgb, var(--border-accent) 65%, transparent)` |
+| Git log entry `.active` | `var(--surface-panel-active)` | `inset 0 0 0 1px color-mix(in srgb, var(--border-accent) 65%, transparent)` |
+| Per-file edit row `.active` | `var(--surface-panel-active)` | `inset 0 0 0 1px color-mix(in srgb, var(--border-accent) 55%, transparent)` |
 | Settings nav item `.is-active` | `var(--surface-card)` | `var(--border-strong)` |
 | Popover item `.is-active` | `var(--surface-hover)` | none |
 
