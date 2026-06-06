@@ -40,7 +40,9 @@ export function FileTreeNode({
   const [expanded, setExpanded] = useState(false);
   const [children, setChildren] = useState<FsEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const addMention = useComposerStore((state) => state.addMention);
+  const insertInlineMention = useComposerStore((s) => s.insertInlineMention);
+  const hydrateMentionContent = useComposerStore((s) => s.hydrateMentionContent);
+  const markMentionError = useComposerStore((s) => s.markMentionError);
 
   const handleClick = useCallback(async () => {
     if (!entry.is_dir) {
@@ -77,16 +79,20 @@ export function FileTreeNode({
     }
   }, [entry.path, t]);
 
-  const handleMention = useCallback(() => {
+  const handleMention = useCallback(async () => {
     const relPath = toWorkspaceRelativePath(workingDir, entry.path);
-    addMention({
-      id: crypto.randomUUID(),
-      absPath: entry.path,
-      relPath,
-      name: basenameOf(entry.path),
-    });
-    toast.success(t("explorer.mentionAdded", { name: entry.name }));
-  }, [entry.name, entry.path, workingDir, addMention, t]);
+    const name = basenameOf(entry.path);
+    const id = crypto.randomUUID();
+    const mime = inferMimeFromName(name);
+    insertInlineMention({ id, absPath: entry.path, relPath, name, status: "loading", mime });
+    try {
+      const text = await fsIpc.readTextFile(workingDir, entry.path);
+      hydrateMentionContent(id, { extractedText: text, size: entry.size, mime });
+    } catch {
+      markMentionError(id);
+      toast.error(t("explorer.mentionReadFailed"));
+    }
+  }, [entry.name, entry.path, entry.size, workingDir, insertInlineMention, hydrateMentionContent, markMentionError, t]);
 
   return (
     <div>
@@ -192,4 +198,10 @@ function NodeIcons({ entry, expanded }: { entry: FsEntry; expanded: boolean }) {
       {expanded ? <FolderOpen className="size-3.5" /> : <Folder className="size-3.5" />}
     </>
   );
+}
+
+function inferMimeFromName(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".md") || lower.endsWith(".markdown")) return "text/markdown";
+  return "text/plain";
 }

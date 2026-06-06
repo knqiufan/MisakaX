@@ -1,6 +1,5 @@
 import {
   useCallback,
-  useEffect,
   useRef,
   useState,
   type ChangeEvent,
@@ -22,13 +21,18 @@ import { useChatStore } from "@/stores/chat-store";
 import {
   useComposerStore,
   type PendingAttachment,
-  type PendingFileMention,
 } from "@/stores/composer-store";
 import { AttachButton } from "./composer/AttachButton";
 import { AttachmentMenu } from "./composer/AttachmentMenu";
 import { AttachmentPreview } from "./composer/AttachmentPreview";
 import { ComposerFooter } from "./composer/ComposerFooter";
-import { MentionPills } from "./composer/MentionPill";
+import { ComposerInlineField } from "./composer/ComposerInlineField";
+import { getDocumentPlainText } from "./composer/composer-segment";
+import {
+  buildOutgoingContent,
+  countSendableMentions,
+  mentionsToWorkspaceAttachments,
+} from "./composer/composer-mention-utils";
 import {
   ACCEPTED_IMAGE_TYPES,
   ACCEPTED_TEXT_TYPES,
@@ -38,9 +42,6 @@ import {
   classifyAttachment,
   inferTextMime,
 } from "./composer/attachment-utils";
-
-const MIN_HEIGHT = 36;
-const MAX_HEIGHT = 200;
 
 interface MessageInputProps {
   onSend: (
@@ -60,59 +61,55 @@ export function MessageInput({
   onPickWorkspaceFile,
 }: MessageInputProps) {
   const { t } = useTranslation("chat");
-  const { t: tw } = useTranslation("workspace");
   const { isStreaming, selectedModel } = useChatStore();
   const {
     attachments,
     addAttachment,
     removeAttachment,
     clearAttachments,
-    mentions,
-    removeMention,
+    segments,
+    composerCursor,
+    setSegments,
+    updateTextSegment,
+    setComposerCursor,
     clearMentions,
+    focusRequestId,
   } = useComposerStore();
-  const [content, setContent] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
 
+  const plainText = getDocumentPlainText(segments);
+
   const canSend = canSendComposerMessage({
-    content,
-    attachmentCount: attachments.length + mentions.length,
+    content: plainText,
+    attachmentCount: attachments.length + countSendableMentions(segments),
     disabled,
     isStreaming,
   });
 
-  const adjustHeight = useCallback(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(Math.max(el.scrollHeight, MIN_HEIGHT), MAX_HEIGHT)}px`;
-  }, []);
-
-  useEffect(() => {
-    adjustHeight();
-  }, [content, adjustHeight]);
+  const handleSegmentsChange = useCallback(
+    (nextSegments: typeof segments, cursor: NonNullable<typeof composerCursor>) => {
+      setSegments(nextSegments);
+      setComposerCursor(cursor);
+    },
+    [setSegments, setComposerCursor]
+  );
 
   const handleSend = useCallback(() => {
-    const trimmed = content.trim();
     if (!canSend) return;
-    const finalContent = composeMessageContent(trimmed, mentions);
-    onSend(finalContent, selectedModel ?? undefined, toMessageAttachments(attachments));
-    setContent("");
+    const finalContent = buildOutgoingContent(segments);
+    const workspaceAttachments = mentionsToWorkspaceAttachments(segments);
+    const allAttachments = [...workspaceAttachments, ...attachments];
+    onSend(finalContent, selectedModel ?? undefined, toMessageAttachments(allAttachments));
     clearAttachments();
     clearMentions();
-    requestAnimationFrame(() => {
-      if (textareaRef.current) textareaRef.current.style.height = `${MIN_HEIGHT}px`;
-    });
   }, [
     attachments,
     canSend,
     clearAttachments,
     clearMentions,
-    content,
-    mentions,
+    segments,
     onSend,
     selectedModel,
   ]);
@@ -214,32 +211,22 @@ export function MessageInput({
               : "border-[color:var(--border-muted)] focus-within:border-[color:var(--border-strong)]"
           )}
         >
-          <MentionPills
-            mentions={mentions}
-            onRemove={removeMention}
-            removeLabel={(name) => tw("explorer.mentionRemove", { name })}
-          />
           <AttachmentPreview
             attachments={attachments}
             onRemove={removeAttachment}
           />
-          <div className="flex items-center gap-2">
-            <textarea
-              ref={textareaRef}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
+          <div className="flex min-w-0 items-center gap-2">
+            <ComposerInlineField
+              segments={segments}
+              composerCursor={composerCursor}
+              focusRequestId={focusRequestId}
+              onTextChange={updateTextSegment}
+              onCursorChange={setComposerCursor}
+              onSegmentsChange={handleSegmentsChange}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               placeholder={t("inputPlaceholder")}
               disabled={disabled}
-              rows={1}
-              className={cn(
-                "min-h-[36px] max-h-[200px] flex-1 resize-none bg-transparent",
-                "py-2 text-sm leading-[20px] text-foreground outline-none",
-                "placeholder:text-muted-foreground/55",
-                "disabled:cursor-not-allowed disabled:opacity-50"
-              )}
-              style={{ height: `${MIN_HEIGHT}px` }}
             />
             <InputToolbar
               isStreaming={isStreaming}
@@ -394,21 +381,6 @@ function readTextAttachment(
     });
   };
   reader.readAsText(file);
-}
-
-/**
- * 把 mention 列表拼接到正文之前，格式为：`@rel/path1 @rel/path2\n\n正文`。
- * 后端按普通 Markdown 文本处理，但 prompt 中显式带上 `@xxx` 让模型把
- * 这些路径理解为对工作区文件的引用。空 mention 时原样返回正文。
- */
-function composeMessageContent(
-  trimmed: string,
-  mentions: PendingFileMention[]
-): string {
-  if (mentions.length === 0) return trimmed;
-  const prefix = mentions.map((mention) => `@${mention.relPath}`).join(" ");
-  if (trimmed.length === 0) return prefix;
-  return `${prefix}\n\n${trimmed}`;
 }
 
 function toMessageAttachments(

@@ -1,4 +1,12 @@
 import { create } from "zustand";
+import {
+  createEmptyDocument,
+  insertMentionAtCursor,
+  removeMentionById,
+  updateMentionInSegments,
+  type ComposerCursor,
+  type ComposerSegment,
+} from "@/components/chat/composer/composer-segment";
 
 export type PendingAttachment =
   | {
@@ -18,27 +26,38 @@ export type PendingAttachment =
       size: number;
     };
 
-/**
- * 对话中由文件树「@ 引用」加入的工作区文件标签。
- * - `absPath`: 绝对路径，用于去重与后续可能的内容读取；
- * - `relPath`: 相对工作目录的相对路径（POSIX 风格），即 `@xxx/yyy.ts` 中的 `xxx/yyy.ts`；
- * - `name`: 文件名，仅用于 UI 显示。
- */
 export interface PendingFileMention {
   id: string;
   absPath: string;
   relPath: string;
   name: string;
+  status: "loading" | "ready" | "error";
+  extractedText?: string;
+  size?: number;
+  mime?: string;
+}
+
+interface MentionHydration {
+  extractedText: string;
+  size: number;
+  mime: string;
 }
 
 interface ComposerState {
   attachments: PendingAttachment[];
-  mentions: PendingFileMention[];
+  segments: ComposerSegment[];
+  composerCursor: ComposerCursor | null;
   selectedSkillIds: string[];
+  focusRequestId: number;
   addAttachment: (attachment: PendingAttachment) => void;
   removeAttachment: (id: string) => void;
   clearAttachments: () => void;
-  addMention: (mention: PendingFileMention) => void;
+  setSegments: (segments: ComposerSegment[]) => void;
+  updateTextSegment: (id: string, value: string) => void;
+  setComposerCursor: (cursor: ComposerCursor | null) => void;
+  insertInlineMention: (mention: PendingFileMention) => void;
+  hydrateMentionContent: (id: string, meta: MentionHydration) => void;
+  markMentionError: (id: string) => void;
   removeMention: (id: string) => void;
   clearMentions: () => void;
   setSelectedSkills: (ids: string[]) => void;
@@ -46,8 +65,10 @@ interface ComposerState {
 
 export const useComposerStore = create<ComposerState>((set) => ({
   attachments: [],
-  mentions: [],
+  segments: createEmptyDocument(),
+  composerCursor: null,
   selectedSkillIds: [],
+  focusRequestId: 0,
   addAttachment: (attachment) =>
     set((state) => ({ attachments: [...state.attachments, attachment] })),
   removeAttachment: (id) =>
@@ -55,17 +76,52 @@ export const useComposerStore = create<ComposerState>((set) => ({
       attachments: state.attachments.filter((attachment) => attachment.id !== id),
     })),
   clearAttachments: () => set({ attachments: [] }),
-  addMention: (mention) =>
+  setSegments: (segments) => set({ segments }),
+  updateTextSegment: (id, value) =>
+    set((state) => ({
+      segments: state.segments.map((seg) =>
+        seg.type === "text" && seg.id === id ? { ...seg, value } : seg
+      ),
+    })),
+  setComposerCursor: (cursor) => set({ composerCursor: cursor }),
+  insertInlineMention: (mention) =>
     set((state) => {
-      if (state.mentions.some((m) => m.absPath === mention.absPath)) {
-        return state;
-      }
-      return { mentions: [...state.mentions, mention] };
+      const result = insertMentionAtCursor(
+        state.segments,
+        state.composerCursor,
+        mention
+      );
+      return {
+        segments: result.segments,
+        composerCursor: result.cursor,
+        focusRequestId: state.focusRequestId + 1,
+      };
     }),
+  hydrateMentionContent: (id, meta) =>
+    set((state) => ({
+      segments: updateMentionInSegments(state.segments, id, (m) => ({
+        ...m,
+        status: "ready",
+        extractedText: meta.extractedText,
+        size: meta.size,
+        mime: meta.mime,
+      })),
+    })),
+  markMentionError: (id) =>
+    set((state) => ({
+      segments: updateMentionInSegments(state.segments, id, (m) => ({
+        ...m,
+        status: "error",
+      })),
+    })),
   removeMention: (id) =>
     set((state) => ({
-      mentions: state.mentions.filter((mention) => mention.id !== id),
+      segments: removeMentionById(state.segments, id),
     })),
-  clearMentions: () => set({ mentions: [] }),
+  clearMentions: () =>
+    set({
+      segments: createEmptyDocument(),
+      composerCursor: null,
+    }),
   setSelectedSkills: (ids) => set({ selectedSkillIds: ids }),
 }));

@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口三栏结构、会话侧栏工具区、对话页顶栏、设置页 Provider 弹窗与对话页模型选择器的布局语义和样式约定。 |
 | **受众** | 负责 `AppShell`、`Sidebar`、`ChatPage`、`SessionPanel`、`WorkspaceBar`、`ModelSettings`、`ProviderDialog` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-06-05（v3） |
+| **最后审阅** | 2026-06-05（v4） |
 
 ## 相关文档
 
@@ -149,7 +149,7 @@ MisakaX 主界面在逻辑上划分为：
 
 - 文件树节点（无论文件或目录）必须支持原生右键菜单（基于 `ContextMenu` 组件）。
 - 文件节点的菜单（自上而下，按业务重要性排序）：
-  1. **在当前对话中引用**（`explorer.mentionInChat`，`AtSign` 图标）— **仅文件**；触发后把该文件加入 Composer 的 mention 列表（见 [frontend-ui-guidelines.md §4.3.x Mention Pill](./frontend-ui-guidelines.md)），并以 toast 反馈「已引用 {name}」。
+  1. **在当前对话中引用**（`explorer.mentionInChat`，`AtSign` 图标）— **仅文件**；触发后异步读取文件内容（`fsIpc.readTextFile`），以行内 chip 嵌入 Composer 输入区（见 [frontend-ui-guidelines.md §4.3.x](./frontend-ui-guidelines.md)），并以 toast 反馈「已引用 {name}」。读取失败时 chip 标记为 error 态 + `toast.error`（`explorer.mentionReadFailed`）。引用成功后文件内容在发送时作为 `MessageAttachment::Text` 注入 LLM prompt。
   2. **在文件资源管理器中打开**（`explorer.openInExplorer`，`FolderSearch` 图标）— 调用 `fs_reveal_in_explorer`；失败走 `workspace.explorer.openInExplorerFailed` 的 `toast.error`。
   3. **复制完整路径**（`explorer.copyPath`，`Copy` 图标）— 使用 `@tauri-apps/plugin-clipboard-manager` 的 `writeText`，禁止用浏览器 `navigator.clipboard` 绕过 Tauri 权限。
 - 目录节点菜单不展示「在当前对话中引用」（避免引用整目录带来的歧义与 token 浪费）。

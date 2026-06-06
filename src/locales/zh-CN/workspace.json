@@ -48,6 +48,7 @@
     "cancelAction": "取消",
     "fileSaved": "已保存 {{name}}",
     "saveFailed": "保存失败",
-    "openInExplorerFailed": "无法在文件资源管理器中打开"
+    "openInExplorerFailed": "无法在文件资源管理器中打开",
+    "mentionReadFailed": "无法读取文件内容"
   }
 }

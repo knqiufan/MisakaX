@@ -7,7 +7,7 @@
 - **壳层布局、主导航收起语义、会话列表工具区、对话页工作目录顶栏**等专项约定：见 [shell-and-workspace-ui-spec.md](./shell-and-workspace-ui-spec.md)。  
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 
-**最后审阅 / Last reviewed:** 2026-05-19（v2）
+**最后审阅 / Last reviewed:** 2026-06-05（v4）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -67,16 +67,20 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
   - **禁止**给 trigger 的 child 元素再传 `onClick={() => undefined}` 等占位回调；Radix Slot 会保留 child 已声明的事件，且空回调可能掩盖真正的 trigger 行为。
   - 文案使用 `chat.composer.attach` 等 i18n key，桌面端中文 UI 优先使用「添加附件」等动名词组合，避免单字「附加」造成歧义。
 
-### 4.3.x Composer 行内对齐与 Mention Pill（新增）
+### 4.3.x Composer 行内文件引用 Chip
 
-- Composer 顶层 `<div>` 必须使用 **`flex items-center gap-2`**：之前曾用 `items-end` 导致圆形附件按钮与输入框的中线错位（按钮整体下沉一格）。**任何**在 Composer 同一行放置「附件按钮 + 输入容器 + 发送按钮」的实现都必须遵守 `items-center`。
-- 文件树「@ 引用」加入的工作区文件必须在 Composer 的输入容器内、`AttachmentPreview` **之上**以 chip（pill）的形式展示，组件为 `MentionPills`：
-  - 视觉：`h-6` 高度、`rounded-full`、`border border-[color:var(--border-muted)] bg-[color:var(--surface-card-strong)]`，左侧 `AtSign` 图标使用 `text-primary/80`；
-  - 行为：hover 显示删除 `X`，删除 = `composer-store.removeMention(id)`；
-  - 数据：用 `mention.relPath` 作为 `title` 显示完整相对路径，`mention.name` 作为主标题；
-  - 发送：在 `handleSend` 中通过 `composeMessageContent(trimmed, mentions)` 把 `@rel/path` 前置到正文（多个引用以空格连接，加两个换行隔开正文），发送成功后 `clearMentions()`；
-  - 状态：mention 列表持久化作用域仅在当前 Composer 生命周期内，**禁止**与 attachments 混淆为同一数组。
-- `canSendComposerMessage` 的可发送判定必须把 `mentions.length` 计入「有 payload」，否则仅引用文件无文本时按钮会异常禁用。
+- Composer 顶层 `<div>` 必须使用 **`flex items-center gap-2`**；输入行内 `ComposerInlineField` 必须带 **`flex-1 min-w-0`**，发送按钮 `shrink-0` 贴右，禁止仅按内容宽度收缩导致按钮悬空中部。
+- 数据模型为 **`ComposerSegment[]`**（`text` 与 `mention` 交错），引用插入当前 `composerCursor` 位置（`insertMentionAtCursor`），而非固定堆在输入框最前。`normalizeSegments` 会 **prune 掉 mention 之间的空 text 段**，避免空 `textarea` 默认宽度把 chip 撑开；仅保留末尾 text 段作为输入区。
+- `ComposerInlineField` 按 segment 渲染多个 text `textarea` 与 `InlineMentionChip` 交错；**仅最后一个 text segment** 使用 `flex-1 min-w-[8rem]`，前面的 text segment 用 `w-auto min-w-[1ch]` 收缩。
+- `InlineMentionChip` 视觉（对齐 Cursor 暗色块）：
+  - ready：`h-6`、`rounded-md`、`bg-[color:var(--surface-control)]`，`FileTypeIcon` + 文件名同色（如 `.tsx` → `text-sky-400`）；
+  - loading：`opacity-60` + `Loader2`；
+  - error：`bg-destructive/8` + `AlertTriangle` + `text-destructive`；
+  - **禁止**显示删除 `X` 按钮；删除通过 **Backspace**（光标在 text 段 offset=0 时删前一个 mention）或 **Delete**（光标在 text 段末尾时删后一个 mention）完成。
+- 引用触发后通过 `focusRequestId` + `composerCursor` 自动 focus 到插入点后的 text segment；**不**弹出「已引用」成功 toast（失败仍 `toast.error`）。
+- 发送：`ready` mentions 走 `mentionsToWorkspaceAttachments(segments)`；展示正文用 `buildOutgoingFromSegments` 按 segment 顺序交错 `@relPath` 与文本；发送成功后 `clearMentions()` 重置为 `createEmptyDocument()`。
+- `canSendComposerMessage` 使用 `getDocumentPlainText(segments)` 作为 `content`，`countSendableFromSegments` + `attachments.length` 作为 `attachmentCount`。
+- `AttachmentPreview` 仍在 segment 行**之上**，与 workspace 引用语义分离。
 
 ### 4.3.y Composer 附件下拉菜单（新增）
 
