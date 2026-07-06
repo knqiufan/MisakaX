@@ -100,17 +100,13 @@ where
                     Some(StreamDelta::Thinking(reasoning))
                 }
             }
-            StreamedAssistantContent::Final(response) => {
-                if let Some(usage) = response.token_usage() {
-                    Some(StreamDelta::Usage(StreamUsage {
-                        input_tokens: usage.input_tokens,
-                        output_tokens: usage.output_tokens,
-                        total_tokens: usage.total_tokens,
-                    }))
-                } else {
-                    None
-                }
-            }
+            StreamedAssistantContent::Final(response) => response.token_usage().map(|usage| {
+                StreamDelta::Usage(StreamUsage {
+                    input_tokens: usage.input_tokens,
+                    output_tokens: usage.output_tokens,
+                    total_tokens: usage.total_tokens,
+                })
+            }),
             _ => None,
         },
         MultiTurnStreamItem::FinalResponse(_) => None,

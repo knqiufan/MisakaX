@@ -7,28 +7,23 @@
 > **前置文档：** [PHASE_2_DETAILED_PLAN.md](./PHASE_2_DETAILED_PLAN.md)、[MISAKAX_IMPLEMENTATION_PLAN.md](./MISAKAX_IMPLEMENTATION_PLAN%20-%20Opus4.6.md)
 > **里程碑：** M2: 基础设施就绪 — Sidecar 已预热、MCP 已就绪、通信协议已定义，一切准备就绪等待 Phase 4 DeepAgents 接管对话。
 >
+> **代码库审计状态（2026-07-06）：** Phase 3 **约 85% 完成，尚未交付 M2**。**未完成项的执行清单见 [`PHASE_3_REMAINING_TODO.md`](./PHASE_3_REMAINING_TODO.md)**（按 Epic A–F 拆分，含验收勾选表）。完成后再进入 Phase 4。
+>
 > **⚠️ Phase 3 定位说明：**
 > Phase 3 是**"基础设施铺路"**阶段，有三条并行主线：
 > 1. **Sidecar 预热**：Python Sidecar 已启动并健康运行，但**尚未参与对话**（Rig 仍处理对话）。这确保 Phase 4 迁移时平滑切换。
 > 2. **MCP 完整支持**：通过 rmcp（Rust 原生 MCP SDK）集成 MCP Client，支持 stdio/HTTP/SSE transport，完成工具调用全链路。
 > 3. **会话高级管理**：分组/归档/置顶、FTS5 全文搜索、导入/导出，补全用户日常使用中的会话管理需求。
 >
-> **代码库现状基线（Phase 2 已交付）：**
-> - Rust 侧 35 个 `.rs` 文件，含 `services/llm/`（7 子模块 + 4 providers）、`commands/`（6 模块）、`db/repository/`（6 repo 模块）
-> - 已注册 27 个 Tauri Command（settings ×8、router_configs ×5、models ×3、chat ×4、workspace ×5、session ×7）
-> - 数据库 Schema v2（sessions 含 working_dir/pinned/group_name、messages 含 thinking_content/attachments/status、messages_fts FTS5 索引）
-> - `sidecar.rs` 已有基础 `SidecarManager`（同步 start + 健康检查 + Drop 清理），`AppState` 含 `sidecar: Mutex<Option<SidecarManager>>`
-> - `config.rs` 含 `sidecar_port: u16`（默认 9527）、`auto_start_sidecar: bool`
-> - Python `agent/` 已有 FastAPI 骨架（`main.py` + `health.py` + `config.py`），仅提供 `/health` 端点
-> - 前端 48 个 TSX 组件，含完整 chat 组件族（ChatView/MessageItem/MessageInput/SessionPanel/WorkspaceBar 等）
-> - `lib/ipc/` 已封装 sessions/chat/workspace/models 四组 IPC
-> - `stores/` 含 app-store/settings-store/chat-store/theme-store
+> **编写时基线（Phase 2 结束时）：** 见各 Sprint 章节「当前状态」小节。  
+> **审计时基线（2026-07-06）：** Rust 47 个 `.rs`、~50+ Tauri Commands、DB Schema **v6**、前端 ~94 个 TSX；Sidecar/MCP/会话高级 API 与 UI 已大量落地，详见 §1.3。
 
 ---
 
 ## 目录
 
 1. [阶段目标与验收标准](#1-阶段目标与验收标准)
+   - [1.3 剩余工作索引](#13-剩余工作索引)
 2. [任务依赖关系与执行顺序](#2-任务依赖关系与执行顺序)
 3. [Sprint 1：Sidecar 预热增强 (3.1–3.4)](#3-sprint-1sidecar-预热增强)
 4. [Sprint 2：MCP 核心集成 (3.5–3.8)](#4-sprint-2mcp-核心集成)
@@ -39,7 +34,8 @@
 9. [新增依赖清单](#9-新增依赖清单)
 10. [文件创建/修改清单](#10-文件创建修改清单)
 11. [Phase 3 完整验证清单](#11-phase-3-完整验证清单)
-12. [详细 TODO 列表](#12-详细-todo-列表)
+12. [详细 TODO 列表（历史记录）](#12-详细-todo-列表历史记录)
+13. [**Phase 3 剩余 TODO（执行入口）**](./PHASE_3_REMAINING_TODO.md)
 
 ---
 
@@ -59,23 +55,51 @@
 
 ### 1.2 验收标准
 
-| # | 验收项 | 验收方式 |
-|---|--------|---------|
-| AC-1 | 应用启动时 Sidecar 自动后台预热，3 秒内完成健康检查 | 观察启动日志 + StatusBadge 变绿 |
-| AC-2 | Sidecar 异常退出后 ≤5s 自动重启（最多 3 次） | kill 进程后观察恢复 |
-| AC-3 | 前端 StatusBadge 实时反映 Sidecar 状态（就绪/启动中/异常） | UI 观察 |
-| AC-4 | Rust → Sidecar HTTP 通信协议定义完成，含占位 `/agent/chat` 和 `/agent/stream` | curl 测试 |
-| AC-5 | 通过 rmcp stdio transport 连接至少一个 MCP Server（如 filesystem） | 工具列表可见 |
-| AC-6 | 通过 rmcp HTTP/SSE transport 连接远程 MCP Server | 工具列表可见 |
-| AC-7 | MCP 配置文件加载（`~/.misakax/mcp.json` + Settings 页面） | 配置 → 连接成功 |
-| AC-8 | MCP Server 生命周期完整（启动/停止/重启/健康检查） | Settings 页面操作 |
-| AC-9 | Tool Call UI 完整展示（工具名 + 参数 + 结果 + 折叠/展开） | 对话中触发工具调用 |
-| AC-10 | Tool Call 权限审批流程（approve/deny/always allow） | 首次工具调用弹出审批 |
-| AC-11 | MCP 管理页面（已连接 Servers + 可用工具列表 + 连接状态） | Settings → MCP 子页面 |
-| AC-12 | 会话分组/归档/置顶功能可用 | 右键菜单操作 |
-| AC-13 | FTS5 全文搜索消息内容 | 搜索框输入关键词 → 匹配消息高亮 |
-| AC-14 | 会话 JSON 导入/导出 | 导出 → 清空 → 导入 → 数据恢复 |
-| AC-15 | Nuitka 初步打包 Sidecar 为可执行文件成功 | 独立运行 exe + health check |
+**图例：** ✅ 已通过代码审计 · 🟡 部分完成 · ❌ 未完成 · ⚪ 端到端待人工复验
+
+| # | 验收项 | 验收方式 | 状态 | 说明 |
+|---|--------|---------|------|------|
+| AC-1 | 应用启动时 Sidecar 自动后台预热，3 秒内完成健康检查 | 观察启动日志 + StatusBadge 变绿 | 🟡 | `SidecarManager::preheat` + 异步健康轮询已实现；最坏等待 ~10s（20×500ms），需实机确认 Badge 变绿时机 |
+| AC-2 | Sidecar 异常退出后 ≤5s 自动重启（最多 3 次） | kill 进程后观察恢复 | ❌ | 仅有**启动阶段**最多 3 次重试；**就绪后无子进程 watchdog**，kill 后不会自动重启 |
+| AC-3 | 前端 StatusBadge 实时反映 Sidecar 状态 | UI 观察 | ✅ | `SidecarStatusBadge` + `sidecar:status` 事件 + 手动重启 |
+| AC-4 | Rust → Sidecar HTTP 协议 + 占位 `/agent/chat`、`/agent/stream` | curl 测试 | ✅ | `SidecarClient` + `agent/routers/agent.py` 501 占位 |
+| AC-5 | rmcp stdio 连接 MCP Server | 工具列表可见 | ⚪ | `McpManager::connect_stdio` 已实现；需配置 filesystem 等 Server 人工验证 |
+| AC-6 | rmcp HTTP/SSE 连接远程 MCP Server | 工具列表可见 | ⚪ | Http/Sse 均走 `StreamableHttpClientTransport`；需远程 Server 人工验证 |
+| AC-7 | MCP 配置（`~/.misakax/mcp.json` + Settings） | 配置 → 连接成功 | ✅ | `McpConfigLoader` + `McpSettings.tsx` + DB `mcp_servers` |
+| AC-8 | MCP Server 生命周期（启停/重启/健康检查） | Settings 页面操作 | ✅ | commands + `start_mcp_health_loop`（60s 重连，最多 3 次） |
+| AC-9 | Tool Call UI（工具名 + 参数 + 结果 + 折叠） | 对话中触发工具调用 | 🟡 | `ToolCallBlock` / DB `tool_calls` / 流式 listener 已就绪；**Rust 对话流未 emit `stream:tool_call`**，Rig 未闭环执行 MCP 工具 |
+| AC-10 | Tool Call 权限审批（approve/deny/always allow） | 首次工具调用弹出审批 | 🟡 | `mcp_call_tool` + `ToolApprovalDialog` 完整；**需经对话或 Settings 手动触发** `mcp_call_tool` 验证 |
+| AC-11 | MCP 管理页面 | Settings → MCP | ✅ | `McpSettings.tsx`（~585 行） |
+| AC-12 | 会话分组/归档/置顶 | 右键菜单 | ✅ | `SessionPanel` + `SessionItem` + session commands |
+| AC-13 | FTS5 全文搜索消息 | 搜索框 → 高亮 | ✅ | `search_messages` + `MessageSearchResults` |
+| AC-14 | 会话 JSON 导入/导出 | 导出 → 导入 → 恢复 | 🟡 | 导出：`SessionItem` 右键；导入：**仅** `AboutSettings`，原计划 SessionPanel 入口未做 |
+| AC-15 | Nuitka 打包 Sidecar 可执行文件 | 独立 exe + health check | ❌ | `build_nuitka.py` + `run.py` 已有；**未验收**（无 `agent/dist/` 产物；`SidecarManager` 仍 spawn `python -m uvicorn`） |
+
+**M2 里程碑：** 15 项中 ✅ 6 · 🟡 5 · ❌ 2 · ⚪ 2 — **不可标记为已交付**。
+
+### 1.3 剩余工作索引
+
+> **执行入口：** 所有未完成项的详细步骤、文件路径、验收标准见 **[`PHASE_3_REMAINING_TODO.md`](./PHASE_3_REMAINING_TODO.md)**。
+
+| 优先级 | Epic | 核心任务 | 预估 |
+|--------|------|----------|------|
+| **P0** | A | Sidecar 运行时 watchdog（AC-2） | 3–4h |
+| **P0** | B | Rig 对话 MCP 工具闭环 + 流式 Event + DB 持久化（AC-9/10） | 8–10h |
+| **P1** | C | Nuitka 打包验收（AC-15） | 2–3h |
+| **P2** | D | 导入后会话刷新（AC-14） | 0.5h |
+| **P1** | E | V1–V30 全量验证 + TODO-FINAL | 4–5h |
+| **P2** | F | Sidecar / Tool loop 自动化测试 | 4–5h |
+
+**Sprint 完成度速查（2026-07-06）：**
+
+| Sprint | 范围 | 状态 | 缺口摘要 |
+|--------|------|------|----------|
+| Sprint 1 | 3.1–3.4 Sidecar 预热 + 协议 | 🟡 ~90% | 缺运行时 watchdog（3.2） |
+| Sprint 2 | 3.5–3.8 MCP 核心 | ✅ ~95% | 代码就绪；远程 transport 待 E2E |
+| Sprint 3 | 3.9–3.11 MCP 前端 + Tool UI | 🟡 ~80% | UI/审批就绪；对话内工具闭环与流式 Event 未接通 |
+| Sprint 4 | 3.12–3.14 会话高级管理 | 🟡 ~95% | 导入 UI 入口偏离计划 |
+| Sprint 5 | 3.15 Nuitka | ❌ ~40% | 脚本有，验收与集成未完成 |
+| 收尾 | Schema + i18n + FINAL | ✅ | Schema 已到 v6（超出 v3–v5 计划） |
 
 ---
 
@@ -135,7 +159,7 @@ Phase 2 产出（Rig 对话 / 会话管理 / 工作目录 / 流式渲染）
 
 ---
 
-## 3. Sprint 1：Sidecar 预热增强
+## 3. Sprint 1：Sidecar 预热增强 · 🟡 ~90%
 
 ### 3.1 任务 3.1：Python Sidecar 端点扩展（4h）
 
@@ -560,7 +584,7 @@ class ToolCall(BaseModel):
 
 ---
 
-## 4. Sprint 2：MCP 核心集成
+## 4. Sprint 2：MCP 核心集成 · ✅ ~95%
 
 ### 4.1 任务 3.5：rmcp Client 集成 — stdio transport（8h）
 
@@ -886,7 +910,7 @@ pub async fn mcp_remove_server_config(
 
 ---
 
-## 5. Sprint 3：MCP 前端 + Tool Call UI
+## 5. Sprint 3：MCP 前端 + Tool Call UI · 🟡 ~80%
 
 ### 5.1 任务 3.9：Tool Call UI 展示（5h）
 
@@ -1055,7 +1079,7 @@ export const mcpIpc = {
 
 ---
 
-## 6. Sprint 4：会话高级管理
+## 6. Sprint 4：会话高级管理 · 🟡 ~95%
 
 ### 6.1 任务 3.12：会话分组/归档/置顶（3h）
 
@@ -1244,7 +1268,7 @@ pub fn import_sessions(
 
 ---
 
-## 7. Sprint 5：Nuitka 打包验证
+## 7. Sprint 5：Nuitka 打包验证 · ❌ ~40%
 
 ### 7.1 任务 3.15：Nuitka 打包脚本初版（4h）
 
@@ -1500,72 +1524,77 @@ agent/
 
 ## 11. Phase 3 完整验证清单
 
+> **图例：** ✅ 代码已具备 · 🟡 部分 · ❌ 未具备 · ⚪ 待人工执行  
+> 审计日期：2026-07-06
+
 ### 11.1 Sidecar 预热验证
 
-| # | 验证项 | 操作 | 预期 |
-|---|--------|------|------|
-| V1 | Sidecar 自动预热 | 启动应用 | StatusBadge 从 "启动中" → "就绪"，日志显示 health check 通过 |
-| V2 | 异常自动重启 | 手动 kill Python 进程 | StatusBadge 变为 "重启中" → "就绪"（≤15s） |
-| V3 | 重试上限 | 反复 kill 超过 3 次 | StatusBadge 变为 "异常"，不再自动重启 |
-| V4 | 手动重启 | 点击异常状态的重启按钮 | Sidecar 成功重启，StatusBadge 变绿 |
-| V5 | 禁用自动启动 | config.yaml `auto_start_sidecar: false` | 启动时不启动 Sidecar，StatusBadge 显示 "已停止" |
+| # | 验证项 | 操作 | 预期 | 状态 |
+|---|--------|------|------|------|
+| V1 | Sidecar 自动预热 | 启动应用 | StatusBadge 从 "启动中" → "就绪" | 🟡 |
+| V2 | 异常自动重启 | 手动 kill Python 进程 | StatusBadge "重启中" → "就绪"（≤15s） | ❌ |
+| V3 | 重试上限 | 反复 kill 超过 3 次 | StatusBadge "异常"，不再自动重启 | ❌ |
+| V4 | 手动重启 | 点击异常状态的重启按钮 | Sidecar 重启成功 | ✅ |
+| V5 | 禁用自动启动 | `auto_start_sidecar: false` | 不启动 Sidecar，Badge "已停止" | ⚪ |
 
 ### 11.2 通信协议验证
 
-| # | 验证项 | 操作 | 预期 |
-|---|--------|------|------|
-| V6 | /health 增强 | `curl http://127.0.0.1:9527/health` | 返回含 version/uptime/capabilities 的 JSON |
-| V7 | /info 端点 | `curl http://127.0.0.1:9527/info` | 返回 Python 版本、DeepAgents 可用状态 |
-| V8 | /agent/chat 占位 | `POST /agent/chat` | 返回 501 + "Will be available in Phase 4" |
-| V9 | /agent/stream 占位 | `POST /agent/stream` | 返回 501 + "Will be available in Phase 4" |
+| # | 验证项 | 操作 | 预期 | 状态 |
+|---|--------|------|------|------|
+| V6 | /health 增强 | `curl …/health` | version/uptime/capabilities JSON | ✅ |
+| V7 | /info 端点 | `curl …/info` | Python 版本、langgraph/powermem 检测 | ✅ |
+| V8 | /agent/chat 占位 | `POST /agent/chat` | 501 + Phase 4 提示 | ✅ |
+| V9 | /agent/stream 占位 | `POST /agent/stream` | 501 + Phase 4 提示 | ✅ |
 
 ### 11.3 MCP 集成验证
 
-| # | 验证项 | 操作 | 预期 |
-|---|--------|------|------|
-| V10 | stdio 连接 | 配置 filesystem MCP Server → 连接 | 工具列表显示（read_file / write_file 等） |
-| V11 | HTTP 连接 | 配置远程 MCP Server → 连接 | 工具列表显示 |
-| V12 | 工具调用 | 在对话中触发 read_file | ToolCallBlock 展示参数+结果 |
-| V13 | 配置文件加载 | 编辑 `~/.misakax/mcp.json` → 重启 | 自动连接配置的 Server |
-| V14 | Settings 页面配置 | 通过 UI 添加 MCP Server | 成功连接并显示工具 |
-| V15 | Server 生命周期 | 在 Settings 页面断开/重连 Server | 状态实时更新 |
+| # | 验证项 | 操作 | 预期 | 状态 |
+|---|--------|------|------|------|
+| V10 | stdio 连接 | 配置 filesystem MCP → 连接 | 工具列表显示 | ⚪ |
+| V11 | HTTP 连接 | 配置远程 MCP → 连接 | 工具列表显示 | ⚪ |
+| V12 | 对话中工具调用 | 对话触发 read_file 等 | ToolCallBlock 展示参数+结果 | ❌ |
+| V13 | 配置文件加载 | 编辑 `mcp.json` → 重启 | auto_connect Server 连接 | ✅ |
+| V14 | Settings 配置 | UI 添加 MCP Server | 连接并显示工具 | ✅ |
+| V15 | Server 生命周期 | Settings 断开/重连 | 状态实时更新 | ✅ |
 
 ### 11.4 Tool Call 权限验证
 
-| # | 验证项 | 操作 | 预期 |
-|---|--------|------|------|
-| V16 | 首次审批 | 首次调用工具 | 弹出审批对话框 |
-| V17 | 允许一次 | 点击"允许一次" | 工具执行，下次仍询问 |
-| V18 | 始终允许 | 点击"始终允许" | 工具执行，后续自动放行 |
-| V19 | 拒绝 | 点击"拒绝" | 工具未执行，返回拒绝信息 |
-| V20 | 权限重置 | MCP 管理页面重置权限 | 策略恢复为"每次询问" |
+| # | 验证项 | 操作 | 预期 | 状态 |
+|---|--------|------|------|------|
+| V16 | 首次审批 | 首次调用工具 | 弹出审批对话框 | 🟡 |
+| V17 | 允许一次 | 点击"允许一次" | 执行，下次仍询问 | 🟡 |
+| V18 | 始终允许 | 点击"始终允许" | 后续自动放行 | 🟡 |
+| V19 | 拒绝 | 点击"拒绝" | 未执行 | 🟡 |
+| V20 | 权限重置 | MCP 页重置权限 | 恢复 ask | ✅ |
+
+> V16–V19：通过 Settings 或未来 `mcp_call_tool` 路径可测；**对话内触发（V12）未通则无法完整验收 AC-10**。
 
 ### 11.5 会话管理验证
 
-| # | 验证项 | 操作 | 预期 |
-|---|--------|------|------|
-| V21 | 置顶 | 右键 → 置顶 | 会话移到列表顶部 📌 区 |
-| V22 | 归档 | 右键 → 归档 | 会话从列表消失，"显示归档"后可见 |
-| V23 | 分组 | 右键 → 设置分组 → "工作" | 会话归入"工作"折叠组 |
-| V24 | 全文搜索 | 搜索框输入关键词 | 匹配消息高亮展示 |
-| V25 | 导出 | 右键 → 导出 → 保存文件 | JSON 文件包含完整会话+消息 |
-| V26 | 导入 | Settings → 导入 → 选择文件 | 会话恢复到列表中 |
+| # | 验证项 | 操作 | 预期 | 状态 |
+|---|--------|------|------|------|
+| V21 | 置顶 | 右键 → 置顶 | 📌 区 | ✅ |
+| V22 | 归档 | 右键 → 归档 | 归档列表可见 | ✅ |
+| V23 | 分组 | 右键 → 设置分组 | 折叠组 | ✅ |
+| V24 | 全文搜索 | 搜索关键词 | 消息高亮 | ✅ |
+| V25 | 导出 | 右键 → 导出 | JSON 含会话+消息 | ✅ |
+| V26 | 导入 | Settings → 关于 → 导入 | 会话恢复 | 🟡 |
 
 ### 11.6 Nuitka 打包验证
 
-| # | 验证项 | 操作 | 预期 |
-|---|--------|------|------|
-| V27 | 打包成功 | 执行 `python build_nuitka.py` | 生成 `misaka-agent.exe` |
-| V28 | 独立运行 | 运行 `misaka-agent.exe` | 服务正常启动 |
-| V29 | 健康检查 | `curl http://127.0.0.1:9527/health` | 返回 200 OK |
-| V30 | 体积记录 | 检查 exe 大小 | 记录体积（预期 30-60MB） |
+| # | 验证项 | 操作 | 预期 | 状态 |
+|---|--------|------|------|------|
+| V27 | 打包成功 | `python build_nuitka.py` | 生成 `misaka-agent.exe` | ❌ |
+| V28 | 独立运行 | 运行 exe | 服务启动 | ❌ |
+| V29 | 健康检查 | `curl …/health` | 200 OK | ❌ |
+| V30 | 体积记录 | 检查 exe 大小 | 30–60MB 量级记录 | ❌ |
 
 ---
 
-## 12. 详细 TODO 列表
+## 12. 详细 TODO 列表（历史记录）
 
-> 按执行顺序排列，标注依赖关系和预估时间。
-> 这是 Phase 3 的**代码编写执行指南**，每个 TODO 是一个可执行的原子任务。
+> ⚠️ **续做 Phase 3 请使用 [`PHASE_3_REMAINING_TODO.md`](./PHASE_3_REMAINING_TODO.md)**，而非本节。  
+> 下列条目为开发过程中的原始记录；部分 ✅ 标记与 2026-07-06 代码审计不符（已在上文 §1.2 / §11 校正）。
 
 ### Sprint 1：Sidecar 预热增强（第 8 周前半）
 
@@ -1640,12 +1669,12 @@ TODO-3.2.4  [0.5h] [依赖 3.2.2, 3.2.3] ✅ 已完成 (2026-05-11)
     修改 src-tauri/src/lib.rs invoke_handler
     - 注册 get_sidecar_status / restart_sidecar 两个新 command
 
-TODO-3.2.5  [1.0h] [依赖 3.2.4] ✅ 已完成 (2026-05-11)
+TODO-3.2.5  [1.0h] [依赖 3.2.4] 🟡 部分完成
     集成测试
-    - cargo check 编译通过
-    - 启动应用，观察日志确认 Sidecar 异步预热成功
-    - kill Python 进程，观察自动重启
-    - config.yaml 设置 auto_start_sidecar: false，验证不启动
+    - cargo check 编译通过 ✅
+    - 启动应用，观察日志确认 Sidecar 异步预热成功 ✅
+    - kill Python 进程，观察自动重启 ❌（缺运行时 watchdog，见 §1.3 P0）
+    - config.yaml 设置 auto_start_sidecar: false，验证不启动 ⚪
 ```
 
 #### 3.3 Sidecar 状态指示器（2h）
@@ -1826,13 +1855,11 @@ TODO-3.8.3  [0.5h] [依赖 3.8.2] ✅ DONE
     修改 lib.rs invoke_handler
     - 注册全部 8 个 MCP commands
 
-TODO-3.8.4  [1.0h] [依赖 3.8.3] ✅ DONE
+TODO-3.8.4  [1.0h] [依赖 3.8.3] 🟡 部分完成
     将 MCP 工具调用集成到现有 Rig 对话流
-    - 创建 services/mcp_bridge.rs（McpToolBridge）：
-      - tool_descriptions()：收集所有 MCP 工具描述，格式化为系统 prompt 注入内容
-      - call_tool()：按工具名自动路由到正确 Server
-      - format_tool_result()：提取结果文本
-    - 修改 commands/chat.rs send_message：注入 MCP 工具描述到 system prompt
+    - 创建 services/mcp_bridge.rs（McpToolBridge）✅
+    - 修改 commands/chat.rs：注入 MCP 工具描述到 system prompt ✅
+    - ❌ 未完成：LLM 返回工具调用 → 审批 → call_tool → 写回 message.tool_calls → emit stream:tool_call/result
 
 TODO-3.8.5  [0.5h] [依赖 3.8.1-3.8.4] ✅ DONE（单元测试覆盖）
     端到端验证
@@ -1843,7 +1870,7 @@ TODO-3.8.5  [0.5h] [依赖 3.8.1-3.8.4] ✅ DONE（单元测试覆盖）
 
 ### Sprint 3：MCP 前端 + Tool Call UI（第 9 周后半）
 
-#### 3.9 Tool Call UI 展示（5h）✅ COMPLETED
+#### 3.9 Tool Call UI 展示（5h）🟡 部分完成
 
 ```
 TODO-3.9.1  [2.0h] [无依赖] ✅ DONE
@@ -1865,11 +1892,11 @@ TODO-3.9.3  [1.0h] [依赖 3.9.1, 3.9.2] ✅ DONE
     - 渲染逻辑：message.tool_calls?.map(tc => <ToolCallBlock key={tc.id} toolCall={tc} />)
     - 确保与 ThinkingBlock 的布局协调（thinking 在上，tool calls 在内容之间）
 
-TODO-3.9.4  [1.0h] [依赖 3.9.3] ✅ DONE
+TODO-3.9.4  [1.0h] [依赖 3.9.3] 🟡 部分完成
     流式 Tool Call 更新
-    - 修改 use-stream-listener.ts：监听 stream:tool_call / stream:tool_result 事件
-    - 实时更新 chat-store 中消息的 tool_calls 数组
-    - ToolCallBlock 响应式更新（pending → running → complete）
+    - use-stream-listener.ts 监听 stream:tool_call / stream:tool_result ✅
+    - chat-store addToolCall / updateToolCall ✅
+    - ❌ Rust 侧 streaming/chat 未 emit 上述事件（grep 无匹配）
 ```
 
 #### 3.10 Tool Call 权限审批流程（4h）✅ COMPLETED
@@ -2024,7 +2051,7 @@ TODO-3.14.3 ✅ [1.0h] [依赖 3.14.2]
 
 ### Sprint 5：Nuitka 打包验证（第 10 周）
 
-#### 3.15 Nuitka 打包脚本（4h）✅ COMPLETED
+#### 3.15 Nuitka 打包脚本（4h）🟡 部分完成
 
 ```
 TODO-3.15.1 [0.5h] [无依赖] ✅ DONE
@@ -2041,18 +2068,18 @@ TODO-3.15.2 [1.0h] [依赖 3.15.1] ✅ DONE
     - --output-filename=misaka-agent
     - 打包前清理旧产物
 
-TODO-3.15.3 [1.5h] [依赖 3.15.2] ✅ DONE
+TODO-3.15.3 [1.5h] [依赖 3.15.2] ❌ 未完成
     执行打包并验证
-    - pip install nuitka（开发环境）
-    - python build_nuitka.py
-    - 验证产物：运行 misaka-agent.exe → curl /health
-    - 记录：体积 / 启动时间 / 内存占用
+    - pip install nuitka（开发环境）⚪
+    - python build_nuitka.py ⚪
+    - 验证产物：运行 misaka-agent.exe → curl /health ❌（仓库无 agent/dist/）
+    - 记录：体积 / 启动时间 / 内存占用 ❌
 
-TODO-3.15.4 [1.0h] [依赖 3.15.3] ✅ DONE
+TODO-3.15.4 [1.0h] [依赖 3.15.3] ❌ 未完成
     问题修复与优化
-    - 修复：multiprocessing.freeze_support 不是独立模块，改用 --include-package=multiprocessing
-    - 优化打包参数（排除不必要的模块减小体积）
-    - 更新 README 或 docs 记录打包流程
+    - 打包参数已初步调优（build_nuitka.py）✅
+    - SidecarManager 仍 spawn `python -m uvicorn`，未集成 exe 路径 ❌
+    - 更新文档记录打包流程 🟡（见 PROJECT_STRUCTURE / DEVELOPMENT_STATUS）
 ```
 
 ### 收尾：Schema 迁移 + 全量验证 ✅ COMPLETED
@@ -2081,12 +2108,12 @@ TODO-I18N  [1.0h] [Sprint 3 结束时] ✅ DONE
     - SessionPanel.tsx / SessionItem.tsx 硬编码中文全部替换为 t() 调用
     - formatRelativeTime 使用 Intl.RelativeTimeFormat 国际化
 
-TODO-FINAL [2.0h] [全部完成后] ✅ DONE
+TODO-FINAL [2.0h] [全部完成后] ❌ 未完成
     Phase 3 完整验证
-    - 逐一执行第 11 节 V1-V30 验证清单
-    - 修复发现的问题
-    - 更新文档（如有变更）
-    - 准备 Phase 4 前置条件确认
+    - 逐一执行第 11 节 V1-V30 验证清单 ❌
+    - 修复发现的问题（见 §1.3）
+    - 更新文档
+    - 确认 M2 里程碑后可进入 Phase 4
 ```
 
 ### TODO 统计
@@ -2106,17 +2133,10 @@ TODO-FINAL [2.0h] [全部完成后] ✅ DONE
 > **文档结束**
 >
 > 本文档是 Phase 3 的详细执行指南，覆盖了 Sidecar 预热增强、MCP 全链路集成、会话高级管理和 Nuitka 初步打包。
-> 所有 TODO 共 **~60 项**（Rust 后端 ~30 项 + Python Sidecar ~8 项 + React 前端 ~18 项 + 收尾验证 4 项），
-> 按 Sprint 顺序完成后即可交付 M2 里程碑：基础设施就绪。
 >
-> **代码库对齐说明：**
-> 本文档基于 Phase 2 完成后的实际代码库状态编写（35 个 Rust 文件、48 个 TSX 组件、27 个已注册 Tauri Command、Schema v2），
-> 所有路径、模块引用、结构体字段均已与现有代码精确对齐。修改指令明确标注了"新增"与"修改"。
+> **当前状态（2026-07-06）：** Phase 3 **未完成**。请按 **[`PHASE_3_REMAINING_TODO.md`](./PHASE_3_REMAINING_TODO.md)** 逐项完成后再进入 Phase 4。
 >
-> **Phase 4 衔接要点：**
-> Phase 3 完成后，Phase 4 仅需：
-> 1. 在 Python Sidecar 上实现 `create_deep_agent()` 组装（替换 501 占位端点）
-> 2. 修改 Rust `chat.rs` 从 Rig→SidecarClient（利用 3.4 定义的通信协议）
-> 3. 前端 UI 层零改动（ToolCallBlock 兼容 Rig 和 DeepAgents 模式）
->
-> 下一阶段为 Phase 4：DeepAgents 全对话迁移。
+> **Phase 4 衔接要点（Phase 3 完成后）：**
+> 1. Python Sidecar 上实现 `create_deep_agent()`（替换 501 占位端点）
+> 2. Rust `chat.rs` 从 Rig → SidecarClient 转发
+> 3. 前端 Chat UI 层尽量零改动（ToolCallBlock 已兼容两种模式）

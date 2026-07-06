@@ -4,7 +4,16 @@ use std::process::Child;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
-use tokio::sync::watch;
+use tokio::sync::{watch, Mutex as AsyncMutex};
+
+const STARTUP_MAX_RETRIES: u32 = 3;
+const RUNTIME_MAX_RESTARTS: u32 = 3;
+const STARTUP_RETRY_DELAY: Duration = Duration::from_secs(2);
+const RESTART_DELAY: Duration = Duration::from_millis(500);
+const WATCHDOG_INTERVAL: Duration = Duration::from_secs(5);
+const HEALTH_CHECK_TIMEOUT: Duration = Duration::from_secs(2);
+const STARTUP_HEALTH_CHECK_ATTEMPTS: u32 = 20;
+const STARTUP_HEALTH_CHECK_INTERVAL: Duration = Duration::from_millis(500);
 
 // --------------------------------------------------------------------------- //
 //  Status types
@@ -25,6 +34,18 @@ pub struct SidecarStatusEvent {
     pub status: SidecarStatus,
     pub message: Option<String>,
     pub port: u16,
+}
+
+pub fn health_check_url(port: u16) -> String {
+    format!("http://127.0.0.1:{}/health", port)
+}
+
+pub fn should_attempt_runtime_restart(next_count: u32, max_restarts: u32) -> bool {
+    next_count <= max_restarts
+}
+
+pub fn is_current_watchdog_generation(observed: u64, current: u64) -> bool {
+    observed == current
 }
 
 // --------------------------------------------------------------------------- //
@@ -79,10 +100,15 @@ pub struct SidecarManager {
     port: u16,
     agent_dir: PathBuf,
     max_retries: u32,
+    max_runtime_restarts: u32,
     status: Arc<Mutex<SidecarStatus>>,
     child: Arc<Mutex<Option<Child>>>,
     shutdown_tx: watch::Sender<bool>,
     shutdown_rx: watch::Receiver<bool>,
+    runtime_restart_count: Arc<Mutex<u32>>,
+    lifecycle_lock: Arc<AsyncMutex<()>>,
+    watchdog_active: Arc<Mutex<bool>>,
+    lifecycle_generation: Arc<Mutex<u64>>,
 }
 
 impl SidecarManager {
@@ -91,11 +117,16 @@ impl SidecarManager {
         Self {
             port,
             agent_dir,
-            max_retries: 3,
+            max_retries: STARTUP_MAX_RETRIES,
+            max_runtime_restarts: RUNTIME_MAX_RESTARTS,
             status: Arc::new(Mutex::new(SidecarStatus::Stopped)),
             child: Arc::new(Mutex::new(None)),
             shutdown_tx,
             shutdown_rx,
+            runtime_restart_count: Arc::new(Mutex::new(0)),
+            lifecycle_lock: Arc::new(AsyncMutex::new(())),
+            watchdog_active: Arc::new(Mutex::new(false)),
+            lifecycle_generation: Arc::new(Mutex::new(0)),
         }
     }
 
@@ -113,15 +144,19 @@ impl SidecarManager {
 
     /// Restart the sidecar (stop then start).
     pub async fn restart(self: &Arc<Self>, app: AppHandle) {
+        let _guard = self.lifecycle_lock.lock().await;
+        self.advance_lifecycle_generation();
+        self.reset_runtime_restart_count();
         self.set_status(SidecarStatus::Restarting, None, &app);
         self.stop_process();
-        tokio::time::sleep(Duration::from_millis(500)).await;
-        self.start_process(&app).await;
+        tokio::time::sleep(RESTART_DELAY).await;
+        self.start_process_inner(&app).await;
     }
 
     /// Graceful shutdown: send kill, wait for exit.
     pub fn shutdown(&self) {
         let _ = self.shutdown_tx.send(true);
+        self.set_status_only(SidecarStatus::Stopped);
         self.stop_process();
     }
 
@@ -130,11 +165,17 @@ impl SidecarManager {
     // ---------------------------------------------------------------------- //
 
     async fn start_process(self: &Arc<Self>, app: &AppHandle) {
+        let _guard = self.lifecycle_lock.lock().await;
+        self.start_process_inner(app).await;
+    }
+
+    async fn start_process_inner(self: &Arc<Self>, app: &AppHandle) {
         self.set_status(SidecarStatus::Starting, None, app);
 
         if Self::is_healthy(self.port).await {
             tracing::info!("Python Sidecar already running on port {}", self.port);
             self.set_status(SidecarStatus::Ready, None, app);
+            self.spawn_watchdog_once(app.clone());
             return;
         }
 
@@ -146,18 +187,7 @@ impl SidecarManager {
                 self.port,
             );
 
-            let spawn_result = std::process::Command::new("python")
-                .args([
-                    "-m",
-                    "uvicorn",
-                    "app.main:app",
-                    "--host",
-                    "127.0.0.1",
-                    "--port",
-                    &self.port.to_string(),
-                ])
-                .current_dir(&self.agent_dir)
-                .spawn();
+            let spawn_result = self.spawn_child();
 
             match spawn_result {
                 Ok(child) => {
@@ -169,6 +199,7 @@ impl SidecarManager {
                     if self.wait_for_healthy(app).await {
                         tracing::info!("Python Sidecar ready on port {}", self.port);
                         self.set_status(SidecarStatus::Ready, None, app);
+                        self.spawn_watchdog_once(app.clone());
                         return;
                     }
 
@@ -189,7 +220,7 @@ impl SidecarManager {
             }
 
             if attempt < self.max_retries {
-                tokio::time::sleep(Duration::from_secs(2)).await;
+                tokio::time::sleep(STARTUP_RETRY_DELAY).await;
             }
         }
 
@@ -203,9 +234,9 @@ impl SidecarManager {
 
     async fn wait_for_healthy(&self, _app: &AppHandle) -> bool {
         let mut rx = self.shutdown_rx.clone();
-        for _ in 0..20 {
+        for _ in 0..STARTUP_HEALTH_CHECK_ATTEMPTS {
             tokio::select! {
-                _ = tokio::time::sleep(Duration::from_millis(500)) => {}
+                _ = tokio::time::sleep(STARTUP_HEALTH_CHECK_INTERVAL) => {}
                 _ = rx.changed() => {
                     return false;
                 }
@@ -218,9 +249,9 @@ impl SidecarManager {
     }
 
     async fn is_healthy(port: u16) -> bool {
-        let url = format!("http://127.0.0.1:{}/health", port);
+        let url = health_check_url(port);
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(2))
+            .timeout(HEALTH_CHECK_TIMEOUT)
             .build();
         match client {
             Ok(c) => c
@@ -231,6 +262,164 @@ impl SidecarManager {
                 .unwrap_or(false),
             Err(_) => false,
         }
+    }
+
+    fn spawn_child(&self) -> std::io::Result<Child> {
+        let port = self.port.to_string();
+        std::process::Command::new("python")
+            .args([
+                "-m",
+                "uvicorn",
+                "app.main:app",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                port.as_str(),
+            ])
+            .current_dir(&self.agent_dir)
+            .spawn()
+    }
+
+    fn spawn_watchdog_once(self: &Arc<Self>, app: AppHandle) {
+        {
+            let mut active = self.watchdog_active.lock().unwrap();
+            if *active {
+                return;
+            }
+            *active = true;
+        }
+
+        let mut shutdown_rx = self.shutdown_rx.clone();
+        let mgr = Arc::downgrade(self);
+        let generation = self.current_lifecycle_generation();
+        tauri::async_runtime::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = tokio::time::sleep(WATCHDOG_INTERVAL) => {}
+                    _ = shutdown_rx.changed() => {
+                        break;
+                    }
+                }
+
+                let Some(manager) = mgr.upgrade() else {
+                    break;
+                };
+
+                if *shutdown_rx.borrow() || manager.status() != SidecarStatus::Ready {
+                    continue;
+                }
+
+                if let Some(reason) = manager.detect_runtime_failure().await {
+                    manager.finish_watchdog();
+                    manager
+                        .handle_runtime_failure(&app, reason, generation)
+                        .await;
+                    return;
+                }
+            }
+
+            if let Some(manager) = mgr.upgrade() {
+                manager.finish_watchdog();
+            }
+        });
+    }
+
+    async fn detect_runtime_failure(&self) -> Option<String> {
+        if let Some(reason) = self.managed_child_exit_reason() {
+            return Some(reason);
+        }
+
+        if !Self::is_healthy(self.port).await {
+            return Some(format!(
+                "Health check failed for {}",
+                health_check_url(self.port)
+            ));
+        }
+
+        None
+    }
+
+    async fn handle_runtime_failure(
+        self: &Arc<Self>,
+        app: &AppHandle,
+        reason: String,
+        generation: u64,
+    ) {
+        let _guard = self.lifecycle_lock.lock().await;
+
+        if *self.shutdown_rx.borrow()
+            || self.status() != SidecarStatus::Ready
+            || !is_current_watchdog_generation(generation, self.current_lifecycle_generation())
+        {
+            return;
+        }
+
+        let restart_count = self.increment_runtime_restart_count();
+        if !should_attempt_runtime_restart(restart_count, self.max_runtime_restarts) {
+            let msg = format!(
+                "Sidecar runtime restart limit exceeded after {} attempts: {}",
+                self.max_runtime_restarts, reason
+            );
+            tracing::error!("{}", msg);
+            self.stop_process();
+            self.set_status(SidecarStatus::Error, Some(msg), app);
+            return;
+        }
+
+        self.advance_lifecycle_generation();
+        tracing::warn!(
+            attempt = restart_count,
+            max = self.max_runtime_restarts,
+            reason = %reason,
+            "Sidecar watchdog detected runtime failure; restarting"
+        );
+        self.set_status(SidecarStatus::Restarting, Some(reason), app);
+        self.stop_process();
+        tokio::time::sleep(RESTART_DELAY).await;
+        self.start_process_inner(app).await;
+    }
+
+    fn managed_child_exit_reason(&self) -> Option<String> {
+        let mut guard = self.child.lock().unwrap();
+        let reason = match guard.as_mut() {
+            Some(child) => match child.try_wait() {
+                Ok(Some(status)) => Some(format!("Sidecar process exited with status {}", status)),
+                Ok(None) => None,
+                Err(e) => Some(format!("Failed to inspect sidecar process: {}", e)),
+            },
+            None => None,
+        };
+
+        if reason.is_some() {
+            *guard = None;
+        }
+
+        reason
+    }
+
+    fn increment_runtime_restart_count(&self) -> u32 {
+        let mut count = self.runtime_restart_count.lock().unwrap();
+        *count += 1;
+        *count
+    }
+
+    fn reset_runtime_restart_count(&self) {
+        let mut count = self.runtime_restart_count.lock().unwrap();
+        *count = 0;
+    }
+
+    fn finish_watchdog(&self) {
+        let mut active = self.watchdog_active.lock().unwrap();
+        *active = false;
+    }
+
+    fn current_lifecycle_generation(&self) -> u64 {
+        *self.lifecycle_generation.lock().unwrap()
+    }
+
+    fn advance_lifecycle_generation(&self) {
+        let mut generation = self.lifecycle_generation.lock().unwrap();
+        *generation = generation.saturating_add(1);
     }
 
     fn stop_process(&self) {
@@ -244,10 +433,7 @@ impl SidecarManager {
     }
 
     fn set_status(&self, new_status: SidecarStatus, message: Option<String>, app: &AppHandle) {
-        {
-            let mut guard = self.status.lock().unwrap();
-            *guard = new_status;
-        }
+        self.set_status_only(new_status);
         let event = SidecarStatusEvent {
             status: new_status,
             message,
@@ -256,10 +442,16 @@ impl SidecarManager {
         tracing::debug!("Sidecar status → {:?}", new_status);
         let _ = app.emit("sidecar:status", &event);
     }
+
+    fn set_status_only(&self, new_status: SidecarStatus) {
+        let mut guard = self.status.lock().unwrap();
+        *guard = new_status;
+    }
 }
 
 impl Drop for SidecarManager {
     fn drop(&mut self) {
+        let _ = self.shutdown_tx.send(true);
         self.stop_process();
     }
 }

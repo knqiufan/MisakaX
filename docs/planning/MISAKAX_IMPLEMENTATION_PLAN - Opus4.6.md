@@ -678,6 +678,8 @@ Buddy 系统与主应用共享 Rust Core 后端。从 Phase 3 末尾（MCP 模�
 
 ## 12. 里程碑总览
 
+> **代码库快照（2026-07-06）：** M1 ✅ 已达成；M2 🟡 基本达成（Agent 端点占位）；M3–M5 未开始。详见 [`docs/project/DEVELOPMENT_STATUS.md`](../project/DEVELOPMENT_STATUS.md)。
+
 ```
 Week  1  ──── Phase 0: 环境搭建 ───────────────────────────── ✓ 项目可运行
 Week  2  ┐

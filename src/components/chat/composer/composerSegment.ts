@@ -315,7 +315,8 @@ function findLastTextIndex(segments: ComposerSegment[]): number {
 
 function findLastTextSegmentId(segments: ComposerSegment[]): string {
   for (let i = segments.length - 1; i >= 0; i--) {
-    if (segments[i].type === "text") return segments[i].id;
+    const segment = segments[i];
+    if (segment.type === "text") return segment.id;
   }
   const first = segments[0];
   return first.type === "text" ? first.id : "";

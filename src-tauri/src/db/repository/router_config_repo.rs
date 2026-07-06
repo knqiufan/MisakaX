@@ -21,6 +21,8 @@ pub struct RouterConfigView {
     pub created_at: String,
 }
 
+pub type RouterConnectionInfo = (Option<String>, Option<String>, String, Option<String>);
+
 pub struct RouterConfigRepo;
 
 impl RouterConfigRepo {
@@ -67,6 +69,7 @@ impl RouterConfigRepo {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn insert(
         conn: &Connection,
         id: &str,
@@ -185,10 +188,7 @@ impl RouterConfigRepo {
         Ok(())
     }
 
-    pub fn find_connection_info(
-        conn: &Connection,
-        id: &str,
-    ) -> Result<(Option<String>, Option<String>, String, Option<String>)> {
+    pub fn find_connection_info(conn: &Connection, id: &str) -> Result<RouterConnectionInfo> {
         conn.query_row(
             "SELECT api_key_encrypted, base_url, provider, vendor
              FROM router_configs WHERE id = ?1",

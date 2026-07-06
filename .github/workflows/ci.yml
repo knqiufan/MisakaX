@@ -75,7 +75,7 @@ jobs:
 
       - name: Run tests
         working-directory: src-tauri
-        run: cargo test
+        run: cargo test --all-features
 
       - name: Build check
         working-directory: src-tauri

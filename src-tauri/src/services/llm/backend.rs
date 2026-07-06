@@ -112,6 +112,7 @@ fn required_string(value: &serde_json::Value, key: &str) -> std::result::Result<
 ///
 /// chat Command 通过此 trait 与后端交互，
 /// Phase 4 切换时前端和 Command 层完全不变。
+#[allow(clippy::too_many_arguments)]
 #[async_trait]
 pub trait ChatBackend: Send + Sync {
     /// 发送消息并以流式方式返回响应

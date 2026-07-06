@@ -1,5 +1,7 @@
 # Phase 4：DeepAgents 全对话迁移 — 详细实施方案
 
+> **代码库状态（2026-07-06）：** Phase 0–3 主体已落地；Sidecar `/agent/*` 仍为 501 占位，Rust 对话仍走 Rig。**本 Phase 为当前推荐续做线。** 总览见 [`docs/project/DEVELOPMENT_STATUS.md`](../project/DEVELOPMENT_STATUS.md)。
+
 > **所属项目：** MisakaX
 > **阶段：** Phase 4（第 11-13 周）
 > **总预估：** ~45 小时（含 Vibe Coding 加速）

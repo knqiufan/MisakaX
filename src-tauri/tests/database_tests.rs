@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 #[test]
 fn test_init_database() {
     let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");

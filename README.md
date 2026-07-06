@@ -14,20 +14,47 @@
 
 MisakaX 是一个开源的桌面 AI Agent 客户端，采用三层架构设计：
 
-- **Rust 后端**负责高性能计算密集型任务（数据库、文件系统、MCP 协议、LLM 直接调用）
-- **React 前端**提供现代化的用户界面（会话管理、任务跟踪、知识库浏览）
-- **Python Sidecar**处理 AI Agent 编排（LangGraph）和长期记忆管理（PowerMem）
+- **Rust 后端** — 数据库、文件系统、MCP 协议、LLM 调用（当前对话走 Rig 过渡后端）
+- **React 前端** — 会话管理、流式对话 UI、工作目录、Provider / MCP 设置
+- **Python Sidecar** — Sidecar 预热与健康检查已就绪；DeepAgents + PowerMem 对话编排（Phase 4 规划中）
 
-项目处于 **Phase 0（基础框架）** 阶段，已完成项目骨架搭建、数据库 Schema 设计、配置管理系统和前端 UI 框架集成。
+> **开发状态：** Phase 3 进行中（~85%），**请先完成 Phase 3 再进入 Phase 4**。  
+> 剩余任务见 [`PHASE_3_REMAINING_TODO.md`](docs/planning/PHASE_3_REMAINING_TODO.md)；总览见 [`DEVELOPMENT_STATUS.md`](docs/project/DEVELOPMENT_STATUS.md)。
 
 ## 已实现功能
 
+### 基础设施（Phase 0）
+
 - 跨平台桌面应用框架（Tauri 2.x，Windows / macOS / Linux）
-- SQLite 数据库初始化与 Schema 迁移（WAL 模式、FTS5 全文搜索、sqlite-vec 向量扩展）
-- 配置管理系统（`~/.misakax/config.yaml` 持久化存储）
-- 插件体系（文件系统、HTTP、通知、对话框、剪贴板、Shell 调用）
-- Python Sidecar 健康检查端点（FastAPI，端口 9527）
-- React 19 + Tailwind CSS v4 + shadcn/ui 前端 UI 框架
+- SQLite 数据库 Schema 迁移至 **v6**（WAL、FTS5、sqlite-vec 扩展加载）
+- 配置管理（`~/.misakax/config.yaml`）
+- Tauri 插件（fs、http、shell、dialog、clipboard、notification）
+
+### UI 与设置（Phase 1）
+
+- AppShell 主布局、侧边栏导航、Zustand 路由
+- 设置页（通用 / 模型 / MCP / 外观 / 关于）
+- Provider API Key CRUD + **加密存储**
+- 主题切换（明 / 暗 / 跟随系统）、中 / 英文 i18n
+
+### 对话与工作目录（Phase 2）
+
+- 多 Provider LLM **流式对话**（Rig 过渡后端：OpenAI / Anthropic / Gemini / 兼容接口）
+- 停止生成、重新生成、思维链展示、Token 统计、图片附件
+- 会话管理（分组 / 置顶 / 归档 / 搜索 / 导入导出）
+- **工作目录**绑定、资源管理器、Monaco 文件编辑
+
+### MCP 与 Sidecar（Phase 3，主体完成）
+
+- MCP Client（rmcp）：stdio / HTTP 连接、工具调用、权限审批
+- Sidecar 自动预热、健康检查、前端状态指示
+- Tool Call UI、MCP 设置页
+
+### 尚未实现
+
+- DeepAgents 全对话接管（Sidecar `/agent/*` 当前为 501 占位）
+- PowerMem 长期记忆、Skills 系统、知识库 RAG
+- Dashboard、通知中心、Buddy 桌面伴侣
 
 ## 技术架构
 
@@ -38,14 +65,13 @@ MisakaX 是一个开源的桌面 AI Agent 客户端，采用三层架构设计�
 │  → Vite 6 开发服务器 (:1420)                   │
 ├────────────────────────────────────────────────┤
 │  Tauri 2.x (Rust)                              │
-│  - SQLite (WAL) + sqlite-vec 向量搜索 + FTS5  │
-│  - 配置管理 (~/.misakax/config.yaml)            │
-│  - 插件系统 (shell, fs, http, dialog 等)       │
+│  - SQLite (WAL) v6 + sqlite-vec + FTS5         │
+│  - LLM: rig-core（过渡）+ rmcp（MCP）          │
+│  - 配置 (~/.misakax/config.yaml)               │
 ├────────────────────────────────────────────────┤
 │  Python Sidecar (:9527)                        │
-│  - FastAPI + uvicorn                           │
-│  - LangGraph Agent 编排（规划中）               │
-│  - PowerMem 记忆引擎（规划中）                  │
+│  - FastAPI: /health ✅  /agent/* Phase 4       │
+│  - DeepAgents + PowerMem（规划中）             │
 └────────────────────────────────────────────────┘
 ```
 
@@ -54,12 +80,13 @@ MisakaX 是一个开源的桌面 AI Agent 客户端，采用三层架构设计�
 | 层级 | 技术 | 说明 |
 |------|------|------|
 | 桌面框架 | Tauri 2.x | Rust 驱动，内存占用低 |
-| 前端 | React 19 + TypeScript + Vite 6 | 现代化 Web 技术栈 |
-| UI | Tailwind CSS v4 + shadcn/ui | CSS-first，组件优先 |
-| 后端 | Rust (tokio, rusqlite, serde) | 异步运行时 + 序列化 |
-| 数据库 | SQLite + sqlite-vec + FTS5 | 结构化 + 向量 + 全文搜索一体 |
-| AI 编排 | LangGraph（规划中） | 复杂 Agent 工作流 |
-| 记忆引擎 | PowerMem（规划中） | 长期上下文记忆 |
+| 前端 | React 19 + TypeScript + Vite 6 | Zustand 状态、react-i18next |
+| UI | Tailwind CSS v4 + shadcn/ui | 设计规范见 `docs/design/` |
+| 后端 | Rust (tokio, rusqlite, rig-core, rmcp) | ~50+ Tauri Commands |
+| 数据库 | SQLite + sqlite-vec + FTS5 | Schema v6 |
+| 过渡对话 | rig-core 0.36 | Phase 4 后退役为降级路径 |
+| Agent 编排 | DeepAgents（Phase 4） | 替换 Rig 直调 |
+| 记忆引擎 | PowerMem（Phase 4） | Sidecar optional 依赖 |
 
 ## 快速开始
 
@@ -67,161 +94,128 @@ MisakaX 是一个开源的桌面 AI Agent 客户端，采用三层架构设计�
 
 | 工具 | 最低版本 | 用途 |
 |------|---------|------|
-| Rust | 1.82+ | Tauri 后端编译 |
+| Rust | 1.95+ | Tauri 后端编译 |
 | Node.js | 20+ | 前端开发 |
 | Python | 3.11.x | Sidecar 运行 |
-| pnpm / npm | 10+ | 包管理 |
+| npm | 10+ | 包管理 |
 
-Windows 用户还需要：
-- MinGW-w64 或 MSVC 构建工具
-- WebView2 运行时（Windows 11 已内置）
-
-### 克隆项目
-
-```bash
-git clone https://github.com/your-org/misaka-x.git
-cd misaka-x
-```
+Windows 用户还需要 MSVC 构建工具、WebView2（Windows 11 已内置）。
 
 ### 安装依赖
 
 ```bash
-# 前端依赖
 npm install
 
-# Python Sidecar 依赖
-cd agent && pip install -r requirements.txt
+cd agent
+pip install -r requirements.txt
+# Phase 4 开发时额外安装：
+# pip install -e ".[agent,memory,dev]"
 ```
 
 ### 启动开发环境
 
 ```bash
-# 启动完整桌面应用（前端 + Rust 后端）
+# 完整桌面应用（推荐）
+cd src-tauri
+cargo clean
+cd ..
 npm run tauri dev
 
-# 仅启动前端（浏览器调试）
+# 仅前端（浏览器调试，无 Tauri IPC）
 npm run dev
 
-# 启动 Python Sidecar（另一个终端）
-cd agent && python -m uvicorn app.main:app --host 127.0.0.1 --port 9527
+# 独立 Sidecar（可选；Tauri 默认 auto_start_sidecar 会自动预热）
+cd agent
+python -m uvicorn app.main:app --host 127.0.0.1 --port 9527
 ```
 
-### 构建
+首次使用：在 **设置 → 模型** 中添加 Provider API Key，然后在 **Chat** 新建会话即可对话。
+
+### 构建与测试
 
 ```bash
-# 前端生产构建
-npm run build
+npm run build          # 前端生产构建
+npm test               # 前端 Vitest
 
-# 完整应用打包
-npm run tauri build
+cd src-tauri
+cargo clean
+cargo check            # Rust 编译检查
+cargo test             # Rust 集成测试
 ```
 
 ## 目录结构
 
 ```
 misaka-x/
-├── src-tauri/                     # Rust 后端
-│   ├── src/
-│   │   ├── main.rs                # Tauri 入口
-│   │   ├── lib.rs                 # 模块导出 + 应用初始化
-│   │   ├── config.rs              # 配置管理（YAML 持久化）
-│   │   ├── db/
-│   │   │   ├── mod.rs             # 数据库初始化 + sqlite-vec 加载
-│   │   │   ├── migrations.rs      # Schema 版本迁移
-│   │   │   └── models.rs          # 数据模型定义
-│   │   └── commands/
-│   │       ├── mod.rs             # 命令注册
-│   │       └── settings.rs        # 设置读写 API
-│   ├── Cargo.toml                 # Rust 依赖声明
-│   ├── tauri.conf.json            # Tauri 应用配置
-│   ├── capabilities/
-│   │   └── default.json           # 权限 ACL
-│   └── icons/                     # 应用图标
 ├── src/                           # React 前端
-│   ├── App.tsx                    # 根组件
-│   ├── main.tsx                   # 入口文件
-│   ├── index.css                  # Tailwind CSS 入口
-│   ├── components/ui/             # shadcn/ui 组件
-│   └── lib/utils.ts               # shadcn/ui 工具函数
+│   ├── components/
+│   │   ├── chat/                  # 对话、会话、工作区、Composer
+│   │   ├── layout/                # AppShell、Sidebar
+│   │   └── ui/                    # shadcn/ui
+│   ├── pages/                     # Chat、Settings、Skills 等
+│   ├── stores/                    # Zustand（chat、settings、theme…）
+│   ├── lib/ipc/                   # Tauri IPC 封装
+│   └── locales/                   # i18n（zh-CN / en）
+├── src-tauri/src/
+│   ├── commands/                  # chat, session, mcp, settings…
+│   ├── db/                        # migrations (v6), repository
+│   ├── services/
+│   │   ├── llm/                   # Rig Provider、流式、工厂
+│   │   └── mcp/                   # rmcp Manager
+│   ├── config.rs, crypto.rs, sidecar.rs
+│   └── lib.rs                     # AppState + invoke_handler
 ├── agent/                         # Python Sidecar
-│   ├── app/
-│   │   ├── main.py                # FastAPI 应用入口
-│   │   ├── config.py              # Sidecar 配置（pydantic-settings）
-│   │   └── routers/health.py      # 健康检查端点
-│   ├── pyproject.toml             # Python 项目配置
-│   └── requirements.txt           # Python 依赖
-├── docs/                          # 项目文档
-│   ├── architecture/              # 架构与选型文档
-│   ├── planning/                  # 阶段计划与总体规划
-│   ├── research/                  # 技术调研
-│   ├── project/                   # 项目结构等说明文档
-│   ├── design/                    # UI / 视觉设计文档
-│   └── guides/                    # 学习与入门指南
-├── .gitignore
-├── CLAUDE.md                      # AI 辅助开发指引
-├── package.json                   # 前端依赖与脚本
-├── vite.config.ts                 # Vite 配置
-└── README.md                      # 项目说明
+│   └── app/
+│       ├── main.py
+│       └── routers/               # health, info, agent (501 占位)
+├── docs/
+│   ├── project/DEVELOPMENT_STATUS.md   # ← 开发进度与续做入口
+│   ├── planning/                  # Phase 0–4 详细计划
+│   ├── architecture/
+│   └── design/                    # UI 规范
+└── CLAUDE.md / AGENTS.md          # AI 辅助开发指引
 ```
 
-## Rust 开发命令
-
-```bash
-cd src-tauri
-
-# 编译检查（不生成二进制文件，速度快）
-cargo check
-
-# 运行测试
-cargo test
-
-# 查看依赖树
-cargo tree --depth 0
-
-# 格式化代码
-cargo fmt
-
-# Clippy 静态检查
-cargo clippy
-```
-
-## 运行时数据目录
-
-应用运行后会在用户主目录创建以下结构：
-
-```
-~/.misakax/
-├── config.yaml           # 全局配置（主题、语言、默认模型等）
-├── data/
-│   └── misaka.db         # SQLite 数据库（WAL 模式）
-├── skills/               # 用户自定义 Skills
-├── managed/skills/       # 市场安装的 Skills
-├── plugins/              # 插件目录
-├── models/               # 语音模型等大文件
-└── logs/                 # 应用日志
-```
+完整模块说明见 [`docs/project/PROJECT_STRUCTURE.md`](docs/project/PROJECT_STRUCTURE.md)。
 
 ## 路线图
 
-- [x] **Phase 0** — 项目骨架、数据库 Schema、配置系统、UI 框架
-- [ ] **Phase 1** — 会话管理 UI、LLM 对话功能、消息流式渲染
-- [ ] **Phase 2** — MCP 协议集成、Skills 系统、文件系统交互
-- [ ] **Phase 3** — LangGraph Agent 编排、PowerMem 长期记忆
-- [ ] **Phase 4** — 插件市场、语音模型、多语言支持
+对齐 [`docs/planning/MISAKAX_IMPLEMENTATION_PLAN - Opus4.6.md`](docs/planning/MISAKAX_IMPLEMENTATION_PLAN%20-%20Opus4.6.md)：
 
-详细规划参见 [`docs/planning/PHASE_0_DETAILED_PLAN.md`](docs/planning/PHASE_0_DETAILED_PLAN.md) 及后续文档。
+| 阶段 | 内容 | 状态 |
+|------|------|------|
+| Phase 0 | 项目骨架、数据库、配置、UI 框架 | ✅ |
+| Phase 1 | AppShell、设置、Provider、主题、i18n | ✅ |
+| Phase 2 | Rig 过渡对话、流式渲染、工作目录 | ✅ |
+| Phase 3 | Sidecar 预热、MCP、会话高级管理 | 🟡 **进行中** |
+| Phase 4 | DeepAgents 全对话迁移 + PowerMem | ⏸️ Phase 3 完成后 |
+| Phase 5 | Skills + 知识库 RAG | 未开始 |
+| Phase 6 | Dashboard、打包、跨平台发布 | 未开始 |
+
+**续做指南：** [`PHASE_3_REMAINING_TODO.md`](docs/planning/PHASE_3_REMAINING_TODO.md)
+
+## 运行时数据目录
+
+```
+~/.misakax/
+├── config.yaml           # 全局配置（主题、语言、sidecar_port 等）
+├── data/misaka.db        # SQLite（Schema v6）
+├── mcp.json              # MCP Server 配置（可选）
+├── skills/               # 用户 Skills（Phase 5）
+├── managed/skills/
+├── plugins/
+├── models/
+└── logs/
+```
 
 ## 贡献指南
 
-本项目处于早期开发阶段，欢迎 Issue 和 PR。
-
 1. Fork 本仓库
 2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'feat: add amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建 Pull Request
+3. 提交更改（[Conventional Commits](https://www.conventionalcommits.org/)）
+4. 推送到分支并创建 Pull Request
 
-提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/) 规范。
+开发前请先阅读 [`DEVELOPMENT_STATUS.md`](docs/project/DEVELOPMENT_STATUS.md) 确认当前 Phase 与入口文件。
 
 ## 许可证
 
