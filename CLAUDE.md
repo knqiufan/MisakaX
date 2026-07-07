@@ -95,40 +95,27 @@ If dependency APIs change across minors, prefer checking the manifest first, the
 # Frontend only
 npm run dev          # Vite dev server on :1420
 
-# Full app (frontend + Rust backend): clean Rust artifacts first, then dev
-cd src-tauri
-cargo clean
-cd ..
+# Full app (frontend + Rust backend)
 npm run tauri dev    # Tauri dev mode
 
 # Build
 npm run build        # Frontend production build
-
-# Full app build: clean Rust artifacts first
-cd src-tauri
-cargo clean
-cd ..
 npm run tauri build  # Full app build
 
 # Python sidecar
 cd agent
 python -m uvicorn app.main:app --port 9527
 
-# Rust checks (always from src-tauri/): clean before any cargo workflow
+# Rust checks (from src-tauri/; use incremental compile — do not cargo clean routinely)
 cd src-tauri
-cargo clean
 cargo check          # Fast compile check
-
-cd src-tauri
-cargo clean
-cargo test           # Run tests
-
-cd src-tauri
-cargo clean
+cargo test --test crypto_tests   # Targeted test during daily work (see mapping in docs/guides/rust-build-test-optimization.md §4.2)
+cargo test --features test-private --test chat_commands_tests   # Commands tests that need test-private
+cargo test           # Full suite before commit / in CI
 cargo build          # Standalone Rust build when not using npm wrapper
 ```
 
-**Cargo hygiene:** Before `cargo check`, `cargo test`, `cargo build`, or npm scripts that invoke the Tauri/Rust build (`tauri dev`, `tauri build`), run `cargo clean` inside `src-tauri/` so stale `target/` artifacts do not accumulate across iterations.
+**Cargo hygiene:** Do **not** run `cargo clean` before routine `cargo check`, `cargo test`, `cargo build`, `tauri dev`, or `tauri build` — incremental compile is intentional and much faster. Run `cargo clean` in `src-tauri/` only when troubleshooting: link errors, metadata mismatch, unexplained failures after a branch switch, or Rust toolchain / major dependency upgrades. See [`docs/guides/rust-build-test-optimization.md`](docs/guides/rust-build-test-optimization.md).
 
 ## Environment Setup
 
