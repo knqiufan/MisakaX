@@ -137,7 +137,8 @@ npm test               # 前端 Vitest
 cd src-tauri
 cargo check            # Rust 编译检查（日常依赖增量编译，勿先 cargo clean）
 cargo test --test crypto_tests   # 日常：按改动模块跑精准测试（映射表见优化指南 §4.2）
-cargo test             # 提交前：全量集成测试
+cargo nextest run --all-features --profile ci   # 提交前：全量测试（推荐，需 cargo install cargo-nextest）
+cargo test             # 提交前：全量测试（未装 nextest 时的后备）
 ```
 
 若 Rust 编译出现链接错误、metadata 异常或切分支后无法解释的失败，再在 `src-tauri/` 下按需执行 `cargo clean` 后重试。详见 [`docs/guides/rust-build-test-optimization.md`](docs/guides/rust-build-test-optimization.md)。

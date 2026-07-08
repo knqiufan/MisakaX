@@ -110,10 +110,18 @@ python -m uvicorn app.main:app --port 9527
 cd src-tauri
 cargo check          # Fast compile check
 cargo test --test crypto_tests   # Targeted test during daily work (see mapping in docs/guides/rust-build-test-optimization.md §4.2)
+cargo nextest run --test crypto_tests   # Same, faster parallel runner (requires: cargo install cargo-nextest)
 cargo test --features test-private --test chat_commands_tests   # Commands tests that need test-private
-cargo test           # Full suite before commit / in CI
+cargo nextest run --all-features --profile ci   # Full suite (preferred before commit)
+cargo test           # Full suite fallback if nextest not installed
 cargo build          # Standalone Rust build when not using npm wrapper
 ```
+
+**Optional P2 tooling** (see [`docs/guides/rust-build-test-optimization.md`](docs/guides/rust-build-test-optimization.md) §5):
+
+- `cargo install cargo-nextest --locked` — parallel test runner; config in `src-tauri/.config/nextest.toml`
+- `cargo install sccache` — compile cache; then uncomment `rustc-wrapper = "sccache"` in `src-tauri/.cargo/config.toml`
+- Build tuning defaults live in `src-tauri/.cargo/config.toml` (`dev` dependency `opt-level`, optional `sccache` / linker)
 
 **Cargo hygiene:** Do **not** run `cargo clean` before routine `cargo check`, `cargo test`, `cargo build`, `tauri dev`, or `tauri build` — incremental compile is intentional and much faster. Run `cargo clean` in `src-tauri/` only when troubleshooting: link errors, metadata mismatch, unexplained failures after a branch switch, or Rust toolchain / major dependency upgrades. See [`docs/guides/rust-build-test-optimization.md`](docs/guides/rust-build-test-optimization.md).
 

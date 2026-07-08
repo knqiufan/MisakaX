@@ -252,7 +252,7 @@ cargo nextest run --features test-private --test chat_commands_tests
 - run: cargo nextest run --manifest-path src-tauri/Cargo.toml
 ```
 
-可选：在仓库根目录添加 `.config/nextest.toml` 配置超时、重试策略（按需）。
+可选：在 `src-tauri/.config/nextest.toml` 配置超时、重试策略（已提交默认配置）。
 
 ### 5.2 sccache（编译结果缓存）
 
@@ -299,39 +299,29 @@ linker = "rust-lld.exe"
 
 > **注意：** 链接器配置与 `x86_64-pc-windows-gnu` / `msvc` target 强相关。改完后必须跑通 `cargo test` 与 `tauri build`。若链接失败，回退 config 即可。
 
-### 5.4 推荐 `src-tauri/.cargo/config.toml` 模板
+### 5.4 `src-tauri/.cargo/config.toml`（已提交）
 
-实施 P2 时可创建该文件（按环境删减）：
+仓库已包含默认配置（`jobs = 0`、`[profile.dev.package."*"] opt-level = 1`）。按需启用注释项：
 
 ```toml
 # Misaka-Tauri — Cargo 构建加速（P2）
 # 文档：docs/guides/rust-build-test-optimization.md
 
 [build]
-# 并行 codegen（默认已开，显式写出便于团队统一）
-jobs = 0   # 0 = CPU 核心数
+# 并行 job 数默认 = CPU 核心数
 
-# 若已安装 sccache，取消下一行注释：
+# 安装 sccache 后取消注释：
 # rustc-wrapper = "sccache"
 
-[profile.dev]
-# 开发时适度优化依赖，加快运行、有时也加快链接
-# 首次编译略慢，增量体验更好 — 按团队偏好可选
-# opt-level = 1
-
 [profile.dev.package."*"]
-# 只优化依赖 crate，自己的代码仍快速增量
-# opt-level = 1
+opt-level = 1
 
-# --- Windows MSVC ---
 [target.x86_64-pc-windows-msvc]
-# 验证通过后再启用：
+# 本地验证通过后再启用：
 # linker = "rust-lld.exe"
-
-# --- 若使用 GNU target（与诊断报告一致时）---
-# [target.x86_64-pc-windows-gnu]
-# linker = "D:\\soft\\msys64\\mingw64\\bin\\gcc.exe"
 ```
+
+完整内容见仓库内 `src-tauri/.cargo/config.toml`。
 
 ### 5.5 其他 P2 选项（按需）
 
@@ -344,10 +334,10 @@ jobs = 0   # 0 = CPU 核心数
 
 ### 5.6 验收标准（P2）
 
-- [ ] `cargo nextest run` 在本地与 CI 可用
-- [ ] `sccache --show-stats` 显示命中（若启用）
-- [ ] `.cargo/config.toml` 已提交或团队有统一安装文档
-- [ ] 全量 `cargo test` 墙钟时间较 P0/P1 后再降一截
+- [x] `cargo nextest run` 配置就绪（`src-tauri/.config/nextest.toml`）；CI 已接入；本地已验证 `--test minimal`
+- [ ] `sccache --show-stats` 显示命中（可选：本地 `cargo install sccache` 后取消 config 注释）
+- [x] `src-tauri/.cargo/config.toml` 已提交
+- [ ] 全量测试墙钟时间较 P0/P1 后再降一截（本地安装 nextest 后自测）
 
 ---
 
@@ -473,9 +463,9 @@ cargo check
 cargo test --test crypto_tests
 
 # ── 提交前 ──
+cargo nextest run --all-features --profile ci
+# 或未装 nextest 时：
 cargo test
-# 或（P2）
-cargo nextest run
 
 # ── 需要 feature 的测试 ──
 cargo test --features test-private --test chat_commands_tests
@@ -510,9 +500,10 @@ cargo check
 
 ### P2（半天安装 + 验证）
 
-- [ ] 安装 `cargo-nextest`、`sccache`
-- [ ] 添加 `src-tauri/.cargo/config.toml`
-- [ ] CI 接入 cache + nextest
+- [x] 本地安装 `cargo-nextest`（`cargo install cargo-nextest --locked`）
+- [ ] 本地可选安装 `sccache` 并启用 config 注释项
+- [x] 添加 `src-tauri/.cargo/config.toml`、`src-tauri/.config/nextest.toml`
+- [x] CI 接入 `rust-cache` + `nextest`（`.github/workflows/ci.yml`）
 
 ### P3（多 PR，按 Phase 4 节奏穿插）
 

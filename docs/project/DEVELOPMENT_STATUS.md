@@ -108,7 +108,7 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 | 范围 | 数量 | 运行命令 |
 |------|------|----------|
 | 前端 Vitest | 18 个测试文件 | `npm test` |
-| Rust 集成测试 | 27 个测试文件 | 日常：`cd src-tauri && cargo test --test <name>`；提交前：`cd src-tauri && cargo test` |
+| Rust 集成测试 | 27 个测试文件 | 日常：`cargo test --test <name>`；提交前：`cargo nextest run --all-features --profile ci`（或 `cargo test`） |
 
 > Rust 日常构建/测试依赖增量编译，**不要**在每次 `cargo test` 前执行 `cargo clean`。日常改代码优先 `cargo check` + 精准 `--test`（映射表见优化指南 §4.2）；Cursor hook `.cursor/hooks/post-edit-test.sh` 已按映射自动选择测试。仅在链接异常、切分支后编译诡异失败等情况下按需 `cargo clean`。见 [`docs/guides/rust-build-test-optimization.md`](../guides/rust-build-test-optimization.md)。
 
