@@ -72,6 +72,9 @@ rig-core = { version = "0.36", default-features = false, features = ["derive", "
 rmcp = { version = "1.6", features = ["client", "transport-child-process", "transport-streamable-http-client-reqwest", "reqwest-native-tls"] }
 http = "1"
 
+# --- MCP HTTP Bridge (Phase 4) ---
+axum = "0.8"
+
 # --- Stream processing ---
 futures = "0.3"
 

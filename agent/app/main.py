@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.config import settings
+from app.dependencies import close_checkpointer, setup_checkpointer
 from app.routers.agent import router as agent_router
 from app.routers.health import router as health_router
 from app.routers.info import router as info_router
@@ -15,7 +16,11 @@ from app.routers.info import router as info_router
 async def lifespan(application: FastAPI):
     """Manage startup and shutdown lifecycle."""
     application.state.startup_time = time.time()
-    yield
+    await setup_checkpointer()
+    try:
+        yield
+    finally:
+        await close_checkpointer()
 
 
 app = FastAPI(

@@ -13,6 +13,7 @@ dependencies = [
 
 [project.optional-dependencies]
 agent = [
+    "deepagents>=0.5.4",
     "langgraph>=0.3",
     "langchain-anthropic>=0.3",
     "langchain-openai>=0.3",

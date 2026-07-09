@@ -17,6 +17,7 @@ use services::mcp::McpManager;
 use services::sidecar_client::SidecarClient;
 use sidecar::SidecarManager;
 use std::sync::{Arc, Mutex};
+use tauri::Manager;
 
 /// Application state shared across commands
 pub struct AppState {
@@ -48,9 +49,14 @@ pub fn run() {
     );
 
     let sidecar_port = app_config.sidecar_port;
+    let mcp_bridge_port = app_config.mcp_bridge_port;
     let auto_start = app_config.auto_start_sidecar;
 
-    let sidecar = Arc::new(SidecarManager::new(agent_dir, sidecar_port));
+    let sidecar = Arc::new(SidecarManager::with_mcp_bridge_port(
+        agent_dir,
+        sidecar_port,
+        mcp_bridge_port,
+    ));
 
     let sidecar_client = SidecarClient::new(sidecar_port);
 
@@ -170,6 +176,23 @@ pub fn run() {
                     "Python Sidecar auto-start disabled (set auto_start_sidecar: true in config)"
                 );
             }
+
+            // MCP HTTP Bridge for Python Sidecar tools
+            let mcp_bridge_port = {
+                let cfg = app.state::<AppState>();
+                cfg.config
+                    .lock()
+                    .map(|c| c.mcp_bridge_port)
+                    .unwrap_or(9528)
+            };
+            let bridge_app = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) =
+                    services::mcp_http_bridge::serve(bridge_app, mcp_bridge_port).await
+                {
+                    tracing::error!(error = %e, "MCP HTTP bridge stopped");
+                }
+            });
 
             // MCP: 异步连接 auto_connect Server
             let mcp_for_connect = Arc::clone(&mcp_manager);

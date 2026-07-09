@@ -145,6 +145,8 @@ pub fn resolve_sidecar_executable(agent_dir: &Path) -> Option<PathBuf> {
 
 pub struct SidecarManager {
     port: u16,
+    /// Local MCP HTTP bridge port exposed by Rust for Python tools.
+    mcp_bridge_port: u16,
     agent_dir: PathBuf,
     max_retries: u32,
     max_runtime_restarts: u32,
@@ -160,9 +162,14 @@ pub struct SidecarManager {
 
 impl SidecarManager {
     pub fn new(agent_dir: PathBuf, port: u16) -> Self {
+        Self::with_mcp_bridge_port(agent_dir, port, 9528)
+    }
+
+    pub fn with_mcp_bridge_port(agent_dir: PathBuf, port: u16, mcp_bridge_port: u16) -> Self {
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
         Self {
             port,
+            mcp_bridge_port,
             agent_dir,
             max_retries: STARTUP_MAX_RETRIES,
             max_runtime_restarts: RUNTIME_MAX_RESTARTS,
@@ -175,6 +182,10 @@ impl SidecarManager {
             watchdog_active: Arc::new(Mutex::new(false)),
             lifecycle_generation: Arc::new(Mutex::new(0)),
         }
+    }
+
+    fn mcp_bridge_url(&self) -> String {
+        format!("http://127.0.0.1:{}", self.mcp_bridge_port)
     }
 
     pub fn status(&self) -> SidecarStatus {
@@ -328,6 +339,7 @@ impl SidecarManager {
         std::process::Command::new(binary)
             .env("MISAKA_HOST", "127.0.0.1")
             .env("MISAKA_PORT", self.port.to_string())
+            .env("MISAKA_MCP_BRIDGE_URL", self.mcp_bridge_url())
             .current_dir(&self.agent_dir)
             .spawn()
     }
@@ -344,6 +356,9 @@ impl SidecarManager {
                 "--port",
                 port.as_str(),
             ])
+            .env("MISAKA_HOST", "127.0.0.1")
+            .env("MISAKA_PORT", port.as_str())
+            .env("MISAKA_MCP_BRIDGE_URL", self.mcp_bridge_url())
             .current_dir(&self.agent_dir)
             .spawn()
     }
