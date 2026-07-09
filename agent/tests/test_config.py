@@ -59,3 +59,22 @@ def test_get_settings_returns_singleton():
     second = get_settings()
     assert first is second
     get_settings.cache_clear()
+
+
+def test_bridge_provider_api_keys(monkeypatch):
+    from app.config import Settings, bridge_provider_api_keys
+
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    cfg = Settings(
+        anthropic_api_key="sk-ant-test",
+        openai_api_key="sk-openai-test",
+    )
+    bridge_provider_api_keys(cfg)
+    assert __import__("os").environ["ANTHROPIC_API_KEY"] == "sk-ant-test"
+    assert __import__("os").environ["OPENAI_API_KEY"] == "sk-openai-test"
+
+    # Does not overwrite existing values.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "keep-me")
+    bridge_provider_api_keys(cfg)
+    assert __import__("os").environ["ANTHROPIC_API_KEY"] == "keep-me"

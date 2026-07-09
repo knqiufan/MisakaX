@@ -11,6 +11,9 @@ export interface AppConfig {
   log_level: string;
   sidecar_port: number;
   auto_start_sidecar: boolean;
+  /** Prefer Python Sidecar for chat; false uses Rig fallback */
+  use_sidecar: boolean;
+  mcp_bridge_port: number;
 }
 
 export interface RouterConfig {

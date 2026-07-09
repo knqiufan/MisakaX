@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+import os
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
+
+logger = logging.getLogger(__name__)
 
 
 def _default_interrupt_config() -> dict[str, bool]:
@@ -55,6 +59,24 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Return a process-wide Settings singleton."""
     return Settings()
+
+
+def bridge_provider_api_keys(settings_obj: Settings | None = None) -> None:
+    """Bridge MISAKA_* keys into standard provider env vars used by LangChain.
+
+    Does not overwrite keys that are already present in the process environment.
+    Never logs key values.
+    """
+    cfg = settings_obj or get_settings()
+    bridged: list[str] = []
+    if cfg.anthropic_api_key and not os.environ.get("ANTHROPIC_API_KEY"):
+        os.environ["ANTHROPIC_API_KEY"] = cfg.anthropic_api_key
+        bridged.append("ANTHROPIC_API_KEY")
+    if cfg.openai_api_key and not os.environ.get("OPENAI_API_KEY"):
+        os.environ["OPENAI_API_KEY"] = cfg.openai_api_key
+        bridged.append("OPENAI_API_KEY")
+    if bridged:
+        logger.info("Bridged provider API keys into process env: %s", ", ".join(bridged))
 
 
 settings = Settings()

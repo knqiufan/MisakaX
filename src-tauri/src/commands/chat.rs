@@ -11,6 +11,10 @@ use crate::services::llm::config::LlmConfig;
 use crate::services::llm::{RigBackend, StreamResult};
 use crate::services::mcp::{McpToolLoop, MAX_TOOL_ROUNDS};
 use crate::services::mcp_bridge::McpToolBridge;
+use crate::services::sidecar_client::{
+    AgentChatConfig, AgentChatMessage, AgentChatRequest,
+};
+use crate::services::sidecar_sse::consume_sidecar_stream;
 use crate::AppState;
 
 /// 将附件 JSON 字符串反序列化为 MessageAttachment 列表
@@ -37,6 +41,18 @@ pub struct SendMessageRequest {
     pub llm_config: Option<LlmConfig>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct GenerateSessionTitleRequest {
+    pub session_id: String,
+    pub first_message: String,
+    pub model_override: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct GenerateSessionTitleResult {
+    pub title: String,
+}
+
 // ─── send_message Command ──────────────────────────────────────────────
 
 #[tauri::command]
@@ -48,51 +64,45 @@ pub async fn send_message(
     let user_msg_id = uuid::Uuid::new_v4().to_string();
     let assistant_msg_id = uuid::Uuid::new_v4().to_string();
 
-    // Step 1: 保存用户消息
     save_user_message(&state, &user_msg_id, &request)?;
-
-    // Step 2: 加载会话 + 历史消息
-    let (mut session, history) = load_session_context(&state, &request.session_id)?;
-
-    // Step 2.5: 注入 MCP 工具描述到系统 prompt
-    inject_mcp_prompt(&state, &mut session);
-
-    // Step 3: 解析模型标识
+    let (session, history) = load_session_context(&state, &request.session_id)?;
     let model_spec =
         resolve_model_spec(request.model_override.as_deref(), session.model.as_deref())?;
-
-    // Step 4: 读取 RouterConfig，解密 API Key
-    let (router_config, decrypted_key) = load_and_decrypt_config(&state, &model_spec.config_id)?;
     ensure_model_enabled(&state, &model_spec)?;
-
-    // Step 5: 创建 assistant 消息占位
     create_assistant_placeholder(&state, &assistant_msg_id, &request.session_id, &model_spec)?;
 
-    // Step 6: 注册流，构建 Backend，执行流式调用（含 MCP 工具循环）
     let abort_flag = state.stream_registry.register(&request.session_id);
-
-    let llm_config = request.llm_config.unwrap_or_default().sanitized();
-
-    let backend = RigBackend::from_config(&router_config, &decrypted_key, llm_config)
-        .map_err(|e| format!("Failed to create backend: {e}"))?;
-
-    let turn = run_assistant_turn(
-        &app,
-        &state,
-        &backend,
-        &session,
-        history,
-        request.content.clone(),
-        request.attachments.clone(),
-        &model_spec.model_id,
-        abort_flag,
-        &assistant_msg_id,
-    )
-    .await;
-
+    let use_sidecar = read_use_sidecar(&state);
+    let turn = if use_sidecar {
+        send_via_sidecar(
+            &app,
+            &state,
+            &session,
+            &history,
+            &request.content,
+            &model_spec,
+            request.llm_config.clone(),
+            abort_flag,
+            &assistant_msg_id,
+        )
+        .await
+    } else {
+        send_via_rig(
+            &app,
+            &state,
+            session,
+            history,
+            request.content.clone(),
+            request.attachments.clone(),
+            &model_spec,
+            request.llm_config,
+            abort_flag,
+            &assistant_msg_id,
+        )
+        .await
+    };
     state.stream_registry.unregister(&request.session_id);
 
-    // Step 7: 更新 assistant 消息内容（含工具调用记录）
     let (result, tool_calls_json) = turn?;
     update_assistant_message(
         &state,
@@ -100,8 +110,6 @@ pub async fn send_message(
         &result,
         tool_calls_json.as_deref(),
     )?;
-
-    // Step 8: 更新 session 统计
     update_session_stats(&state, &request.session_id, &result)?;
 
     Ok(SendMessageResult {
@@ -133,57 +141,55 @@ pub async fn regenerate_message(
     session_id: String,
     message_id: String,
 ) -> Result<SendMessageResult, String> {
-    // Step 1: 加载 regeneration 上下文（含原始用户消息的附件）
     let regen_ctx = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         MessageRepo::find_regeneration_context(&db, &session_id, &message_id)
             .map_err(|e| e.to_string())?
     };
 
-    // Step 2: 删除前先验证模型，避免模型失效时破坏会话历史
-    let (mut session, _) = load_session_context(&state, &session_id)?;
+    let (session, _) = load_session_context(&state, &session_id)?;
     let model_spec = resolve_model_spec(None, session.model.as_deref())?;
-    let (router_config, decrypted_key) = load_and_decrypt_config(&state, &model_spec.config_id)?;
     ensure_model_enabled(&state, &model_spec)?;
 
-    // 与 send_message 对齐：再生路径同样注入 MCP 工具描述
-    inject_mcp_prompt(&state, &mut session);
-
-    // Step 3: 删除目标消息及之后的所有消息
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         MessageRepo::delete_from(&db, &session_id, &message_id).map_err(|e| e.to_string())?;
     }
 
-    // Step 4: 复用核心流程
     let assistant_msg_id = uuid::Uuid::new_v4().to_string();
-
     create_assistant_placeholder(&state, &assistant_msg_id, &session_id, &model_spec)?;
 
     let abort_flag = state.stream_registry.register(&session_id);
     let attachments = parse_attachments_json(regen_ctx.user_attachments.as_deref());
-
-    let backend = RigBackend::from_config(
-        &router_config,
-        &decrypted_key,
-        LlmConfig::default().sanitized(),
-    )
-    .map_err(|e| format!("Failed to create backend: {e}"))?;
-
-    let turn = run_assistant_turn(
-        &app,
-        &state,
-        &backend,
-        &session,
-        regen_ctx.messages_before,
-        regen_ctx.user_content,
-        attachments,
-        &model_spec.model_id,
-        abort_flag,
-        &assistant_msg_id,
-    )
-    .await;
-
+    let use_sidecar = read_use_sidecar(&state);
+    let turn = if use_sidecar {
+        send_via_sidecar(
+            &app,
+            &state,
+            &session,
+            &regen_ctx.messages_before,
+            &regen_ctx.user_content,
+            &model_spec,
+            None,
+            abort_flag,
+            &assistant_msg_id,
+        )
+        .await
+    } else {
+        send_via_rig(
+            &app,
+            &state,
+            session,
+            regen_ctx.messages_before,
+            regen_ctx.user_content.clone(),
+            attachments,
+            &model_spec,
+            None,
+            abort_flag,
+            &assistant_msg_id,
+        )
+        .await
+    };
     state.stream_registry.unregister(&session_id);
 
     let (result, tool_calls_json) = turn?;
@@ -199,6 +205,56 @@ pub async fn regenerate_message(
         user_message_id: regen_ctx.user_msg_id,
         assistant_message_id: assistant_msg_id,
     })
+}
+
+// ─── generate_session_title Command ────────────────────────────────────
+
+/// Lightweight Rig-only title generation (does not use Sidecar).
+#[tauri::command]
+pub async fn generate_session_title(
+    state: State<'_, AppState>,
+    request: GenerateSessionTitleRequest,
+) -> Result<GenerateSessionTitleResult, String> {
+    let session = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        SessionRepo::find_by_id(&db, &request.session_id).map_err(|e| e.to_string())?
+    };
+    let model_spec =
+        resolve_model_spec(request.model_override.as_deref(), session.model.as_deref())?;
+    ensure_model_enabled(&state, &model_spec)?;
+    let (router_config, decrypted_key) = load_and_decrypt_config(&state, &model_spec.config_id)?;
+
+    let llm_config = LlmConfig {
+        temperature: 0.3,
+        max_tokens: Some(32),
+        ..LlmConfig::default()
+    }
+    .sanitized();
+
+    let backend = RigBackend::from_config(&router_config, &decrypted_key, llm_config)
+        .map_err(|e| format!("Failed to create backend: {e}"))?;
+
+    let prompt = build_title_prompt(&request.first_message);
+    let title = backend
+        .prompt_once(&model_spec.model_id, &prompt)
+        .await
+        .map_err(|e| format!("Title generation failed: {e}"))?;
+    let title = sanitize_session_title(&title);
+
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        SessionRepo::update(
+            &db,
+            &request.session_id,
+            Some(&title),
+            None,
+            None,
+            None,
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    Ok(GenerateSessionTitleResult { title })
 }
 
 // ─── get_messages Command ──────────────────────────────────────────────
@@ -220,6 +276,175 @@ pub fn get_messages(
     };
 
     messages.map_err(|e| e.to_string())
+}
+
+// ─── Path helpers ──────────────────────────────────────────────────────
+
+fn read_use_sidecar(state: &AppState) -> bool {
+    state
+        .config
+        .lock()
+        .map(|c| c.use_sidecar)
+        .unwrap_or(true)
+}
+
+/// Sidecar chat path — Agent owns MCP via mcp_bridge; do NOT inject MCP prompt.
+#[allow(clippy::too_many_arguments)]
+async fn send_via_sidecar(
+    app: &AppHandle,
+    state: &AppState,
+    session: &crate::db::models::Session,
+    history: &[crate::db::models::Message],
+    user_content: &str,
+    model_spec: &ModelSpec,
+    llm_config: Option<LlmConfig>,
+    abort_flag: Arc<AtomicBool>,
+    assistant_msg_id: &str,
+) -> Result<(StreamResult, Option<String>), String> {
+    let request = build_agent_chat_request(
+        session,
+        history,
+        user_content,
+        &model_spec.model_id,
+        llm_config,
+    );
+    let response = state.sidecar_client.stream(&request).await?;
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!("Sidecar stream HTTP {status}: {body}"));
+    }
+
+    let result = consume_sidecar_stream(
+        app,
+        response,
+        &session.id,
+        assistant_msg_id,
+        abort_flag,
+    )
+    .await?;
+    Ok((result, None))
+}
+
+/// Rig fallback path — keeps MCP prompt injection and McpToolLoop.
+#[allow(clippy::too_many_arguments)]
+async fn send_via_rig(
+    app: &AppHandle,
+    state: &AppState,
+    mut session: crate::db::models::Session,
+    history: Vec<crate::db::models::Message>,
+    user_content: String,
+    attachments: Option<Vec<MessageAttachment>>,
+    model_spec: &ModelSpec,
+    llm_config: Option<LlmConfig>,
+    abort_flag: Arc<AtomicBool>,
+    assistant_msg_id: &str,
+) -> Result<(StreamResult, Option<String>), String> {
+    // Fallback path only: Sidecar agents call MCP through mcp_bridge_tool.
+    inject_mcp_prompt(state, &mut session);
+
+    let (router_config, decrypted_key) = load_and_decrypt_config(state, &model_spec.config_id)?;
+    let llm_config = llm_config.unwrap_or_default().sanitized();
+    let backend = RigBackend::from_config(&router_config, &decrypted_key, llm_config)
+        .map_err(|e| format!("Failed to create backend: {e}"))?;
+
+    run_assistant_turn(
+        app,
+        state,
+        &backend,
+        &session,
+        history,
+        user_content,
+        attachments,
+        &model_spec.model_id,
+        abort_flag,
+        assistant_msg_id,
+    )
+    .await
+}
+
+/// Build AgentChatRequest for Sidecar (text-only; attachments stay on Rig path).
+pub fn build_agent_chat_request(
+    session: &crate::db::models::Session,
+    history: &[crate::db::models::Message],
+    user_content: &str,
+    model_id: &str,
+    llm_config: Option<LlmConfig>,
+) -> AgentChatRequest {
+    let llm_config = llm_config.unwrap_or_default().sanitized();
+    let mut messages = build_agent_messages(session, history);
+    messages.push(AgentChatMessage {
+        role: "user".to_string(),
+        content: user_content.to_string(),
+        name: None,
+        tool_call_id: None,
+    });
+
+    AgentChatRequest {
+        messages,
+        config: AgentChatConfig {
+            model: Some(model_id.to_string()),
+            temperature: llm_config.temperature,
+            max_tokens: llm_config.max_tokens,
+            stream: true,
+        },
+        session_id: Some(session.id.clone()),
+        working_dir: session.working_directory.clone(),
+    }
+}
+
+/// Convert session system prompt + history into Sidecar chat messages.
+#[cfg_attr(feature = "test-private", allow(dead_code))]
+pub fn build_agent_messages(
+    session: &crate::db::models::Session,
+    history: &[crate::db::models::Message],
+) -> Vec<AgentChatMessage> {
+    let mut messages = Vec::new();
+    if let Some(system) = session.system_prompt.as_deref() {
+        if !system.trim().is_empty() {
+            messages.push(AgentChatMessage {
+                role: "system".to_string(),
+                content: system.to_string(),
+                name: None,
+                tool_call_id: None,
+            });
+        }
+    }
+
+    for msg in history {
+        let role = msg.role.as_str();
+        if !matches!(role, "user" | "assistant" | "system" | "tool") {
+            continue;
+        }
+        messages.push(AgentChatMessage {
+            role: role.to_string(),
+            content: msg.content.clone(),
+            name: None,
+            tool_call_id: None,
+        });
+    }
+    messages
+}
+
+pub fn build_title_prompt(first_message: &str) -> String {
+    format!(
+        "Generate a concise title (5-10 words) for: {first_message}"
+    )
+}
+
+pub fn sanitize_session_title(raw: &str) -> String {
+    let trimmed = raw
+        .lines()
+        .next()
+        .unwrap_or(raw)
+        .trim()
+        .trim_matches(|c| c == '"' || c == '\'' || c == '`')
+        .trim();
+    if trimmed.is_empty() {
+        "New Chat".to_string()
+    } else {
+        trimmed.chars().take(80).collect()
+    }
 }
 
 // ─── 内部辅助函数（薄层编排） ──────────────────────────────────────────
@@ -256,6 +481,8 @@ pub fn resolve_model_spec(
 }
 
 /// 将已连接 MCP Server 的工具描述注入 session 的 system prompt（无工具则不改）
+///
+/// Only used by the Rig fallback path.
 fn inject_mcp_prompt(state: &AppState, session: &mut crate::db::models::Session) {
     let bridge = McpToolBridge::new(Arc::clone(&state.mcp_manager));
     if let Some(tool_desc) = bridge.tool_descriptions() {

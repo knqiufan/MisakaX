@@ -39,6 +39,8 @@ const mockConfig = {
   log_level: "info",
   sidecar_port: 9527,
   auto_start_sidecar: false,
+  use_sidecar: true,
+  mcp_bridge_port: 9528,
 };
 
 const mockProvider: RouterConfigView = {

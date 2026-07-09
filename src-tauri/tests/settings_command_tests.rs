@@ -79,6 +79,8 @@ fn test_app_config_default_values() {
     assert_eq!(config.log_level, "info");
     assert_eq!(config.sidecar_port, 9527);
     assert!(config.auto_start_sidecar);
+    assert!(config.use_sidecar);
+    assert_eq!(config.mcp_bridge_port, 9528);
 }
 
 #[test]
@@ -93,6 +95,8 @@ fn test_app_config_yaml_roundtrip() {
         log_level: "debug".to_string(),
         sidecar_port: 8888,
         auto_start_sidecar: false,
+        use_sidecar: false,
+        mcp_bridge_port: 9530,
     };
 
     let yaml = serde_yaml::to_string(&config).unwrap();
@@ -107,6 +111,8 @@ fn test_app_config_yaml_roundtrip() {
     assert_eq!(loaded.log_level, "debug");
     assert_eq!(loaded.sidecar_port, 8888);
     assert!(!loaded.auto_start_sidecar);
+    assert!(!loaded.use_sidecar);
+    assert_eq!(loaded.mcp_bridge_port, 9530);
 }
 
 #[test]
@@ -116,4 +122,6 @@ fn test_app_config_missing_fields_use_defaults() {
     assert_eq!(config.ui_font_size, 14);
     assert!(!config.reduced_transparency);
     assert!(config.auto_start_sidecar);
+    assert!(config.use_sidecar);
+    assert_eq!(config.mcp_bridge_port, 9528);
 }

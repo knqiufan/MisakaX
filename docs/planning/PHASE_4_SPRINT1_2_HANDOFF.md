@@ -2,7 +2,7 @@
 
 > **Purpose:** 记录 DeepAgents Sprint 1–2 落地结果，以及进入 Rust `4.5` 对话迁移前的前置条件。  
 > **Audience:** 继续实现 Phase 4 Sprint 3 的开发者 / Agent  
-> **Last reviewed:** 2026-07-09
+> **Last reviewed:** 2026-07-09（Sprint 3–4 前置项已落地）
 
 ## 已完成（Sprint 1–2）
 
@@ -33,11 +33,13 @@ cargo test --test mcp_http_bridge_tests
 
 ## 进入 Sprint 3（4.5）前必须补齐
 
-1. **`AppConfig.use_sidecar`**（默认 `true`）与降级开关。
-2. **`chat.rs` 拆分** `send_via_sidecar()` / `send_via_rig()`；Sidecar 路径不要再注入 MCP prompt（Agent 走 `mcp_bridge`）。
-3. **`parse_sidecar_sse`** 将 Python SSE（`token` / `tool_start` / `tool_end` / `done` / `error`）映射到现有 Tauri Event payload。
-4. **Sidecar SSE 解析单测**（建议放在 `streaming_tests.rs` 或新测试文件），不要只靠手工验证。
-5. **API Key 注入**（`MISAKA_ANTHROPIC_API_KEY` / `MISAKA_OPENAI_API_KEY`）可与 `4.8.3` 合并，但 live DeepAgents 冒烟前需要。
+> **Status (2026-07-09):** 下列前置项已在 Sprint 3–4 实现中补齐。
+
+1. **`AppConfig.use_sidecar`**（默认 `true`）与降级开关。 — 完成
+2. **`chat.rs` 拆分** `send_via_sidecar()` / `send_via_rig()`；Sidecar 路径不要再注入 MCP prompt（Agent 走 `mcp_bridge`）。 — 完成
+3. **`parse_sidecar_sse`** 将 Python SSE（`token` / `tool_start` / `tool_end` / `done` / `error`）映射到现有 Tauri Event payload。 — 完成（`services/sidecar_sse.rs` → `stream_token` / `stream:tool_call` / `stream:tool_result` / `stream_complete` / `stream_error`）
+4. **Sidecar SSE 解析单测**（建议放在 `streaming_tests.rs` 或新测试文件），不要只靠手工验证。 — 完成（`tests/sidecar_sse_tests.rs`）
+5. **API Key 注入**（`MISAKA_ANTHROPIC_API_KEY` / `MISAKA_OPENAI_API_KEY`）可与 `4.8.3` 合并，但 live DeepAgents 冒烟前需要。 — 完成（`sidecar.rs` + Python `bridge_provider_api_keys`）
 
 ## 明确不在本轮范围
 

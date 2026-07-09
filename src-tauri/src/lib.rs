@@ -52,10 +52,26 @@ pub fn run() {
     let mcp_bridge_port = app_config.mcp_bridge_port;
     let auto_start = app_config.auto_start_sidecar;
 
-    let sidecar = Arc::new(SidecarManager::with_mcp_bridge_port(
+    let sidecar_api_key_env = {
+        use crate::db::repository::RouterConfigRepo;
+        use crate::sidecar::{build_sidecar_api_key_env, collect_sidecar_api_key_sources};
+        match RouterConfigRepo::list_all(&conn) {
+            Ok(configs) => {
+                let sources = collect_sidecar_api_key_sources(&configs);
+                build_sidecar_api_key_env(&sources)
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to load router configs for sidecar API keys");
+                std::collections::HashMap::new()
+            }
+        }
+    };
+
+    let sidecar = Arc::new(SidecarManager::with_options(
         agent_dir,
         sidecar_port,
         mcp_bridge_port,
+        sidecar_api_key_env,
     ));
 
     let sidecar_client = SidecarClient::new(sidecar_port);
@@ -108,6 +124,7 @@ pub fn run() {
             commands::chat::send_message,
             commands::chat::stop_generation,
             commands::chat::regenerate_message,
+            commands::chat::generate_session_title,
             commands::chat::get_messages,
             commands::fs_explorer::fs_list_dir,
             commands::fs_explorer::fs_read_text_file,

@@ -186,6 +186,14 @@ impl RigBackend {
         Ok((agent, prompt, chat_history, stream_session))
     }
 
+    /// Non-streaming one-shot prompt (session title, etc.).
+    pub async fn prompt_once(&self, model_id: &str, prompt: &str) -> Result<String> {
+        let agent = self
+            .provider
+            .build_agent(model_id, None, &self.llm_config)?;
+        agent.prompt(prompt).await
+    }
+
     /// 流式执行一轮对话但**不 emit** 终结的 `stream_complete`
     ///
     /// 供 MCP 工具循环逐轮调用；由循环在结束后统一 emit 一次完成事件。

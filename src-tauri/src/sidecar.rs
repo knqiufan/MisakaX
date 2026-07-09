@@ -1,10 +1,13 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::process::Child;
+use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{watch, Mutex as AsyncMutex};
+
+use crate::db::models::RouterConfig;
 
 const STARTUP_MAX_RETRIES: u32 = 3;
 const RUNTIME_MAX_RESTARTS: u32 = 3;
@@ -148,6 +151,8 @@ pub struct SidecarManager {
     /// Local MCP HTTP bridge port exposed by Rust for Python tools.
     mcp_bridge_port: u16,
     agent_dir: PathBuf,
+    /// Decrypted provider keys for child env (never logged).
+    api_key_env: HashMap<String, String>,
     max_retries: u32,
     max_runtime_restarts: u32,
     status: Arc<Mutex<SidecarStatus>>,
@@ -160,17 +165,106 @@ pub struct SidecarManager {
     lifecycle_generation: Arc<Mutex<u64>>,
 }
 
+/// Input for selecting which decrypted keys to inject into the sidecar process.
+#[derive(Debug, Clone)]
+pub struct SidecarApiKeySource {
+    pub provider: String,
+    pub api_compat: Option<String>,
+    pub is_active: bool,
+    pub decrypted_key: String,
+}
+
+/// Build MISAKA_* API key env vars from active router configs.
+///
+/// Preference: exact provider match (`anthropic` / `openai`), then custom
+/// providers with matching `api_compat`. First match wins (caller should pass
+/// configs in `created_at DESC` order). Never logs key values.
+pub fn build_sidecar_api_key_env(sources: &[SidecarApiKeySource]) -> HashMap<String, String> {
+    let mut env = HashMap::new();
+    for source in sources {
+        if !source.is_active || source.decrypted_key.trim().is_empty() {
+            continue;
+        }
+        let provider = source.provider.to_ascii_lowercase();
+        let compat = source
+            .api_compat
+            .as_deref()
+            .unwrap_or("")
+            .to_ascii_lowercase();
+
+        if env.get("MISAKA_ANTHROPIC_API_KEY").is_none()
+            && (provider == "anthropic" || compat == "anthropic")
+        {
+            env.insert(
+                "MISAKA_ANTHROPIC_API_KEY".to_string(),
+                source.decrypted_key.clone(),
+            );
+        }
+        if env.get("MISAKA_OPENAI_API_KEY").is_none()
+            && (provider == "openai" || compat == "openai")
+        {
+            env.insert(
+                "MISAKA_OPENAI_API_KEY".to_string(),
+                source.decrypted_key.clone(),
+            );
+        }
+        if env.len() == 2 {
+            break;
+        }
+    }
+    env
+}
+
+/// Decrypt active router configs into SidecarApiKeySource list (created_at DESC).
+pub fn collect_sidecar_api_key_sources(configs: &[RouterConfig]) -> Vec<SidecarApiKeySource> {
+    let mut sources = Vec::new();
+    for config in configs {
+        if !config.is_active {
+            continue;
+        }
+        let Some(encrypted) = config.api_key_encrypted.as_deref() else {
+            continue;
+        };
+        match crate::crypto::decrypt(encrypted) {
+            Ok(decrypted_key) => sources.push(SidecarApiKeySource {
+                provider: config.provider.clone(),
+                api_compat: config.api_compat.clone(),
+                is_active: config.is_active,
+                decrypted_key,
+            }),
+            Err(e) => {
+                tracing::warn!(
+                    provider = %config.provider,
+                    error = %e,
+                    "Failed to decrypt router API key for sidecar env"
+                );
+            }
+        }
+    }
+    sources
+}
+
 impl SidecarManager {
     pub fn new(agent_dir: PathBuf, port: u16) -> Self {
         Self::with_mcp_bridge_port(agent_dir, port, 9528)
     }
 
     pub fn with_mcp_bridge_port(agent_dir: PathBuf, port: u16, mcp_bridge_port: u16) -> Self {
+        Self::with_options(agent_dir, port, mcp_bridge_port, HashMap::new())
+    }
+
+    pub fn with_options(
+        agent_dir: PathBuf,
+        port: u16,
+        mcp_bridge_port: u16,
+        api_key_env: HashMap<String, String>,
+    ) -> Self {
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
         Self {
             port,
             mcp_bridge_port,
             agent_dir,
+            api_key_env,
             max_retries: STARTUP_MAX_RETRIES,
             max_runtime_restarts: RUNTIME_MAX_RESTARTS,
             status: Arc::new(Mutex::new(SidecarStatus::Stopped)),
@@ -186,6 +280,21 @@ impl SidecarManager {
 
     fn mcp_bridge_url(&self) -> String {
         format!("http://127.0.0.1:{}", self.mcp_bridge_port)
+    }
+
+    fn apply_common_env(&self, cmd: &mut Command) {
+        cmd.env("MISAKA_HOST", "127.0.0.1")
+            .env("MISAKA_PORT", self.port.to_string())
+            .env("MISAKA_MCP_BRIDGE_URL", self.mcp_bridge_url());
+        for (key, value) in &self.api_key_env {
+            cmd.env(key, value);
+        }
+        if !self.api_key_env.is_empty() {
+            tracing::info!(
+                keys = ?self.api_key_env.keys().collect::<Vec<_>>(),
+                "Injected sidecar API key env vars"
+            );
+        }
     }
 
     pub fn status(&self) -> SidecarStatus {
@@ -336,31 +445,25 @@ impl SidecarManager {
 
     fn spawn_packaged_binary(&self, binary: &Path) -> std::io::Result<Child> {
         tracing::info!("Starting packaged Sidecar binary: {}", binary.display());
-        std::process::Command::new(binary)
-            .env("MISAKA_HOST", "127.0.0.1")
-            .env("MISAKA_PORT", self.port.to_string())
-            .env("MISAKA_MCP_BRIDGE_URL", self.mcp_bridge_url())
-            .current_dir(&self.agent_dir)
-            .spawn()
+        let mut cmd = Command::new(binary);
+        self.apply_common_env(&mut cmd);
+        cmd.current_dir(&self.agent_dir).spawn()
     }
 
     fn spawn_python_uvicorn(&self) -> std::io::Result<Child> {
         let port = self.port.to_string();
-        std::process::Command::new("python")
-            .args([
-                "-m",
-                "uvicorn",
-                "app.main:app",
-                "--host",
-                "127.0.0.1",
-                "--port",
-                port.as_str(),
-            ])
-            .env("MISAKA_HOST", "127.0.0.1")
-            .env("MISAKA_PORT", port.as_str())
-            .env("MISAKA_MCP_BRIDGE_URL", self.mcp_bridge_url())
-            .current_dir(&self.agent_dir)
-            .spawn()
+        let mut cmd = Command::new("python");
+        cmd.args([
+            "-m",
+            "uvicorn",
+            "app.main:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            port.as_str(),
+        ]);
+        self.apply_common_env(&mut cmd);
+        cmd.current_dir(&self.agent_dir).spawn()
     }
 
     fn spawn_watchdog_once(self: &Arc<Self>, app: AppHandle) {

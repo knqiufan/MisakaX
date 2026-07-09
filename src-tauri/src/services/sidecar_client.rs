@@ -181,10 +181,14 @@ impl SidecarClient {
 
     /// Phase 4: Start a streaming chat request, returning the raw response
     /// for SSE parsing.
+    ///
+    /// Uses a long request timeout so agent tool loops are not cut off by the
+    /// default 30s client timeout; abort is handled via StreamRegistry.
     pub async fn stream(&self, request: &AgentChatRequest) -> Result<reqwest::Response, String> {
         let url = format!("{}/agent/stream", self.base_url);
         self.client
             .post(&url)
+            .timeout(Duration::from_secs(600))
             .json(request)
             .send()
             .await

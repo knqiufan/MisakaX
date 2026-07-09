@@ -30,6 +30,9 @@ pub struct AppConfig {
     pub sidecar_port: u16,
     /// Whether to auto-start sidecar
     pub auto_start_sidecar: bool,
+    /// Prefer Python Sidecar for chat (false = Rig fallback path)
+    #[serde(default = "default_use_sidecar")]
+    pub use_sidecar: bool,
     /// Local MCP HTTP bridge port (Python Sidecar → Rust MCP)
     #[serde(default = "default_mcp_bridge_port")]
     pub mcp_bridge_port: u16,
@@ -37,6 +40,10 @@ pub struct AppConfig {
 
 fn default_mcp_bridge_port() -> u16 {
     9528
+}
+
+fn default_use_sidecar() -> bool {
+    true
 }
 
 impl Default for AppConfig {
@@ -51,6 +58,7 @@ impl Default for AppConfig {
             log_level: "info".to_string(),
             sidecar_port: 9527,
             auto_start_sidecar: true,
+            use_sidecar: true,
             mcp_bridge_port: 9528,
         }
     }

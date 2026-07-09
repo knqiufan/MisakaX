@@ -1,8 +1,9 @@
 #[cfg(feature = "test-private")]
 mod tests {
     use misaka_x_lib::sidecar::{
-        find_sidecar_executable_in, health_check_url, is_current_watchdog_generation,
-        resolve_sidecar_executable, should_attempt_runtime_restart, sidecar_executable_name,
+        build_sidecar_api_key_env, find_sidecar_executable_in, health_check_url,
+        is_current_watchdog_generation, resolve_sidecar_executable,
+        should_attempt_runtime_restart, sidecar_executable_name, SidecarApiKeySource,
         SidecarStatus, SidecarStatusEvent, SIDECAR_BINARY_STEM,
     };
     use serde_json::json;
@@ -194,5 +195,61 @@ mod tests {
     fn test_resolve_sidecar_executable_type_is_pathbuf() {
         // Compile-time guard that the public signature returns Option<PathBuf>.
         let _f: fn(&std::path::Path) -> Option<PathBuf> = resolve_sidecar_executable;
+    }
+
+    #[test]
+    fn test_build_sidecar_api_key_env_selects_active_providers() {
+        let sources = vec![
+            SidecarApiKeySource {
+                provider: "anthropic".to_string(),
+                api_compat: None,
+                is_active: true,
+                decrypted_key: "sk-ant-1".to_string(),
+            },
+            SidecarApiKeySource {
+                provider: "custom".to_string(),
+                api_compat: Some("openai".to_string()),
+                is_active: true,
+                decrypted_key: "sk-openai-1".to_string(),
+            },
+            SidecarApiKeySource {
+                provider: "openai".to_string(),
+                api_compat: None,
+                is_active: false,
+                decrypted_key: "sk-openai-inactive".to_string(),
+            },
+        ];
+        let env = build_sidecar_api_key_env(&sources);
+        assert_eq!(
+            env.get("MISAKA_ANTHROPIC_API_KEY").map(String::as_str),
+            Some("sk-ant-1")
+        );
+        assert_eq!(
+            env.get("MISAKA_OPENAI_API_KEY").map(String::as_str),
+            Some("sk-openai-1")
+        );
+    }
+
+    #[test]
+    fn test_build_sidecar_api_key_env_prefers_first_match() {
+        let sources = vec![
+            SidecarApiKeySource {
+                provider: "openai".to_string(),
+                api_compat: None,
+                is_active: true,
+                decrypted_key: "first".to_string(),
+            },
+            SidecarApiKeySource {
+                provider: "openai".to_string(),
+                api_compat: None,
+                is_active: true,
+                decrypted_key: "second".to_string(),
+            },
+        ];
+        let env = build_sidecar_api_key_env(&sources);
+        assert_eq!(
+            env.get("MISAKA_OPENAI_API_KEY").map(String::as_str),
+            Some("first")
+        );
     }
 }

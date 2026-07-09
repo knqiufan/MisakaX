@@ -77,6 +77,85 @@ fn test_send_message_result_serialize() {
 }
 
 #[cfg(feature = "test-private")]
+mod agent_message_builders {
+    use misaka_x_lib::commands::chat::{
+        build_agent_chat_request, build_agent_messages, build_title_prompt, sanitize_session_title,
+    };
+    use misaka_x_lib::db::models::{Message, Session};
+
+    fn sample_session() -> Session {
+        Session {
+            id: "s1".to_string(),
+            title: Some("t".to_string()),
+            model: Some("cfg:model".to_string()),
+            system_prompt: Some("Be helpful".to_string()),
+            working_directory: Some("D:/code".to_string()),
+            project_name: None,
+            status: "active".to_string(),
+            mode: "agent".to_string(),
+            total_input_tokens: 0,
+            total_output_tokens: 0,
+            last_message_at: None,
+            pinned: false,
+            group_name: None,
+            created_at: "now".to_string(),
+            updated_at: "now".to_string(),
+        }
+    }
+
+    fn sample_message(role: &str, content: &str) -> Message {
+        Message {
+            id: "m1".to_string(),
+            session_id: "s1".to_string(),
+            role: role.to_string(),
+            content: content.to_string(),
+            token_usage: None,
+            model: None,
+            thinking_content: None,
+            attachments: None,
+            status: "complete".to_string(),
+            tool_calls: None,
+            created_at: "now".to_string(),
+        }
+    }
+
+    #[test]
+    fn build_agent_messages_includes_system_and_history() {
+        let session = sample_session();
+        let history = vec![
+            sample_message("user", "hi"),
+            sample_message("assistant", "hello"),
+        ];
+        let messages = build_agent_messages(&session, &history);
+        assert_eq!(messages.len(), 3);
+        assert_eq!(messages[0].role, "system");
+        assert_eq!(messages[0].content, "Be helpful");
+        assert_eq!(messages[1].role, "user");
+        assert_eq!(messages[2].role, "assistant");
+    }
+
+    #[test]
+    fn build_agent_chat_request_sets_working_dir_and_session() {
+        let session = sample_session();
+        let history = vec![sample_message("user", "prior")];
+        let req = build_agent_chat_request(&session, &history, "next", "claude", None);
+        assert_eq!(req.session_id.as_deref(), Some("s1"));
+        assert_eq!(req.working_dir.as_deref(), Some("D:/code"));
+        assert_eq!(req.config.model.as_deref(), Some("claude"));
+        assert!(req.config.stream);
+        assert_eq!(req.messages.last().unwrap().content, "next");
+    }
+
+    #[test]
+    fn title_prompt_and_sanitize() {
+        let prompt = build_title_prompt("How do I fix SSE?");
+        assert!(prompt.contains("How do I fix SSE?"));
+        assert_eq!(sanitize_session_title("  \"Fix SSE parser\"  "), "Fix SSE parser");
+        assert_eq!(sanitize_session_title("   "), "New Chat");
+    }
+}
+
+#[cfg(feature = "test-private")]
 mod enabled_model_guard {
     use misaka_x_lib::commands::chat::ensure_model_enabled_for_config;
     use rusqlite::Connection;
