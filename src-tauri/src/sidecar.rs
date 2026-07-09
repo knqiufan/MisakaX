@@ -192,7 +192,7 @@ pub fn build_sidecar_api_key_env(sources: &[SidecarApiKeySource]) -> HashMap<Str
             .unwrap_or("")
             .to_ascii_lowercase();
 
-        if env.get("MISAKA_ANTHROPIC_API_KEY").is_none()
+        if !env.contains_key("MISAKA_ANTHROPIC_API_KEY")
             && (provider == "anthropic" || compat == "anthropic")
         {
             env.insert(
@@ -200,7 +200,7 @@ pub fn build_sidecar_api_key_env(sources: &[SidecarApiKeySource]) -> HashMap<Str
                 source.decrypted_key.clone(),
             );
         }
-        if env.get("MISAKA_OPENAI_API_KEY").is_none()
+        if !env.contains_key("MISAKA_OPENAI_API_KEY")
             && (provider == "openai" || compat == "openai")
         {
             env.insert(
