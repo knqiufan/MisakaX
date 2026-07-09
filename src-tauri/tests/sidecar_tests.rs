@@ -162,10 +162,7 @@ mod tests {
         std::fs::write(&exe, b"stub").unwrap();
 
         let dirs = vec![first.path().to_path_buf(), second.path().to_path_buf()];
-        assert_eq!(
-            find_sidecar_executable_in(&dirs, "misaka-agent"),
-            Some(exe)
-        );
+        assert_eq!(find_sidecar_executable_in(&dirs, "misaka-agent"), Some(exe));
     }
 
     #[test]

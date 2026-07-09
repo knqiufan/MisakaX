@@ -146,7 +146,8 @@ fn persist_remembered_policy(
     }
     let policy = if response.approved { "allow" } else { "deny" };
     let conn = db.lock().map_err(|e| e.to_string())?;
-    ToolPermissionRepo::upsert_policy(&conn, server_id, tool_name, policy).map_err(|e| e.to_string())
+    ToolPermissionRepo::upsert_policy(&conn, server_id, tool_name, policy)
+        .map_err(|e| e.to_string())
 }
 
 /// 前端 approve/deny command 调用：向等待中的调用方发送审批结果
@@ -155,7 +156,9 @@ pub fn complete_approval(request_id: &str, approved: bool, remember: bool) -> Re
         .remove(request_id)
         .ok_or_else(|| "No pending approval found for this request".to_string())?;
 
-    let _ = entry.1.send(ToolCallApprovalResponse { approved, remember });
+    let _ = entry
+        .1
+        .send(ToolCallApprovalResponse { approved, remember });
 
     Ok(())
 }

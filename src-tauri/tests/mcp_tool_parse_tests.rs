@@ -7,7 +7,8 @@ use misaka_x_lib::services::mcp::tool_loop::{parse_tool_call_from_content, strip
 
 #[test]
 fn parse_fenced_json_object() {
-    let content = "```json\n{\"name\": \"read_file\", \"arguments\": {\"path\": \"package.json\"}}\n```";
+    let content =
+        "```json\n{\"name\": \"read_file\", \"arguments\": {\"path\": \"package.json\"}}\n```";
     let call = parse_tool_call_from_content(content).expect("should parse fenced tool call");
     assert_eq!(call.name, "read_file");
     assert_eq!(call.arguments["path"], "package.json");

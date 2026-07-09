@@ -27,5 +27,8 @@ fn explicit_ask_policy_maps_to_ask() {
 
 #[test]
 fn unknown_policy_falls_back_to_ask() {
-    assert_eq!(decide_from_policy(Some("something-else")), PolicyDecision::Ask);
+    assert_eq!(
+        decide_from_policy(Some("something-else")),
+        PolicyDecision::Ask
+    );
 }

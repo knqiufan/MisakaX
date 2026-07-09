@@ -2,7 +2,8 @@ use std::sync::atomic::Ordering;
 
 use misaka_x_lib::services::llm::{
     StreamCompletePayload, StreamErrorPayload, StreamRegistry, StreamThinkingPayload,
-    StreamToolCallPayload, StreamToolResultPayload, StreamTokenPayload, StreamUsage, TokenUsageInfo,
+    StreamTokenPayload, StreamToolCallPayload, StreamToolResultPayload, StreamUsage,
+    TokenUsageInfo,
 };
 
 // ─── StreamRegistry tests ──────────────────────────────

@@ -170,9 +170,11 @@ impl RigBackend {
         abort_flag: Arc<AtomicBool>,
         message_id: &str,
     ) -> Result<(AgentHandle, RigMessage, Vec<RigMessage>, StreamSession)> {
-        let agent =
-            self.provider
-                .build_agent(model_id, session.system_prompt.as_deref(), &self.llm_config)?;
+        let agent = self.provider.build_agent(
+            model_id,
+            session.system_prompt.as_deref(),
+            &self.llm_config,
+        )?;
         let chat_history = build_rig_chat_history(messages);
         let prompt = build_user_prompt(user_content, attachments);
         let stream_session = StreamSession::new(

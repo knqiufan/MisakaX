@@ -226,7 +226,13 @@ impl<'a> McpToolLoop<'a> {
             let err = format!("No connected MCP server provides tool '{}'", call.name);
             self.emit_running(&ctx);
             let record = self.settle(&ctx, "error", None, Some(err));
-            return (record, tool_feedback(&call.name, "Error: no connected MCP server provides this tool."));
+            return (
+                record,
+                tool_feedback(
+                    &call.name,
+                    "Error: no connected MCP server provides this tool.",
+                ),
+            );
         };
 
         let ctx = ToolCtx::new(&call, server_id, self.manager);
@@ -236,7 +242,10 @@ impl<'a> McpToolLoop<'a> {
             return denied;
         }
 
-        match bridge.call_tool(&ctx.tool_name, ctx.arguments.clone()).await {
+        match bridge
+            .call_tool(&ctx.tool_name, ctx.arguments.clone())
+            .await
+        {
             Ok(res) => {
                 let formatted = McpToolBridge::format_tool_result(&res);
                 let result_json = serde_json::to_value(&res).ok();
@@ -246,7 +255,10 @@ impl<'a> McpToolLoop<'a> {
             Err(e) => {
                 let msg = e.to_string();
                 let record = self.settle(&ctx, "error", None, Some(msg.clone()));
-                (record, tool_feedback(&ctx.tool_name, &format!("Error: {msg}")))
+                (
+                    record,
+                    tool_feedback(&ctx.tool_name, &format!("Error: {msg}")),
+                )
             }
         }
     }
@@ -266,11 +278,17 @@ impl<'a> McpToolLoop<'a> {
             Ok(true) => None,
             Ok(false) => {
                 let record = self.settle(ctx, "error", None, Some("Tool call denied".to_string()));
-                Some((record, tool_feedback(&ctx.tool_name, "Error: the user denied this tool call.")))
+                Some((
+                    record,
+                    tool_feedback(&ctx.tool_name, "Error: the user denied this tool call."),
+                ))
             }
             Err(e) => {
                 let record = self.settle(ctx, "error", None, Some(e.clone()));
-                Some((record, tool_feedback(&ctx.tool_name, &format!("Error: {e}"))))
+                Some((
+                    record,
+                    tool_feedback(&ctx.tool_name, &format!("Error: {e}")),
+                ))
             }
         }
     }
@@ -437,7 +455,11 @@ fn extract_last_fenced_block(content: &str) -> Option<String> {
     if open > close {
         return None;
     }
-    Some(strip_fence_language(&content[open..close]).trim().to_string())
+    Some(
+        strip_fence_language(&content[open..close])
+            .trim()
+            .to_string(),
+    )
 }
 
 /// 移除最后一个 fenced 代码块（含围栏），保留前后正文
@@ -493,7 +515,10 @@ fn assistant_history_message(session_id: &str, content: &str) -> Message {
     }
 }
 
-fn merge_usage(acc: Option<TokenUsageInfo>, next: Option<TokenUsageInfo>) -> Option<TokenUsageInfo> {
+fn merge_usage(
+    acc: Option<TokenUsageInfo>,
+    next: Option<TokenUsageInfo>,
+) -> Option<TokenUsageInfo> {
     match (acc, next) {
         (None, next) => next,
         (acc, None) => acc,

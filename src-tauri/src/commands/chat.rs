@@ -94,7 +94,12 @@ pub async fn send_message(
 
     // Step 7: 更新 assistant 消息内容（含工具调用记录）
     let (result, tool_calls_json) = turn?;
-    update_assistant_message(&state, &assistant_msg_id, &result, tool_calls_json.as_deref())?;
+    update_assistant_message(
+        &state,
+        &assistant_msg_id,
+        &result,
+        tool_calls_json.as_deref(),
+    )?;
 
     // Step 8: 更新 session 统计
     update_session_stats(&state, &request.session_id, &result)?;
@@ -182,7 +187,12 @@ pub async fn regenerate_message(
     state.stream_registry.unregister(&session_id);
 
     let (result, tool_calls_json) = turn?;
-    update_assistant_message(&state, &assistant_msg_id, &result, tool_calls_json.as_deref())?;
+    update_assistant_message(
+        &state,
+        &assistant_msg_id,
+        &result,
+        tool_calls_json.as_deref(),
+    )?;
     update_session_stats(&state, &session_id, &result)?;
 
     Ok(SendMessageResult {

@@ -20,7 +20,7 @@ pub use factory::ProviderFactory;
 pub use registry::{ModelInfo, ModelRegistry};
 pub use streaming::{
     emit_tool_call, emit_tool_result, StreamCompletePayload, StreamErrorPayload, StreamRegistry,
-    StreamResult, StreamSession, StreamThinkingPayload, StreamToolCallPayload,
-    StreamToolResultPayload, StreamTokenPayload, TokenUsageInfo,
+    StreamResult, StreamSession, StreamThinkingPayload, StreamTokenPayload, StreamToolCallPayload,
+    StreamToolResultPayload, TokenUsageInfo,
 };
 pub use traits::{AgentHandle, DeltaStream, LlmProvider, StreamDelta, StreamUsage};

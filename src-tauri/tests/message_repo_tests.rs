@@ -108,8 +108,16 @@ fn test_insert_assistant_placeholder_and_update() {
 fn test_update_assistant_content_aborted() {
     let conn = setup_db();
     MessageRepo::insert_assistant_placeholder(&conn, "m1", "s1", "gpt-4o").unwrap();
-    MessageRepo::update_assistant_content(&conn, "m1", "Partial response...", None, None, true, None)
-        .unwrap();
+    MessageRepo::update_assistant_content(
+        &conn,
+        "m1",
+        "Partial response...",
+        None,
+        None,
+        true,
+        None,
+    )
+    .unwrap();
 
     let messages = MessageRepo::find_recent(&conn, "s1", 10).unwrap();
     assert_eq!(messages[0].status, "aborted");
