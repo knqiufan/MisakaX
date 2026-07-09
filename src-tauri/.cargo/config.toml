@@ -1,0 +1,27 @@
+# Misaka-Tauri — Cargo 构建加速（P2）
+# 文档：docs/guides/rust-build-test-optimization.md
+
+[build]
+# 并行 job 数默认 = CPU 核心数；内存不足时可改为较小整数，例如 jobs = 4
+
+# 安装 sccache 后取消注释（cargo install sccache）：
+# rustc-wrapper = "sccache"
+
+[profile.dev.package."*"]
+# 仅优化依赖 crate，加快 dev 链接与运行；自有代码仍快速增量
+opt-level = 1
+
+# --- Windows MSVC（AGENTS.md 默认 target）---
+[target.x86_64-pc-windows-msvc]
+# 本地验证 cargo test / tauri build 通过后再启用：
+# linker = "rust-lld.exe"
+
+# --- Windows GNU（若使用 x86_64-pc-windows-gnu）---
+# [target.x86_64-pc-windows-gnu]
+# linker = "D:\\soft\\msys64\\mingw64\\bin\\gcc.exe"
+
+# --- Linux CI / 本地 ---
+[target.x86_64-unknown-linux-gnu]
+# rust-lld 通常可安全启用；若链接失败请注释掉
+# linker = "clang"
+# rustflags = ["-C", "link-arg=-fuse-ld=lld"]

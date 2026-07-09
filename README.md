@@ -116,9 +116,6 @@ pip install -r requirements.txt
 
 ```bash
 # 完整桌面应用（推荐）
-cd src-tauri
-cargo clean
-cd ..
 npm run tauri dev
 
 # 仅前端（浏览器调试，无 Tauri IPC）
@@ -138,10 +135,13 @@ npm run build          # 前端生产构建
 npm test               # 前端 Vitest
 
 cd src-tauri
-cargo clean
-cargo check            # Rust 编译检查
-cargo test             # Rust 集成测试
+cargo check            # Rust 编译检查（日常依赖增量编译，勿先 cargo clean）
+cargo test --test crypto_tests   # 日常：按改动模块跑精准测试（映射表见优化指南 §4.2）
+cargo nextest run --all-features --profile ci   # 提交前：全量测试（推荐，需 cargo install cargo-nextest）
+cargo test             # 提交前：全量测试（未装 nextest 时的后备）
 ```
+
+若 Rust 编译出现链接错误、metadata 异常或切分支后无法解释的失败，再在 `src-tauri/` 下按需执行 `cargo clean` 后重试。详见 [`docs/guides/rust-build-test-optimization.md`](docs/guides/rust-build-test-optimization.md)。
 
 ## 目录结构
 

@@ -1,0 +1,11 @@
+# Misaka-Tauri — cargo-nextest 配置（P2）
+# 文档：docs/guides/rust-build-test-optimization.md
+# 在 src-tauri/ 下运行：cargo nextest run
+
+[profile.default]
+# 按 CPU 核心数并行跑测试
+test-threads = "num-cpus"
+
+[profile.ci]
+retries = 1
+slow-timeout = { period = "180s", terminate-after = 2 }

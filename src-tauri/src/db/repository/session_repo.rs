@@ -252,9 +252,11 @@ impl SessionRepo {
 }
 
 fn extract_project_name(path: &str) -> String {
-    std::path::Path::new(path)
-        .file_name()
-        .and_then(|n| n.to_str())
+    // Split on both `/` and `\` so the result is the same regardless of host
+    // OS. Otherwise a Windows-style path like `D:\code\Misaka-Tauri` yields the
+    // whole string on a Unix host where `\` is not a separator.
+    path.rsplit(['/', '\\'])
+        .find(|s| !s.is_empty())
         .unwrap_or(path)
         .to_string()
 }

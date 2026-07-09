@@ -65,6 +65,8 @@ jobs:
         with:
           workspaces: src-tauri
 
+      - uses: taiki-e/install-action@nextest
+
       - name: Check formatting
         working-directory: src-tauri
         run: cargo fmt --check
@@ -75,7 +77,13 @@ jobs:
 
       - name: Run tests
         working-directory: src-tauri
-        run: cargo test --all-features
+        env:
+          # GitHub Linux runners can crash GNU ld when linking many large Tauri
+          # integration test binaries concurrently. Keep test compilation serial
+          # and omit debug info to reduce linker pressure.
+          CARGO_BUILD_JOBS: 1
+          CARGO_PROFILE_TEST_DEBUG: 0
+        run: cargo nextest run --all-features --profile ci
 
       - name: Build check
         working-directory: src-tauri

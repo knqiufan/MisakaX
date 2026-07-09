@@ -66,7 +66,7 @@ flowchart LR
 
 ---
 
-## Epic A：Sidecar 运行时可靠性
+## ✅Epic A：Sidecar 运行时可靠性
 
 > **对应：** 原任务 3.2 · AC-2 · V1–V3 · V5  
 > **现状：** `SidecarManager` 仅有**启动阶段**最多 3 次重试（`sidecar.rs:141–194`）；`preheat()` 返回 Ready 后**无 watchdog**；原设计中的 `health_loop()`（§3.2.3）未实现。

@@ -1,6 +1,6 @@
 # ===== Rust =====
 src-tauri/target/
-.cargo/
+/.cargo/
 
 # ===== Node / Frontend =====
 node_modules/
