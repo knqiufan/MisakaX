@@ -1,32 +1,11 @@
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
-use tokio::sync::oneshot;
 
 use crate::db::repository::{McpServerRepo, ToolPermission, ToolPermissionRepo};
+use crate::services::mcp::approval::{complete_approval, ensure_tool_allowed};
 use crate::services::mcp::{McpServerConfig, McpServerInfo, McpToolInfo};
 use crate::AppState;
-
-/// 全局待审批请求注册表
-static PENDING_APPROVALS: std::sync::LazyLock<
-    dashmap::DashMap<String, oneshot::Sender<ToolCallApprovalResponse>>,
-> = std::sync::LazyLock::new(dashmap::DashMap::new);
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ToolCallRequestPayload {
-    pub request_id: String,
-    pub server_id: String,
-    pub server_name: String,
-    pub tool_name: String,
-    pub arguments: serde_json::Value,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct ToolCallApprovalResponse {
-    pub approved: bool,
-    pub remember: bool,
-}
 
 // ─── 查询类 Commands ──────────────────────────────────────────────────
 
@@ -121,23 +100,18 @@ pub async fn mcp_call_tool(
     tool_name: String,
     arguments: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let policy = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        ToolPermissionRepo::find_policy(&db, &server_id, &tool_name).map_err(|e| e.to_string())?
-    };
+    let allowed = ensure_tool_allowed(
+        &app,
+        &state.db,
+        &state.mcp_manager,
+        &server_id,
+        &tool_name,
+        &arguments,
+    )
+    .await?;
 
-    match policy.as_deref() {
-        Some("deny") => {
-            return Err("Tool call denied by permission policy".to_string());
-        }
-        Some("allow") => {}
-        _ => {
-            let approved =
-                request_user_approval(&app, &state, &server_id, &tool_name, &arguments).await?;
-            if !approved {
-                return Err("Tool call denied by user".to_string());
-            }
-        }
+    if !allowed {
+        return Err("Tool call denied".to_string());
     }
 
     let manager = Arc::clone(&state.mcp_manager);
@@ -149,79 +123,14 @@ pub async fn mcp_call_tool(
     serde_json::to_value(&result).map_err(|e| e.to_string())
 }
 
-async fn request_user_approval(
-    app: &AppHandle,
-    state: &State<'_, AppState>,
-    server_id: &str,
-    tool_name: &str,
-    arguments: &serde_json::Value,
-) -> Result<bool, String> {
-    let request_id = uuid::Uuid::new_v4().to_string();
-    let (tx, rx) = oneshot::channel::<ToolCallApprovalResponse>();
-
-    PENDING_APPROVALS.insert(request_id.clone(), tx);
-
-    let server_name = state
-        .mcp_manager
-        .server_info(server_id)
-        .map(|info| info.name.clone())
-        .unwrap_or_else(|| server_id.to_string());
-
-    let payload = ToolCallRequestPayload {
-        request_id: request_id.clone(),
-        server_id: server_id.to_string(),
-        server_name,
-        tool_name: tool_name.to_string(),
-        arguments: arguments.clone(),
-    };
-
-    app.emit("mcp:tool_call_request", &payload)
-        .map_err(|e| e.to_string())?;
-
-    let response = tokio::time::timeout(std::time::Duration::from_secs(60), rx)
-        .await
-        .map_err(|_| {
-            PENDING_APPROVALS.remove(&request_id);
-            "Tool call approval timed out (60s)".to_string()
-        })?
-        .map_err(|_| "Approval channel closed".to_string())?;
-
-    if response.remember {
-        let policy = if response.approved { "allow" } else { "deny" };
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        ToolPermissionRepo::upsert_policy(&db, server_id, tool_name, policy)
-            .map_err(|e| e.to_string())?;
-    }
-
-    Ok(response.approved)
-}
-
 #[tauri::command]
 pub fn mcp_approve_tool_call(request_id: String, remember: bool) -> Result<(), String> {
-    let entry = PENDING_APPROVALS
-        .remove(&request_id)
-        .ok_or_else(|| "No pending approval found for this request".to_string())?;
-
-    let _ = entry.1.send(ToolCallApprovalResponse {
-        approved: true,
-        remember,
-    });
-
-    Ok(())
+    complete_approval(&request_id, true, remember)
 }
 
 #[tauri::command]
 pub fn mcp_deny_tool_call(request_id: String, remember: bool) -> Result<(), String> {
-    let entry = PENDING_APPROVALS
-        .remove(&request_id)
-        .ok_or_else(|| "No pending approval found for this request".to_string())?;
-
-    let _ = entry.1.send(ToolCallApprovalResponse {
-        approved: false,
-        remember,
-    });
-
-    Ok(())
+    complete_approval(&request_id, false, remember)
 }
 
 // ─── 权限管理 Commands ────────────────────────────────────────────────

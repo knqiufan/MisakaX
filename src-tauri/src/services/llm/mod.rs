@@ -19,7 +19,8 @@ pub use config::LlmConfig;
 pub use factory::ProviderFactory;
 pub use registry::{ModelInfo, ModelRegistry};
 pub use streaming::{
-    StreamCompletePayload, StreamErrorPayload, StreamRegistry, StreamResult, StreamSession,
-    StreamThinkingPayload, StreamTokenPayload, TokenUsageInfo,
+    emit_tool_call, emit_tool_result, StreamCompletePayload, StreamErrorPayload, StreamRegistry,
+    StreamResult, StreamSession, StreamThinkingPayload, StreamToolCallPayload,
+    StreamToolResultPayload, StreamTokenPayload, TokenUsageInfo,
 };
 pub use traits::{AgentHandle, DeltaStream, LlmProvider, StreamDelta, StreamUsage};

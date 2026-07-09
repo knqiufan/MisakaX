@@ -1,11 +1,15 @@
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+
 use crate::crypto;
 use crate::db::repository::{MessageRepo, RouterConfigRepo, SessionRepo};
 use crate::services::llm::backend::MessageAttachment;
 use crate::services::llm::config::LlmConfig;
-use crate::services::llm::RigBackend;
+use crate::services::llm::{RigBackend, StreamResult};
+use crate::services::mcp::{McpToolLoop, MAX_TOOL_ROUNDS};
 use crate::services::mcp_bridge::McpToolBridge;
 use crate::AppState;
 
@@ -51,11 +55,7 @@ pub async fn send_message(
     let (mut session, history) = load_session_context(&state, &request.session_id)?;
 
     // Step 2.5: 注入 MCP 工具描述到系统 prompt
-    let mcp_bridge = McpToolBridge::new(std::sync::Arc::clone(&state.mcp_manager));
-    if let Some(tool_desc) = mcp_bridge.tool_descriptions() {
-        let base_prompt = session.system_prompt.clone().unwrap_or_default();
-        session.system_prompt = Some(format!("{}{}", base_prompt, tool_desc));
-    }
+    inject_mcp_prompt(&state, &mut session);
 
     // Step 3: 解析模型标识
     let model_spec =
@@ -68,7 +68,7 @@ pub async fn send_message(
     // Step 5: 创建 assistant 消息占位
     create_assistant_placeholder(&state, &assistant_msg_id, &request.session_id, &model_spec)?;
 
-    // Step 6: 注册流，构建 Backend，执行流式调用
+    // Step 6: 注册流，构建 Backend，执行流式调用（含 MCP 工具循环）
     let abort_flag = state.stream_registry.register(&request.session_id);
 
     let llm_config = request.llm_config.unwrap_or_default().sanitized();
@@ -76,28 +76,25 @@ pub async fn send_message(
     let backend = RigBackend::from_config(&router_config, &decrypted_key, llm_config)
         .map_err(|e| format!("Failed to create backend: {e}"))?;
 
-    let stream_result = {
-        use crate::services::llm::ChatBackend;
-        backend
-            .send_and_stream(
-                &app,
-                &session,
-                &history,
-                &request.content,
-                &request.attachments,
-                &model_spec.model_id,
-                abort_flag,
-                &assistant_msg_id,
-            )
-            .await
-            .map_err(|e| format!("Stream error: {e}"))
-    };
+    let turn = run_assistant_turn(
+        &app,
+        &state,
+        &backend,
+        &session,
+        history,
+        request.content.clone(),
+        request.attachments.clone(),
+        &model_spec.model_id,
+        abort_flag,
+        &assistant_msg_id,
+    )
+    .await;
 
     state.stream_registry.unregister(&request.session_id);
 
-    // Step 7: 更新 assistant 消息内容
-    let result = stream_result?;
-    update_assistant_message(&state, &assistant_msg_id, &result)?;
+    // Step 7: 更新 assistant 消息内容（含工具调用记录）
+    let (result, tool_calls_json) = turn?;
+    update_assistant_message(&state, &assistant_msg_id, &result, tool_calls_json.as_deref())?;
 
     // Step 8: 更新 session 统计
     update_session_stats(&state, &request.session_id, &result)?;
@@ -139,10 +136,13 @@ pub async fn regenerate_message(
     };
 
     // Step 2: 删除前先验证模型，避免模型失效时破坏会话历史
-    let (session, _) = load_session_context(&state, &session_id)?;
+    let (mut session, _) = load_session_context(&state, &session_id)?;
     let model_spec = resolve_model_spec(None, session.model.as_deref())?;
     let (router_config, decrypted_key) = load_and_decrypt_config(&state, &model_spec.config_id)?;
     ensure_model_enabled(&state, &model_spec)?;
+
+    // 与 send_message 对齐：再生路径同样注入 MCP 工具描述
+    inject_mcp_prompt(&state, &mut session);
 
     // Step 3: 删除目标消息及之后的所有消息
     {
@@ -165,27 +165,24 @@ pub async fn regenerate_message(
     )
     .map_err(|e| format!("Failed to create backend: {e}"))?;
 
-    let stream_result = {
-        use crate::services::llm::ChatBackend;
-        backend
-            .send_and_stream(
-                &app,
-                &session,
-                &regen_ctx.messages_before,
-                &regen_ctx.user_content,
-                &attachments,
-                &model_spec.model_id,
-                abort_flag,
-                &assistant_msg_id,
-            )
-            .await
-            .map_err(|e| format!("Stream error: {e}"))
-    };
+    let turn = run_assistant_turn(
+        &app,
+        &state,
+        &backend,
+        &session,
+        regen_ctx.messages_before,
+        regen_ctx.user_content,
+        attachments,
+        &model_spec.model_id,
+        abort_flag,
+        &assistant_msg_id,
+    )
+    .await;
 
     state.stream_registry.unregister(&session_id);
 
-    let result = stream_result?;
-    update_assistant_message(&state, &assistant_msg_id, &result)?;
+    let (result, tool_calls_json) = turn?;
+    update_assistant_message(&state, &assistant_msg_id, &result, tool_calls_json.as_deref())?;
     update_session_stats(&state, &session_id, &result)?;
 
     Ok(SendMessageResult {
@@ -246,6 +243,70 @@ pub fn resolve_model_spec(
             raw
         ))
     }
+}
+
+/// 将已连接 MCP Server 的工具描述注入 session 的 system prompt（无工具则不改）
+fn inject_mcp_prompt(state: &AppState, session: &mut crate::db::models::Session) {
+    let bridge = McpToolBridge::new(Arc::clone(&state.mcp_manager));
+    if let Some(tool_desc) = bridge.tool_descriptions() {
+        let base_prompt = session.system_prompt.clone().unwrap_or_default();
+        session.system_prompt = Some(format!("{base_prompt}{tool_desc}"));
+    }
+}
+
+/// 执行一轮 assistant 回复：有 MCP 工具时走多轮工具循环，否则单次流式
+///
+/// 返回 `(StreamResult, tool_calls_json)`；`tool_calls_json` 供 finalize 写入 DB。
+#[allow(clippy::too_many_arguments)]
+async fn run_assistant_turn(
+    app: &AppHandle,
+    state: &AppState,
+    backend: &RigBackend,
+    session: &crate::db::models::Session,
+    history: Vec<crate::db::models::Message>,
+    user_content: String,
+    attachments: Option<Vec<MessageAttachment>>,
+    model_id: &str,
+    abort_flag: Arc<AtomicBool>,
+    assistant_msg_id: &str,
+) -> Result<(StreamResult, Option<String>), String> {
+    let has_tools = McpToolBridge::new(Arc::clone(&state.mcp_manager)).has_tools();
+
+    if has_tools {
+        let tool_loop = McpToolLoop::new(
+            app,
+            &state.db,
+            &state.mcp_manager,
+            backend,
+            session,
+            model_id,
+            abort_flag,
+            assistant_msg_id,
+            MAX_TOOL_ROUNDS,
+        );
+        let outcome = tool_loop.run(history, user_content, attachments).await?;
+        let tool_calls_json = match outcome.tool_calls.is_empty() {
+            true => None,
+            false => Some(serde_json::to_string(&outcome.tool_calls).map_err(|e| e.to_string())?),
+        };
+        return Ok((outcome.result, tool_calls_json));
+    }
+
+    use crate::services::llm::ChatBackend;
+    let result = backend
+        .send_and_stream(
+            app,
+            session,
+            &history,
+            &user_content,
+            &attachments,
+            model_id,
+            abort_flag,
+            assistant_msg_id,
+        )
+        .await
+        .map_err(|e| format!("Stream error: {e}"))?;
+    Ok((result, None))
 }
 
 fn save_user_message(
@@ -345,6 +406,7 @@ fn update_assistant_message(
     state: &AppState,
     msg_id: &str,
     result: &crate::services::llm::StreamResult,
+    tool_calls_json: Option<&str>,
 ) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
 
@@ -366,6 +428,7 @@ fn update_assistant_message(
         thinking,
         usage_json.as_deref(),
         result.was_aborted,
+        tool_calls_json,
     )
     .map_err(|e| e.to_string())
 }

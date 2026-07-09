@@ -44,6 +44,48 @@ pub struct StreamErrorPayload {
     pub error: String,
 }
 
+/// 流式工具调用事件（对齐前端 `use-stream-listener.ts` `StreamToolCallEvent`）
+///
+/// `status` 取值 `"pending" | "running" | "complete" | "error"`（与前端 `ToolCallStatus` 一致）。
+#[derive(Debug, Clone, Serialize)]
+pub struct StreamToolCallPayload {
+    pub session_id: String,
+    pub message_id: String,
+    pub tool_call_id: String,
+    pub server_id: String,
+    pub server_name: String,
+    pub tool_name: String,
+    pub arguments: serde_json::Value,
+    pub status: String,
+}
+
+/// 流式工具结果事件（对齐前端 `use-stream-listener.ts` `StreamToolResultEvent`）
+#[derive(Debug, Clone, Serialize)]
+pub struct StreamToolResultPayload {
+    pub session_id: String,
+    pub message_id: String,
+    pub tool_call_id: String,
+    pub result: Option<serde_json::Value>,
+    pub error: Option<String>,
+    pub status: String,
+}
+
+/// emit 工具调用事件（`stream:tool_call`）
+///
+/// 尽力而为：emit 失败仅记录 warn，不中断工具循环。
+pub fn emit_tool_call(app: &AppHandle, payload: &StreamToolCallPayload) {
+    if let Err(e) = app.emit("stream:tool_call", payload) {
+        tracing::warn!(error = %e, "Failed to emit stream:tool_call");
+    }
+}
+
+/// emit 工具结果事件（`stream:tool_result`）
+pub fn emit_tool_result(app: &AppHandle, payload: &StreamToolResultPayload) {
+    if let Err(e) = app.emit("stream:tool_result", payload) {
+        tracing::warn!(error = %e, "Failed to emit stream:tool_result");
+    }
+}
+
 /// Token 用量信息
 #[derive(Debug, Clone, Serialize)]
 pub struct TokenUsageInfo {
@@ -121,6 +163,32 @@ impl StreamSession {
         prompt: rig::completion::message::Message,
         chat_history: Vec<rig::completion::message::Message>,
     ) -> anyhow::Result<StreamResult> {
+        self.consume_stream(agent, prompt, chat_history).await?;
+        self.finalize()
+    }
+
+    /// 流式消费但**不 emit** 终结的 `stream_complete`
+    ///
+    /// 用于 MCP 工具循环的每一轮：token/thinking 增量照常推送，
+    /// 但由循环在全部轮次结束后统一 emit 一次 `stream_complete`，
+    /// 避免中间轮过早将前端 `isStreaming` 置为 false。
+    pub async fn execute_stream_collect(
+        mut self,
+        agent: &AgentHandle,
+        prompt: rig::completion::message::Message,
+        chat_history: Vec<rig::completion::message::Message>,
+    ) -> anyhow::Result<StreamResult> {
+        self.consume_stream(agent, prompt, chat_history).await?;
+        Ok(self.into_result())
+    }
+
+    /// 消费流并逐块分发 delta（不做终结处理）
+    async fn consume_stream(
+        &mut self,
+        agent: &AgentHandle,
+        prompt: rig::completion::message::Message,
+        chat_history: Vec<rig::completion::message::Message>,
+    ) -> anyhow::Result<()> {
         use futures::StreamExt;
 
         let mut stream = agent
@@ -151,7 +219,18 @@ impl StreamSession {
             }
         }
 
-        self.finalize()
+        Ok(())
+    }
+
+    /// 汇总流式结果但不 emit（消费 self）
+    fn into_result(self) -> StreamResult {
+        let was_aborted = self.abort_flag.load(Ordering::Relaxed);
+        StreamResult {
+            content: self.accumulated_content,
+            thinking: self.accumulated_thinking,
+            usage: self.usage,
+            was_aborted,
+        }
     }
 
     /// 处理单个流式 delta（已经过类型擦除）

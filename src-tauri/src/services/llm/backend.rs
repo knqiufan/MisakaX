@@ -14,7 +14,7 @@ use crate::services::llm::config::LlmConfig;
 use crate::services::llm::factory::ProviderFactory;
 use crate::services::llm::streaming::{StreamResult, StreamSession};
 
-use super::traits::LlmProvider;
+use super::traits::{AgentHandle, LlmProvider};
 
 /// 图片附件数据（Base64 编码）。保留独立结构以兼容既有测试与旧消息 JSON。
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -156,6 +156,63 @@ impl RigBackend {
         let provider = ProviderFactory::create(config, decrypted_key)?;
         Ok(Self::new(provider, llm_config))
     }
+
+    /// 构建单轮流式所需的 agent / prompt / history / session（send_and_stream 与 stream_round 共用）
+    #[allow(clippy::too_many_arguments)]
+    fn build_round(
+        &self,
+        app: &AppHandle,
+        session: &Session,
+        messages: &[Message],
+        user_content: &str,
+        attachments: &Option<Vec<MessageAttachment>>,
+        model_id: &str,
+        abort_flag: Arc<AtomicBool>,
+        message_id: &str,
+    ) -> Result<(AgentHandle, RigMessage, Vec<RigMessage>, StreamSession)> {
+        let agent =
+            self.provider
+                .build_agent(model_id, session.system_prompt.as_deref(), &self.llm_config)?;
+        let chat_history = build_rig_chat_history(messages);
+        let prompt = build_user_prompt(user_content, attachments);
+        let stream_session = StreamSession::new(
+            message_id.to_string(),
+            session.id.clone(),
+            app.clone(),
+            abort_flag,
+        );
+        Ok((agent, prompt, chat_history, stream_session))
+    }
+
+    /// 流式执行一轮对话但**不 emit** 终结的 `stream_complete`
+    ///
+    /// 供 MCP 工具循环逐轮调用；由循环在结束后统一 emit 一次完成事件。
+    #[allow(clippy::too_many_arguments)]
+    pub async fn stream_round(
+        &self,
+        app: &AppHandle,
+        session: &Session,
+        messages: &[Message],
+        user_content: &str,
+        attachments: &Option<Vec<MessageAttachment>>,
+        model_id: &str,
+        abort_flag: Arc<AtomicBool>,
+        message_id: &str,
+    ) -> Result<StreamResult> {
+        let (agent, prompt, chat_history, stream_session) = self.build_round(
+            app,
+            session,
+            messages,
+            user_content,
+            attachments,
+            model_id,
+            abort_flag,
+            message_id,
+        )?;
+        stream_session
+            .execute_stream_collect(&agent, prompt, chat_history)
+            .await
+    }
 }
 
 #[async_trait]
@@ -171,21 +228,16 @@ impl ChatBackend for RigBackend {
         abort_flag: Arc<AtomicBool>,
         message_id: &str,
     ) -> Result<StreamResult> {
-        let agent = self.provider.build_agent(
+        let (agent, prompt, chat_history, stream_session) = self.build_round(
+            app,
+            session,
+            messages,
+            user_content,
+            attachments,
             model_id,
-            session.system_prompt.as_deref(),
-            &self.llm_config,
-        )?;
-
-        let chat_history = build_rig_chat_history(messages);
-        let prompt = build_user_prompt(user_content, attachments);
-
-        let stream_session = StreamSession::new(
-            message_id.to_string(),
-            session.id.clone(),
-            app.clone(),
             abort_flag,
-        );
+            message_id,
+        )?;
 
         stream_session
             .execute_stream(&agent, prompt, chat_history)

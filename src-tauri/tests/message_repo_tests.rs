@@ -90,6 +90,7 @@ fn test_insert_assistant_placeholder_and_update() {
         Some("Let me think about this..."),
         Some(r#"{"input_tokens":100,"output_tokens":50,"total_tokens":150}"#),
         false,
+        None,
     )
     .unwrap();
 
@@ -107,12 +108,70 @@ fn test_insert_assistant_placeholder_and_update() {
 fn test_update_assistant_content_aborted() {
     let conn = setup_db();
     MessageRepo::insert_assistant_placeholder(&conn, "m1", "s1", "gpt-4o").unwrap();
-    MessageRepo::update_assistant_content(&conn, "m1", "Partial response...", None, None, true)
+    MessageRepo::update_assistant_content(&conn, "m1", "Partial response...", None, None, true, None)
         .unwrap();
 
     let messages = MessageRepo::find_recent(&conn, "s1", 10).unwrap();
     assert_eq!(messages[0].status, "aborted");
     assert_eq!(messages[0].content, "Partial response...");
+}
+
+// ─── tool_calls 持久化 ─────────────────────────────────────────────────
+
+#[test]
+fn test_update_assistant_content_persists_tool_calls() {
+    let conn = setup_db();
+    MessageRepo::insert_assistant_placeholder(&conn, "m1", "s1", "gpt-4o").unwrap();
+
+    let tool_calls = r#"[{"id":"tc1","server_id":"srv","server_name":"Filesystem","tool_name":"read_file","arguments":{"path":"package.json"},"result":{"content":"ok"},"status":"complete","error":null,"started_at":1000,"completed_at":1200}]"#;
+
+    MessageRepo::update_assistant_content(
+        &conn,
+        "m1",
+        "Here is the file.",
+        None,
+        None,
+        false,
+        Some(tool_calls),
+    )
+    .unwrap();
+
+    let messages = MessageRepo::find_recent(&conn, "s1", 10).unwrap();
+    let raw = messages[0]
+        .tool_calls
+        .as_deref()
+        .expect("tool_calls should be persisted");
+
+    // round-trip：读出的 JSON 应能反序列化为数组且字段齐全
+    let parsed: Vec<serde_json::Value> = serde_json::from_str(raw).unwrap();
+    assert_eq!(parsed.len(), 1);
+    assert_eq!(parsed[0]["tool_name"], "read_file");
+    assert_eq!(parsed[0]["status"], "complete");
+    assert_eq!(parsed[0]["arguments"]["path"], "package.json");
+}
+
+#[test]
+fn test_update_assistant_content_without_tool_calls_keeps_null() {
+    let conn = setup_db();
+    MessageRepo::insert_assistant_placeholder(&conn, "m1", "s1", "gpt-4o").unwrap();
+
+    MessageRepo::update_assistant_content(&conn, "m1", "Plain answer.", None, None, false, None)
+        .unwrap();
+
+    let messages = MessageRepo::find_recent(&conn, "s1", 10).unwrap();
+    assert!(messages[0].tool_calls.is_none());
+}
+
+#[test]
+fn test_update_tool_calls_standalone() {
+    let conn = setup_db();
+    MessageRepo::insert_assistant_placeholder(&conn, "m1", "s1", "gpt-4o").unwrap();
+
+    let tool_calls = r#"[{"id":"tc1","tool_name":"list_dir","status":"running"}]"#;
+    MessageRepo::update_tool_calls(&conn, "m1", tool_calls).unwrap();
+
+    let messages = MessageRepo::find_recent(&conn, "s1", 10).unwrap();
+    assert_eq!(messages[0].tool_calls.as_deref(), Some(tool_calls));
 }
 
 // ─── find_recent 分页与排序 ───────────────────────────────────────────
@@ -457,6 +516,7 @@ fn test_fts_search_finds_assistant_messages() {
         None,
         None,
         false,
+        None,
     )
     .unwrap();
 

@@ -15,6 +15,22 @@ pub struct McpToolBridge {
 }
 
 impl McpToolBridge {
+    /// 注入到 system prompt 末尾的工具调用协议说明
+    ///
+    /// 与 `services/mcp/tool_loop.rs` 的解析器约定一致：模型需以**单个 JSON 对象**
+    /// 发起一次工具调用（可选包裹在 ```json fenced block 中）。
+    const TOOL_CALL_PROTOCOL: &'static str = "\
+## Tool Call Protocol\n\
+When you need to call a tool, respond with ONLY a single JSON object (optionally wrapped in a ```json code fence), and nothing else:\n\
+```json\n\
+{\"name\": \"<tool_name>\", \"arguments\": { /* schema-conforming args */ }}\n\
+```\n\
+Rules:\n\
+- Call at most ONE tool per response.\n\
+- Emit no prose before or after the JSON when calling a tool.\n\
+- After you receive a message starting with \"[Tool Result for ...]\", use it to continue; either call another tool or give the final answer as plain text.\n\
+- If no tool is needed, just answer normally in plain text.\n";
+
     pub fn new(manager: Arc<McpManager>) -> Self {
         Self { manager }
     }
@@ -30,7 +46,7 @@ impl McpToolBridge {
 
         let mut desc = String::from(
             "\n\n## Available Tools\n\
-             You can call the following tools by responding with a JSON block.\n\n",
+             You can call the following tools to help answer the user.\n\n",
         );
 
         for tool in &tools {
@@ -45,6 +61,8 @@ impl McpToolBridge {
                     .unwrap_or_else(|_| "{}".to_string())
             ));
         }
+
+        desc.push_str(Self::TOOL_CALL_PROTOCOL);
 
         Some(desc)
     }

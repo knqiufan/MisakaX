@@ -132,7 +132,8 @@ export function useStreamListener(sessionId: string | null) {
       const u3 = await listen<StreamCompleteEvent>(
         "stream_complete",
         (event) => {
-          const { session_id, message_id, usage, was_aborted } = event.payload;
+          const { session_id, message_id, full_content, full_thinking, usage, was_aborted } =
+            event.payload;
           if (session_id !== sessionId) return;
 
           ensureMessageId(message_id);
@@ -140,16 +141,21 @@ export function useStreamListener(sessionId: string | null) {
           setMessageStatus(message_id, status);
           setStreaming(false);
 
-          if (usage) {
-            const store = useChatStore.getState();
-            useChatStore.setState({
-              messages: store.messages.map((m) =>
-                m.id === message_id
-                  ? { ...m, token_usage: JSON.stringify(usage) }
-                  : m
-              ),
-            });
-          }
+          // 以后端权威 full_content 覆盖流式累计内容：MCP 工具循环的中间轮
+          // 可能把工具调用 JSON 流入气泡，最终应显示剥离后的可见文本。
+          const store = useChatStore.getState();
+          useChatStore.setState({
+            messages: store.messages.map((m) =>
+              m.id === message_id
+                ? {
+                    ...m,
+                    content: full_content,
+                    thinking_content: full_thinking || m.thinking_content,
+                    ...(usage ? { token_usage: JSON.stringify(usage) } : {}),
+                  }
+                : m
+            ),
+          });
         }
       );
       unlisteners.push(u3);

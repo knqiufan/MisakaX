@@ -45,6 +45,9 @@ impl MessageRepo {
         Ok(())
     }
 
+    /// finalize assistant 消息：一次性写入正文/状态/用量/思维链/工具调用
+    ///
+    /// `tool_calls` 为与前端 `ToolCall[]` 对齐的 JSON 字符串；`None` 表示本轮无工具调用。
     pub fn update_assistant_content(
         conn: &Connection,
         msg_id: &str,
@@ -52,14 +55,15 @@ impl MessageRepo {
         thinking: Option<&str>,
         usage_json: Option<&str>,
         was_aborted: bool,
+        tool_calls: Option<&str>,
     ) -> Result<()> {
         let status = if was_aborted { "aborted" } else { "complete" };
 
         conn.execute(
             "UPDATE messages SET content = ?1, status = ?2, token_usage = ?3,
-                    thinking_content = ?4
-             WHERE id = ?5",
-            rusqlite::params![content, status, usage_json, thinking, msg_id],
+                    thinking_content = ?4, tool_calls = ?5
+             WHERE id = ?6",
+            rusqlite::params![content, status, usage_json, thinking, tool_calls, msg_id],
         )?;
 
         let session_id: String = conn
@@ -71,6 +75,15 @@ impl MessageRepo {
             .context("Message not found when syncing FTS")?;
 
         Self::sync_fts(conn, msg_id, content, &session_id, "assistant");
+        Ok(())
+    }
+
+    /// 单独更新某条消息的 `tool_calls` JSON（工具循环中途 flush 使用）
+    pub fn update_tool_calls(conn: &Connection, msg_id: &str, tool_calls_json: &str) -> Result<()> {
+        conn.execute(
+            "UPDATE messages SET tool_calls = ?1 WHERE id = ?2",
+            rusqlite::params![tool_calls_json, msg_id],
+        )?;
         Ok(())
     }
 

@@ -2,7 +2,7 @@ use std::sync::atomic::Ordering;
 
 use misaka_x_lib::services::llm::{
     StreamCompletePayload, StreamErrorPayload, StreamRegistry, StreamThinkingPayload,
-    StreamTokenPayload, StreamUsage, TokenUsageInfo,
+    StreamToolCallPayload, StreamToolResultPayload, StreamTokenPayload, StreamUsage, TokenUsageInfo,
 };
 
 // ─── StreamRegistry tests ──────────────────────────────
@@ -171,4 +171,61 @@ fn test_stream_error_payload_serialize() {
     };
     let json = serde_json::to_string(&payload).unwrap();
     assert!(json.contains("\"error\":\"Connection refused\""));
+}
+
+// ─── Tool Event Payload serialization tests ────────────
+// 字段名必须与前端 use-stream-listener.ts 的解构完全一致。
+
+#[test]
+fn test_stream_tool_call_payload_serialize() {
+    let payload = StreamToolCallPayload {
+        session_id: "s1".to_string(),
+        message_id: "m1".to_string(),
+        tool_call_id: "tc1".to_string(),
+        server_id: "srv".to_string(),
+        server_name: "Filesystem".to_string(),
+        tool_name: "read_file".to_string(),
+        arguments: serde_json::json!({ "path": "package.json" }),
+        status: "running".to_string(),
+    };
+    let json = serde_json::to_string(&payload).unwrap();
+    assert!(json.contains("\"tool_call_id\":\"tc1\""));
+    assert!(json.contains("\"server_id\":\"srv\""));
+    assert!(json.contains("\"server_name\":\"Filesystem\""));
+    assert!(json.contains("\"tool_name\":\"read_file\""));
+    assert!(json.contains("\"arguments\":{\"path\":\"package.json\"}"));
+    assert!(json.contains("\"status\":\"running\""));
+}
+
+#[test]
+fn test_stream_tool_result_payload_serialize_complete() {
+    let payload = StreamToolResultPayload {
+        session_id: "s1".to_string(),
+        message_id: "m1".to_string(),
+        tool_call_id: "tc1".to_string(),
+        result: Some(serde_json::json!({ "content": "ok" })),
+        error: None,
+        status: "complete".to_string(),
+    };
+    let json = serde_json::to_string(&payload).unwrap();
+    assert!(json.contains("\"tool_call_id\":\"tc1\""));
+    assert!(json.contains("\"result\":{\"content\":\"ok\"}"));
+    assert!(json.contains("\"error\":null"));
+    assert!(json.contains("\"status\":\"complete\""));
+}
+
+#[test]
+fn test_stream_tool_result_payload_serialize_error() {
+    let payload = StreamToolResultPayload {
+        session_id: "s1".to_string(),
+        message_id: "m1".to_string(),
+        tool_call_id: "tc1".to_string(),
+        result: None,
+        error: Some("boom".to_string()),
+        status: "error".to_string(),
+    };
+    let json = serde_json::to_string(&payload).unwrap();
+    assert!(json.contains("\"result\":null"));
+    assert!(json.contains("\"error\":\"boom\""));
+    assert!(json.contains("\"status\":\"error\""));
 }
