@@ -2,15 +2,15 @@
 
 > **用途：** 记录代码库真实进度，标明「从哪里继续开发」。  
 > **受众：** 维护者、协作者、AI 辅助开发。  
-> **最后审阅 / Last reviewed:** 2026-07-07
+> **最后审阅 / Last reviewed:** 2026-07-09
 
 ---
 
 ## 1. 一句话结论
 
-**当前处于 Phase 3 收尾阶段（约 85%），尚未交付 M2 里程碑。**
+**当前处于 Phase 3 代码关门阶段（约 95%），M2 里程碑等待最终 UI/实机复验记录。**
 
-MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目录、MCP 管理、Provider 配置）；Phase 3 仍缺 Sidecar 运行时守护、对话内 MCP 工具闭环、Nuitka 验收。**请先完成 Phase 3，再进入 Phase 4（DeepAgents）。**
+MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目录、MCP 管理、Provider 配置）。Phase 3 的 Sidecar watchdog、对话内 MCP 工具闭环、导入刷新、Nuitka 打包和 F1-F3 自动化测试已落地；进入 Phase 4 前请先按 Phase 3 §6 补齐最终 UI/实机复验记录。
 
 **续做入口：** [`docs/planning/PHASE_3_REMAINING_TODO.md`](../planning/PHASE_3_REMAINING_TODO.md)（Epic A–F 详细 TODO + V1–V30 记录表）
 
@@ -25,20 +25,20 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 | **Phase 0** | 环境搭建与项目初始化 | ✅ 完成 | ~100% | [PHASE_0_DETAILED_PLAN.md](../planning/PHASE_0_DETAILED_PLAN.md) |
 | **Phase 1** | UI 骨架、设置、主题、i18n、Provider | ✅ 完成 | ~95% | [PHASE_1_DETAILED_PLAN.md](../planning/PHASE_1_DETAILED_PLAN.md) |
 | **Phase 2** | Rig 过渡对话、流式管线、工作目录 | ✅ 完成 | ~95% | [PHASE_2_DETAILED_PLAN.md](../planning/PHASE_2_DETAILED_PLAN.md) |
-| **Phase 3** | Sidecar 预热、MCP、会话高级管理 | 🟡 **进行中** | ~85% | [PHASE_3_REMAINING_TODO.md](../planning/PHASE_3_REMAINING_TODO.md) |
+| **Phase 3** | Sidecar 预热、MCP、会话高级管理 | 🟡 **代码关门，待实机复验** | ~95% | [PHASE_3_REMAINING_TODO.md](../planning/PHASE_3_REMAINING_TODO.md) |
 | **Phase 4** | DeepAgents 全对话迁移 + PowerMem | ⏸️ 待 Phase 3 | ~5% | [PHASE_4_DETAILED_PLAN.md](../planning/PHASE_4_DETAILED_PLAN.md) |
 | **Phase 5** | Skills + 知识库 RAG | ❌ 未开始 | ~0% | 总体规划 §8 |
 | **Phase 6** | 打磨、Dashboard、打包、发布 | ❌ 未开始 | ~0% | 总体规划 §9 |
 | **Phase B** | Buddy 桌面伴侣 | ❌ 未开始 | ~0% | 总体规划 §10 |
 
-**综合主线进度：约 50%–55%**（Phase 0–2 已交付；**Phase 3 进行中**，完成后方可进入 Phase 4）。
+**综合主线进度：约 55%–60%**（Phase 0–2 已交付；**Phase 3 代码关门，待最终实机复验**，完成记录后进入 Phase 4）。
 
 ### 里程碑对照
 
 | 里程碑 | 目标 | 状态 |
 |--------|------|------|
 | **M1** 核心可用 | Rig 对话 + 工作目录 + 会话管理 | ✅ 已达成 |
-| **M2** 基础设施就绪 | Sidecar 预热 + MCP 全链路 | 🟡 Phase 3 进行中（见 Phase 3 §1.3） |
+| **M2** 基础设施就绪 | Sidecar 预热 + MCP 全链路 | 🟡 代码路径就绪，待 UI/实机复验记录 |
 | **M3** Agent 平台 | DeepAgents 接管对话 | ⏸️ Phase 4（Phase 3 完成后） |
 | **M4** 知识增强 | Skills + 知识库 | ❌ Phase 5 |
 | **M5** 发布就绪 | 跨平台打包 + 打磨 | ❌ Phase 6 |
@@ -87,6 +87,7 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 - MCP Server 配置（Settings + DB + `~/.misakax/mcp.json`）
 - 工具列表、调用、权限审批（ask / approve / deny / always allow）
 - 对话内 Tool Call 展示与 `ToolApprovalDialog`
+- 对话内 MCP 工具循环：解析 LLM tool JSON → 审批 → 执行/拒绝 → stream event → `tool_calls` 持久化
 
 **关键路径：**
 
@@ -99,6 +100,8 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 
 - 应用启动可自动预热 Python Sidecar（`auto_start_sidecar` in config）
 - 健康检查、`SidecarStatusBadge` 状态展示
+- 运行时 watchdog：就绪后检测子进程退出 / health 失败，最多 3 次自动重启
+- Nuitka 二进制优先启动：存在 `agent/dist/misaka-agent.exe` 时优先 spawn，否则回退 uvicorn
 - `/health`、`/info` 可用；`/agent/chat`、`/agent/stream` 返回 **501 占位**
 
 **关键路径：** `src-tauri/src/sidecar.rs`、`src-tauri/src/services/sidecar_client.rs`、`agent/app/routers/`
@@ -107,8 +110,8 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 
 | 范围 | 数量 | 运行命令 |
 |------|------|----------|
-| 前端 Vitest | 18 个测试文件 | `npm test` |
-| Rust 集成测试 | 27 个测试文件 | 日常：`cargo test --test <name>`；提交前：`cargo nextest run --all-features --profile ci`（或 `cargo test`） |
+| 前端 Vitest | 20 个测试文件 | `npm test` |
+| Rust 集成测试 | 31 个测试文件 | 日常：`cargo test --test <name>`；提交前：`cargo nextest run --all-features --profile ci`（或 `cargo test`） |
 
 > Rust 日常构建/测试依赖增量编译，**不要**在每次 `cargo test` 前执行 `cargo clean`。日常改代码优先 `cargo check` + 精准 `--test`（映射表见优化指南 §4.2）；Cursor hook `.cursor/hooks/post-edit-test.sh` 已按映射自动选择测试。仅在链接异常、切分支后编译诡异失败等情况下按需 `cargo clean`。见 [`docs/guides/rust-build-test-optimization.md`](../guides/rust-build-test-optimization.md)。
 
@@ -116,13 +119,13 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 
 ## 4. 未完成 / 占位项
 
-### 4.1 Phase 3 遗留（建议在 Phase 4 前或并行收尾）
+### 4.1 Phase 3 遗留（进入 Phase 4 前确认）
 
 | 项 | 现状 | 参考 |
 |----|------|------|
 | Sidecar Agent 端点 | `agent/app/routers/agent.py` 返回 501 | Phase 3 AC-4 → Phase 4 替换 |
-| Nuitka Sidecar 打包 | 有 `agent/build_nuitka.py`，未纳入发布流程 | Phase 3 §3.15 |
-| Sidecar 崩溃自动重启 | `SidecarManager` 有预热逻辑，重启策略需对照 Phase 3 验收 | `src-tauri/src/sidecar.rs` |
+| UI/实机复验记录 | C/D/F 自动化与 CLI 验证已完成；V1-V26 中仍有若干 UI 操作需人工最终确认 | Phase 3 §6 |
+| 发布捆绑 | Nuitka 本地产物已验收；`tauri.conf.json` `externalBin` 与安装包捆绑属发布阶段 | Phase 6 |
 
 ### 4.2 Phase 4 核心缺口（**主续做线**）
 
@@ -151,7 +154,7 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 
 ### 当前：完成 Phase 3
 
-详见 [`PHASE_3_REMAINING_TODO.md`](../planning/PHASE_3_REMAINING_TODO.md) — 建议顺序：**A1 → B1–B4 → C1 → D1 → E1–E5**。
+详见 [`PHASE_3_REMAINING_TODO.md`](../planning/PHASE_3_REMAINING_TODO.md) — 当前重点是补齐 §6 中 UI/实机复验记录，然后进入 Phase 4。
 
 | Epic | 首项 TODO | 入口文件 |
 |------|-----------|----------|

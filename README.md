@@ -18,7 +18,7 @@ MisakaX 是一个开源的桌面 AI Agent 客户端，采用三层架构设计�
 - **React 前端** — 会话管理、流式对话 UI、工作目录、Provider / MCP 设置
 - **Python Sidecar** — Sidecar 预热与健康检查已就绪；DeepAgents + PowerMem 对话编排（Phase 4 规划中）
 
-> **开发状态：** Phase 3 进行中（~85%），**请先完成 Phase 3 再进入 Phase 4**。  
+> **开发状态：** Phase 3 代码关门（~95%），**请先补齐最终 UI/实机复验记录再进入 Phase 4**。  
 > 剩余任务见 [`PHASE_3_REMAINING_TODO.md`](docs/planning/PHASE_3_REMAINING_TODO.md)；总览见 [`DEVELOPMENT_STATUS.md`](docs/project/DEVELOPMENT_STATUS.md)。
 
 ## 已实现功能
@@ -187,7 +187,7 @@ misaka-x/
 | Phase 0 | 项目骨架、数据库、配置、UI 框架 | ✅ |
 | Phase 1 | AppShell、设置、Provider、主题、i18n | ✅ |
 | Phase 2 | Rig 过渡对话、流式渲染、工作目录 | ✅ |
-| Phase 3 | Sidecar 预热、MCP、会话高级管理 | 🟡 **进行中** |
+| Phase 3 | Sidecar 预热、MCP、会话高级管理 | 🟡 **代码关门，待实机复验** |
 | Phase 4 | DeepAgents 全对话迁移 + PowerMem | ⏸️ Phase 3 完成后 |
 | Phase 5 | Skills + 知识库 RAG | 未开始 |
 | Phase 6 | Dashboard、打包、跨平台发布 | 未开始 |

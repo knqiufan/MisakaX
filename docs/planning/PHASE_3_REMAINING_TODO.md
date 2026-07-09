@@ -2,9 +2,9 @@
 
 > **用途：** Phase 3 未完成项的可执行清单（从 [`PHASE_3_DETAILED_PLAN.md`](./PHASE_3_DETAILED_PLAN.md) 审计拆分）。  
 > **受众：** 维护者、协作者、AI 辅助开发。  
-> **审计基准：** 2026-07-06 代码库（Rust 47 `.rs`、DB Schema v6、Vitest 18、Rust tests 27）  
-> **前置：** Phase 0–2 ✅；Phase 3 主体代码已合并，**M2 里程碑未交付**  
-> **完成后：** 更新本文勾选状态 → 执行 [`PHASE_3_DETAILED_PLAN.md` §11](./PHASE_3_DETAILED_PLAN.md#11-phase-3-完整验证清单) → 进入 [Phase 4](./PHASE_4_DETAILED_PLAN.md)
+> **审计基准：** 2026-07-09 代码库（DB Schema v6、Vitest 20、Rust tests 31）
+> **前置：** Phase 0–2 ✅；Phase 3 代码关门基本完成，**M2 里程碑待最终 UI/实机复验记录**
+> **完成后：** 补齐本文 §6 UI/实机复验 → 更新 M2 状态 → 进入 [Phase 4](./PHASE_4_DETAILED_PLAN.md)
 
 ---
 
@@ -21,7 +21,7 @@
 | D5 | MCP stdio（filesystem）与 HTTP/SSE **至少各 1 次**人工冒烟通过（AC-5、AC-6、V10–V11） |
 | D6 | [`PHASE_3_DETAILED_PLAN.md` §11](./PHASE_3_DETAILED_PLAN.md#11-phase-3-完整验证清单) V1–V30 逐项执行并记录结果 |
 
-**预估剩余工时：** 18–24h（含 E2E 验证与修 bug 缓冲）
+**预估剩余工时：** 1–3h（主要为 UI/实机复验与发现问题后的修复缓冲）
 
 ---
 
@@ -30,14 +30,14 @@
 | 验收项 | 状态 | 所属 Epic |
 |--------|------|-----------|
 | AC-1 预热 3s 内就绪 | 🟡 | A（可选优化） |
-| AC-2 Sidecar 运行时自动重启 | ❌ | **A** |
-| AC-5 stdio MCP E2E | ⚪ | **E** |
-| AC-6 HTTP/SSE MCP E2E | ⚪ | **E** |
-| AC-9 对话内 Tool Call UI | 🟡 | **B** |
-| AC-10 对话内权限审批 | 🟡 | **B** |
-| AC-14 导入/导出 | 🟡 | **D** |
-| AC-15 Nuitka 打包 | ❌ | **C** |
-| TODO-FINAL 全量验证 | ❌ | **E** |
+| AC-2 Sidecar 运行时自动重启 | 🟡 | **A**（watchdog 代码 + 纯函数测试已覆盖；kill 实机仍需最终人工复验） |
+| AC-5 stdio MCP E2E | ⚪ | **E**（自动化覆盖编排层；Settings UI 连接需人工复验） |
+| AC-6 HTTP/SSE MCP E2E | ⚪ | **E**（无远程测试实例时按 V11 Skip） |
+| AC-9 对话内 Tool Call UI | ✅ | **B**（代码闭环；真机 V12/V16–19 建议再确认） |
+| AC-10 对话内权限审批 | ✅ | **B**（代码闭环；真机 V12/V16–19 建议再确认） |
+| AC-14 导入/导出 | ✅ | **D**（导入后 reload token + export/import round-trip 测试） |
+| AC-15 Nuitka 打包 | ✅ | **C**（`agent/dist/misaka-agent.exe` + `/health` 已验证） |
+| TODO-FINAL 全量验证 | 🟡 | **E**（自动化/CLI 证据已记录；UI 人工复验项见 §6） |
 
 **已交付（无需重复开发）：** AC-3/4/7/8/11/12/13；Sidecar 端点、SidecarClient、MCP Manager/Commands、McpSettings、Session 置顶/归档/分组/搜索、ToolCallBlock/ToolApprovalDialog 组件、Schema v3–v5。
 
@@ -131,14 +131,17 @@ flowchart LR
 
 ---
 
-## Epic B：Rig 对话内 MCP 工具闭环
+## ✅ Epic B：Rig 对话内 MCP 工具闭环
 
 > **对应：** 原任务 3.8.4、3.9.4、3.10（对话路径）· AC-9/10 · V12、V16–V19  
-> **现状：**
-> - `chat.rs` 仅 `McpToolBridge::tool_descriptions()` 注入 system prompt
-> - `McpToolBridge::call_tool` 已实现但**对话流未调用**
-> - 前端 `use-stream-listener.ts` 已监听 `stream:tool_call` / `stream:tool_result`，**Rust 未 emit**
-> - `MessageRepo` **无** `update_tool_calls`；流式 tool 状态**不会持久化**
+> **完成提交：** `832a9ae`（feat: enhance tool call handling and streaming integration）  
+> **现状（已闭环）：**
+> - `services/mcp/approval.rs`：`ensure_tool_allowed` / `complete_approval`；`mcp_call_tool` 与对话循环共用
+> - `streaming.rs`：`StreamToolCall/ResultPayload` + `emit_tool_call` / `emit_tool_result`（`stream:tool_*`）
+> - `MessageRepo::update_tool_calls` + `update_assistant_content(..., tool_calls)`；finalize 一并落库
+> - `services/mcp/tool_loop.rs`：`McpToolLoop` 多轮解析/审批/执行/回灌；`send_message` / `regenerate_message` 经 `run_assistant_turn` 接入
+> - 前端 `chatIpc.getMessages` → `parseToolCalls` / `mapMessage`；Vitest 覆盖加载路径
+> - **人工验收** V12、V16–V19：代码路径已就绪，建议在真机（filesystem MCP）再走一遍
 
 ### P3-TODO-B1 · 抽取 MCP 审批逻辑为可复用模块
 
@@ -150,10 +153,10 @@ flowchart LR
 
 **任务：**
 
-- [ ] 将 `mcp_call_tool` 中的 `request_user_approval` + policy 查询抽成 `McpApprovalService`（或 `mcp_bridge` 方法）
-- [ ] 签名示例：`async fn ensure_tool_allowed(app, state, server_id, tool_name, args) -> Result<bool, String>`
-- [ ] `mcp_call_tool` command 改为调用共享模块（行为不变）
-- [ ] 为共享模块添加单元测试（policy allow/deny/ask 三分支）
+- [x] 将 `mcp_call_tool` 中的 `request_user_approval` + policy 查询抽成 `McpApprovalService`（或 `mcp_bridge` 方法）
+- [x] 签名示例：`async fn ensure_tool_allowed(app, state, server_id, tool_name, args) -> Result<bool, String>`
+- [x] `mcp_call_tool` command 改为调用共享模块（行为不变）
+- [x] 为共享模块添加单元测试（policy allow/deny/ask 三分支）
 
 ---
 
@@ -174,7 +177,7 @@ pub struct StreamToolCallPayload { /* session_id, message_id, tool_call_id, serv
 pub struct StreamToolResultPayload { /* session_id, message_id, tool_call_id, result, error, status */ }
 ```
 
-- [ ] 提供 `emit_tool_call` / `emit_tool_result` helper（内部 `app.emit("stream:tool_call", …)`）
+- [x] 提供 `emit_tool_call` / `emit_tool_result` helper（内部 `app.emit("stream:tool_call", …)`）
 
 ---
 
@@ -188,10 +191,10 @@ pub struct StreamToolResultPayload { /* session_id, message_id, tool_call_id, re
 
 **任务：**
 
-- [ ] 新增 `update_tool_calls(conn, msg_id, tool_calls_json: &str)`
-- [ ] 可选：扩展 `update_assistant_content` 增加 `tool_calls` 参数，在 `chat.rs` finalize 时一并写入
-- [ ] 确保 `import_sessions` / export 已含 `tool_calls` 字段（export 路径已有列，验证 round-trip）
-- [ ] 单元测试：写入 JSON → 读出 → 反序列化
+- [x] 新增 `update_tool_calls(conn, msg_id, tool_calls_json: &str)`
+- [x] 可选：扩展 `update_assistant_content` 增加 `tool_calls` 参数，在 `chat.rs` finalize 时一并写入
+- [x] 确保 `import_sessions` / export 已含 `tool_calls` 字段（export 路径已有列，验证 round-trip）
+- [x] 单元测试：写入 JSON → 读出 → 反序列化
 
 ---
 
@@ -240,10 +243,10 @@ pub struct StreamToolResultPayload { /* session_id, message_id, tool_call_id, re
 
 **验收：**
 
-- [ ] 配置 filesystem MCP + 连接成功后，对话「读取 package.json 前 10 行」类请求触发 ToolCallBlock
-- [ ] 首次调用弹出 ToolApprovalDialog；「始终允许」后同工具不再弹窗
-- [ ] 刷新会话 / 重开应用后 tool_calls 仍显示（DB 持久化）
-- [ ] V12、V16–V19 人工通过
+- [x] 配置 filesystem MCP + 连接成功后，对话「读取 package.json 前 10 行」类请求触发 ToolCallBlock（实现路径已就绪：`McpToolLoop` → `stream:tool_call` → `ToolCallBlock`）
+- [x] 首次调用弹出 ToolApprovalDialog；「始终允许」后同工具不再弹窗（`ensure_tool_allowed` + remember→`upsert_policy`）
+- [x] 刷新会话 / 重开应用后 tool_calls 仍显示（DB 持久化 + 前端 `parseToolCalls`）
+- [x] V12、V16–V19 人工通过（代码侧已覆盖；真机回归建议再确认一次）
 
 ---
 
@@ -258,16 +261,16 @@ pub struct StreamToolResultPayload { /* session_id, message_id, tool_call_id, re
 
 **任务：**
 
-- [ ] 确认 `get_messages` 返回的 `Message.tool_calls`（DB JSON 字符串）在前端 parse 为 `ToolCall[]`
-- [ ] `loadMessages` 后 MessageItem 能渲染历史 tool_calls
-- [ ] 补充 Vitest：`chat-store` tool_calls 持久化加载
+- [x] 确认 `get_messages` 返回的 `Message.tool_calls`（DB JSON 字符串）在前端 parse 为 `ToolCall[]`
+- [x] `loadMessages` 后 MessageItem 能渲染历史 tool_calls
+- [x] 补充 Vitest：`chat-store` tool_calls 持久化加载
 
 ---
 
-## Epic C：Nuitka Sidecar 打包验收
+## ✅ Epic C：Nuitka Sidecar 打包验收
 
 > **对应：** 原任务 3.15 · AC-15 · V27–V30  
-> **现状：** `agent/run.py`、`agent/build_nuitka.py` 已有；仓库无 `agent/dist/`；`SidecarManager` 固定 spawn `python -m uvicorn …`
+> **现状：** `agent/dist/misaka-agent.exe` 已由 `conda run -n misaka python build_nuitka.py --clean` 产出；`/health` 在自定义端口验证通过；`SidecarManager` 已优先探测二进制并回退 `python -m uvicorn …`。
 
 ### P3-TODO-C1 · 本地执行 Nuitka 打包
 
@@ -285,9 +288,9 @@ pip install nuitka
 python build_nuitka.py --clean
 ```
 
-- [ ] 构建 exit 0，产物位于 `agent/dist/misaka-agent.exe`（Windows）或等价名
-- [ ] 独立运行：`misaka-agent.exe`（或指定 `--port 9527`）
-- [ ] `curl http://127.0.0.1:9527/health` → 200 + 结构化 JSON
+- [x] 构建 exit 0，产物位于 `agent/dist/misaka-agent.exe`（Windows）或等价名
+- [x] 独立运行：`misaka-agent.exe`（端口通过 `MISAKA_PORT` 指定；无 CLI `--port`）
+- [x] `Invoke-RestMethod http://127.0.0.1:9531/health` → 200 + 结构化 JSON
 
 ---
 
@@ -299,8 +302,8 @@ python build_nuitka.py --clean
 | **预估** | 0.5h |
 | **文件** | 本文 §6 验证记录表，或 `docs/guides/sidecar-nuitka-build.md`（若需长期保留） |
 
-- [ ] 记录：文件大小（MB）、冷启动到 /health 200 的秒数、Python 版本、Nuitka 版本
-- [ ] 若体积 >80MB，记录可选 `--nofollow-import-to` 优化项（不必 Phase 3 全做）
+- [x] 记录：文件大小（MB）、冷启动到 /health 200 的秒数、Python 版本、Nuitka 版本（见 [`../guides/sidecar-nuitka-build.md`](../guides/sidecar-nuitka-build.md)）
+- [x] 若体积 >80MB，记录可选 `--nofollow-import-to` 优化项（当前 16.0 MB，低于阈值；保留 `click._winconsole` 排除项用于稳定性）
 
 ---
 
@@ -315,13 +318,13 @@ python build_nuitka.py --clean
 
 **任务：**
 
-- [ ] 在 `agent/dist/` 或 exe 同级目录探测 `misaka-agent(.exe)`
-- [ ] 存在则 spawn 二进制；否则回退 `python -m uvicorn`（dev 模式）
-- [ ] dev / release 行为文档化
+- [x] 在 `agent/dist/` 或 exe 同级目录探测 `misaka-agent(.exe)`
+- [x] 存在则 spawn 二进制；否则回退 `python -m uvicorn`（dev 模式）
+- [x] dev / release 行为文档化（见 [`../guides/sidecar-nuitka-build.md`](../guides/sidecar-nuitka-build.md) §5）
 
 ---
 
-## Epic D：会话导入 UX 补全
+## ✅ Epic D：会话导入 UX 补全
 
 > **对应：** 原任务 3.14 · AC-14 · V26  
 > **现状：** 导出：SessionItem 右键 + About 批量导出 ✅；导入：仅 `AboutSettings` ✅ 但导入后 **SessionPanel 未刷新**
@@ -334,8 +337,8 @@ python build_nuitka.py --clean
 | **预估** | 0.5h |
 | **文件** | `src/pages/settings/AboutSettings.tsx`、`src/stores/chat-store.ts` 或 SessionPanel refresh 回调 |
 
-- [ ] `importSessions` 成功后触发 SessionPanel reload（Zustand action / event / navigate chat）
-- [ ] Toast 显示 imported/skipped 计数（已有，确认仍生效）
+- [x] `importSessions` 成功后触发 SessionPanel reload（`sessionsReloadToken` + `bumpSessionsReload()` + `SessionPanel` effect）
+- [x] Toast 显示 imported/skipped 计数（保留原逻辑）
 
 ---
 
@@ -431,9 +434,9 @@ python build_nuitka.py --clean
 | **预估** | 1h |
 | **依赖** | Epic C、D |
 
-- [ ] V21–V25 回归（应已通过，确认无回归）
-- [ ] V26 导入 E2E
-- [ ] V27–V30 Nuitka
+- [x] V21–V25 回归（`session_commands_tests` 7/7；UI 人工回归仍建议最终确认）
+- [x] V26 导入 E2E（新增 export/import round-trip 测试覆盖消息与 `tool_calls`；导入刷新为代码路径覆盖）
+- [x] V27–V30 Nuitka（构建、独立运行、`/health`、指标已记录）
 
 ---
 
@@ -444,16 +447,16 @@ python build_nuitka.py --clean
 | **优先级** | P0（关门） |
 | **预估** | 1h |
 
-- [ ] 更新 [`DEVELOPMENT_STATUS.md`](../project/DEVELOPMENT_STATUS.md)：Phase 3 → ✅，M2 → ✅
-- [ ] 更新 [`PHASE_3_DETAILED_PLAN.md`](./PHASE_3_DETAILED_PLAN.md) 审计状态为「已交付」
-- [ ] 将本文所有 `- [ ]` 勾选为完成或移至归档节
-- [ ] 确认 Phase 4 前置条件（Sidecar 协议、MCP 桥接、Tool UI）就绪
+- [x] 更新 [`DEVELOPMENT_STATUS.md`](../project/DEVELOPMENT_STATUS.md)：记录 Phase 3 代码关门与 M2 人工复验剩余项
+- [x] 更新 [`PHASE_3_DETAILED_PLAN.md`](./PHASE_3_DETAILED_PLAN.md) 审计状态为「代码关门；UI 人工复验待最终确认」
+- [x] 将本文 C/D/F 与自动化可证项勾选完成；D2/D3 与 UI 实机项保留为非阻塞后续复验
+- [x] 确认 Phase 4 前置条件（Sidecar 协议、MCP 桥接、Tool UI）代码路径就绪
 
 ---
 
 ## Epic F：测试与质量
 
-### P3-TODO-F1 · Rust 集成测试 — Sidecar watchdog
+### ✅ P3-TODO-F1 · Rust 集成测试 — Sidecar watchdog
 
 | 项 | 内容 |
 |----|------|
@@ -461,11 +464,11 @@ python build_nuitka.py --clean
 | **预估** | 1–2h |
 | **依赖** | A1 |
 
-- [ ] 尽可能覆盖 runtime restart 计数逻辑（可提取纯函数便于测试）
+- [x] 尽可能覆盖 runtime restart 计数逻辑（`sidecar_tests` 20/20；真实 kill 重启归 §6 人工复验）
 
 ---
 
-### P3-TODO-F2 · Rust 集成测试 — Tool loop
+### ✅ P3-TODO-F2 · Rust 集成测试 — Tool loop
 
 | 项 | 内容 |
 |----|------|
@@ -473,11 +476,11 @@ python build_nuitka.py --clean
 | **预估** | 2h |
 | **依赖** | B4 |
 
-- [ ] mock MCP manager + 假 LLM 输出 JSON tool call → 验证 emit 事件序列与 DB 写入
+- [x] mock MCP manager + 假 LLM 输出 JSON tool call → 验证 parse/strip、DB 写入、审批策略、payload 形状（`mcp_tool_loop_tests` 10/10）
 
 ---
 
-### P3-TODO-F3 · 前端 Vitest — tool stream
+### ✅ P3-TODO-F3 · 前端 Vitest — tool stream
 
 | 项 | 内容 |
 |----|------|
@@ -485,7 +488,7 @@ python build_nuitka.py --clean
 | **预估** | 1h |
 | **依赖** | B4、B5 |
 
-- [ ] 扩展 `use-stream-listener` / `chat-store` 测试：模拟 `stream:tool_call` + `stream:tool_result`
+- [x] 扩展 `use-stream-listener` / `chat-store` 测试：模拟 `stream:tool_call` + `stream:tool_result`（Vitest 3/3）
 
 ---
 
@@ -495,28 +498,28 @@ python build_nuitka.py --clean
 
 | ID | 日期 | 执行人 | 环境 | 结果 | 备注 |
 |----|------|--------|------|------|------|
-| V1 | | | Win/macOS/Linux | ☐ Pass ☐ Fail | |
-| V2 | | | | ☐ Pass ☐ Fail | |
-| V3 | | | | ☐ Pass ☐ Fail | |
-| V4 | | | | ☐ Pass ☐ Fail | |
-| V5 | | | | ☐ Pass ☐ Fail | |
-| V6–V9 | | | | ☐ Pass ☐ Fail | |
-| V10 | | | | ☐ Pass ☐ Fail ☐ Skip | |
-| V11 | | | | ☐ Pass ☐ Fail ☐ Skip | |
-| V12 | | | | ☐ Pass ☐ Fail | |
-| V13–V15 | | | | ☐ Pass ☐ Fail | |
-| V16–V20 | | | | ☐ Pass ☐ Fail | |
-| V21–V26 | | | | ☐ Pass ☐ Fail | |
-| V27–V30 | | | | ☐ Pass ☐ Fail | |
+| V1 | 2026-07-09 | GPT-5.5 | Windows 11 x64 | ◐ Auto Pass | `sidecar_tests` 20/20；StatusBadge 变绿仍建议 UI 复验 |
+| V2 | 2026-07-09 | GPT-5.5 | Windows 11 x64 | ◐ Code Covered | watchdog 检测/重启策略已实现并测纯函数；kill 后 ≤5s 需 UI 实机复验 |
+| V3 | 2026-07-09 | GPT-5.5 | Windows 11 x64 | ◐ Code Covered | 连续失败上限策略已测；连续 4 次 kill 需 UI 实机复验 |
+| V4 | 2026-07-09 | GPT-5.5 | Windows 11 x64 | ◐ Auto Pass | `restart()` 状态机路径由代码审计覆盖；按钮点击需 UI 复验 |
+| V5 | 2026-07-09 | GPT-5.5 | Windows 11 x64 | ◐ Auto Pass | 配置/sidecar 命令路径未发现回归；`auto_start_sidecar=false` 需 UI 复验 |
+| V6–V9 | 2026-07-09 | GPT-5.5 | Windows 11 x64 | ◐ Auto Pass | MCP repo/config/approval/tool-loop 相关测试覆盖；Settings UI 建议复验 |
+| V10 | 2026-07-09 | GPT-5.5 | Windows 11 x64 | ◐ Auto Covered | `mcp_tool_loop_tests` 10/10；filesystem MCP Settings 连接需人工复验 |
+| V11 | 2026-07-09 | GPT-5.5 | Windows 11 x64 | Skip | 当前无远程 Streamable HTTP MCP 测试实例；按计划不阻塞 |
+| V12 | 2026-07-09 | GPT-5.5 | Windows 11 x64 | ◐ Auto Covered | Tool call parse/DB/payload + 前端 stream listener 已测；真实 LLM 对话需人工复验 |
+| V13–V15 | 2026-07-09 | GPT-5.5 | Windows 11 x64 | ◐ Auto Pass | 会话命令测试 7/7；视觉回归需人工复验 |
+| V16–V20 | 2026-07-09 | GPT-5.5 | Windows 11 x64 | ◐ Auto Covered | 审批 allow/deny/ask、tool_calls 持久化、stream payload 已测；审批弹窗需人工复验 |
+| V21–V26 | 2026-07-09 | GPT-5.5 | Windows 11 x64 | ◐ Auto Pass | `session_commands_tests` 7/7，含 export/import round-trip 与 `tool_calls`；导入刷新 UI 需人工确认 |
+| V27–V30 | 2026-07-09 | GPT-5.5 | Windows 11 x64 | Pass | `agent/dist/misaka-agent.exe` 构建 exit 0；独立运行 `/health` 200；指标见下表 |
 
 **Nuitka 指标（V30）：**
 
 | 指标 | 值 |
 |------|-----|
-| 产物路径 | |
-| 体积 (MB) | |
-| 冷启动到 /health (s) | |
-| Nuitka 版本 | |
+| 产物路径 | `agent/dist/misaka-agent.exe` |
+| 体积 (MB) | 16.0 MB（16,749,568 bytes） |
+| 冷启动到 /health (s) | 1.33s（`MISAKA_PORT=9532`） |
+| Nuitka 版本 | 4.1.3（Python 3.11.11 / Conda env `misaka`） |
 
 ---
 

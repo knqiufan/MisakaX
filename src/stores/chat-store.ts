@@ -35,6 +35,7 @@ interface ChatState {
   isThinkingStreaming: boolean;
   selectedModel: string | null;
   modelsVersion: number;
+  sessionsReloadToken: number;
 
   setActiveSession: (id: string | null) => void;
   setActiveSessionData: (session: Session | null) => void;
@@ -43,6 +44,7 @@ interface ChatState {
   setShowWorkspaceSelector: (show: boolean) => void;
   updateActiveSessionWorkingDir: (dir: string | null) => void;
   refreshSessions: () => Promise<void>;
+  bumpSessionsReload: () => void;
   requestAutoTitle: (sessionId: string, firstMessage: string) => void;
 
   setMessages: (messages: Message[]) => void;
@@ -75,6 +77,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isThinkingStreaming: false,
   selectedModel: readCachedModel(),
   modelsVersion: 0,
+  sessionsReloadToken: 0,
 
   setActiveSession: (id) => set({ activeSessionId: id }),
   setActiveSessionData: (session) => {
@@ -106,6 +109,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error("Failed to refresh sessions:", err);
     }
   },
+
+  bumpSessionsReload: () =>
+    set((state) => ({ sessionsReloadToken: state.sessionsReloadToken + 1 })),
 
   requestAutoTitle: (sessionId: string, firstMessage: string) => {
     const truncated = firstMessage.slice(0, 100);

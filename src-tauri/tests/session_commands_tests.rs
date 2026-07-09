@@ -1,8 +1,9 @@
 #[cfg(feature = "test-private")]
 mod tests {
+    use misaka_x_lib::commands::session::{export_sessions_to_file, import_sessions_from_file};
     use misaka_x_lib::config::AppConfig;
     use misaka_x_lib::db::migrations::run_migrations;
-    use misaka_x_lib::db::repository::{SessionRepo, WorkspaceRepo};
+    use misaka_x_lib::db::repository::{MessageRepo, SessionRepo, WorkspaceRepo};
     use misaka_x_lib::services::llm::StreamRegistry;
     use misaka_x_lib::services::mcp::McpManager;
     use misaka_x_lib::services::sidecar_client::SidecarClient;
@@ -158,5 +159,70 @@ mod tests {
             Some("C:\\Projects\\other-project".to_string())
         );
         assert_eq!(updated.project_name, Some("other-project".to_string()));
+    }
+
+    #[test]
+    fn export_import_roundtrip_preserves_messages_and_tool_calls() {
+        let source = create_test_state();
+        let source_conn = source.db.lock().unwrap();
+        SessionRepo::create(
+            &source_conn,
+            "roundtrip-session",
+            Some("Roundtrip"),
+            Some("gpt-4o"),
+            Some("D:\\code\\Misaka-Tauri"),
+        )
+        .unwrap();
+        MessageRepo::insert_user_message(
+            &source_conn,
+            "user-1",
+            "roundtrip-session",
+            "Read package.json",
+            None,
+        )
+        .unwrap();
+        MessageRepo::insert_assistant_placeholder(
+            &source_conn,
+            "assistant-1",
+            "roundtrip-session",
+            "gpt-4o",
+        )
+        .unwrap();
+        let tool_calls = r#"[{"id":"tc1","tool_name":"read_file","status":"complete"}]"#;
+        MessageRepo::update_assistant_content(
+            &source_conn,
+            "assistant-1",
+            "Done",
+            None,
+            None,
+            false,
+            Some(tool_calls),
+        )
+        .unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let export_path = dir.path().join("sessions.json");
+        export_sessions_to_file(
+            &source_conn,
+            &["roundtrip-session".to_string()],
+            &export_path,
+        )
+        .unwrap();
+
+        let target = create_test_state();
+        let target_conn = target.db.lock().unwrap();
+        let result = import_sessions_from_file(&target_conn, &export_path).unwrap();
+        assert_eq!(result.imported_count, 1);
+        assert_eq!(result.skipped_count, 0);
+        assert!(result.errors.is_empty());
+
+        let imported = SessionRepo::find_by_id(&target_conn, "roundtrip-session").unwrap();
+        assert_eq!(imported.title.as_deref(), Some("Roundtrip"));
+        assert_eq!(imported.project_name.as_deref(), Some("Misaka-Tauri"));
+
+        let messages = MessageRepo::find_recent(&target_conn, "roundtrip-session", 10).unwrap();
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0].content, "Read package.json");
+        assert_eq!(messages[1].tool_calls.as_deref(), Some(tool_calls));
     }
 } // mod tests

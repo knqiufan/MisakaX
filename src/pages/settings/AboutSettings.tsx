@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { settingsIpc, sessionsIpc } from "@/lib/ipc";
 import type { SystemInfo } from "@/lib/ipc";
+import { useChatStore } from "@/stores/chat-store";
 
 export function AboutSettings() {
   const { t } = useTranslation("settings");
@@ -172,6 +173,12 @@ function DataManagementCard() {
         toast.success(
           `${t("about.importSuccess")}: ${result.imported_count} ${t("about.imported")}, ${result.skipped_count} ${t("about.skipped")}`
         );
+      }
+
+      if (result.imported_count > 0) {
+        const store = useChatStore.getState();
+        await store.refreshSessions();
+        store.bumpSessionsReload();
       }
     } catch (err) {
       console.error("Import failed:", err);

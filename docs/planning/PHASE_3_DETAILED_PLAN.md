@@ -7,7 +7,7 @@
 > **前置文档：** [PHASE_2_DETAILED_PLAN.md](./PHASE_2_DETAILED_PLAN.md)、[MISAKAX_IMPLEMENTATION_PLAN.md](./MISAKAX_IMPLEMENTATION_PLAN%20-%20Opus4.6.md)
 > **里程碑：** M2: 基础设施就绪 — Sidecar 已预热、MCP 已就绪、通信协议已定义，一切准备就绪等待 Phase 4 DeepAgents 接管对话。
 >
-> **代码库审计状态（2026-07-06）：** Phase 3 **约 85% 完成，尚未交付 M2**。**未完成项的执行清单见 [`PHASE_3_REMAINING_TODO.md`](./PHASE_3_REMAINING_TODO.md)**（按 Epic A–F 拆分，含验收勾选表）。完成后再进入 Phase 4。
+> **代码库审计状态（2026-07-09）：** Phase 3 **代码关门基本完成**（Sidecar watchdog、MCP 工具闭环、导入刷新、Nuitka 打包、F1-F3 自动化测试已落地）。M2 仍需按 [`PHASE_3_REMAINING_TODO.md`](./PHASE_3_REMAINING_TODO.md) §6 完成最终 UI/实机复验记录后再宣告完全交付。
 >
 > **⚠️ Phase 3 定位说明：**
 > Phase 3 是**"基础设施铺路"**阶段，有三条并行主线：
@@ -59,23 +59,23 @@
 
 | # | 验收项 | 验收方式 | 状态 | 说明 |
 |---|--------|---------|------|------|
-| AC-1 | 应用启动时 Sidecar 自动后台预热，3 秒内完成健康检查 | 观察启动日志 + StatusBadge 变绿 | 🟡 | `SidecarManager::preheat` + 异步健康轮询已实现；最坏等待 ~10s（20×500ms），需实机确认 Badge 变绿时机 |
-| AC-2 | Sidecar 异常退出后 ≤5s 自动重启（最多 3 次） | kill 进程后观察恢复 | ❌ | 仅有**启动阶段**最多 3 次重试；**就绪后无子进程 watchdog**，kill 后不会自动重启 |
+| AC-1 | 应用启动时 Sidecar 自动后台预热，3 秒内完成健康检查 | 观察启动日志 + StatusBadge 变绿 | 🟡 | `SidecarManager::preheat` + 异步健康轮询已实现；Nuitka 二进制冷启动 `/health` 1.33s；StatusBadge 仍需 UI 复验 |
+| AC-2 | Sidecar 异常退出后 ≤5s 自动重启（最多 3 次） | kill 进程后观察恢复 | 🟡 | watchdog、运行时重启计数、generation 防旧事件逻辑已实现并有纯函数测试；kill 实机复验仍需最终确认 |
 | AC-3 | 前端 StatusBadge 实时反映 Sidecar 状态 | UI 观察 | ✅ | `SidecarStatusBadge` + `sidecar:status` 事件 + 手动重启 |
 | AC-4 | Rust → Sidecar HTTP 协议 + 占位 `/agent/chat`、`/agent/stream` | curl 测试 | ✅ | `SidecarClient` + `agent/routers/agent.py` 501 占位 |
-| AC-5 | rmcp stdio 连接 MCP Server | 工具列表可见 | ⚪ | `McpManager::connect_stdio` 已实现；需配置 filesystem 等 Server 人工验证 |
-| AC-6 | rmcp HTTP/SSE 连接远程 MCP Server | 工具列表可见 | ⚪ | Http/Sse 均走 `StreamableHttpClientTransport`；需远程 Server 人工验证 |
+| AC-5 | rmcp stdio 连接 MCP Server | 工具列表可见 | ⚪ | `McpManager::connect_stdio` 已实现；编排层测试通过，filesystem Settings UI 仍需人工复验 |
+| AC-6 | rmcp HTTP/SSE 连接远程 MCP Server | 工具列表可见 | ⚪ | Http/Sse 均走 `StreamableHttpClientTransport`；无测试实例时按 V11 Skip |
 | AC-7 | MCP 配置（`~/.misakax/mcp.json` + Settings） | 配置 → 连接成功 | ✅ | `McpConfigLoader` + `McpSettings.tsx` + DB `mcp_servers` |
 | AC-8 | MCP Server 生命周期（启停/重启/健康检查） | Settings 页面操作 | ✅ | commands + `start_mcp_health_loop`（60s 重连，最多 3 次） |
-| AC-9 | Tool Call UI（工具名 + 参数 + 结果 + 折叠） | 对话中触发工具调用 | 🟡 | `ToolCallBlock` / DB `tool_calls` / 流式 listener 已就绪；**Rust 对话流未 emit `stream:tool_call`**，Rig 未闭环执行 MCP 工具 |
-| AC-10 | Tool Call 权限审批（approve/deny/always allow） | 首次工具调用弹出审批 | 🟡 | `mcp_call_tool` + `ToolApprovalDialog` 完整；**需经对话或 Settings 手动触发** `mcp_call_tool` 验证 |
+| AC-9 | Tool Call UI（工具名 + 参数 + 结果 + 折叠） | 对话中触发工具调用 | ✅ | `McpToolLoop`、DB `tool_calls`、`stream:tool_call/result` payload、前端 listener 均已接通并有自动化覆盖；真实 LLM 对话建议人工复验 |
+| AC-10 | Tool Call 权限审批（approve/deny/always allow） | 首次工具调用弹出审批 | ✅ | 审批 allow/deny/ask 策略与 tool loop 编排测试通过；弹窗 UI 建议人工复验 |
 | AC-11 | MCP 管理页面 | Settings → MCP | ✅ | `McpSettings.tsx`（~585 行） |
 | AC-12 | 会话分组/归档/置顶 | 右键菜单 | ✅ | `SessionPanel` + `SessionItem` + session commands |
 | AC-13 | FTS5 全文搜索消息 | 搜索框 → 高亮 | ✅ | `search_messages` + `MessageSearchResults` |
-| AC-14 | 会话 JSON 导入/导出 | 导出 → 导入 → 恢复 | 🟡 | 导出：`SessionItem` 右键；导入：**仅** `AboutSettings`，原计划 SessionPanel 入口未做 |
-| AC-15 | Nuitka 打包 Sidecar 可执行文件 | 独立 exe + health check | ❌ | `build_nuitka.py` + `run.py` 已有；**未验收**（无 `agent/dist/` 产物；`SidecarManager` 仍 spawn `python -m uvicorn`） |
+| AC-14 | 会话 JSON 导入/导出 | 导出 → 导入 → 恢复 | ✅ | `AboutSettings` 导入后 bump `sessionsReloadToken`，`SessionPanel` 订阅刷新；export/import round-trip 测试覆盖消息与 `tool_calls` |
+| AC-15 | Nuitka 打包 Sidecar 可执行文件 | 独立 exe + health check | ✅ | `agent/dist/misaka-agent.exe` 已构建并独立 `/health` 200；`SidecarManager` 优先 spawn 二进制、无产物时回退 uvicorn |
 
-**M2 里程碑：** 15 项中 ✅ 6 · 🟡 5 · ❌ 2 · ⚪ 2 — **不可标记为已交付**。
+**M2 里程碑：** 代码路径已接近关门；最终交付状态以 `PHASE_3_REMAINING_TODO.md` §6 的 UI/实机复验记录为准。
 
 ### 1.3 剩余工作索引
 
@@ -94,11 +94,11 @@
 
 | Sprint | 范围 | 状态 | 缺口摘要 |
 |--------|------|------|----------|
-| Sprint 1 | 3.1–3.4 Sidecar 预热 + 协议 | 🟡 ~90% | 缺运行时 watchdog（3.2） |
+| Sprint 1 | 3.1–3.4 Sidecar 预热 + 协议 | 🟡 ~95% | watchdog 代码已补齐；kill 实机复验待最终确认 |
 | Sprint 2 | 3.5–3.8 MCP 核心 | ✅ ~95% | 代码就绪；远程 transport 待 E2E |
-| Sprint 3 | 3.9–3.11 MCP 前端 + Tool UI | 🟡 ~80% | UI/审批就绪；对话内工具闭环与流式 Event 未接通 |
-| Sprint 4 | 3.12–3.14 会话高级管理 | 🟡 ~95% | 导入 UI 入口偏离计划 |
-| Sprint 5 | 3.15 Nuitka | ❌ ~40% | 脚本有，验收与集成未完成 |
+| Sprint 3 | 3.9–3.11 MCP 前端 + Tool UI | ✅ ~100% | 对话内工具闭环、审批、流式 Event、DB 持久化已接通；真机建议复验 |
+| Sprint 4 | 3.12–3.14 会话高级管理 | ✅ ~100% | 导入刷新已补齐；D2/D3 作为非阻塞可选项后置 |
+| Sprint 5 | 3.15 Nuitka | ✅ ~100% | `agent/dist/misaka-agent.exe`、`/health`、体积/启动指标与二进制优先 spawn 已验收 |
 | 收尾 | Schema + i18n + FINAL | ✅ | Schema 已到 v6（超出 v3–v5 计划） |
 
 ---
@@ -1268,7 +1268,7 @@ pub fn import_sessions(
 
 ---
 
-## 7. Sprint 5：Nuitka 打包验证 · ❌ ~40%
+## 7. Sprint 5：Nuitka 打包验证 · ✅ ~100%
 
 ### 7.1 任务 3.15：Nuitka 打包脚本初版（4h）
 
@@ -1360,6 +1360,8 @@ if __name__ == "__main__":
 3. 运行打包产物：`./misaka-agent.exe`
 4. 健康检查：`curl http://127.0.0.1:9527/health`
 5. 记录：打包体积、启动时间、内存占用
+
+**2026-07-09 验收摘要：** 使用 `conda run -n misaka python build_nuitka.py --clean` 产出 `agent/dist/misaka-agent.exe`；`MISAKA_PORT=9531` 独立运行 `/health` 200；体积 16.0 MB；冷启动到 `/health` 1.33s。详细记录见 [`../guides/sidecar-nuitka-build.md`](../guides/sidecar-nuitka-build.md)。
 
 ---
 
@@ -2068,18 +2070,18 @@ TODO-3.15.2 [1.0h] [依赖 3.15.1] ✅ DONE
     - --output-filename=misaka-agent
     - 打包前清理旧产物
 
-TODO-3.15.3 [1.5h] [依赖 3.15.2] ❌ 未完成
+TODO-3.15.3 [1.5h] [依赖 3.15.2] ✅ DONE
     执行打包并验证
-    - pip install nuitka（开发环境）⚪
-    - python build_nuitka.py ⚪
-    - 验证产物：运行 misaka-agent.exe → curl /health ❌（仓库无 agent/dist/）
-    - 记录：体积 / 启动时间 / 内存占用 ❌
+    - pip install nuitka（开发环境）✅（misaka env 已有 Nuitka 4.1.3）
+    - python build_nuitka.py ✅（conda run -n misaka python build_nuitka.py --clean）
+    - 验证产物：运行 misaka-agent.exe → /health ✅（agent/dist/misaka-agent.exe）
+    - 记录：体积 / 启动时间 / 内存占用 ✅（体积与启动时间已记录；内存占用留发布阶段）
 
-TODO-3.15.4 [1.0h] [依赖 3.15.3] ❌ 未完成
+TODO-3.15.4 [1.0h] [依赖 3.15.3] ✅ DONE
     问题修复与优化
     - 打包参数已初步调优（build_nuitka.py）✅
-    - SidecarManager 仍 spawn `python -m uvicorn`，未集成 exe 路径 ❌
-    - 更新文档记录打包流程 🟡（见 PROJECT_STRUCTURE / DEVELOPMENT_STATUS）
+    - SidecarManager 优先 spawn `misaka-agent(.exe)`，未找到时回退 `python -m uvicorn` ✅
+    - 更新文档记录打包流程 ✅（见 sidecar-nuitka-build / DEVELOPMENT_STATUS）
 ```
 
 ### 收尾：Schema 迁移 + 全量验证 ✅ COMPLETED

@@ -184,11 +184,18 @@ pub fn export_sessions(
     file_path: String,
 ) -> Result<(), String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
+    export_sessions_to_file(&conn, &session_ids, Path::new(&file_path))
+}
 
+pub fn export_sessions_to_file(
+    conn: &rusqlite::Connection,
+    session_ids: &[String],
+    file_path: &Path,
+) -> Result<(), String> {
     let mut export_sessions = Vec::with_capacity(session_ids.len());
-    for sid in &session_ids {
-        let session = SessionRepo::find_by_id(&conn, sid).map_err(|e| e.to_string())?;
-        let messages = MessageRepo::find_recent(&conn, sid, u32::MAX).map_err(|e| e.to_string())?;
+    for sid in session_ids {
+        let session = SessionRepo::find_by_id(conn, sid).map_err(|e| e.to_string())?;
+        let messages = MessageRepo::find_recent(conn, sid, u32::MAX).map_err(|e| e.to_string())?;
         export_sessions.push(ExportSession { session, messages });
     }
 
@@ -200,7 +207,7 @@ pub fn export_sessions(
     };
 
     let json = serde_json::to_string_pretty(&export_data).map_err(|e| e.to_string())?;
-    std::fs::write(&file_path, json).map_err(|e| e.to_string())?;
+    std::fs::write(file_path, json).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -211,22 +218,28 @@ pub fn import_sessions(
     state: State<'_, AppState>,
     file_path: String,
 ) -> Result<ImportResult, String> {
-    let json = std::fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
-    let data: ExportData = serde_json::from_str(&json).map_err(|e| e.to_string())?;
-
     let conn = state.db.lock().map_err(|e| e.to_string())?;
+    import_sessions_from_file(&conn, Path::new(&file_path))
+}
+
+pub fn import_sessions_from_file(
+    conn: &rusqlite::Connection,
+    file_path: &Path,
+) -> Result<ImportResult, String> {
+    let json = std::fs::read_to_string(file_path).map_err(|e| e.to_string())?;
+    let data: ExportData = serde_json::from_str(&json).map_err(|e| e.to_string())?;
     let mut imported = 0u32;
     let mut skipped = 0u32;
     let mut errors: Vec<String> = Vec::new();
 
     for es in &data.sessions {
-        let exists = SessionRepo::find_by_id(&conn, &es.session.id).is_ok();
+        let exists = SessionRepo::find_by_id(conn, &es.session.id).is_ok();
         if exists {
             skipped += 1;
             continue;
         }
 
-        if let Err(e) = import_single_session(&conn, es) {
+        if let Err(e) = import_single_session(conn, es) {
             errors.push(format!("Session {}: {}", es.session.id, e));
             continue;
         }

@@ -93,6 +93,53 @@ pub fn resolve_agent_working_dir() -> PathBuf {
 }
 
 // --------------------------------------------------------------------------- //
+//  Packaged sidecar (Nuitka) executable resolution
+// --------------------------------------------------------------------------- //
+
+/// Base name of the packaged sidecar produced by `agent/build_nuitka.py`.
+pub const SIDECAR_BINARY_STEM: &str = "misaka-agent";
+
+/// Platform-specific file name of the packaged sidecar binary.
+pub fn sidecar_executable_name() -> String {
+    if cfg!(windows) {
+        format!("{}.exe", SIDECAR_BINARY_STEM)
+    } else {
+        SIDECAR_BINARY_STEM.to_string()
+    }
+}
+
+/// Pure lookup: return the first `exe_name` that exists as a file in `dirs`.
+///
+/// Extracted so it can be unit-tested without touching `current_exe()` / the
+/// real filesystem layout.
+pub fn find_sidecar_executable_in(dirs: &[PathBuf], exe_name: &str) -> Option<PathBuf> {
+    dirs.iter()
+        .map(|dir| dir.join(exe_name))
+        .find(|candidate| candidate.is_file())
+}
+
+/// Resolve a packaged sidecar binary if one is available.
+///
+/// Probe order:
+/// 1. `agent_dir/dist/misaka-agent(.exe)` — output of `build_nuitka.py`.
+/// 2. `misaka-agent(.exe)` next to the current executable (packaged installs).
+///
+/// Returns `None` in dev when only Python sources exist, so the caller falls
+/// back to `python -m uvicorn`.
+pub fn resolve_sidecar_executable(agent_dir: &Path) -> Option<PathBuf> {
+    let exe_name = sidecar_executable_name();
+
+    let mut dirs: Vec<PathBuf> = vec![agent_dir.join("dist")];
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            dirs.push(dir.to_path_buf());
+        }
+    }
+
+    find_sidecar_executable_in(&dirs, &exe_name)
+}
+
+// --------------------------------------------------------------------------- //
 //  SidecarManager
 // --------------------------------------------------------------------------- //
 
@@ -264,7 +311,28 @@ impl SidecarManager {
         }
     }
 
+    /// Spawn the sidecar process.
+    ///
+    /// Prefers a packaged Nuitka binary (`misaka-agent`) when present, passing
+    /// the port via `MISAKA_PORT` since `run.py` has no CLI flags. Falls back to
+    /// `python -m uvicorn` in dev when only Python sources exist.
     fn spawn_child(&self) -> std::io::Result<Child> {
+        match resolve_sidecar_executable(&self.agent_dir) {
+            Some(binary) => self.spawn_packaged_binary(&binary),
+            None => self.spawn_python_uvicorn(),
+        }
+    }
+
+    fn spawn_packaged_binary(&self, binary: &Path) -> std::io::Result<Child> {
+        tracing::info!("Starting packaged Sidecar binary: {}", binary.display());
+        std::process::Command::new(binary)
+            .env("MISAKA_HOST", "127.0.0.1")
+            .env("MISAKA_PORT", self.port.to_string())
+            .current_dir(&self.agent_dir)
+            .spawn()
+    }
+
+    fn spawn_python_uvicorn(&self) -> std::io::Result<Child> {
         let port = self.port.to_string();
         std::process::Command::new("python")
             .args([

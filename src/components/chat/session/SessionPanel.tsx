@@ -33,6 +33,7 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
     setActiveSession,
     setActiveSessionData,
   } = useChatStore();
+  const sessionsReloadToken = useChatStore((s) => s.sessionsReloadToken);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Session[] | null>(null);
@@ -72,7 +73,7 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
 
   useEffect(() => {
     loadSessions();
-  }, [loadSessions]);
+  }, [loadSessions, sessionsReloadToken]);
 
   useEffect(() => {
     if (showArchived) loadArchivedSessions();
