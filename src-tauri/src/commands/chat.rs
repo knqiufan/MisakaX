@@ -11,9 +11,7 @@ use crate::services::llm::config::LlmConfig;
 use crate::services::llm::{RigBackend, StreamResult};
 use crate::services::mcp::{McpToolLoop, MAX_TOOL_ROUNDS};
 use crate::services::mcp_bridge::McpToolBridge;
-use crate::services::sidecar_client::{
-    AgentChatConfig, AgentChatMessage, AgentChatRequest,
-};
+use crate::services::sidecar_client::{AgentChatConfig, AgentChatMessage, AgentChatRequest};
 use crate::services::sidecar_sse::consume_sidecar_stream;
 use crate::AppState;
 
@@ -243,15 +241,8 @@ pub async fn generate_session_title(
 
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;
-        SessionRepo::update(
-            &db,
-            &request.session_id,
-            Some(&title),
-            None,
-            None,
-            None,
-        )
-        .map_err(|e| e.to_string())?;
+        SessionRepo::update(&db, &request.session_id, Some(&title), None, None, None)
+            .map_err(|e| e.to_string())?;
     }
 
     Ok(GenerateSessionTitleResult { title })
@@ -281,11 +272,7 @@ pub fn get_messages(
 // ─── Path helpers ──────────────────────────────────────────────────────
 
 fn read_use_sidecar(state: &AppState) -> bool {
-    state
-        .config
-        .lock()
-        .map(|c| c.use_sidecar)
-        .unwrap_or(true)
+    state.config.lock().map(|c| c.use_sidecar).unwrap_or(true)
 }
 
 /// Sidecar chat path — Agent owns MCP via mcp_bridge; do NOT inject MCP prompt.
@@ -315,14 +302,8 @@ async fn send_via_sidecar(
         return Err(format!("Sidecar stream HTTP {status}: {body}"));
     }
 
-    let result = consume_sidecar_stream(
-        app,
-        response,
-        &session.id,
-        assistant_msg_id,
-        abort_flag,
-    )
-    .await?;
+    let result =
+        consume_sidecar_stream(app, response, &session.id, assistant_msg_id, abort_flag).await?;
     Ok((result, None))
 }
 
@@ -427,9 +408,7 @@ pub fn build_agent_messages(
 }
 
 pub fn build_title_prompt(first_message: &str) -> String {
-    format!(
-        "Generate a concise title (5-10 words) for: {first_message}"
-    )
+    format!("Generate a concise title (5-10 words) for: {first_message}")
 }
 
 pub fn sanitize_session_title(raw: &str) -> String {

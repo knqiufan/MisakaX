@@ -108,10 +108,7 @@ pub async fn serve(app: AppHandle, port: u16) -> Result<(), String> {
 
 /// Test/helper entrypoint that skips UI approval and only uses McpManager.
 pub async fn serve_manager_only(manager: Arc<McpManager>, port: u16) -> Result<(), String> {
-    let state = BridgeState {
-        manager,
-        app: None,
-    };
+    let state = BridgeState { manager, app: None };
     let addr = bridge_bind_addr(port);
     let listener = tokio::net::TcpListener::bind(addr)
         .await

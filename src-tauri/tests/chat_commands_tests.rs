@@ -150,7 +150,10 @@ mod agent_message_builders {
     fn title_prompt_and_sanitize() {
         let prompt = build_title_prompt("How do I fix SSE?");
         assert!(prompt.contains("How do I fix SSE?"));
-        assert_eq!(sanitize_session_title("  \"Fix SSE parser\"  "), "Fix SSE parser");
+        assert_eq!(
+            sanitize_session_title("  \"Fix SSE parser\"  "),
+            "Fix SSE parser"
+        );
         assert_eq!(sanitize_session_title("   "), "New Chat");
     }
 }

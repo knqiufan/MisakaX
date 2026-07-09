@@ -237,13 +237,7 @@ pub async fn consume_sidecar_stream(
         let bytes = chunk.map_err(|e| format!("SSE read error: {e}"))?;
         let frames = append_sse_chunk(&bytes, &mut leftover)?;
         for frame in frames {
-            match map_sidecar_event(
-                &frame.event,
-                &frame.data,
-                session_id,
-                message_id,
-                &mut acc,
-            ) {
+            match map_sidecar_event(&frame.event, &frame.data, session_id, message_id, &mut acc) {
                 Ok(Some(MappedSidecarEvent::Token { delta })) => {
                     emit_token(app, session_id, message_id, &delta);
                 }

@@ -2,9 +2,9 @@
 mod tests {
     use misaka_x_lib::sidecar::{
         build_sidecar_api_key_env, find_sidecar_executable_in, health_check_url,
-        is_current_watchdog_generation, resolve_sidecar_executable,
-        should_attempt_runtime_restart, sidecar_executable_name, SidecarApiKeySource,
-        SidecarStatus, SidecarStatusEvent, SIDECAR_BINARY_STEM,
+        is_current_watchdog_generation, resolve_sidecar_executable, should_attempt_runtime_restart,
+        sidecar_executable_name, SidecarApiKeySource, SidecarStatus, SidecarStatusEvent,
+        SIDECAR_BINARY_STEM,
     };
     use serde_json::json;
     use std::path::PathBuf;

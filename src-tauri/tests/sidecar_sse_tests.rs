@@ -26,12 +26,15 @@ data: {\"finished\":true}\n\
 #[test]
 fn parse_sse_frames_handles_chunked_buffer_across_calls() {
     let mut leftover = Vec::new();
-    let frames1 = append_sse_chunk(b"event: token\ndata: {\"content\":\"Hel", &mut leftover).unwrap();
+    let frames1 =
+        append_sse_chunk(b"event: token\ndata: {\"content\":\"Hel", &mut leftover).unwrap();
     assert!(frames1.is_empty());
 
-    let frames2 =
-        append_sse_chunk(b"lo\"}\n\nevent: done\ndata: {\"finished\":true}\n\n", &mut leftover)
-            .unwrap();
+    let frames2 = append_sse_chunk(
+        b"lo\"}\n\nevent: done\ndata: {\"finished\":true}\n\n",
+        &mut leftover,
+    )
+    .unwrap();
     assert_eq!(frames2.len(), 2);
     assert_eq!(frames2[0].data["content"], "Hello");
     assert_eq!(frames2[1].event, "done");
@@ -138,10 +141,14 @@ fn map_done_event_returns_complete() {
 #[test]
 fn map_unknown_and_thinking_start_are_ignored() {
     let mut acc = SidecarStreamAccumulator::default();
-    assert!(map_sidecar_event("thinking_start", &json!({}), "s", "m", &mut acc)
-        .unwrap()
-        .is_none());
-    assert!(map_sidecar_event("interrupt", &json!({}), "s", "m", &mut acc)
-        .unwrap()
-        .is_none());
+    assert!(
+        map_sidecar_event("thinking_start", &json!({}), "s", "m", &mut acc)
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        map_sidecar_event("interrupt", &json!({}), "s", "m", &mut acc)
+            .unwrap()
+            .is_none()
+    );
 }

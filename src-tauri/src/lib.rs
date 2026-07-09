@@ -197,15 +197,11 @@ pub fn run() {
             // MCP HTTP Bridge for Python Sidecar tools
             let mcp_bridge_port = {
                 let cfg = app.state::<AppState>();
-                cfg.config
-                    .lock()
-                    .map(|c| c.mcp_bridge_port)
-                    .unwrap_or(9528)
+                cfg.config.lock().map(|c| c.mcp_bridge_port).unwrap_or(9528)
             };
             let bridge_app = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(e) =
-                    services::mcp_http_bridge::serve(bridge_app, mcp_bridge_port).await
+                if let Err(e) = services::mcp_http_bridge::serve(bridge_app, mcp_bridge_port).await
                 {
                     tracing::error!(error = %e, "MCP HTTP bridge stopped");
                 }
