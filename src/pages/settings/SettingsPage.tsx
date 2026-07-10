@@ -8,7 +8,7 @@ import {
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAppStore } from "@/stores";
+import { useAppStore } from "@/stores/app-store";
 import type { SettingsTab } from "@/stores/app-store";
 import { GeneralSettings } from "./GeneralSettings";
 import { ModelSettings } from "./ModelSettings";

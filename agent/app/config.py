@@ -77,6 +77,3 @@ def bridge_provider_api_keys(settings_obj: Settings | None = None) -> None:
         bridged.append("OPENAI_API_KEY")
     if bridged:
         logger.info("Bridged provider API keys into process env: %s", ", ".join(bridged))
-
-
-settings = Settings()

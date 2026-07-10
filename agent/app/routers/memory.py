@@ -6,26 +6,12 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
 
 from app.memory import get_memory_engine
+from app.models import MemoryItem, MemoryListResponse
 
 router = APIRouter(prefix="/memory", tags=["memory"])
 logger = logging.getLogger(__name__)
-
-
-class MemoryItem(BaseModel):
-    id: str | None = None
-    content: str = ""
-    score: float | None = None
-    created_at: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-class MemoryListResponse(BaseModel):
-    items: list[MemoryItem]
-    offset: int = 0
-    limit: int = 20
 
 
 def _require_engine() -> Any:

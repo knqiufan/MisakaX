@@ -23,6 +23,19 @@ impl CustomModelRepo {
         Ok(models)
     }
 
+    /// Whether a given model is enabled for a router config.
+    pub fn is_enabled(conn: &Connection, router_config_id: &str, model_id: &str) -> Result<bool> {
+        let exists: bool = conn.query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM custom_models
+                WHERE router_config_id = ?1 AND model_id = ?2 AND enabled = 1
+            )",
+            rusqlite::params![router_config_id, model_id],
+            |row| row.get(0),
+        )?;
+        Ok(exists)
+    }
+
     pub fn insert(
         conn: &Connection,
         id: &str,

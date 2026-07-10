@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useThemeStore, ACCENT_COLORS } from "@/stores/theme-store";
-import { useAppStore } from "@/stores";
+import { useAppStore } from "@/stores/app-store";
 import type { ThemeMode } from "@/lib/theme";
 
 const THEME_OPTIONS: { mode: ThemeMode; labelKey: string; icon: typeof Sun }[] = [

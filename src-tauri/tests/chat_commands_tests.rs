@@ -1,6 +1,6 @@
 #[cfg(feature = "test-private")]
 mod resolve_model_spec {
-    use misaka_x_lib::commands::chat::resolve_model_spec;
+    use misaka_x_lib::services::chat::resolve_model_spec;
 
     #[test]
     fn with_override() {
@@ -78,10 +78,10 @@ fn test_send_message_result_serialize() {
 
 #[cfg(feature = "test-private")]
 mod agent_message_builders {
-    use misaka_x_lib::commands::chat::{
+    use misaka_x_lib::db::models::{Message, Session};
+    use misaka_x_lib::services::chat::{
         build_agent_chat_request, build_agent_messages, build_title_prompt, sanitize_session_title,
     };
-    use misaka_x_lib::db::models::{Message, Session};
 
     fn sample_session() -> Session {
         Session {
@@ -160,7 +160,7 @@ mod agent_message_builders {
 
 #[cfg(feature = "test-private")]
 mod enabled_model_guard {
-    use misaka_x_lib::commands::chat::ensure_model_enabled_for_config;
+    use misaka_x_lib::services::chat::ensure_model_enabled_for_config;
     use rusqlite::Connection;
 
     fn setup_db() -> Connection {

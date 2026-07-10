@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { useAppStore } from "@/stores";
+import { useAppStore } from "@/stores/app-store";
 import { Sparkles } from "lucide-react";
 
 export function SidebarHeader() {

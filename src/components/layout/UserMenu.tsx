@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { User, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAppStore } from "@/stores";
+import { useAppStore } from "@/stores/app-store";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,

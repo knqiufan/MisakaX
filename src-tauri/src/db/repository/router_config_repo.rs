@@ -251,3 +251,40 @@ fn parse_advanced_config(raw: Option<&str>) -> AdvancedConfig {
     raw.and_then(|json| serde_json::from_str(json).ok())
         .unwrap_or_default()
 }
+
+/// 轻量 SQL UPDATE 字段构建器 — 为 [`RouterConfigRepo::update`] 构造 `(column, value)` 列表。
+pub struct UpdateBuilder {
+    fields: Vec<(&'static str, Box<dyn rusqlite::types::ToSql>)>,
+}
+
+impl UpdateBuilder {
+    pub fn new() -> Self {
+        Self { fields: Vec::new() }
+    }
+
+    pub fn set_opt(&mut self, column: &'static str, value: &Option<String>) -> &mut Self {
+        if let Some(v) = value {
+            self.fields.push((column, Box::new(v.clone())));
+        }
+        self
+    }
+
+    pub fn set<T: rusqlite::types::ToSql + 'static>(
+        &mut self,
+        column: &'static str,
+        value: T,
+    ) -> &mut Self {
+        self.fields.push((column, Box::new(value)));
+        self
+    }
+
+    pub fn build(self) -> Vec<(&'static str, Box<dyn rusqlite::types::ToSql>)> {
+        self.fields
+    }
+}
+
+impl Default for UpdateBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}

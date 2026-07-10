@@ -36,6 +36,34 @@ impl SessionRepo {
         Self::find_by_id(conn, id)
     }
 
+    /// 导入完整会话记录（保留所有字段，含 id/时间戳/统计）。
+    pub fn import(conn: &Connection, s: &Session) -> Result<()> {
+        conn.execute(
+            "INSERT INTO sessions (id, title, model, system_prompt, working_directory, project_name,
+                status, mode, total_input_tokens, total_output_tokens,
+                last_message_at, pinned, group_name, created_at, updated_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
+            rusqlite::params![
+                s.id,
+                s.title,
+                s.model,
+                s.system_prompt,
+                s.working_directory,
+                s.project_name,
+                s.status,
+                s.mode,
+                s.total_input_tokens,
+                s.total_output_tokens,
+                s.last_message_at,
+                s.pinned as i32,
+                s.group_name,
+                s.created_at,
+                s.updated_at,
+            ],
+        )?;
+        Ok(())
+    }
+
     pub fn list(conn: &Connection, status: Option<&str>) -> Result<Vec<Session>> {
         let status_filter = status.unwrap_or("active");
 

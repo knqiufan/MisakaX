@@ -110,3 +110,29 @@ class InfoResponse(BaseModel):
     powermem_available: bool = False
 
     model_config = {"frozen": False, "extra": "ignore"}
+
+
+# --------------------------------------------------------------------------- #
+#  Memory models
+# --------------------------------------------------------------------------- #
+
+class MemoryItem(BaseModel):
+    """A single normalized memory entry returned by the memory REST API."""
+
+    id: str | None = None
+    content: str = ""
+    score: float | None = None
+    created_at: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = {"frozen": False, "extra": "ignore"}
+
+
+class MemoryListResponse(BaseModel):
+    """Paginated list of memory items."""
+
+    items: list[MemoryItem]
+    offset: int = 0
+    limit: int = 20
+
+    model_config = {"frozen": False, "extra": "ignore"}

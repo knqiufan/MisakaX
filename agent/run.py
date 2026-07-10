@@ -62,12 +62,13 @@ _install_click_winconsole_stub()
 
 import uvicorn  # noqa: E402  (import after DLL dir registration)
 
-from app.config import settings  # noqa: E402
+from app.config import get_settings  # noqa: E402
 from app.main import app  # noqa: E402
 
 
 def main() -> None:
     multiprocessing.freeze_support()
+    settings = get_settings()
     uvicorn.run(
         app,
         host=settings.host,

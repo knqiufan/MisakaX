@@ -2,10 +2,11 @@ use serde::Deserialize;
 use tauri::State;
 
 use crate::crypto;
-use crate::db::models::{AdvancedConfig, CreateCustomModel};
-use crate::db::repository::router_config_repo::RouterConfigView;
+use crate::db::models::AdvancedConfig;
+use crate::db::repository::router_config_repo::{RouterConfigView, UpdateBuilder};
 use crate::db::repository::{CustomModelRepo, RouterConfigRepo};
-use crate::services::llm::catalog::{models_url, ProviderApi};
+use crate::services::llm::catalog::ProviderApi;
+use crate::services::model_probe::{self, ConnectionTestOutcome};
 use crate::AppState;
 
 // ─── 请求类型 ─────────────────────────────────────────────────────────
@@ -41,7 +42,7 @@ pub struct UpdateRouterConfig {
 #[derive(Debug, Deserialize)]
 pub struct CreateRouterConfigWithModels {
     pub config: CreateRouterConfig,
-    pub models: Vec<CreateCustomModel>,
+    pub models: Vec<crate::db::models::CreateCustomModel>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -65,27 +66,7 @@ pub fn create_router_config(
     config: CreateRouterConfig,
 ) -> Result<String, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    let id = uuid::Uuid::new_v4().to_string();
-    let encrypted_key = crypto::encrypt(&config.api_key).map_err(|e| e.to_string())?;
-    let advanced_json = serialize_advanced(config.advanced.as_ref())?;
-
-    RouterConfigRepo::insert_with_metadata(
-        &db,
-        &id,
-        &config.name,
-        &config.provider,
-        config.vendor.as_deref(),
-        &encrypted_key,
-        config.model.as_deref(),
-        config.base_url.as_deref(),
-        config.config_json.as_deref(),
-        advanced_json.as_deref(),
-        config.is_active.unwrap_or(false),
-        config.api_compat.as_deref(),
-    )
-    .map_err(|e| e.to_string())?;
-
-    Ok(id)
+    insert_router_config_record(&db, &config)
 }
 
 #[tauri::command]
@@ -152,71 +133,6 @@ pub fn reveal_router_api_key(state: State<'_, AppState>, id: String) -> Result<S
     crypto::decrypt(&encrypted).map_err(|e| e.to_string())
 }
 
-fn serialize_advanced(advanced: Option<&AdvancedConfig>) -> Result<Option<String>, String> {
-    advanced
-        .map(serde_json::to_string)
-        .transpose()
-        .map_err(|e| e.to_string())
-}
-
-fn insert_router_config_record(
-    conn: &rusqlite::Connection,
-    config: &CreateRouterConfig,
-) -> Result<String, String> {
-    let id = uuid::Uuid::new_v4().to_string();
-    let encrypted_key = crypto::encrypt(&config.api_key).map_err(|e| e.to_string())?;
-    let advanced_json = serialize_advanced(config.advanced.as_ref())?;
-
-    RouterConfigRepo::insert_with_metadata(
-        conn,
-        &id,
-        &config.name,
-        &config.provider,
-        config.vendor.as_deref(),
-        &encrypted_key,
-        config.model.as_deref(),
-        config.base_url.as_deref(),
-        config.config_json.as_deref(),
-        advanced_json.as_deref(),
-        config.is_active.unwrap_or(false),
-        config.api_compat.as_deref(),
-    )
-    .map_err(|e| e.to_string())?;
-
-    Ok(id)
-}
-
-/// 轻量 SQL UPDATE 字段构建器
-struct UpdateBuilder {
-    fields: Vec<(&'static str, Box<dyn rusqlite::types::ToSql>)>,
-}
-
-impl UpdateBuilder {
-    fn new() -> Self {
-        Self { fields: Vec::new() }
-    }
-
-    fn set_opt(&mut self, column: &'static str, value: &Option<String>) -> &mut Self {
-        if let Some(v) = value {
-            self.fields.push((column, Box::new(v.clone())));
-        }
-        self
-    }
-
-    fn set<T: rusqlite::types::ToSql + 'static>(
-        &mut self,
-        column: &'static str,
-        value: T,
-    ) -> &mut Self {
-        self.fields.push((column, Box::new(value)));
-        self
-    }
-
-    fn build(self) -> Vec<(&'static str, Box<dyn rusqlite::types::ToSql>)> {
-        self.fields
-    }
-}
-
 #[tauri::command]
 pub fn delete_router_config(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -247,69 +163,62 @@ pub async fn test_router_connection(
     let api = ProviderApi::parse(&provider)
         .ok_or_else(|| format!("Unsupported provider api: {provider}"))?;
     let vendor = vendor.as_deref().unwrap_or(provider.as_str());
-    let Some(url) = models_url(api, vendor, base_url.as_deref()) else {
-        return Ok(ConnectionTestResult {
-            success: false,
-            message: "Provider does not expose a model list endpoint".to_string(),
-            models: None,
-        });
-    };
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-        .map_err(|_| "Failed to build HTTP client".to_string())?;
-    let mut request = client.get(&url);
+    let outcome =
+        model_probe::test_connection(api, vendor, base_url.as_deref(), &decrypted_key).await?;
 
-    request = match api {
-        ProviderApi::Anthropic => request
-            .header("x-api-key", &decrypted_key)
-            .header("anthropic-version", "2023-06-01"),
-        ProviderApi::Google => request.query(&[("key", &decrypted_key)]),
-        ProviderApi::OpenAi => request.bearer_auth(&decrypted_key),
-    };
-
-    let response = request.send().await.map_err(sanitize_request_error)?;
-
-    if response.status().is_success() {
-        Ok(ConnectionTestResult {
+    Ok(match outcome {
+        ConnectionTestOutcome::Ok => ConnectionTestResult {
             success: true,
             message: "Connection successful".to_string(),
             models: None,
-        })
-    } else {
-        let status = response.status().as_u16();
-        let body = response.text().await.unwrap_or_default();
-        Ok(ConnectionTestResult {
+        },
+        ConnectionTestOutcome::NoEndpoint => ConnectionTestResult {
             success: false,
-            message: format!("HTTP {}: {}", status, truncate(&body, 200)),
+            message: "Provider does not expose a model list endpoint".to_string(),
             models: None,
-        })
-    }
+        },
+        ConnectionTestOutcome::HttpError { status, body } => ConnectionTestResult {
+            success: false,
+            message: format!("HTTP {status}: {body}"),
+            models: None,
+        },
+    })
 }
 
 // ─── 内部辅助 ─────────────────────────────────────────────────────────
 
-fn sanitize_request_error(error: reqwest::Error) -> String {
-    if error.is_timeout() {
-        "Network request timed out".to_string()
-    } else {
-        "Network request failed".to_string()
-    }
+fn serialize_advanced(advanced: Option<&AdvancedConfig>) -> Result<Option<String>, String> {
+    advanced
+        .map(serde_json::to_string)
+        .transpose()
+        .map_err(|e| e.to_string())
 }
 
-fn truncate(s: &str, max_bytes: usize) -> &str {
-    if s.len() <= max_bytes {
-        return s;
-    }
-    match s.get(..max_bytes) {
-        Some(valid) => valid,
-        None => {
-            let mut end = max_bytes;
-            while end > 0 && !s.is_char_boundary(end) {
-                end -= 1;
-            }
-            &s[..end]
-        }
-    }
+/// 加密 API key、序列化 advanced，写入 router_configs 记录（事务/连接均可）。
+fn insert_router_config_record(
+    conn: &rusqlite::Connection,
+    config: &CreateRouterConfig,
+) -> Result<String, String> {
+    let id = uuid::Uuid::new_v4().to_string();
+    let encrypted_key = crypto::encrypt(&config.api_key).map_err(|e| e.to_string())?;
+    let advanced_json = serialize_advanced(config.advanced.as_ref())?;
+
+    RouterConfigRepo::insert_with_metadata(
+        conn,
+        &id,
+        &config.name,
+        &config.provider,
+        config.vendor.as_deref(),
+        &encrypted_key,
+        config.model.as_deref(),
+        config.base_url.as_deref(),
+        config.config_json.as_deref(),
+        advanced_json.as_deref(),
+        config.is_active.unwrap_or(false),
+        config.api_compat.as_deref(),
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(id)
 }

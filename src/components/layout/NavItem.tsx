@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import type { Route } from "@/stores/app-store";
 import { cn } from "@/lib/utils";
-import { useAppStore } from "@/stores";
+import { useAppStore } from "@/stores/app-store";
 import {
   Tooltip,
   TooltipContent,

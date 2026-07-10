@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { modelsIpc, type FetchModelsResult, type RouterConfigView } from "@/lib/ipc";
 import { getEndpoint, type ProviderApi, type VendorId } from "@/lib/providers/catalog";
-import { useSettingsStore } from "@/stores";
+import { useSettingsStore } from "@/stores/settings-store";
 import { customModelToCreate } from "./model-utils";
 import {
   useFetchModels,

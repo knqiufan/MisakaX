@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Bell, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAppStore } from "@/stores";
+import { useAppStore } from "@/stores/app-store";
 import { NavItem } from "./NavItem";
 import { UserMenu } from "./UserMenu";
 import { SidecarStatusBadge } from "./SidecarStatusBadge";

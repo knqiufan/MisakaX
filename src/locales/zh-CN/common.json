@@ -28,5 +28,12 @@
       "restarting": "Agent 重启中…"
     },
     "clickToRestart": "点击重启"
+  },
+  "errorBoundary": {
+    "title": "出现了意外错误",
+    "description": "应用遇到了一个未预期的问题，请尝试重试或刷新页面。",
+    "details": "错误详情",
+    "retry": "重试",
+    "reload": "刷新页面"
   }
 }

@@ -146,6 +146,7 @@ cargo build          # Standalone Rust build when not using npm wrapper
 - Rust 2021 edition, standard module layout
 - TypeScript strict mode
 - No default exports (use named exports)
+- **Frontend module layout (co-location is intentional)**: `src/` is organized top-level by responsibility (`components/` `hooks/` `stores/` `lib/` `pages/` `locales/` `styles/`), and `components/` by feature (`ui/` shadcn primitives, `layout/` shell chrome, `chat/` the chat feature tree). **Co-locate a feature's `.tsx`, `.ts` helpers, and hooks together inside its feature folder** (e.g. `components/chat/composer/MessageInput.tsx` beside `attachmentUtils.ts`, `useComposerTextSelection.ts`) — this is deliberate feature cohesion, not "mixing"; do **not** split them out into separate `lib/services/hooks` trees. Cross-cutting hooks that serve the whole app live in `hooks/`; feature-specific hooks stay co-located. **Store imports are always direct** (`@/stores/<name>-store`); there is intentionally no `stores/` barrel.
 - **Frontend UI/UX**: Any time you author or refactor React UI or styling (`src/**/*.tsx`, shared CSS tokens, shell layout), **read and comply with** the project’s UI specs (they are complementary, not optional pick-one):
   - **Path-scoped reinforcement** (loads when editing matching files—reduces “forgot to load CLAUDE” cases):
     - **Cursor**: `.cursor/rules/misaka-frontend-ui-specs.mdc` (`globs`: `src/**/*.tsx`, `src/**/*.css`, `src/*.css`)

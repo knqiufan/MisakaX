@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar } from "./Sidebar";
 import { ContentArea } from "./ContentArea";
-import { useAppStore } from "@/stores";
+import { useAppStore } from "@/stores/app-store";
 import { useThemeStore } from "@/stores/theme-store";
 import { settingsIpc } from "@/lib/ipc";
 import { cn } from "@/lib/utils";
@@ -59,7 +59,6 @@ export function AppShell() {
       >
         <Sidebar />
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          {/* <TopBar /> */}
           <main className="min-h-0 flex-1 overflow-auto bg-[color:var(--surface-messages)]">
             <ContentArea />
           </main>

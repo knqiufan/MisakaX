@@ -1,4 +1,4 @@
-import { useAppStore } from "@/stores";
+import { useAppStore } from "@/stores/app-store";
 import {
   ChatPage,
   SkillsPage,

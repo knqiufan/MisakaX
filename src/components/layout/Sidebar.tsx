@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { MessageSquare, Sparkles, BookOpen, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAppStore } from "@/stores";
+import { useAppStore } from "@/stores/app-store";
 import { SidebarFooter } from "./SidebarFooter";
 import { NavItem } from "./NavItem";
 

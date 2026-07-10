@@ -2,6 +2,9 @@ use anyhow::Result;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
+use crate::db::models::CustomModel;
+use crate::db::repository::CustomModelRepo;
+
 /// 可用模型元数据
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelInfo {
@@ -24,6 +27,19 @@ impl ModelInfo {
             is_custom: false,
             max_tokens: None,
             context_window: None,
+        }
+    }
+
+    /// 从持久化的自定义模型构造（标记 `is_custom = true`）。
+    pub fn from_custom(cm: CustomModel) -> Self {
+        Self {
+            model_id: cm.model_id,
+            display_name: cm.display_name,
+            supports_vision: cm.supports_vision,
+            supports_thinking: cm.supports_thinking,
+            is_custom: true,
+            max_tokens: cm.max_tokens,
+            context_window: cm.context_window,
         }
     }
 }
@@ -80,30 +96,13 @@ impl ModelRegistry {
         ]
     }
 
-    /// 从 custom_models 表读取用户自定义模型
+    /// 从 custom_models 表读取用户自定义模型（仅启用的）
     fn custom_models(conn: &Connection, router_config_id: &str) -> Result<Vec<ModelInfo>> {
-        let mut stmt = conn.prepare(
-            "SELECT model_id, display_name, supports_vision, supports_thinking,
-                    max_tokens, context_window
-             FROM custom_models
-             WHERE router_config_id = ?1 AND enabled = 1
-             ORDER BY sort_order ASC, created_at ASC",
-        )?;
-
-        let models = stmt
-            .query_map([router_config_id], |row| {
-                Ok(ModelInfo {
-                    model_id: row.get(0)?,
-                    display_name: row.get(1)?,
-                    supports_vision: row.get::<_, i32>(2)? != 0,
-                    supports_thinking: row.get::<_, i32>(3)? != 0,
-                    is_custom: true,
-                    max_tokens: row.get(4)?,
-                    context_window: row.get(5)?,
-                })
-            })?
-            .collect::<std::result::Result<Vec<_>, _>>()?;
-
-        Ok(models)
+        let models = CustomModelRepo::list_by_router(conn, router_config_id)?;
+        Ok(models
+            .into_iter()
+            .filter(|m| m.enabled)
+            .map(ModelInfo::from_custom)
+            .collect())
     }
 }

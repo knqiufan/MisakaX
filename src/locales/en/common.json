@@ -28,5 +28,12 @@
       "restarting": "Agent Restarting…"
     },
     "clickToRestart": "Click to restart"
+  },
+  "errorBoundary": {
+    "title": "Unexpected Error",
+    "description": "The app encountered an unexpected problem. Try retrying or reloading the page.",
+    "details": "Error details",
+    "retry": "Retry",
+    "reload": "Reload page"
   }
 }

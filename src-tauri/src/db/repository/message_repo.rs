@@ -45,6 +45,30 @@ impl MessageRepo {
         Ok(())
     }
 
+    /// 导入完整消息记录（保留所有字段，含 id/时间戳），并同步 FTS 索引。
+    pub fn import(conn: &Connection, m: &Message) -> Result<()> {
+        conn.execute(
+            "INSERT INTO messages (id, session_id, role, content, token_usage, model,
+                thinking_content, attachments, status, tool_calls, created_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
+            rusqlite::params![
+                m.id,
+                m.session_id,
+                m.role,
+                m.content,
+                m.token_usage,
+                m.model,
+                m.thinking_content,
+                m.attachments,
+                m.status,
+                m.tool_calls,
+                m.created_at,
+            ],
+        )?;
+        Self::sync_fts(conn, &m.id, &m.content, &m.session_id, &m.role);
+        Ok(())
+    }
+
     /// finalize assistant 消息：一次性写入正文/状态/用量/思维链/工具调用
     ///
     /// `tool_calls` 为与前端 `ToolCall[]` 对齐的 JSON 字符串；`None` 表示本轮无工具调用。

@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useSettingsStore } from "@/stores";
+import { useSettingsStore } from "@/stores/settings-store";
 
 export function GeneralSettings() {
   const { t } = useTranslation("settings");

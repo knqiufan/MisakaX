@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { useSettingsStore } from "@/stores";
+import { useSettingsStore } from "@/stores/settings-store";
 import { routerConfigsIpc } from "@/lib/ipc";
 import type {
   CreateRouterConfig,

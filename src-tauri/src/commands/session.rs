@@ -256,60 +256,10 @@ pub fn import_sessions_from_file(
 // ─── 内部辅助 ────────────────────────────────────────────────────────
 
 fn import_single_session(conn: &rusqlite::Connection, es: &ExportSession) -> Result<(), String> {
-    let s = &es.session;
-    conn.execute(
-        "INSERT INTO sessions (id, title, model, system_prompt, working_directory, project_name,
-            status, mode, total_input_tokens, total_output_tokens,
-            last_message_at, pinned, group_name, created_at, updated_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
-        rusqlite::params![
-            s.id,
-            s.title,
-            s.model,
-            s.system_prompt,
-            s.working_directory,
-            s.project_name,
-            s.status,
-            s.mode,
-            s.total_input_tokens,
-            s.total_output_tokens,
-            s.last_message_at,
-            s.pinned as i32,
-            s.group_name,
-            s.created_at,
-            s.updated_at,
-        ],
-    )
-    .map_err(|e| e.to_string())?;
+    SessionRepo::import(conn, &es.session).map_err(|e| e.to_string())?;
 
     for m in &es.messages {
-        conn.execute(
-            "INSERT INTO messages (id, session_id, role, content, token_usage, model,
-                thinking_content, attachments, status, tool_calls, created_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
-            rusqlite::params![
-                m.id,
-                m.session_id,
-                m.role,
-                m.content,
-                m.token_usage,
-                m.model,
-                m.thinking_content,
-                m.attachments,
-                m.status,
-                m.tool_calls,
-                m.created_at,
-            ],
-        )
-        .map_err(|e| e.to_string())?;
-
-        if !m.content.is_empty() {
-            let _ = conn.execute(
-                "INSERT OR REPLACE INTO messages_fts (rowid, content, session_id, role)
-                 VALUES ((SELECT rowid FROM messages WHERE id = ?1), ?2, ?3, ?4)",
-                rusqlite::params![m.id, m.content, m.session_id, m.role],
-            );
-        }
+        MessageRepo::import(conn, m).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
