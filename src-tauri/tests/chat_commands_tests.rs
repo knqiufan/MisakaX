@@ -4,14 +4,15 @@ mod resolve_model_spec {
 
     #[test]
     fn with_override() {
-        let spec = resolve_model_spec(Some("config1:gpt-4o"), Some("config2:claude")).unwrap();
+        let spec =
+            resolve_model_spec(Some("config1:gpt-4o"), Some("config2:claude")).expect("valid spec");
         assert_eq!(spec.config_id, "config1");
         assert_eq!(spec.model_id, "gpt-4o");
     }
 
     #[test]
     fn fallback_to_session() {
-        let spec = resolve_model_spec(None, Some("config2:claude-sonnet-4")).unwrap();
+        let spec = resolve_model_spec(None, Some("config2:claude-sonnet-4")).expect("valid spec");
         assert_eq!(spec.config_id, "config2");
         assert_eq!(spec.model_id, "claude-sonnet-4");
     }
@@ -32,21 +33,21 @@ mod resolve_model_spec {
 
     #[test]
     fn with_multiple_colons() {
-        let spec = resolve_model_spec(Some("config:model:extra"), None).unwrap();
+        let spec = resolve_model_spec(Some("config:model:extra"), None).expect("valid spec");
         assert_eq!(spec.config_id, "config");
         assert_eq!(spec.model_id, "model:extra");
     }
 
     #[test]
     fn empty_config_id() {
-        let spec = resolve_model_spec(Some(":gpt-4o"), None).unwrap();
+        let spec = resolve_model_spec(Some(":gpt-4o"), None).expect("valid spec");
         assert_eq!(spec.config_id, "");
         assert_eq!(spec.model_id, "gpt-4o");
     }
 
     #[test]
     fn empty_model_id() {
-        let spec = resolve_model_spec(Some("config1:"), None).unwrap();
+        let spec = resolve_model_spec(Some("config1:"), None).expect("valid spec");
         assert_eq!(spec.config_id, "config1");
         assert_eq!(spec.model_id, "");
     }
@@ -57,7 +58,7 @@ mod resolve_model_spec {
             Some("override-cfg:override-model"),
             Some("session-cfg:session-model"),
         )
-        .unwrap();
+        .expect("valid spec");
         assert_eq!(spec.config_id, "override-cfg");
         assert_eq!(spec.model_id, "override-model");
     }
@@ -71,7 +72,7 @@ fn test_send_message_result_serialize() {
         user_message_id: "u1".to_string(),
         assistant_message_id: "a1".to_string(),
     };
-    let json = serde_json::to_string(&result).unwrap();
+    let json = serde_json::to_string(&result).expect("SendMessageResult should serialize to JSON");
     assert!(json.contains("\"user_message_id\":\"u1\""));
     assert!(json.contains("\"assistant_message_id\":\"a1\""));
 }
@@ -143,7 +144,13 @@ mod agent_message_builders {
         assert_eq!(req.working_dir.as_deref(), Some("D:/code"));
         assert_eq!(req.config.model.as_deref(), Some("claude"));
         assert!(req.config.stream);
-        assert_eq!(req.messages.last().unwrap().content, "next");
+        assert_eq!(
+            req.messages
+                .last()
+                .expect("request should have messages")
+                .content,
+            "next"
+        );
     }
 
     #[test]
@@ -164,9 +171,10 @@ mod enabled_model_guard {
     use rusqlite::Connection;
 
     fn setup_db() -> Connection {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
-        misaka_x_lib::db::migrations::run_migrations(&conn).unwrap();
+        let conn = Connection::open_in_memory().expect("open in-memory sqlite");
+        conn.execute_batch("PRAGMA foreign_keys=ON;")
+            .expect("enable foreign_keys pragma");
+        misaka_x_lib::db::migrations::run_migrations(&conn).expect("run migrations");
         conn
     }
 
@@ -178,14 +186,14 @@ mod enabled_model_guard {
              VALUES ('rc-1', 'OpenAI', 'openai')",
             [],
         )
-        .unwrap();
+        .expect("insert router_config fixture");
         conn.execute(
             "INSERT INTO custom_models (
                 id, router_config_id, model_id, display_name, enabled
              ) VALUES ('cm-1', 'rc-1', 'gpt-4o', 'GPT-4o', 1)",
             [],
         )
-        .unwrap();
+        .expect("insert enabled custom_model fixture");
 
         let result = ensure_model_enabled_for_config(&conn, "rc-1", "gpt-4o");
 
@@ -200,14 +208,14 @@ mod enabled_model_guard {
              VALUES ('rc-1', 'OpenAI', 'openai')",
             [],
         )
-        .unwrap();
+        .expect("insert router_config fixture");
         conn.execute(
             "INSERT INTO custom_models (
                 id, router_config_id, model_id, display_name, enabled
              ) VALUES ('cm-1', 'rc-1', 'gpt-4o', 'GPT-4o', 0)",
             [],
         )
-        .unwrap();
+        .expect("insert disabled custom_model fixture");
 
         let result = ensure_model_enabled_for_config(&conn, "rc-1", "gpt-4o");
 

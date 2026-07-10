@@ -1,6 +1,7 @@
 pub mod custom_model_repo;
 pub mod mcp_server_repo;
 pub mod message_repo;
+pub mod message_search;
 pub mod router_config_repo;
 pub mod session_repo;
 pub mod settings_repo;
