@@ -5,6 +5,7 @@ import { save as dialogSave, open as dialogOpen } from "@tauri-apps/plugin-dialo
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { MisakaLogo } from "@/components/brand/MisakaLogo";
 import {
   SettingsCard,
   SettingsSectionHeader,
@@ -37,10 +38,18 @@ export function AboutSettings() {
 
       <SettingsCard>
         <div className="flex flex-wrap items-center gap-3">
-          <h3 className="text-sm font-medium text-foreground">MisakaX</h3>
-          <Badge variant="secondary" className="text-[10px]">
-            v{systemInfo?.app_version ?? "0.1.0"}
-          </Badge>
+          <MisakaLogo className="size-10 text-foreground" title="MisakaX" />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-medium text-foreground">MisakaX</h3>
+              <Badge variant="secondary" className="text-[10px]">
+                v{systemInfo?.app_version ?? "0.1.0"}
+              </Badge>
+            </div>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              {t("about.tagline")}
+            </p>
+          </div>
         </div>
         <div className="mt-4 space-y-2">
           <Button variant="outline" size="sm" disabled>

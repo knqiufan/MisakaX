@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口混合壳结构、会话侧栏、对话页顶栏、设置页与工作区布局语义。 |
 | **受众** | 负责 `AppShell`、`UnifiedTopBar`、`SessionPanel`、`SettingsSidebar`、`ChatPage`、`WorkspaceBar`、`SettingsPage` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-07-14（v15） |
+| **最后审阅** | 2026-07-14（v16） |
 
 ## 相关文档
 
@@ -225,7 +225,7 @@ Composer 外壳：`rounded-2xl` 输入组 + `shadow-[var(--shadow-diffuse)]`（*
 
 - 组件：`NewChatWelcome`（`ChatPage` 在无 `activeSession` 时渲染）。
 - 布局：垂直居中，`max-w-3xl`，`px-4 py-8`。
-- 品牌：`MonolithIcon` `h-9 w-9` + 时段问候 `text-3xl font-medium` + 短提示。
+- 品牌：`MisakaLogo` `h-9 w-9`（浅色圆体 + 双闪电）+ 时段问候 `text-3xl font-medium` + 短提示。
 - Composer：复用 `MessageInput`；首发经 `pendingOutbound` 创建会话后由 `ChatView` 发送。
 - 下方引导：可选「选择工作目录」。
 

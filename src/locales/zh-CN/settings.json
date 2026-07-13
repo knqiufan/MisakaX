@@ -131,6 +131,7 @@
   },
   "about": {
     "title": "关于",
+    "tagline": "桌面端 AI Agent",
     "version": "版本",
     "checkUpdate": "检查更新",
     "checkUpdateDesc": "检查可用更新（将在 Phase 6 中实现）",

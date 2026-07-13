@@ -131,6 +131,7 @@
   },
   "about": {
     "title": "About",
+    "tagline": "Desktop AI Agent",
     "version": "Version",
     "checkUpdate": "Check for Updates",
     "checkUpdateDesc": "Check for available updates (coming in Phase 6)",

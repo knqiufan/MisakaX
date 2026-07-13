@@ -8,7 +8,7 @@
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-07-14（v15）
+**最后审阅 / Last reviewed:** 2026-07-14（v17）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -63,9 +63,13 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - **弹出层阴影**：仅在下拉菜单、模态框、Tooltip 等悬浮层级（z-index 较高）的元素上使用 `shadow-lg` 或自定义的深阴影。
 - 本期跨平台壳为**实心底**；不做 macOS 悬浮卡 / vibrancy。
 
-### 3.3 首页 Hero
-- 无会话时主区为居中 hero：`max-w-3xl` + `MonolithIcon`（36px）+ 时段问候标题（`text-3xl font-medium`）+ Composer。
-- 空会话态与 hero 共用品牌标视觉，避免大尺寸冷色图标占位。
+### 3.3 品牌标与首页 Hero
+- **品牌标**：`MisakaLogo`（`src/components/brand/MisakaLogo.tsx`）— 浅色暖圆底 + 双圆角闪电；源图为 `src/assets/brand/misakax-logo.png`，圆外必须保留透明通道，禁止把编辑器棋盘格写入像素。
+- **单一视觉源**：`misakax-logo.svg` 必须与 PNG 使用相同的 128 × 128 画布几何和固定暖白 / charcoal 色；`MisakaLogo` 必须直接渲染该 SVG 资源，禁止再次复制或变形闪电路径。
+- **桌面图标**：修改 PNG 后，运行 `npx tauri icon src/assets/brand/misakax-logo.png` 更新 `src-tauri/icons/`；`src-tauri/build.rs` 必须监听 `icons/icon.ico`，以便 `tauri dev` 重建 Windows 资源。
+- **禁止**继续用旧的 5×5 diffusion 点阵作主品牌；`MonolithIcon` 仅作兼容 re-export。
+- 无会话时主区为居中 hero：`max-w-3xl` + `MisakaLogo`（36px）+ 时段问候标题（`text-3xl font-medium`）+ Composer。
+- 空会话态与 hero / 设置「关于」页共用同一品牌标。
 
 ## 4. 组件编写原则 (Component Guidelines)
 
