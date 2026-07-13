@@ -1,13 +1,11 @@
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { Check, Copy, RefreshCw, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Message, TokenUsage } from "@/lib/ipc";
-import { CodeBlock } from "./CodeBlock";
+import { MessageResponse } from "../markdown/MessageResponse";
 import { ThinkingBlock } from "./ThinkingBlock";
-import { ToolCallBlock } from "./ToolCallBlock";
+import { ToolActionsGroup } from "./ToolActionsGroup";
 import { TokenBadge } from "./TokenBadge";
 import { StreamingIndicator } from "./StreamingIndicator";
 
@@ -17,6 +15,7 @@ interface MessageItemProps {
   isThinkingStreaming?: boolean;
   onRegenerate?: (messageId: string) => void;
   prevRole?: string | null;
+  highlight?: boolean;
 }
 
 export function MessageItem({
@@ -24,44 +23,51 @@ export function MessageItem({
   isStreaming,
   isThinkingStreaming,
   onRegenerate,
-  prevRole,
+  highlight = false,
 }: MessageItemProps) {
   const isUser = message.role === "user";
-  const hasThinking = !isUser && (!!message.thinking_content || isThinkingStreaming);
-  const hasToolCalls = !isUser && message.tool_calls && message.tool_calls.length > 0;
+  const hasThinking =
+    !isUser && (!!message.thinking_content || isThinkingStreaming);
+  const hasToolCalls =
+    !isUser && message.tool_calls && message.tool_calls.length > 0;
 
   return (
     <div
+      id={`msg-${message.id}`}
       className={cn(
-        "group/msg px-4",
-        prevRole !== message.role ? "pt-4 pb-1" : "pt-1 pb-1",
-        isUser ? "flex justify-end" : "w-full"
+        "group/msg pb-6",
+        isUser ? "flex justify-end" : "w-full",
+        highlight && "search-highlight-flash"
       )}
     >
       {isUser ? (
-        <div className="flex max-w-[80%] flex-col items-end gap-1">
-          <MessageBubble message={message} isUser={isUser} />
+        <div className="flex w-full max-w-[95%] flex-col items-end gap-2">
+          <MessageBubble
+            message={message}
+            isUser
+            isStreaming={false}
+          />
           <UserMessageActions message={message} onRegenerate={onRegenerate} />
         </div>
       ) : (
-        <div className="mx-auto w-full  flex flex-col gap-1">
-          {hasThinking && (
+        <div className="flex w-full flex-col gap-2">
+          {hasThinking ? (
             <ThinkingBlock
               content={message.thinking_content ?? ""}
               isStreaming={isThinkingStreaming}
             />
-          )}
-          {hasToolCalls && (
-            <div className="flex w-full flex-col gap-0.5">
-              {message.tool_calls!.map((tc) => (
-                <ToolCallBlock key={tc.id} toolCall={tc} />
-              ))}
-            </div>
-          )}
-          <MessageBubble message={message} isUser={isUser} />
-          {isStreaming && message.status === "streaming" && (
+          ) : null}
+          {hasToolCalls ? (
+            <ToolActionsGroup toolCalls={message.tool_calls!} />
+          ) : null}
+          <MessageBubble
+            message={message}
+            isUser={false}
+            isStreaming={Boolean(isStreaming && message.status === "streaming")}
+          />
+          {isStreaming && message.status === "streaming" ? (
             <StreamingIndicator className="ml-1" />
-          )}
+          ) : null}
           <MessageFooter message={message} onRegenerate={onRegenerate} />
         </div>
       )}
@@ -86,10 +92,6 @@ function UserMessageActions({
     });
   }, [message.content]);
 
-  const handleRegenerate = useCallback(() => {
-    onRegenerate?.(message.id);
-  }, [message.id, onRegenerate]);
-
   return (
     <div className="flex items-center gap-1 opacity-0 transition-opacity duration-[var(--ds-dur-fast)] group-hover/msg:opacity-100 focus-within:opacity-100">
       <ActionButton
@@ -97,16 +99,19 @@ function UserMessageActions({
         label={copied ? t("copied") : t("copyMessage")}
       >
         {copied ? (
-          <Check className="size-3 text-emerald-400" />
+          <Check className="size-3 text-emerald-500" />
         ) : (
           <Copy className="size-3" />
         )}
       </ActionButton>
-      {onRegenerate && (
-        <ActionButton onClick={handleRegenerate} label={t("regenerate")}>
+      {onRegenerate ? (
+        <ActionButton
+          onClick={() => onRegenerate(message.id)}
+          label={t("regenerate")}
+        >
           <RefreshCw className="size-3" />
         </ActionButton>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -114,15 +119,17 @@ function UserMessageActions({
 function MessageBubble({
   message,
   isUser,
+  isStreaming,
 }: {
   message: Message;
   isUser: boolean;
+  isStreaming: boolean;
 }) {
   if (!isUser && message.status === "error") {
     return (
       <div
         className={cn(
-          "rounded-[var(--radius-ui-lg)] px-3.5 py-2.5 text-sm leading-relaxed",
+          "rounded-xl px-4 py-3 text-sm leading-7",
           "border border-destructive/45 bg-destructive/8 text-destructive"
         )}
         role="alert"
@@ -145,44 +152,39 @@ function MessageBubble({
 
   if (isUser) {
     return (
-      <div
-        className={cn(
-          "rounded-[var(--radius-ui-lg)] px-3.5 py-2.5 text-sm leading-relaxed",
-          "bg-primary text-primary-foreground"
-        )}
-      >
-        {attachedImages.length > 0 && (
+      <div className="ml-auto w-fit min-w-0 max-w-full overflow-hidden break-words rounded-2xl bg-muted px-4 py-3 text-sm text-foreground">
+        {attachedImages.length > 0 ? (
           <div className="mb-2 flex flex-wrap gap-2">
             {attachedImages.map((img, i) => (
               <img
                 key={i}
                 src={`data:${img.mime_type};base64,${img.data}`}
                 alt=""
-                className="max-h-48 max-w-[200px] rounded-[var(--radius-ui-md)] object-contain"
+                className="max-h-48 max-w-[200px] rounded-lg border border-border/40 object-contain"
               />
             ))}
           </div>
-        )}
+        ) : null}
         <p className="whitespace-pre-wrap">{message.content}</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full rounded-[var(--radius-ui-lg)] bg-[color:var(--surface-card)]/50 px-4 py-3 text-sm leading-relaxed text-foreground">
-      {attachedImages.length > 0 && (
+    <div className="w-full min-w-0 text-sm text-foreground">
+      {attachedImages.length > 0 ? (
         <div className="mb-2 flex flex-wrap gap-2">
           {attachedImages.map((img, i) => (
             <img
               key={i}
               src={`data:${img.mime_type};base64,${img.data}`}
               alt=""
-              className="max-h-48 max-w-[200px] rounded-[var(--radius-ui-md)] object-contain"
+              className="max-h-48 max-w-[200px] rounded-lg border border-border/40 object-contain"
             />
           ))}
         </div>
-      )}
-      <MarkdownContent content={message.content} />
+      ) : null}
+      <MessageResponse content={message.content} isStreaming={isStreaming} />
     </div>
   );
 }
@@ -202,113 +204,6 @@ function parseAttachments(raw: string | null): AttachmentImage[] {
   }
 }
 
-function MarkdownContent({ content }: { content: string }) {
-  return (
-    <Markdown
-      remarkPlugins={[remarkGfm]}
-      components={{
-        code({ className, children, ...props }) {
-          const match = /language-(\w+)/.exec(className ?? "");
-          const codeStr = String(children).replace(/\n$/, "");
-
-          if (match) {
-            return <CodeBlock code={codeStr} language={match[1]} />;
-          }
-
-          return (
-            <code
-              className={cn(
-                "rounded-[4px] bg-[color:rgba(255,255,255,0.08)] px-1.5",
-                "text-[0.8125em] font-mono text-foreground/90",
-                className
-              )}
-              {...props}
-            >
-              {children}
-            </code>
-          );
-        },
-        pre({ children }) {
-          return <>{children}</>;
-        },
-        table({ children }) {
-          return (
-            <div className="my-3 overflow-x-auto rounded-[var(--radius-ui-md)] border border-[color:var(--border-muted)]">
-              <table className="w-full text-xs">{children}</table>
-            </div>
-          );
-        },
-        th({ children }) {
-          return (
-            <th className="border-b border-[color:var(--border-muted)] bg-[color:var(--surface-card)] px-3 py-2 text-left font-semibold">
-              {children}
-            </th>
-          );
-        },
-        td({ children }) {
-          return (
-            <td className="border-b border-[color:var(--border-muted)] px-3 py-2">
-              {children}
-            </td>
-          );
-        },
-        a({ href, children }) {
-          return (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary underline underline-offset-2 hover:text-primary/80"
-            >
-              {children}
-            </a>
-          );
-        },
-        ul({ children }) {
-          return <ul className="my-2 ml-4 list-disc space-y-1">{children}</ul>;
-        },
-        ol({ children }) {
-          return (
-            <ol className="my-2 ml-4 list-decimal space-y-1">{children}</ol>
-          );
-        },
-        blockquote({ children }) {
-          return (
-            <blockquote className="my-2 border-l-2 border-[color:var(--border-strong)] pl-3 text-muted-foreground">
-              {children}
-            </blockquote>
-          );
-        },
-        h1({ children }) {
-          return (
-            <h1 className="mb-2 mt-4 text-lg font-bold">{children}</h1>
-          );
-        },
-        h2({ children }) {
-          return (
-            <h2 className="mb-2 mt-3 text-base font-bold">{children}</h2>
-          );
-        },
-        h3({ children }) {
-          return (
-            <h3 className="mb-1.5 mt-2.5 text-sm font-bold">{children}</h3>
-          );
-        },
-        p({ children }) {
-          return <p className="my-1.5 leading-relaxed">{children}</p>;
-        },
-        hr() {
-          return (
-            <hr className="my-4 border-[color:var(--border-muted)]" />
-          );
-        },
-      }}
-    >
-      {content}
-    </Markdown>
-  );
-}
-
 function MessageFooter({
   message,
   onRegenerate,
@@ -318,45 +213,41 @@ function MessageFooter({
 }) {
   const { t } = useTranslation("chat");
   const [copied, setCopied] = useState(false);
-
   const parsedUsage = parseTokenUsage(message.token_usage);
   const showActions = message.status === "complete";
-
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(message.content).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }, [message.content]);
-
-  const handleRegenerate = useCallback(() => {
-    onRegenerate?.(message.id);
-  }, [message.id, onRegenerate]);
 
   if (!showActions && !parsedUsage) return null;
 
   return (
-    <div className="flex items-center gap-2 px-1 pt-0.5 opacity-0 transition-opacity duration-[var(--ds-dur-fast)] group-hover/msg:opacity-100 focus-within:opacity-100">
-      {showActions && (
+    <div className="flex items-center gap-1 opacity-0 transition-opacity duration-[var(--ds-dur-fast)] group-hover/msg:opacity-100 focus-within:opacity-100">
+      {showActions ? (
         <>
           <ActionButton
-            onClick={handleCopy}
+            onClick={() => {
+              navigator.clipboard.writeText(message.content).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              });
+            }}
             label={copied ? t("copied") : t("copyMessage")}
           >
             {copied ? (
-              <Check className="size-3 text-emerald-400" />
+              <Check className="size-3 text-emerald-500" />
             ) : (
               <Copy className="size-3" />
             )}
           </ActionButton>
-          {onRegenerate && (
-            <ActionButton onClick={handleRegenerate} label={t("regenerate")}>
+          {onRegenerate ? (
+            <ActionButton
+              onClick={() => onRegenerate(message.id)}
+              label={t("regenerate")}
+            >
               <RefreshCw className="size-3" />
             </ActionButton>
-          )}
+          ) : null}
         </>
-      )}
-      {parsedUsage && <TokenBadge usage={parsedUsage} />}
+      ) : null}
+      {parsedUsage ? <TokenBadge usage={parsedUsage} /> : null}
     </div>
   );
 }
@@ -380,7 +271,7 @@ function ActionButton({
         "inline-flex size-7 items-center justify-center rounded-md",
         "text-muted-foreground/60",
         "transition-colors duration-[var(--ds-dur-fast)]",
-        "hover:bg-[color:var(--surface-hover)] hover:text-foreground"
+        "hover:bg-muted/50 hover:text-foreground"
       )}
     >
       {children}

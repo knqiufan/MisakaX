@@ -180,8 +180,8 @@ export function MessageInput({
   );
 
   return (
-    <div className="shrink-0 border-t border-[color:var(--border-muted)] bg-[color:var(--surface-topbar)] px-4 py-3">
-      <div className="flex items-center gap-2">
+    <div className="shrink-0 border-t border-border/40 bg-background px-0 pb-2.5 pt-2">
+      <div className="flex items-end gap-2">
         <AttachmentMenu
           trigger={
             <AttachButton
@@ -203,19 +203,19 @@ export function MessageInput({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={cn(
-            "flex min-w-0 flex-1 flex-col rounded-[var(--radius-ui-lg)]",
-            "border bg-[color:var(--surface-card)]",
-            "px-3 transition-colors duration-[var(--ds-dur-fast)]",
+            "flex min-w-0 flex-1 flex-col rounded-2xl border shadow-sm",
+            "bg-background dark:bg-input/30",
+            "transition-colors duration-[var(--ds-dur-fast)]",
             isDragOver
               ? "border-primary/50 bg-primary/5"
-              : "border-[color:var(--border-muted)] focus-within:border-[color:var(--border-strong)]"
+              : "border-input focus-within:border-border"
           )}
         >
           <AttachmentPreview
             attachments={attachments}
             onRemove={removeAttachment}
           />
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-end gap-1 px-2 pb-2 pt-1">
             <ComposerInlineField
               segments={segments}
               composerCursor={composerCursor}
@@ -313,10 +313,9 @@ function InputToolbar({
           aria-label={t("send")}
           className={cn(
             "size-8 shrink-0 rounded-full",
-            "border border-[color:var(--border-strong)]",
-            "bg-[color:var(--surface-card-strong)] text-foreground",
-            "hover:bg-[color:var(--surface-card-strong)]",
-            "disabled:cursor-not-allowed disabled:opacity-50"
+            canSend
+              ? "bg-primary text-primary-foreground hover:bg-primary/90"
+              : "border border-border bg-muted text-muted-foreground"
           )}
         >
           <Send className="size-3.5" />

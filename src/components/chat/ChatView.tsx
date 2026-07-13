@@ -37,6 +37,11 @@ export function ChatView({
     removeMessagesFrom,
     updateMessageError,
     loadMessages,
+    loadEarlierMessages,
+    hasMoreEarlier,
+    loadingEarlier,
+    scrollToMessageId,
+    setScrollToMessageId,
     requestAutoTitle,
   } = useChatStore();
 
@@ -239,20 +244,29 @@ export function ChatView({
         onToggleToolLogs={() => {}}
       />
       {messages.length === 0 && !isStreaming ? (
-        <ChatEmptyState />
+        <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-4">
+          <ChatEmptyState />
+        </div>
       ) : (
         <MessageList
           messages={messages}
           streamingMessageId={streamingMessageId}
           isThinkingStreaming={isThinkingStreaming}
           onRegenerate={handleRegenerate}
+          hasMoreEarlier={hasMoreEarlier}
+          loadingEarlier={loadingEarlier}
+          onLoadEarlier={() => loadEarlierMessages(session.id)}
+          scrollToMessageId={scrollToMessageId}
+          onScrollToMessageHandled={() => setScrollToMessageId(null)}
         />
       )}
-      <MessageInput
-        onSend={handleSend}
-        onStop={handleStop}
-        onPickWorkspaceFile={onToggleExplorer}
-      />
+      <div className="mx-auto w-full max-w-3xl px-4">
+        <MessageInput
+          onSend={handleSend}
+          onStop={handleStop}
+          onPickWorkspaceFile={onToggleExplorer}
+        />
+      </div>
       <ToolApprovalDialog
         request={pendingApproval}
         onDismiss={() => setPendingApproval(null)}

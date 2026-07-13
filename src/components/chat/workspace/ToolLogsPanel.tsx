@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useToolLogsStore } from "@/stores/tool-logs-store";
-import { ToolCallBlock } from "../message/ToolCallBlock";
+import { ToolActionsGroup } from "../message/ToolActionsGroup";
 
 export function ToolLogsPanel() {
   const { t } = useTranslation("chat");
@@ -17,10 +17,8 @@ export function ToolLogsPanel() {
   }
 
   return (
-    <div className="h-full overflow-y-auto p-2">
-      {toolCalls.map((tc) => (
-        <ToolCallBlock key={tc.id} toolCall={tc} />
-      ))}
+    <div className="h-full overflow-y-auto p-3">
+      <ToolActionsGroup toolCalls={toolCalls} defaultOpen />
     </div>
   );
 }

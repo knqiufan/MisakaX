@@ -1,0 +1,74 @@
+/* Chat markdown / terminal fences (docs/ui/06) */
+
+.misaka-chat-md {
+  line-height: 1.7;
+}
+
+.search-highlight-flash {
+  animation: search-highlight-flash 2s ease-out;
+  border-radius: 2px;
+  padding-inline: 2px;
+}
+
+@keyframes search-highlight-flash {
+  0% {
+    background-color: color-mix(in oklch, var(--primary) 35%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes misaka-shimmer-text {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+.misaka-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--muted-foreground) 0%,
+    var(--foreground) 40%,
+    var(--muted-foreground) 80%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: misaka-shimmer-text 1s linear infinite;
+}
+
+:root {
+  --terminal-bg: oklch(0.22 0.01 60);
+  --terminal-fg: oklch(0.88 0.02 90);
+}
+
+.dark {
+  --terminal-bg: oklch(0.18 0.01 60);
+  --terminal-fg: oklch(0.9 0.02 90);
+}
+
+.chat-terminal-fence pre,
+[data-language="bash"] pre,
+[data-language="sh"] pre,
+[data-language="shell"] pre,
+[data-language="zsh"] pre,
+[data-language="console"] pre,
+[data-language="terminal"] pre {
+  background: var(--terminal-bg) !important;
+  color: var(--terminal-fg) !important;
+}
+
+.chat-terminal-fence pre span,
+[data-language="bash"] pre span,
+[data-language="sh"] pre span,
+[data-language="shell"] pre span,
+[data-language="zsh"] pre span,
+[data-language="console"] pre span,
+[data-language="terminal"] pre span {
+  color: inherit !important;
+}

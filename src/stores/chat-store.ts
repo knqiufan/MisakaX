@@ -3,6 +3,8 @@ import type { Message, MessageAttachment, Session, ToolCall } from "@/lib/ipc";
 import { chatIpc, sessionsIpc } from "@/lib/ipc";
 
 const SELECTED_MODEL_KEY = "misakax:selectedModel";
+const MESSAGE_INITIAL_LIMIT = 50;
+const MESSAGE_EARLIER_LIMIT = 100;
 
 export interface PendingOutbound {
   content: string;
@@ -43,6 +45,9 @@ interface ChatState {
   modelsVersion: number;
   sessionsReloadToken: number;
   pendingOutbound: PendingOutbound | null;
+  hasMoreEarlier: boolean;
+  loadingEarlier: boolean;
+  scrollToMessageId: string | null;
 
   setActiveSession: (id: string | null) => void;
   setActiveSessionData: (session: Session | null) => void;
@@ -68,6 +73,8 @@ interface ChatState {
   bumpModels: () => void;
   clearMessages: () => void;
   loadMessages: (sessionId: string) => Promise<void>;
+  loadEarlierMessages: (sessionId: string) => Promise<string | null>;
+  setScrollToMessageId: (id: string | null) => void;
   remapMessageId: (oldId: string, newId: string) => void;
   addToolCall: (messageId: string, toolCall: ToolCall) => void;
   updateToolCall: (messageId: string, toolCallId: string, patch: Partial<ToolCall>) => void;
@@ -88,6 +95,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   modelsVersion: 0,
   sessionsReloadToken: 0,
   pendingOutbound: null,
+  hasMoreEarlier: false,
+  loadingEarlier: false,
+  scrollToMessageId: null,
 
   setActiveSession: (id) => set({ activeSessionId: id }),
   setActiveSessionData: (session) => {
@@ -98,6 +108,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       isStreaming: false,
       streamingMessageId: null,
       isThinkingStreaming: false,
+      hasMoreEarlier: false,
+      loadingEarlier: false,
+      scrollToMessageId: null,
     });
     get().refreshSessions();
   },
@@ -192,18 +205,61 @@ export const useChatStore = create<ChatState>((set, get) => ({
   bumpModels: () => set((state) => ({ modelsVersion: state.modelsVersion + 1 })),
 
   clearMessages: () =>
-    set({ messages: [], isStreaming: false, streamingMessageId: null, isThinkingStreaming: false }),
+    set({
+      messages: [],
+      isStreaming: false,
+      streamingMessageId: null,
+      isThinkingStreaming: false,
+      hasMoreEarlier: false,
+      loadingEarlier: false,
+      scrollToMessageId: null,
+    }),
 
   loadMessages: async (sessionId: string) => {
     try {
-      set({ loading: true });
-      const messages = await chatIpc.getMessages(sessionId);
-      set({ messages, loading: false });
+      set({ loading: true, hasMoreEarlier: false, loadingEarlier: false });
+      const messages = await chatIpc.getMessages(
+        sessionId,
+        MESSAGE_INITIAL_LIMIT
+      );
+      set({
+        messages,
+        loading: false,
+        hasMoreEarlier: messages.length >= MESSAGE_INITIAL_LIMIT,
+      });
     } catch (err) {
       console.error("Failed to load messages:", err);
       set({ loading: false });
     }
   },
+
+  loadEarlierMessages: async (sessionId: string) => {
+    const { messages, loadingEarlier, hasMoreEarlier } = get();
+    if (loadingEarlier || !hasMoreEarlier || messages.length === 0) {
+      return null;
+    }
+    const anchorId = messages[0].id;
+    try {
+      set({ loadingEarlier: true });
+      const earlier = await chatIpc.getMessages(
+        sessionId,
+        MESSAGE_EARLIER_LIMIT,
+        anchorId
+      );
+      set((state) => ({
+        messages: [...earlier, ...state.messages],
+        loadingEarlier: false,
+        hasMoreEarlier: earlier.length >= MESSAGE_EARLIER_LIMIT,
+      }));
+      return anchorId;
+    } catch (err) {
+      console.error("Failed to load earlier messages:", err);
+      set({ loadingEarlier: false });
+      return null;
+    }
+  },
+
+  setScrollToMessageId: (id) => set({ scrollToMessageId: id }),
 
   remapMessageId: (oldId, newId) =>
     set((state) => ({

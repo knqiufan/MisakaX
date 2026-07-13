@@ -2,6 +2,9 @@
 @import "@fontsource-variable/geist-mono";
 @import "tailwindcss";
 @import "./styles/base.css";
+@import "streamdown/styles.css";
+@import "katex/dist/katex.min.css";
+@import "./styles/chat-markdown.css";
 
 @theme inline {
   --color-background: var(--background);

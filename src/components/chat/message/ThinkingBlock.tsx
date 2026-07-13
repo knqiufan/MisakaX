@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Brain, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { MessageResponse } from "../markdown/MessageResponse";
+import { Shimmer } from "./Shimmer";
+
+const AUTO_CLOSE_DELAY = 1000;
 
 interface ThinkingBlockProps {
   content: string;
@@ -15,48 +19,84 @@ interface ThinkingBlockProps {
 
 export function ThinkingBlock({ content, isStreaming }: ThinkingBlockProps) {
   const { t } = useTranslation("chat");
-  const [expanded, setExpanded] = useState(false);
+  const [open, setOpen] = useState(Boolean(isStreaming));
+  const [durationSec, setDurationSec] = useState(0);
+  const startedAtRef = useRef<number | null>(null);
+  const userClosedRef = useRef(false);
+  const autoClosedRef = useRef(false);
+
+  useEffect(() => {
+    if (isStreaming) {
+      if (startedAtRef.current === null) {
+        startedAtRef.current = Date.now();
+      }
+      autoClosedRef.current = false;
+      if (!userClosedRef.current) {
+        setOpen(true);
+      }
+      return;
+    }
+
+    if (startedAtRef.current !== null) {
+      const elapsed = Math.ceil((Date.now() - startedAtRef.current) / 1000);
+      setDurationSec(Math.max(elapsed, 1));
+      startedAtRef.current = null;
+    }
+
+    if (autoClosedRef.current) return;
+
+    const timer = window.setTimeout(() => {
+      setOpen(false);
+      autoClosedRef.current = true;
+    }, AUTO_CLOSE_DELAY);
+
+    return () => window.clearTimeout(timer);
+  }, [isStreaming]);
 
   if (!content && !isStreaming) return null;
 
+  const label = isStreaming
+    ? null
+    : durationSec > 0
+      ? t("thinkingDuration", { count: durationSec })
+      : t("thinkingFewSeconds");
+
   return (
-    <Collapsible open={expanded} onOpenChange={setExpanded} className="mb-1">
+    <Collapsible
+      open={open}
+      onOpenChange={(next) => {
+        userClosedRef.current = !next;
+        setOpen(next);
+      }}
+      className="not-prose mb-4"
+    >
       <CollapsibleTrigger
         className={cn(
-          "flex items-center gap-1.5 rounded-md px-2 py-1",
-          "text-xs text-muted-foreground/70",
-          "transition-colors duration-[var(--ds-dur-fast)]",
-          "hover:bg-[color:var(--surface-hover)] hover:text-muted-foreground"
+          "flex w-full items-center gap-2 text-sm text-muted-foreground",
+          "transition-colors duration-[var(--ds-dur-fast)] hover:text-foreground"
         )}
       >
         {isStreaming ? (
-          <Loader2 className="size-3 animate-spin" />
+          <Shimmer>{t("thinkingStreaming")}</Shimmer>
         ) : (
-          <Brain className="size-3" />
+          <span>{label ?? t("thinkingFewSeconds")}</span>
         )}
-        <span>
-          {isStreaming ? t("thinkingStreaming") : t("thinkingDone")}
-        </span>
-        <ChevronRight
+        <ChevronDown
           className={cn(
-            "size-3 transition-transform duration-[var(--ds-dur-fast)]",
-            expanded && "rotate-90"
+            "size-4 transition-transform duration-[var(--ds-dur-fast)]",
+            open && "rotate-180"
           )}
         />
       </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div
-          className={cn(
-            "mt-1 rounded-[var(--radius-ui-md)] px-3 py-2",
-            "bg-[color:var(--surface-card)] border border-[color:var(--border-muted)]",
-            "text-xs leading-relaxed text-muted-foreground/80",
-            "whitespace-pre-wrap"
-          )}
-        >
-          {content}
-          {isStreaming && (
-            <span className="ml-0.5 inline-block size-1.5 animate-pulse rounded-full bg-muted-foreground/40" />
-          )}
+      <CollapsibleContent className="data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0">
+        <div className="mt-4 text-sm text-muted-foreground">
+          {content ? (
+            <MessageResponse
+              content={content}
+              isStreaming={isStreaming}
+              className="text-muted-foreground"
+            />
+          ) : null}
         </div>
       </CollapsibleContent>
     </Collapsible>

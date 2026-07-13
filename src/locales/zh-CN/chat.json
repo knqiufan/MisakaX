@@ -41,6 +41,10 @@
   },
   "thinkingStreaming": "思考中…",
   "thinkingDone": "思考过程",
+  "thinkingFewSeconds": "思考了几秒",
+  "thinkingDuration": "思考了 {{count}} 秒",
+  "loadEarlier": "加载更早消息",
+  "loadEarlierLoading": "加载中…",
   "tokenUsage": "Token 用量",
   "inputTokens": "输入",
   "outputTokens": "输出",
@@ -53,6 +57,11 @@
     "arguments": "参数",
     "result": "结果",
     "error": "错误"
+  },
+  "toolGroup": {
+    "running": "{{count}} 个工具运行中",
+    "failed": "{{count}} 个工具失败",
+    "done": "{{count}} 个工具已完成"
   },
   "session": {
     "searchPlaceholder": "搜索会话 / 消息…",

@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口混合壳结构、会话侧栏、对话页顶栏、设置页与工作区布局语义。 |
 | **受众** | 负责 `AppShell`、`UnifiedTopBar`、`Sidebar`、`SessionPanel`、`ChatPage`、`WorkspaceBar`、`SettingsPage` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-07-14（v7） |
+| **最后审阅** | 2026-07-14（v8） |
 
 ## 相关文档
 
@@ -157,7 +157,53 @@ Explorer 与 Tool Logs **语义解耦**；Tool Logs 入口可占位，不强制�
 
 ---
 
-## 6. 首页 Hero（无会话）
+## 6. 对话消息 / Markdown / 思考与工具
+
+参考：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)。
+
+### 6.1 宽度契约
+
+聊天主列可读内容统一：`mx-auto w-full max-w-3xl px-4`（列表、Composer、空态）。
+
+### 6.2 气泡
+
+| 角色 | 规格 |
+|------|------|
+| User | `max-w-[95%] ml-auto`；`rounded-2xl bg-muted px-4 py-3 text-sm text-foreground`（非 primary 实心） |
+| Assistant | **无**卡片底/圆角外壳；正文直接铺画布 |
+| Error | `rounded-xl` + destructive 边框/字色 |
+
+### 6.3 Markdown
+
+- 管线：`MessageResponse` → `streamdown` + `@streamdown/code|math|mermaid|cjk`
+- 覆盖：`src/components/chat/markdown/markdown-components.tsx`（标题/leading-7、围栏 `rounded-xl bg-muted/20`、表格顶栏）
+- 样式：`streamdown/styles.css` + `katex` + `src/styles/chat-markdown.css`（终端 fence、`search-highlight-flash`）
+
+### 6.4 思考
+
+- 流式：自动展开 + Shimmer 文案
+- 结束：1s 后自动折叠一次；显示「Thought for N seconds」
+- 正文：走 `MessageResponse`（可 Markdown）
+
+### 6.5 工具
+
+- 主路径：`ToolActionsGroup` — 左色线 + 紧凑行 + 状态绿/红/转圈
+- Tool Logs 复用同一组件；MCP 审批仍走 `ToolApprovalDialog`
+
+### 6.6 历史
+
+| 项 | 值 |
+|----|-----|
+| 首屏 | `limit=50` |
+| 更早 | `limit=100` + `beforeId` |
+| 虚拟列表 | `@tanstack/react-virtual`；estimate 220；overscan 6 |
+| Prepend | 保位 `scrollToIndex(align:'start')`；仅尾追加才自动置底 |
+
+Composer 外壳：`rounded-2xl` 输入组、发送 `rounded-full`、附件胶囊 `rounded-full border-border/40 bg-muted`。不引入 CodePilot Hood vibrancy / ActionBar 产品控件。
+
+---
+
+## 7. 首页 Hero（无会话）
 
 - 组件：`NewChatWelcome`（`ChatPage` 在无 `activeSession` 时渲染）。
 - 布局：垂直居中，`max-w-3xl`，`px-4 py-8`。
@@ -167,10 +213,10 @@ Explorer 与 Tool Logs **语义解耦**；Tool Logs 入口可占位，不强制�
 
 ---
 
-## 7. 明确不在本期壳层范围
+## 8. 明确不在本期壳层范围
 
 - macOS 14px CardFrame 悬浮卡 / vibrancy / traffic-light 避让  
 - React Router URL（`/chat/[id]`、`/settings/*`）  
 - Settings 扩展 IA（overview / runtime / health / usage / assistant / tasks / bridge）  
 - Workspace 多轨（独立 FileTree 轨、Assistant 轨、Git / Widget 固定 Tab）  
-- 完整聊天气泡 / Markdown 深改  
+- Rewind / Checkpoint / RuntimeSwitch / SplitChat / Composer ActionBar（Runtime·Permission·Cockpit）  

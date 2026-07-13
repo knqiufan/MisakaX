@@ -41,6 +41,10 @@
   },
   "thinkingStreaming": "Thinking…",
   "thinkingDone": "Thought process",
+  "thinkingFewSeconds": "Thought for a few seconds",
+  "thinkingDuration": "Thought for {{count}} seconds",
+  "loadEarlier": "Load earlier messages",
+  "loadEarlierLoading": "Loading…",
   "tokenUsage": "Token usage",
   "inputTokens": "Input",
   "outputTokens": "Output",
@@ -53,6 +57,11 @@
     "arguments": "Arguments",
     "result": "Result",
     "error": "Error"
+  },
+  "toolGroup": {
+    "running": "{{count}} tools running",
+    "failed": "{{count}} tools failed",
+    "done": "{{count}} tools completed"
   },
   "session": {
     "searchPlaceholder": "Search sessions / messages…",
