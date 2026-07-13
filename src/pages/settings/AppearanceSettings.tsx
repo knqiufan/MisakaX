@@ -1,18 +1,25 @@
 import { useTranslation } from "react-i18next";
 import { Sun, Moon, Monitor } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import {
+  SettingsCard,
+  FieldRow,
+  SettingsSectionHeader,
+} from "@/components/settings";
 import { useThemeStore } from "@/stores/theme-store";
 import { useAppStore } from "@/stores/app-store";
 import type { ThemeMode } from "@/lib/theme";
 
-const THEME_OPTIONS: { mode: ThemeMode; labelKey: string; icon: typeof Sun }[] = [
-  { mode: "light", labelKey: "settings:appearance.themeLight", icon: Sun },
-  { mode: "dark", labelKey: "settings:appearance.themeDark", icon: Moon },
-  { mode: "system", labelKey: "settings:appearance.themeSystem", icon: Monitor },
+const THEME_OPTIONS: {
+  mode: ThemeMode;
+  labelKey: string;
+  icon: typeof Sun;
+}[] = [
+  { mode: "light", labelKey: "appearance.themeLight", icon: Sun },
+  { mode: "dark", labelKey: "appearance.themeDark", icon: Moon },
+  { mode: "system", labelKey: "appearance.themeSystem", icon: Monitor },
 ];
 
 export function AppearanceSettings() {
@@ -27,107 +34,96 @@ export function AppearanceSettings() {
   const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed);
 
   return (
-    <div className="w-full min-w-0 space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("appearance.theme")}</CardTitle>
-          <p className="text-sm text-muted-foreground">{t("appearance.themeDesc")}</p>
-        </CardHeader>
-        <CardContent>
-          <div
-            className="inline-flex w-full max-w-lg flex-wrap gap-1 rounded-full border border-border bg-muted p-1"
-            role="tablist"
-            aria-label={t("appearance.theme")}
-          >
-            {THEME_OPTIONS.map(({ mode, labelKey, icon: Icon }) => {
-              const active = themeMode === mode;
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setMode(mode)}
-                  className={cn(
-                    "flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-[0.75rem] font-semibold transition-colors duration-[var(--ds-dur-fast)] ease-out sm:text-[0.8125rem]",
-                    active
-                      ? "border border-border bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                  )}
-                >
-                  <Icon className="size-3.5 shrink-0 sm:size-4" />
-                  <span className="hidden sm:inline">{t(labelKey)}</span>
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+    <div className="space-y-6">
+      <SettingsSectionHeader title={t("appearance.title")} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("appearance.reducedTransparency")}</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {t("appearance.reducedTransparencyDesc")}
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-3">
+      <SettingsCard
+        title={t("appearance.theme")}
+        description={t("appearance.themeDesc")}
+      >
+        <div
+          className="inline-flex rounded-md bg-muted p-0.5"
+          role="tablist"
+          aria-label={t("appearance.theme")}
+        >
+          {THEME_OPTIONS.map(({ mode, labelKey, icon: Icon }) => {
+            const active = themeMode === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setMode(mode)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs transition-colors duration-[var(--ds-dur-fast)] ease-out",
+                  active
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Icon className="size-3.5 shrink-0" aria-hidden />
+                <span>{t(labelKey)}</span>
+              </button>
+            );
+          })}
+        </div>
+      </SettingsCard>
+
+      <SettingsCard>
+        <div className="space-y-4">
+          <FieldRow
+            label={t("appearance.reducedTransparency")}
+            description={t("appearance.reducedTransparencyDesc")}
+          >
             <Switch
               checked={reducedTransparency}
               onCheckedChange={setReducedTransparency}
+              aria-label={
+                reducedTransparency
+                  ? t("appearance.reducedTransparencyOn")
+                  : t("appearance.reducedTransparencyOff")
+              }
             />
-            <Label className="text-sm text-muted-foreground">
-              {reducedTransparency
-                ? t("appearance.reducedTransparencyOn")
-                : t("appearance.reducedTransparencyOff")}
-            </Label>
-          </div>
-        </CardContent>
-      </Card>
+          </FieldRow>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("appearance.fontSize")}</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {t("appearance.fontSizeDesc", { size: uiFontSize })}
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4">
-            <span className="text-meta text-muted-foreground">12</span>
-            <Slider
-              value={[uiFontSize]}
-              onValueChange={(v) => setUiFontSize(v[0] ?? 14)}
-              min={12}
-              max={18}
-              step={1}
-              className="w-48"
-            />
-            <span className="text-meta text-muted-foreground">18</span>
-          </div>
-        </CardContent>
-      </Card>
+          <FieldRow
+            label={t("appearance.fontSize")}
+            description={t("appearance.fontSizeDesc", { size: uiFontSize })}
+            separator
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] text-muted-foreground">12</span>
+              <Slider
+                value={[uiFontSize]}
+                onValueChange={(v) => setUiFontSize(v[0] ?? 14)}
+                min={12}
+                max={18}
+                step={1}
+                className="w-36"
+                aria-label={t("appearance.fontSize")}
+              />
+              <span className="text-[10px] text-muted-foreground">18</span>
+            </div>
+          </FieldRow>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("appearance.sidebarDefault")}</CardTitle>
-          <p className="text-sm text-muted-foreground">{t("appearance.sidebarDefaultDesc")}</p>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-3">
+          <FieldRow
+            label={t("appearance.sidebarDefault")}
+            description={t("appearance.sidebarDefaultDesc")}
+            separator
+          >
             <Switch
               checked={!sidebarCollapsed}
               onCheckedChange={(checked) => setSidebarCollapsed(!checked)}
+              aria-label={
+                sidebarCollapsed
+                  ? t("appearance.sidebarCollapsed")
+                  : t("appearance.sidebarExpanded")
+              }
             />
-            <Label className="text-sm text-muted-foreground">
-              {sidebarCollapsed
-                ? t("appearance.sidebarCollapsed")
-                : t("appearance.sidebarExpanded")}
-            </Label>
-          </div>
-        </CardContent>
-      </Card>
+          </FieldRow>
+        </div>
+      </SettingsCard>
     </div>
   );
 }

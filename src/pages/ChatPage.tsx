@@ -76,7 +76,9 @@ export function ChatPage() {
             </Panel>
             {explorerOpen && activeSession.working_directory ? (
               <>
-                <PanelResizeHandle className="w-[2px] bg-border transition-colors duration-[var(--ds-dur-fast)] hover:bg-foreground/20" />
+                <PanelResizeHandle className="group relative w-2 bg-transparent">
+                  <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors duration-[var(--ds-dur-fast)] group-hover:bg-border group-active:bg-border" />
+                </PanelResizeHandle>
                 <Panel id="explorer" defaultSize="30%" minSize="18%" maxSize="55%">
                   <WorkspaceExplorer workingDir={activeSession.working_directory} />
                 </Panel>

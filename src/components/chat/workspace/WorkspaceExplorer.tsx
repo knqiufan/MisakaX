@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { PanelRightClose, RefreshCw } from "lucide-react";
+import { X, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -72,9 +72,8 @@ export function WorkspaceExplorer({ workingDir }: WorkspaceExplorerProps) {
   return (
     <aside
       className={
-        "flex h-full min-w-0 flex-col border-l border-[color:var(--border-muted)] " +
-        "bg-[color:var(--surface-sidebar)] " +
-        "animate-in fade-in slide-in-from-right-4 ease-out duration-[220ms]"
+        "flex h-full min-w-0 flex-col border-l border-border/40 bg-background " +
+        "animate-in fade-in duration-[var(--ds-dur-fast)] ease-out"
       }
     >
       <ExplorerHeader
@@ -106,8 +105,8 @@ function ExplorerHeader({
   onCollapse: () => void;
 }) {
   return (
-    <div className="flex h-10 shrink-0 items-center justify-between border-b border-[color:var(--border-muted)] px-3">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+    <div className="flex h-10 shrink-0 items-center justify-between px-3">
+      <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         {title}
       </h2>
       <div className="flex items-center gap-0.5">
@@ -117,20 +116,22 @@ function ExplorerHeader({
           size="icon"
           onClick={onRefresh}
           disabled={treeLoading}
-          className="size-7 rounded-[var(--radius-ui-sm)]"
+          className="size-7"
           aria-label={refreshLabel}
         >
-          <RefreshCw className={`size-3.5 ${treeLoading ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`size-3.5 ${treeLoading ? "animate-spin" : ""}`}
+          />
         </Button>
         <Button
           type="button"
           variant="ghost"
           size="icon"
           onClick={onCollapse}
-          className="size-7 rounded-[var(--radius-ui-sm)]"
+          className="size-7"
           aria-label={collapseLabel}
         >
-          <PanelRightClose className="size-4" />
+          <X className="size-3.5" />
         </Button>
       </div>
     </div>
@@ -157,12 +158,23 @@ function ExplorerSplitLayout({
   onChange,
   onSave,
 }: ExplorerSplitLayoutProps) {
+  const { t } = useTranslation("workspace");
+
   return (
     <PanelGroup orientation="horizontal" id="misakax-workspace-explorer">
       <Panel id="tree" defaultSize="32%" minSize="22%" maxSize="50%">
-        <FileTreeView {...treeProps} />
+        <div className="flex h-full min-h-0 flex-col border-r border-border/40">
+          <div className="flex h-8 shrink-0 items-center px-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {t("explorer.files")}
+            </span>
+          </div>
+          <div className="min-h-0 flex-1">
+            <FileTreeView {...treeProps} />
+          </div>
+        </div>
       </Panel>
-      <PanelResizeHandle className="w-px bg-[color:var(--border-muted)] hover:bg-[color:var(--border-strong)] transition-colors duration-[var(--ds-dur-fast)]" />
+      <PanelResizeHandle className="w-2 bg-transparent transition-colors duration-[var(--ds-dur-fast)] hover:bg-border/60" />
       <Panel id="editor" minSize="35%">
         <EditorColumn
           workingDir={workingDir}

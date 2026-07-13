@@ -18,8 +18,8 @@ interface WorkspaceBarProps {
 }
 
 const barShellClass = cn(
-  "flex min-h-[52px] shrink-0 items-center gap-4 border-b border-[color:var(--border-muted)]",
-  "bg-[color:var(--surface-topbar)] px-5 py-3 backdrop-blur-[2px]"
+  "flex min-h-10 shrink-0 items-center gap-3 border-b border-border/40",
+  "bg-background px-3 py-1.5"
 );
 
 export function WorkspaceBar({
@@ -58,20 +58,24 @@ function WorkspaceBarUnset({
 }) {
   return (
     <div className={barShellClass}>
-      <div
-        className={cn(
-          "flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-ui-md)]",
-          "border border-[color:var(--border-muted)] bg-[color:var(--surface-card-strong)]",
-          "text-muted-foreground"
-        )}
+      <FolderX
+        className="size-4 shrink-0 text-muted-foreground"
+        aria-hidden
+      />
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <p className="text-sm font-medium leading-tight text-foreground">
+          {t("noWorkingDir")}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          {t("description")}
+        </p>
+      </div>
+      <Button
+        type="button"
+        size="sm"
+        className="h-7 shrink-0 px-3 text-xs"
+        onClick={onSelectDir}
       >
-        <FolderX className="h-5 w-5" aria-hidden />
-      </div>
-      <div className="min-w-0 flex-1 space-y-1">
-        <p className="text-sm font-semibold leading-tight text-foreground">{t("noWorkingDir")}</p>
-        <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{t("description")}</p>
-      </div>
-      <Button type="button" size="sm" className="shrink-0 px-4" onClick={onSelectDir}>
         {t("selectDir")}
       </Button>
     </div>
@@ -98,21 +102,18 @@ function WorkspaceBarSet({
   const dirName = extractDirName(workingDir);
 
   return (
-    <div className={cn(barShellClass, "gap-3")}>
-      <div
-        className={cn(
-          "flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-ui-md)]",
-          "border border-[color:var(--border-muted)]/80 bg-[color:var(--surface-card)]",
-          "text-primary/85"
-        )}
-      >
-        <FolderOpen className="h-5 w-5" aria-hidden />
-      </div>
-      <div className="min-w-0 flex-1 space-y-0.5">
-        <p className="text-sm font-semibold leading-tight text-foreground">{dirName}</p>
+    <div className={barShellClass}>
+      <FolderOpen
+        className="size-4 shrink-0 text-muted-foreground"
+        aria-hidden
+      />
+      <div className="min-w-0 flex-1 space-y-0">
+        <p className="truncate text-sm font-medium leading-tight text-foreground">
+          {dirName}
+        </p>
         <Tooltip>
           <TooltipTrigger asChild>
-            <p className="max-w-full cursor-default truncate text-xs text-muted-foreground">
+            <p className="max-w-full cursor-default truncate font-mono text-[10px] text-muted-foreground/60">
               {workingDir}
             </p>
           </TooltipTrigger>
@@ -121,62 +122,66 @@ function WorkspaceBarSet({
           </TooltipContent>
         </Tooltip>
       </div>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={onChangeDir}
-            className="size-9 shrink-0 rounded-[var(--radius-ui-md)] border-[color:var(--border-muted)]"
-            aria-label={t("switchDir")}
-          >
-            <RefreshCw className="h-4 w-4 text-muted-foreground" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">
-          {t("switchDir")}
-        </TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={onToggleExplorer}
-            disabled={!onToggleExplorer || explorerOpen}
-            className="size-9 shrink-0 rounded-[var(--radius-ui-md)] border-[color:var(--border-muted)]"
-            aria-label={t("openExplorer")}
-          >
-            <FolderTree className="h-4 w-4 text-muted-foreground" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">
-          {t("openExplorer")}
-        </TooltipContent>
-      </Tooltip>
-      {onToggleToolLogs && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={onToggleToolLogs}
-              disabled={toolLogsOpen}
-              className="size-9 shrink-0 rounded-[var(--radius-ui-md)] border-[color:var(--border-muted)]"
-              aria-label="Tool Logs"
-            >
-              <Terminal className="h-4 w-4 text-muted-foreground" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">
-            Tool Logs
-          </TooltipContent>
-        </Tooltip>
-      )}
+      <BarIconButton
+        label={t("switchDir")}
+        onClick={onChangeDir}
+        icon={RefreshCw}
+      />
+      <BarIconButton
+        label={t("openExplorer")}
+        onClick={onToggleExplorer}
+        disabled={!onToggleExplorer}
+        active={explorerOpen}
+        icon={FolderTree}
+        strokeWidth={explorerOpen ? 2 : undefined}
+      />
+      {onToggleToolLogs ? (
+        <BarIconButton
+          label={t("explorer.toolLogs")}
+          onClick={onToggleToolLogs}
+          active={toolLogsOpen}
+          icon={Terminal}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function BarIconButton({
+  label,
+  onClick,
+  disabled,
+  active,
+  icon: Icon,
+  strokeWidth,
+}: {
+  label: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  active?: boolean;
+  icon: typeof FolderTree;
+  strokeWidth?: number;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant={active ? "secondary" : "ghost"}
+          size="icon"
+          onClick={onClick}
+          disabled={disabled}
+          className="size-7 shrink-0"
+          aria-label={label}
+          aria-pressed={active}
+        >
+          <Icon className="size-3.5" strokeWidth={strokeWidth} />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="text-xs">
+        {label}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

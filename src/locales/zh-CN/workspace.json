@@ -27,6 +27,7 @@
   "openExplorer": "打开工作区面板",
   "explorer": {
     "title": "工作区",
+    "files": "文件",
     "collapse": "收起工作区面板",
     "refreshTree": "刷新文件树",
     "loadTreeFailed": "无法读取工作区文件树",

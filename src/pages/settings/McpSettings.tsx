@@ -31,6 +31,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  SettingsCard,
+  SettingsSectionHeader,
+  SettingsPartitionLabel,
+  StatusPill,
+} from "@/components/settings";
 import { mcpIpc } from "@/lib/ipc/mcp";
 import type {
   McpServerInfo,
@@ -79,42 +85,43 @@ export function McpSettings() {
   }, [refresh]);
 
   return (
-    <div className="w-full min-w-0 space-y-6">
-      <SectionHeader
-        title={t("mcp.servers")}
-        action={
-          <AddServerDialog onAdded={refresh} />
-        }
+    <div className="space-y-6">
+      <SettingsSectionHeader
+        title={t("mcp.title")}
+        action={<AddServerDialog onAdded={refresh} />}
       />
 
-      {loading && servers.length === 0 ? (
-        <LoadingPlaceholder />
-      ) : servers.length === 0 ? (
-        <EmptyState message={t("mcp.noServers")} />
-      ) : (
-        <div className="space-y-2">
-          {servers.map((server) => (
-            <ServerCard
-              key={server.id}
-              server={server}
-              tools={tools.filter((tl) => tl.server_id === server.id)}
-              onRefresh={refresh}
-            />
-          ))}
-        </div>
-      )}
+      <div className="space-y-3">
+        <SettingsPartitionLabel>{t("mcp.servers")}</SettingsPartitionLabel>
+        {loading && servers.length === 0 ? (
+          <LoadingPlaceholder />
+        ) : servers.length === 0 ? (
+          <EmptyState message={t("mcp.noServers")} />
+        ) : (
+          <div className="space-y-3">
+            {servers.map((server) => (
+              <ServerCard
+                key={server.id}
+                server={server}
+                tools={tools.filter((tl) => tl.server_id === server.id)}
+                onRefresh={refresh}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
-      {permissions.length > 0 && (
-        <>
-          <SectionHeader title={t("mcp.permissions")} />
+      {permissions.length > 0 ? (
+        <div className="space-y-3">
+          <SettingsPartitionLabel>
+            {t("mcp.permissions")}
+          </SettingsPartitionLabel>
           <PermissionsList permissions={permissions} onRefresh={refresh} />
-        </>
-      )}
+        </div>
+      ) : null}
     </div>
   );
 }
-
-// ─── Server Card ──────────────────────────────────────────────────────
 
 function ServerCard({
   server,
@@ -180,25 +187,23 @@ function ServerCard({
   };
 
   return (
-    <div
-      className={cn(
-        "rounded-[var(--radius-ui-lg)] border bg-[color:var(--surface-card)] px-4 py-3",
-        isConnected
-          ? "border-emerald-500/20"
-          : "border-[color:var(--border-muted)]"
-      )}
-    >
+    <SettingsCard compact>
       <div className="flex items-center gap-3">
-        <StatusDot status={server.status} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-foreground">
-            {server.name}
-          </p>
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-sm font-medium text-foreground">
+              {server.name}
+            </p>
+            <StatusPill
+              tone={statusTone(server.status)}
+              label={formatServerStatus(server.status)}
+            />
+          </div>
           <p className="text-xs text-muted-foreground">
             {server.transport_type} · {server.tools_count} {t("mcp.tools")}
           </p>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           {isConnected ? (
             <IconBtn
               icon={PowerOff}
@@ -230,14 +235,14 @@ function ServerCard({
         </div>
       </div>
 
-      {tools.length > 0 && (
+      {tools.length > 0 ? (
         <Collapsible open={expanded} onOpenChange={setExpanded}>
           <CollapsibleTrigger
             className={cn(
-              "mt-2 flex items-center gap-1.5 rounded-md px-2 py-1",
-              "text-xs text-muted-foreground/70",
+              "mt-3 flex items-center gap-1.5 rounded-md px-2 py-1",
+              "text-xs text-muted-foreground",
               "transition-colors duration-[var(--ds-dur-fast)]",
-              "hover:bg-[color:var(--surface-hover)] hover:text-muted-foreground"
+              "hover:bg-muted/40 hover:text-foreground"
             )}
           >
             <Wrench className="size-3" />
@@ -250,16 +255,32 @@ function ServerCard({
             />
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="mt-2 space-y-1 pl-2">
+            <div className="mt-2 space-y-1 rounded-md bg-muted/40 px-2 py-1">
               {tools.map((tool) => (
                 <ToolRow key={`${tool.server_id}-${tool.name}`} tool={tool} />
               ))}
             </div>
           </CollapsibleContent>
         </Collapsible>
-      )}
-    </div>
+      ) : null}
+    </SettingsCard>
   );
+}
+
+function statusTone(
+  status: McpServerStatusType
+): "available" | "needs-config" | "error" | "unknown" {
+  if (status === "connected") return "available";
+  if (status === "connecting") return "needs-config";
+  if (typeof status === "object" && "error" in status) return "error";
+  return "unknown";
+}
+
+function formatServerStatus(status: McpServerStatusType): string {
+  if (typeof status === "object" && "error" in status) {
+    return status.error || "error";
+  }
+  return status;
 }
 
 function ToolRow({ tool }: { tool: McpToolInfo }) {
@@ -270,15 +291,13 @@ function ToolRow({ tool }: { tool: McpToolInfo }) {
         <span className="font-mono font-medium text-foreground/90">
           {tool.name}
         </span>
-        {tool.description && (
+        {tool.description ? (
           <p className="mt-0.5 text-muted-foreground/70">{tool.description}</p>
-        )}
+        ) : null}
       </div>
     </div>
   );
 }
-
-// ─── Add Server Dialog ────────────────────────────────────────────────
 
 function AddServerDialog({ onAdded }: { onAdded: () => void }) {
   const { t } = useTranslation("settings");
@@ -310,9 +329,7 @@ function AddServerDialog({ onAdded }: { onAdded: () => void }) {
       transport = {
         type: "stdio",
         command: command.trim(),
-        args: args
-          .split(/\s+/)
-          .filter(Boolean),
+        args: args.split(/\s+/).filter(Boolean),
       };
     } else {
       if (!url.trim()) return;
@@ -366,17 +383,17 @@ function AddServerDialog({ onAdded }: { onAdded: () => void }) {
 
           <div className="space-y-2">
             <Label>{t("mcp.transportType")}</Label>
-            <div className="flex gap-2">
+            <div className="inline-flex rounded-md bg-muted p-0.5">
               {(["stdio", "http", "sse"] as const).map((tt) => (
                 <button
                   key={tt}
                   type="button"
                   onClick={() => setTransportType(tt)}
                   className={cn(
-                    "rounded-[var(--radius-button)] border px-3 py-1.5 text-xs font-medium transition-colors duration-[var(--ds-dur-fast)]",
+                    "rounded-sm px-2.5 py-1 text-xs transition-colors duration-[var(--ds-dur-fast)]",
                     transportType === tt
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-[color:var(--border-muted)] text-muted-foreground hover:bg-[color:var(--surface-hover)]"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   {tt.toUpperCase()}
@@ -420,11 +437,7 @@ function AddServerDialog({ onAdded }: { onAdded: () => void }) {
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setOpen(false)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
             {t("mcp.cancel")}
           </Button>
           <Button
@@ -439,8 +452,6 @@ function AddServerDialog({ onAdded }: { onAdded: () => void }) {
     </Dialog>
   );
 }
-
-// ─── Permissions List ─────────────────────────────────────────────────
 
 function PermissionsList({
   permissions,
@@ -461,76 +472,43 @@ function PermissionsList({
   };
 
   return (
-    <div className="space-y-1">
+    <SettingsCard divided>
       {permissions.map((perm) => (
         <div
           key={`${perm.server_id}-${perm.tool_name}`}
-          className="flex items-center gap-3 rounded-[var(--radius-ui-md)] border border-[color:var(--border-muted)] bg-[color:var(--surface-card)] px-3 py-2"
+          className="flex items-center gap-3 py-3"
         >
           <ShieldCheck className="size-3.5 shrink-0 text-muted-foreground/60" />
           <div className="min-w-0 flex-1">
             <span className="font-mono text-xs text-foreground/90">
               {perm.tool_name}
             </span>
-            <span className="ml-2 text-xs text-muted-foreground/60">
+            <span className="ml-2 text-[10px] text-muted-foreground">
               ({perm.server_id})
             </span>
           </div>
-          <span
-            className={cn(
-              "rounded-full px-2 py-0.5 text-[0.625rem] font-medium",
-              perm.policy === "allow"
-                ? "bg-emerald-500/10 text-emerald-500"
-                : "bg-destructive/10 text-destructive"
-            )}
-          >
-            {perm.policy}
-          </span>
+          <StatusPill
+            tone={perm.policy === "allow" ? "available" : "error"}
+            label={perm.policy}
+          />
           <button
             type="button"
             onClick={() => handleReset(perm.server_id, perm.tool_name)}
             title={t("mcp.resetPermission")}
+            aria-label={t("mcp.resetPermission")}
             className={cn(
-              "inline-flex size-6 items-center justify-center rounded-md",
+              "inline-flex size-7 items-center justify-center rounded-md",
               "text-muted-foreground/60",
               "transition-colors duration-[var(--ds-dur-fast)]",
-              "hover:bg-[color:var(--surface-hover)] hover:text-foreground"
+              "hover:bg-muted/50 hover:text-foreground"
             )}
           >
             <RotateCcw className="size-3" />
           </button>
         </div>
       ))}
-    </div>
+    </SettingsCard>
   );
-}
-
-// ─── Shared Components ────────────────────────────────────────────────
-
-function SectionHeader({
-  title,
-  action,
-}: {
-  title: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-      {action}
-    </div>
-  );
-}
-
-function StatusDot({ status }: { status: McpServerStatusType }) {
-  const color =
-    status === "connected"
-      ? "bg-emerald-500"
-      : status === "connecting"
-        ? "bg-amber-400 animate-pulse"
-        : "bg-muted-foreground/40";
-
-  return <span className={cn("size-2 shrink-0 rounded-full", color)} />;
 }
 
 function IconBtn({
@@ -559,7 +537,7 @@ function IconBtn({
         "disabled:pointer-events-none disabled:opacity-40",
         destructive
           ? "text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
-          : "text-muted-foreground/60 hover:bg-[color:var(--surface-hover)] hover:text-foreground"
+          : "text-muted-foreground/60 hover:bg-muted/50 hover:text-foreground"
       )}
     >
       <Icon className="size-3.5" />
@@ -569,16 +547,16 @@ function IconBtn({
 
 function LoadingPlaceholder() {
   return (
-    <div className="flex min-h-32 items-center justify-center">
-      <RefreshCw className="size-5 animate-spin text-muted-foreground/40" />
+    <div className="flex justify-center rounded-lg border border-dashed border-border/50 bg-card/50 p-10">
+      <RefreshCw className="size-5 animate-spin text-muted-foreground" />
     </div>
   );
 }
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-[var(--radius-ui-lg)] border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-card)]/40 px-4 py-6">
-      <Plug className="h-8 w-8 text-muted-foreground/40" />
+    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border/50 bg-card p-10 text-center">
+      <Plug className="size-8 text-muted-foreground opacity-40" aria-hidden />
       <p className="text-sm text-muted-foreground">{message}</p>
     </div>
   );

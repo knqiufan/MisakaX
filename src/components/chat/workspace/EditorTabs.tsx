@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { File, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,7 +11,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { useWorkspaceExplorerStore, type OpenTab } from "@/stores/workspace-explorer-store";
+import {
+  useWorkspaceExplorerStore,
+  type OpenTab,
+} from "@/stores/workspace-explorer-store";
 
 interface EditorTabsProps {
   onSave: (path: string) => Promise<void>;
@@ -34,22 +37,22 @@ export function EditorTabs({ onSave }: EditorTabsProps) {
 
   return (
     <>
-      <div
-        className={cn(
-          "flex h-9 shrink-0 items-stretch gap-0 overflow-x-auto",
-          "border-b border-[color:var(--border-muted)] bg-[color:var(--surface-card)]"
-        )}
-      >
-        {tabs.map((tab) => (
-          <EditorTab
-            key={tab.path}
-            tab={tab}
-            active={tab.path === activePath}
-            onActivate={() => setActive(tab.path)}
-            onClose={() => requestClose(tab)}
-            closeLabel={t("explorer.closeTab", { name: fileName(tab.path) })}
-          />
-        ))}
+      <div className="flex shrink-0 items-center bg-transparent px-2 pb-3 pt-1.5">
+        <div
+          role="tablist"
+          className="flex min-w-0 flex-1 gap-0.5 overflow-x-auto"
+        >
+          {tabs.map((tab) => (
+            <EditorTab
+              key={tab.path}
+              tab={tab}
+              active={tab.path === activePath}
+              onActivate={() => setActive(tab.path)}
+              onClose={() => requestClose(tab)}
+              closeLabel={t("explorer.closeTab", { name: fileName(tab.path) })}
+            />
+          ))}
+        </div>
         {activeName ? (
           <span className="sr-only">
             {t("explorer.activeFile", { name: activeName })}
@@ -82,52 +85,76 @@ interface EditorTabProps {
   closeLabel: string;
 }
 
-function EditorTab({ tab, active, onActivate, onClose, closeLabel }: EditorTabProps) {
+function EditorTab({
+  tab,
+  active,
+  onActivate,
+  onClose,
+  closeLabel,
+}: EditorTabProps) {
   return (
-    <button
-      type="button"
-      onClick={onActivate}
-      title={tab.path}
+    <div
       className={cn(
-        "group relative flex h-full max-w-[200px] shrink-0 items-center gap-1.5 px-3 text-xs",
-        "transition-colors duration-[var(--ds-dur-fast)] ease-out",
+        "group flex min-w-[40px] max-w-[160px] flex-1 items-center rounded-full text-sm transition-colors duration-[var(--ds-dur-fast)] ease-out",
         active
-          ? "border-b-2 border-primary text-foreground"
-          : "border-b-2 border-transparent text-muted-foreground hover:bg-[color:var(--surface-hover)] hover:text-foreground"
+          ? "bg-muted text-foreground"
+          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
       )}
     >
-      <span className="truncate font-medium">{fileName(tab.path)}</span>
-      {tab.dirty ? (
-        <span
-          aria-hidden
-          className="ms-0.5 inline-block size-1.5 rounded-full bg-primary/80"
-        />
-      ) : null}
-      <span
-        role="button"
-        tabIndex={0}
-        onClick={(event) => {
-          event.stopPropagation();
-          onClose();
-        }}
-        onKeyDown={(event) => {
-          if (event.key !== "Enter" && event.key !== " ") return;
-          event.preventDefault();
-          event.stopPropagation();
-          onClose();
-        }}
+      <button
+        type="button"
+        role="tab"
+        aria-selected={active}
+        onClick={onActivate}
+        title={tab.path}
         className={cn(
-          "ms-1 flex size-4 items-center justify-center rounded-[var(--radius-ui-xs)]",
-          "text-muted-foreground/80 transition-colors duration-[var(--ds-dur-fast)]",
-          "opacity-0 hover:bg-[color:var(--surface-control-hover)] hover:text-foreground",
-          "group-hover:opacity-100",
-          active && "opacity-100"
+          "flex min-w-0 flex-1 items-center gap-1.5 rounded-full py-2 pl-3 pr-1",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         )}
-        aria-label={closeLabel}
       >
-        <X className="size-3" />
-      </span>
-    </button>
+        <span className="relative size-4 shrink-0">
+          <File
+            className={cn(
+              "absolute inset-0 size-4 text-inherit transition-opacity duration-[var(--ds-dur-fast)]",
+              "opacity-100 group-hover:opacity-0"
+            )}
+            aria-hidden
+          />
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label={closeLabel}
+            title={closeLabel}
+            onClick={(event) => {
+              event.stopPropagation();
+              onClose();
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              event.stopPropagation();
+              onClose();
+            }}
+            className={cn(
+              "absolute inset-0 flex items-center justify-center rounded-sm",
+              "opacity-0 transition-opacity duration-[var(--ds-dur-fast)]",
+              "group-hover:opacity-100 hover:bg-muted"
+            )}
+          >
+            <X className="size-3.5" />
+          </span>
+        </span>
+        <span className="min-w-0 flex-1 truncate text-left text-xs font-medium">
+          {fileName(tab.path)}
+        </span>
+        {tab.dirty ? (
+          <span
+            aria-hidden
+            className="size-1.5 shrink-0 rounded-full bg-[color:var(--status-warning)]"
+          />
+        ) : null}
+      </button>
+    </div>
   );
 }
 

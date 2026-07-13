@@ -3,9 +3,14 @@ import { useTranslation } from "react-i18next";
 import { ExternalLink, Download, Upload } from "lucide-react";
 import { save as dialogSave, open as dialogOpen } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  SettingsCard,
+  SettingsSectionHeader,
+  SettingsSubCard,
+  SettingsSubRow,
+} from "@/components/settings";
 import { settingsIpc, sessionsIpc } from "@/lib/ipc";
 import type { SystemInfo } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
@@ -26,97 +31,98 @@ export function AboutSettings() {
   }, []);
 
   return (
-    <div className="w-full min-w-0 space-y-6">
+    <div className="space-y-6">
+      <SettingsSectionHeader title={t("about.title")} />
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <CardTitle className="text-base">MisakaX</CardTitle>
-            <Badge variant="secondary">
-              v{systemInfo?.app_version ?? "0.1.0"}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <SettingsCard>
+        <div className="flex flex-wrap items-center gap-3">
+          <h3 className="text-sm font-medium text-foreground">MisakaX</h3>
+          <Badge variant="secondary" className="text-[10px]">
+            v{systemInfo?.app_version ?? "0.1.0"}
+          </Badge>
+        </div>
+        <div className="mt-4 space-y-2">
           <Button variant="outline" size="sm" disabled>
             {t("about.checkUpdate")}
           </Button>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[10px] text-muted-foreground">
             {t("about.checkUpdateDesc")}
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </SettingsCard>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("about.systemInfo")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <dl className="space-y-2 text-sm">
-            <InfoRow label={t("about.os")} value={systemInfo?.os ?? "—"} />
-            <InfoRow
-              label={t("about.architecture")}
-              value={systemInfo?.arch ?? "—"}
-            />
-            <InfoRow
-              label={t("about.dataDirectory")}
-              value={systemInfo?.data_dir ?? "—"}
-            />
-            <InfoRow
-              label={t("about.dbSize")}
-              value={formatBytes(systemInfo?.db_size_bytes ?? 0)}
-            />
-          </dl>
-        </CardContent>
-      </Card>
+      <SettingsCard title={t("about.systemInfo")}>
+        <SettingsSubCard>
+          <InfoRow label={t("about.os")} value={systemInfo?.os ?? "—"} />
+          <InfoRow
+            label={t("about.architecture")}
+            value={systemInfo?.arch ?? "—"}
+          />
+          <InfoRow
+            label={t("about.dataDirectory")}
+            value={systemInfo?.data_dir ?? "—"}
+          />
+          <InfoRow
+            label={t("about.dbSize")}
+            value={formatBytes(systemInfo?.db_size_bytes ?? 0)}
+          />
+        </SettingsSubCard>
+      </SettingsCard>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("about.techStack")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="outline">Tauri 2.x</Badge>
-            <Badge variant="outline">React 19</Badge>
-            <Badge variant="outline">Rust</Badge>
-            <Badge variant="outline">TypeScript</Badge>
-            <Badge variant="outline">SQLite</Badge>
-            <Badge variant="outline">Python (FastAPI)</Badge>
-          </div>
-        </CardContent>
-      </Card>
+      <SettingsCard title={t("about.techStack")}>
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline" className="text-[10px]">
+            Tauri 2.x
+          </Badge>
+          <Badge variant="outline" className="text-[10px]">
+            React 19
+          </Badge>
+          <Badge variant="outline" className="text-[10px]">
+            Rust
+          </Badge>
+          <Badge variant="outline" className="text-[10px]">
+            TypeScript
+          </Badge>
+          <Badge variant="outline" className="text-[10px]">
+            SQLite
+          </Badge>
+          <Badge variant="outline" className="text-[10px]">
+            Python (FastAPI)
+          </Badge>
+        </div>
+      </SettingsCard>
 
       <DataManagementCard />
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" asChild>
-              <a
-                href="https://github.com"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                GitHub
-              </a>
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              MIT {t("about.license")}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
+      <SettingsCard>
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" asChild>
+            <a
+              href="https://github.com"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ExternalLink className="mr-1.5 size-3.5" />
+              GitHub
+            </a>
+          </Button>
+          <span className="text-[10px] text-muted-foreground">
+            MIT {t("about.license")}
+          </span>
+        </div>
+      </SettingsCard>
     </div>
   );
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="font-mono text-foreground">{value}</dd>
-    </div>
+    <SettingsSubRow>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="max-w-[60%] truncate font-mono text-[11px] text-foreground">
+        {value}
+      </dd>
+    </SettingsSubRow>
   );
 }
 
@@ -189,36 +195,31 @@ function DataManagementCard() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{t("about.dataManagement")}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportAll}
-            disabled={exporting}
-          >
-            <Download className="mr-1.5 h-3.5 w-3.5" />
-            {exporting ? t("about.exporting") : t("about.exportAllSessions")}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleImport}
-            disabled={importing}
-          >
-            <Upload className="mr-1.5 h-3.5 w-3.5" />
-            {importing ? t("about.importing") : t("about.importSessions")}
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {t("about.dataManagementDesc")}
-        </p>
-      </CardContent>
-    </Card>
+    <SettingsCard
+      title={t("about.dataManagement")}
+      description={t("about.dataManagementDesc")}
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExportAll}
+          disabled={exporting}
+        >
+          <Download className="mr-1.5 size-3.5" />
+          {exporting ? t("about.exporting") : t("about.exportAllSessions")}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleImport}
+          disabled={importing}
+        >
+          <Upload className="mr-1.5 size-3.5" />
+          {importing ? t("about.importing") : t("about.importSessions")}
+        </Button>
+      </div>
+    </SettingsCard>
   );
 }
 

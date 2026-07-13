@@ -27,6 +27,7 @@
   "openExplorer": "Open workspace panel",
   "explorer": {
     "title": "Workspace",
+    "files": "Files",
     "collapse": "Collapse workspace panel",
     "refreshTree": "Refresh file tree",
     "loadTreeFailed": "Failed to load workspace tree",

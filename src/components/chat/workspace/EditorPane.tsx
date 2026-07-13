@@ -3,24 +3,20 @@ import { FileCode2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useThemeStore } from "@/stores/theme-store";
 import type { OpenTab } from "@/stores/workspace-explorer-store";
-import { EditorBreadcrumb } from "./EditorBreadcrumb";
 
 interface EditorPaneProps {
-  workingDir: string;
   tab: OpenTab | null;
   onChange: (path: string, value: string) => void;
 }
 
-export function EditorPane({ workingDir, tab, onChange }: EditorPaneProps) {
+export function EditorPane({ tab, onChange }: EditorPaneProps) {
   const { t } = useTranslation("workspace");
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
 
   if (!tab) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
-        <span className="flex size-12 items-center justify-center rounded-[var(--radius-ui-xl)] border border-[color:var(--border-subtle)] bg-[color:var(--surface-card-strong)]/40">
-          <FileCode2 className="size-5 opacity-60" strokeWidth={1.2} />
-        </span>
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 py-12 text-muted-foreground">
+        <FileCode2 className="size-8 opacity-40" strokeWidth={1.2} aria-hidden />
         <p className="text-xs">{t("explorer.selectFileHint")}</p>
       </div>
     );
@@ -28,7 +24,6 @@ export function EditorPane({ workingDir, tab, onChange }: EditorPaneProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <EditorBreadcrumb workingDir={workingDir} filePath={tab.path} />
       <div
         key={tab.path}
         className="min-h-0 flex-1 overflow-hidden animate-in fade-in duration-[var(--ds-dur-fast)] ease-out"

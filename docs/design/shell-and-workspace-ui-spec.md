@@ -3,8 +3,8 @@
 | 属性 | 说明 |
 |------|------|
 | **用途** | 定义主窗口混合壳结构、会话侧栏、对话页顶栏、设置页与工作区布局语义。 |
-| **受众** | 负责 `AppShell`、`UnifiedTopBar`、`Sidebar`、`SessionPanel`、`ChatPage`、`WorkspaceBar` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-07-13（v6） |
+| **受众** | 负责 `AppShell`、`UnifiedTopBar`、`Sidebar`、`SessionPanel`、`ChatPage`、`WorkspaceBar`、`SettingsPage` 及相关布局的前端开发者。 |
+| **最后审阅** | 2026-07-14（v7） |
 
 ## 相关文档
 
@@ -14,7 +14,7 @@
 - **按钮、图标按钮、下拉菜单、Popover、Select、Dialog、Tooltip、Toast 等控件细节**  
   → 凡实现或调整上述控件，**须对照** [button-menu-design-spec.md](./button-menu-design-spec.md)。
 
-- **可复刻参考（CodePilot 逆向）** → [`docs/ui/01-overall-and-home.md`](../ui/01-overall-and-home.md)
+- **可复刻参考（CodePilot 逆向）** → [`docs/ui/01-overall-and-home.md`](../ui/01-overall-and-home.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)
 
 ---
 
@@ -58,6 +58,7 @@ AppShell (flex-col h-screen)
 
 - Gutter 必须是会话栏的**兄弟节点**，禁止放进 SessionPanel 内部。
 - Chat 页内仅保留「消息 ↔ Explorer」的 `react-resizable-panels`；**不再**用百分比 Panel 承载会话列表。
+- Chat ↔ Explorer 分隔：命中区约 8px（`w-2`），默认细线不可见，hover/drag 显线。
 
 ### 1.4 视觉连续性
 
@@ -88,31 +89,71 @@ Nav / Session / Main 使用 `--sidebar`、`--border`、`--background` 等暖色 
 
 ### 3.1 信息层级
 
-工作目录条是 Agent 场景的**关键上下文**，不可使用过小字号、松散纯文本凑合。
+工作目录条是 Agent 场景的**关键上下文**。
 
-- **未设置目录**：须有明确**标题**、**简短说明**、以及醒目的**主操作**（如「选择目录」）。  
-- **已设置目录**：**文件夹显示名**作为标题层级；完整路径次要展示（可单行截断 + Tooltip）。
+- **未设置目录**：标题（`text-sm font-medium`）+ 短说明（`text-xs muted`）+ 主 CTA「选择目录」。
+- **已设置目录**：文件夹显示名作标题；完整路径 `font-mono text-[10px] text-muted-foreground/60` 单行截断 + Tooltip。
 
 ### 3.2 布局与令牌
 
-- 足够垂直内边距与可选最小高度；底部分割线使用 `border-border` / `--border-muted`。
-- 后续可将高度向 TopBar 的 40px 量级收敛；本期优先首页 hero。
-
-### 3.3–3.5
-
-按钮 / Tooltip / Tool Logs / Workspace Explorer 语义沿用既有约定，控件细节见 [button-menu-design-spec.md](./button-menu-design-spec.md)。
+- 高度约 TopBar 量级：`min-h-10`，`px-3 py-1.5`，底边 `border-border/40`，表面 `bg-background`（无重 blur / 大图标槽）。
+- 图标操作：`ghost` + `size-7`；Explorer / Tool Logs **打开态**用 `variant="secondary"`（可再点，不强制 disabled）。
+- 控件细节见 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 
 ---
 
-## 4. 设置页与模型选择器
+## 4. 设置页
 
-（Provider 弹窗、对话页模型选择器规则不变；Appearance **仅** light / dark / system，无强调色选择器。）
+参考视觉：[`docs/ui/04-settings.md`](../ui/04-settings.md)。**本期 IA** 仍为五分区：`general` / `models` / `mcp` / `appearance` / `about`（不扩 overview / runtime / health 等）。
+
+### 4.1 导航壳
+
+| 视口 | 形态 |
+|------|------|
+| Desktop `lg+` | 左栏 `w-52`，`bg-sidebar`，项 `h-9 px-3 rounded-xl text-[13px]`（与会话 quick actions 同形） |
+| Mobile `<lg` | 顶横条 pill：`rounded-full px-3 py-1.5` |
+
+导航唯一源：`src/components/settings/nav-config.ts`。路由仍为 Zustand `route.page === "settings"`（无 React Router）。
+
+### 4.2 内容槽与页宽
+
+- 内容：`p-6 lg:p-10`；必须 `mx-auto`。
+- 多数分区：`max-w-4xl` + `space-y-10`；Appearance / About：`max-w-3xl` + `space-y-6`。
+
+### 4.3 卡片与表单
+
+| Primitive | 规格 |
+|-----------|------|
+| `SettingsCard` | `rounded-lg border-border/50 bg-card p-5`，**无阴影** |
+| `SettingsSubCard` | `rounded-md bg-muted/40` + inset `divide-y divide-border/50` |
+| `FieldRow` | label/description 左、Switch/Select 右；禁止手写 `flex justify-between + Switch` |
+| `StatusPill` | `text-[10px]` + `size-1.5` 色点（Provider / MCP 运行态） |
+
+Provider 目录网格仅 `md:grid-cols-2`。Appearance 主题分段：`rounded-md bg-muted p-0.5`；**无**强调色选择器。
+
+模型选择器 / Provider Dialog 业务规则不变；控件跟 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 
 ---
 
 ## 5. 对话页右侧 Workspace Explorer
 
-（文件树 / 编辑器分栏语义不变；Explorer 与 Tool Logs 解耦。）
+参考视觉：[`docs/ui/03-workspace.md`](../ui/03-workspace.md)。**产品模型**仍为 Chat 内单一 Explorer（文件树 + Monaco），不做 Git/Widget/Assistant 多轨。
+
+### 5.1 表面与头
+
+- 表面：`bg-background` 不透明；左边框 `border-border/40`。
+- 面板头：`h-10`；标题 `text-[11px] font-semibold uppercase tracking-wider text-muted-foreground`；右：刷新 + 收起（X 14 / `size-3.5`），`ghost` icon。
+- 有打开文件时：左侧树列可有极简「FILES」小头；右侧编辑列用 Tab + 文件信息双行 header。
+
+### 5.2 编辑器 chrome
+
+| 元素 | 规格 |
+|------|------|
+| Tab 条 | **无** `border-b`；`px-2 pt-1.5 pb-3`；胶囊 `rounded-full`；激活 `bg-muted`；动态宽 40–160px |
+| 关 Tab | hover 时前导图标 ↔ X 交叉淡入 |
+| 文件信息行 | `h-12 border-b border-border/40`；文件名 `text-xs font-medium`；路径 `text-[10px] mono muted/60`；脏点 warning；保存钮 `size-7` |
+
+Explorer 与 Tool Logs **语义解耦**；Tool Logs 入口可占位，不强制本期挂载面板。
 
 ---
 
@@ -129,5 +170,7 @@ Nav / Session / Main 使用 `--sidebar`、`--border`、`--background` 等暖色 
 ## 7. 明确不在本期壳层范围
 
 - macOS 14px CardFrame 悬浮卡 / vibrancy / traffic-light 避让  
-- React Router URL（`/chat/[id]`）  
-- 完整聊天气泡 / Markdown / Settings 卡片系统深改  
+- React Router URL（`/chat/[id]`、`/settings/*`）  
+- Settings 扩展 IA（overview / runtime / health / usage / assistant / tasks / bridge）  
+- Workspace 多轨（独立 FileTree 轨、Assistant 轨、Git / Widget 固定 Tab）  
+- 完整聊天气泡 / Markdown 深改  

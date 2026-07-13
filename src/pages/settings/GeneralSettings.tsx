@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { Loader2 } from "lucide-react";
 import { i18n } from "@/locales/i18n";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -12,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SettingsCard, FieldRow, SettingsSectionHeader } from "@/components/settings";
 import { useSettingsStore } from "@/stores/settings-store";
 
 export function GeneralSettings() {
@@ -25,103 +25,87 @@ export function GeneralSettings() {
   }, [loadConfig]);
 
   if (!config) {
-    return <SettingsLoading />;
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   return (
-    <div className="w-full min-w-0 space-y-6">
+    <div className="space-y-6">
+      <SettingsSectionHeader title={t("general.title")} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("general.language")}</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {t("general.languageDesc")}
-          </p>
-        </CardHeader>
-        <CardContent>
-          <Select
-            value={config.language}
-            onValueChange={(value) => {
-              updateConfig({ language: value });
-              i18n.changeLanguage(value);
-            }}
+      <SettingsCard>
+        <div className="space-y-4">
+          <FieldRow
+            label={t("general.language")}
+            description={t("general.languageDesc")}
           >
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="en">English</SelectItem>
-              <SelectItem value="zh-CN">中文</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+            <Select
+              value={config.language}
+              onValueChange={(value) => {
+                updateConfig({ language: value });
+                i18n.changeLanguage(value);
+              }}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="zh-CN">中文</SelectItem>
+              </SelectContent>
+            </Select>
+          </FieldRow>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("general.logLevel")}</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {t("general.logLevelDesc")}
-          </p>
-        </CardHeader>
-        <CardContent>
-          <Select
-            value={config.log_level}
-            onValueChange={(value) => updateConfig({ log_level: value })}
+          <FieldRow
+            label={t("general.logLevel")}
+            description={t("general.logLevelDesc")}
+            separator
           >
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="debug">Debug</SelectItem>
-              <SelectItem value="info">Info</SelectItem>
-              <SelectItem value="warn">Warn</SelectItem>
-              <SelectItem value="error">Error</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+            <Select
+              value={config.log_level}
+              onValueChange={(value) => updateConfig({ log_level: value })}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="debug">Debug</SelectItem>
+                <SelectItem value="info">Info</SelectItem>
+                <SelectItem value="warn">Warn</SelectItem>
+                <SelectItem value="error">Error</SelectItem>
+              </SelectContent>
+            </Select>
+          </FieldRow>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            {t("general.autoStartSidecar")}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {t("general.autoStartSidecarDesc")}
-          </p>
-        </CardHeader>
-        <CardContent>
-          <Switch
-            checked={config.auto_start_sidecar}
-            onCheckedChange={(checked) =>
-              updateConfig({ auto_start_sidecar: checked })
-            }
-          />
-        </CardContent>
-      </Card>
+          <FieldRow
+            label={t("general.autoStartSidecar")}
+            description={t("general.autoStartSidecarDesc")}
+            separator
+          >
+            <Switch
+              checked={config.auto_start_sidecar}
+              onCheckedChange={(checked) =>
+                updateConfig({ auto_start_sidecar: checked })
+              }
+            />
+          </FieldRow>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            {t("general.sidecarPort")}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {t("general.sidecarPortDesc")}
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="sidecar-port" className="sr-only">
-              {t("general.sidecarPort")}
-            </Label>
+          <FieldRow
+            label={t("general.sidecarPort")}
+            description={t("general.sidecarPortDesc")}
+            separator
+          >
             <Input
               id="sidecar-port"
               type="number"
-              className="w-32"
+              className="w-28"
               value={config.sidecar_port}
               min={1024}
               max={65535}
+              aria-label={t("general.sidecarPort")}
               onChange={(e) => {
                 const port = parseInt(e.target.value, 10);
                 if (!isNaN(port) && port >= 1024 && port <= 65535) {
@@ -129,17 +113,9 @@ export function GeneralSettings() {
                 }
               }}
             />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function SettingsLoading() {
-  return (
-    <div className="flex h-32 items-center justify-center">
-      <p className="text-sm text-muted-foreground">Loading...</p>
+          </FieldRow>
+        </div>
+      </SettingsCard>
     </div>
   );
 }

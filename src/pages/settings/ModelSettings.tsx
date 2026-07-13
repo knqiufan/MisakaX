@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus } from "lucide-react";
+import { Bot, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { SettingsSectionHeader } from "@/components/settings";
 import { useSettingsStore } from "@/stores/settings-store";
 import { routerConfigsIpc } from "@/lib/ipc";
 import type {
@@ -83,16 +84,23 @@ export function ModelSettings() {
       let handledModelError = false;
       try {
         if (editingProvider) {
-          await updateProvider(editingProvider.id, data.config as UpdateRouterConfig);
+          await updateProvider(
+            editingProvider.id,
+            data.config as UpdateRouterConfig
+          );
           if (data.models) {
             try {
               await replaceModels(editingProvider.id, data.models);
             } catch (err) {
               handledModelError = true;
               await loadProviders();
-              toast.error(t("models.modelSaveFailed", "Provider saved, but models failed"), {
-                description: String(err),
-              });
+              toast.error(
+                t(
+                  "models.modelSaveFailed",
+                  "Provider saved, but models failed"
+                ),
+                { description: String(err) }
+              );
               throw err;
             }
           }
@@ -110,22 +118,32 @@ export function ModelSettings() {
         throw err;
       }
     },
-    [editingProvider, updateProvider, replaceModels, addProviderWithModels, loadProviders, t]
+    [
+      editingProvider,
+      updateProvider,
+      replaceModels,
+      addProviderWithModels,
+      loadProviders,
+      t,
+    ]
   );
 
   return (
-    <div className="w-full min-w-0 space-y-6">
-      <div className="flex items-center justify-between">
-        <Button size="sm" onClick={handleAdd}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          {t("models.addProvider")}
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <SettingsSectionHeader
+        title={t("models.title")}
+        action={
+          <Button size="sm" onClick={handleAdd}>
+            <Plus className="mr-1.5 size-3.5" />
+            {t("models.addProvider")}
+          </Button>
+        }
+      />
 
       {providers.length === 0 ? (
         <ProvidersEmptyState />
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {providers.map((p) => (
             <ProviderCard
               key={p.id}
@@ -153,7 +171,8 @@ function ProvidersEmptyState() {
   const { t } = useTranslation("settings");
 
   return (
-    <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border">
+    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border/50 bg-card p-10 text-center">
+      <Bot className="size-8 text-muted-foreground opacity-40" aria-hidden />
       <p className="text-sm font-medium text-muted-foreground">
         {t("models.noProviders")}
       </p>

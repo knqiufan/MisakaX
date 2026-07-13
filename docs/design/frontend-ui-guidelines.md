@@ -4,10 +4,11 @@
 
 ## 文档关系
 
-- **壳层布局、主导航收起语义、会话列表工具区、对话页工作目录顶栏**等专项约定：见 [shell-and-workspace-ui-spec.md](./shell-and-workspace-ui-spec.md)。  
+- **壳层布局、主导航收起语义、会话列表工具区、对话页工作目录顶栏、设置页卡片系统、Workspace Explorer chrome**等专项约定：见 [shell-and-workspace-ui-spec.md](./shell-and-workspace-ui-spec.md)。  
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
+- **可复刻参考（CodePilot）**：[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)（视觉壳对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-07-13（v7）
+**最后审阅 / Last reviewed:** 2026-07-14（v8）
 
 ## 1. 设计理念 (Design Philosophy)
 

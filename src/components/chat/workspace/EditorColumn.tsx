@@ -1,4 +1,5 @@
 import { EditorTabs } from "./EditorTabs";
+import { EditorFileInfo } from "./EditorFileInfo";
 import { EditorPane } from "./EditorPane";
 import type { useFileEditor } from "./useFileEditor";
 
@@ -16,18 +17,14 @@ export function EditorColumn({
   onSave,
 }: EditorColumnProps) {
   return (
-    <div
-      className={
-        "flex h-full min-h-0 flex-col bg-[color:var(--surface-card)] " +
-        "animate-in fade-in slide-in-from-right-2 ease-out duration-[var(--ds-dur-slow)]"
-      }
-    >
+    <div className="flex h-full min-h-0 flex-col bg-background">
       <EditorTabs onSave={onSave} />
-      <EditorPane
+      <EditorFileInfo
         workingDir={workingDir}
         tab={activeTab}
-        onChange={onChange}
+        onSave={onSave}
       />
+      <EditorPane tab={activeTab} onChange={onChange} />
     </div>
   );
 }
