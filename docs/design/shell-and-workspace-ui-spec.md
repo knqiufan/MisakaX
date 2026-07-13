@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口混合壳结构、会话侧栏、对话页顶栏、设置页与工作区布局语义。 |
 | **受众** | 负责 `AppShell`、`UnifiedTopBar`、`Sidebar`、`SessionPanel`、`ChatPage`、`WorkspaceBar`、`SettingsPage` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-07-14（v8） |
+| **最后审阅** | 2026-07-14（v9） |
 
 ## 相关文档
 
@@ -199,7 +199,7 @@ Explorer 与 Tool Logs **语义解耦**；Tool Logs 入口可占位，不强制�
 | 虚拟列表 | `@tanstack/react-virtual`；estimate 220；overscan 6 |
 | Prepend | 保位 `scrollToIndex(align:'start')`；仅尾追加才自动置底 |
 
-Composer 外壳：`rounded-2xl` 输入组、发送 `rounded-full`、附件胶囊 `rounded-full border-border/40 bg-muted`。不引入 CodePilot Hood vibrancy / ActionBar 产品控件。
+Composer 外壳：`rounded-2xl` 输入组 + `shadow-[var(--shadow-diffuse)]`（**会话页与 Hero 共用同一阴影**，禁止 Hero 外包再套一层 diffuse）。发送 / 附件外置钮均为 `size-8`（`icon-sm`）`rounded-full`。附件预览胶囊：`rounded-full border-border/40 bg-muted`。行内文件引用 chip（`InlineMentionChip`）：`rounded-md border-primary/25 bg-primary/8`，与附件胶囊可区分。不引入 CodePilot Hood vibrancy / ActionBar 产品控件。
 
 ---
 

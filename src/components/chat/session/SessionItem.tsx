@@ -141,7 +141,7 @@ export function SessionItem({
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={handleCommitRename}
             onKeyDown={handleKeyDown}
-            className="h-6 px-1 py-0 text-[13px]"
+            className="h-6 rounded-md px-1 py-0 text-[13px]"
             onClick={(e) => e.stopPropagation()}
           />
         ) : (

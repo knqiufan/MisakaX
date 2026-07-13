@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { Send, Square } from "lucide-react";
+import { ArrowUp, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -181,7 +181,7 @@ export function MessageInput({
 
   return (
     <div className="shrink-0 border-t border-border/40 bg-background px-0 pb-2.5 pt-2">
-      <div className="flex items-end gap-2">
+      <div className="flex items-center gap-2">
         <AttachmentMenu
           trigger={
             <AttachButton
@@ -203,8 +203,9 @@ export function MessageInput({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={cn(
-            "flex min-w-0 flex-1 flex-col rounded-2xl border shadow-sm",
+            "flex min-w-0 flex-1 flex-col rounded-2xl border",
             "bg-background dark:bg-input/30",
+            "shadow-[var(--shadow-diffuse)]",
             "transition-colors duration-[var(--ds-dur-fast)]",
             isDragOver
               ? "border-primary/50 bg-primary/5"
@@ -215,7 +216,7 @@ export function MessageInput({
             attachments={attachments}
             onRemove={removeAttachment}
           />
-          <div className="flex min-w-0 items-end gap-1 px-2 pb-2 pt-1">
+          <div className="flex min-w-0 items-center gap-1 px-2 pb-2 pt-1">
             <ComposerInlineField
               segments={segments}
               composerCursor={composerCursor}
@@ -281,11 +282,11 @@ function InputToolbar({
           <Button
             type="button"
             variant="ghost"
-            size="icon"
+            size="icon-sm"
             onClick={onStop}
             aria-label={t("stop")}
             className={cn(
-              "size-8 shrink-0 rounded-full",
+              "shrink-0 rounded-full",
               "border border-[color:rgba(255,107,107,0.6)]",
               "bg-[color:rgba(255,107,107,0.12)] text-[#ff6b6b]",
               "hover:bg-[color:rgba(255,107,107,0.2)] hover:text-[#ff6b6b]"
@@ -307,18 +308,18 @@ function InputToolbar({
         <Button
           type="button"
           variant="ghost"
-          size="icon"
+          size="icon-sm"
           onClick={onSend}
           disabled={!canSend}
           aria-label={t("send")}
           className={cn(
-            "size-8 shrink-0 rounded-full",
+            "shrink-0 rounded-full",
             canSend
               ? "bg-primary text-primary-foreground hover:bg-primary/90"
               : "border border-border bg-muted text-muted-foreground"
           )}
         >
-          <Send className="size-3.5" />
+          <ArrowUp className="size-3.5" />
         </Button>
       </TooltipTrigger>
       <TooltipContent side="top" className="text-xs">

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, type ClipboardEvent, type KeyboardEvent
 import { cn } from "@/lib/utils";
 import type { LocalTextSelection } from "./composerTextSelection";
 
+/** Single-line visual height: leading-20px + py-2 (8*2) = 36px */
 const MIN_HEIGHT = 36;
 const MAX_HEIGHT = 200;
 
@@ -79,13 +80,13 @@ export function SegmentTextarea({
       rows={1}
       wrap="off"
       className={cn(
-        "max-h-[200px] resize-none py-2.5 text-sm leading-[20px]",
+        "max-h-[200px] resize-none py-2 text-sm leading-[20px]",
         "text-foreground outline-none placeholder:text-muted-foreground/55",
         "disabled:cursor-not-allowed disabled:opacity-50",
         hasHighlight ? "bg-primary/15" : "bg-transparent",
         isLastText
-          ? "min-h-[36px] min-w-[2rem] flex-1"
-          : "min-h-[36px] shrink-0 overflow-hidden whitespace-nowrap"
+          ? "min-h-9 min-w-[2rem] flex-1"
+          : "min-h-9 shrink-0 overflow-hidden whitespace-nowrap"
       )}
       style={{ height: `${MIN_HEIGHT}px` }}
     />

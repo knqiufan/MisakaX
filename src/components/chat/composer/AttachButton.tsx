@@ -24,7 +24,7 @@ export const AttachButton = forwardRef<HTMLButtonElement, AttachButtonProps>(
             aria-label={label}
             {...rest}
             className={cn(
-              "inline-flex size-9 shrink-0 items-center justify-center rounded-full",
+              "inline-flex size-8 shrink-0 items-center justify-center rounded-full",
               "border border-[color:var(--border-strong)]",
               "bg-[color:var(--surface-card-strong)]",
               "text-muted-foreground transition-colors duration-[var(--ds-dur-fast)]",

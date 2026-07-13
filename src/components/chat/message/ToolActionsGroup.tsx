@@ -166,12 +166,18 @@ function DetailBlock({
 function StatusIcon({ status }: { status: ToolCall["status"] }) {
   switch (status) {
     case "pending":
+      return (
+        <span
+          className="size-2 shrink-0 rounded-full bg-muted-foreground/40"
+          aria-hidden
+        />
+      );
     case "running":
       return <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />;
     case "complete":
       return <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />;
     case "error":
-      return <XCircle className="size-3.5 shrink-0 text-red-500" />;
+      return <XCircle className="size-3.5 shrink-0 text-destructive" />;
     default:
       return null;
   }

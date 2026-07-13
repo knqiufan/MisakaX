@@ -5,27 +5,31 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-button)] font-medium transition-colors duration-[var(--ds-dur-fast)] ease-out disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/55 focus-visible:ring-[3px] aria-invalid:ring-destructive/30 dark:aria-invalid:ring-destructive/50 aria-invalid:border-destructive",
+  "inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-transparent font-medium transition-all duration-[var(--ds-dur-fast)] ease-out active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/30 focus-visible:ring-[3px] aria-invalid:ring-destructive/30 dark:aria-invalid:ring-destructive/50 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
         default:
-          "border border-[color:color-mix(in_srgb,var(--primary)_55%,transparent)] bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
+          "bg-primary text-primary-foreground hover:bg-primary/80 [&_svg]:!text-current",
         destructive:
-          "border-0 bg-destructive px-4 py-2 text-sm font-medium text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/35 dark:focus-visible:ring-destructive/45 dark:bg-destructive/72",
+          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/35 dark:bg-destructive/60 dark:focus-visible:ring-destructive/45 [&_svg]:!text-current",
         outline:
-          "border border-[color:var(--border-strong)] bg-background/70 px-4 py-2 text-sm shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-transparent dark:hover:bg-input/45",
+          "border-border bg-background hover:bg-muted dark:bg-transparent dark:hover:bg-input/30",
         secondary:
-          "border-0 bg-secondary px-4 py-2 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:bg-secondary/85",
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost:
-          "border border-transparent bg-transparent px-4 py-2 text-sm text-muted-foreground hover:bg-[color:var(--surface-hover)] hover:text-foreground dark:hover:bg-white/8",
-        link: "border-0 px-2 py-1 text-primary underline-offset-4 hover:underline",
+          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+        link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4 py-2 text-sm has-[>svg]:px-3 min-h-9",
-        sm: "h-8 gap-2 rounded-[var(--radius-ui-sm)] px-4 py-0 text-xs has-[>svg]:px-2",
-        lg: "h-10 px-8 text-sm",
+        default: "h-9 px-4 py-2 text-sm has-[>svg]:px-3",
+        xs: "h-6 gap-1 px-2 text-xs [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-8 gap-1.5 px-3 text-xs",
+        lg: "h-10 px-6 text-sm",
         icon: "size-9",
+        "icon-xs": "size-6 [&_svg:not([class*='size-'])]:size-3",
+        "icon-sm": "size-8",
+        "icon-lg": "size-10",
       },
     },
     defaultVariants: {
@@ -51,6 +55,8 @@ function Button({
     <Comp
       type={asChild ? undefined : "button"}
       data-slot="button"
+      data-variant={variant ?? "default"}
+      data-size={size ?? "default"}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />

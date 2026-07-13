@@ -1,8 +1,10 @@
 # MisakaX 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-07-13（v4）
+**最后审阅 / Last reviewed:** 2026-07-14（v5）
 
 > 主色已切换为 **charcoal**（非冷蓝强调色）。文中若仍出现历史「蓝调」示例，以实现侧 CSS 变量与 [frontend-ui-guidelines.md](./frontend-ui-guidelines.md) 为准。
+>
+> **现行 shadcn `Button`（权威）**：基类 `rounded-full`；focus `ring-ring/30 ring-[3px]`；主色/destructive 带 `[&_svg]:!text-current`；允许 `active:not-aria-[haspopup]:translate-y-px`（1px 微按压，禁止 scale）。Size：`default` / `xs` / `sm` / `lg` / `icon` / `icon-xs` / `icon-sm`(32px) / `icon-lg`。下文若出现「圆角 10px」等旧桌面稿数值，以本段与 `src/components/ui/button.tsx` 为准。
 
 ## 目录
 
@@ -593,13 +595,16 @@ Hover:    transform=none, shadow=none, brightness(1)  [150ms]
 
 **尺寸规格：**
 
-| 属性 | 桌面端 | 手机端 (<720px) |
-|------|--------|-----------------|
-| 宽高 | 30×30px | 32×32px |
-| 形状 | 正圆 (999px) | 正圆 |
-| 图标 | 12×12px | 12×12px |
-| 边框 | `--border-emphasis` | 同 |
-| 背景 | `--surface-panel-strong` | 同 |
+| 属性 | 规格 |
+|------|------|
+| 宽高 | **32×32px**（`size-8` / Button `icon-sm`） |
+| 形状 | 正圆 `rounded-full` |
+| 图标 | 约 14–16px（`size-3.5`–`size-4`） |
+| 附件入口 | 外置左侧圆形 `+`，与发送同尺寸、同行 `items-center` |
+| 发送 | 可发时 `bg-primary`；图标 `ArrowUp` |
+| 停止 | 既有停止色边框/底，图标 `Square` |
+
+> 历史稿中的 30×30 已废弃；Composer 附件与发送必须同为 32px，避免视觉阶梯错位。
 
 **Light 主题变体：**
 ```css

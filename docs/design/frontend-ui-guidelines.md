@@ -8,7 +8,7 @@
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-07-14（v9）
+**最后审阅 / Last reviewed:** 2026-07-14（v10）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -64,9 +64,10 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 ## 4. 组件编写原则 (Component Guidelines)
 
 ### 4.1 按钮 (Buttons)
-- 按钮应具有明确的边界。
+- 默认造型为 **胶囊**：`Button` 基类 `rounded-full`（见 [button-menu-design-spec.md](./button-menu-design-spec.md) 文首现行实现说明）。
 - 主要按钮（Primary）使用实色背景，次要按钮（Secondary/Outline/Ghost）使用透明或半透明背景。
-- 悬停（Hover）时仅改变背景色亮度或透明度，不改变物理尺寸和位置。
+- 悬停（Hover）时仅改变背景色亮度或透明度，不改变物理尺寸和位置；允许按下时 `translate-y-px` 微按压，禁止 `scale`。
+- Size 优先用组件 API：`icon-sm`（32px）用于顶栏 / Composer 圆钮，避免到处手写 `size-8`。
 
 ### 4.2 菜单与导航 (Navigation & Menus)
 - 侧边栏导航项（NavItem）选中时应有明显的视觉区分（如强调色边框或背景），未选中时保持低调。
@@ -120,29 +121,28 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 
 ### 4.6 对话消息列表布局（MessageList / MessageItem）
 
-- **列表容器**（`MessageList`）不设 `max-w-*` 居中限制，消息撑满父容器可用宽度；仅保留少量水平 padding（`px-2`）提供呼吸空间。
-- **无头像**：`MessageItem` 不渲染任何 Avatar 图标（User / Assistant），仅显示对话内容。
+权威约定与 [shell-and-workspace-ui-spec.md §6](./shell-and-workspace-ui-spec.md) 一致；本节省略重复，仅列编写要点。
+
+- **列表容器**（`MessageList`）：主列可读宽 `mx-auto w-full max-w-3xl px-4`（与 Composer / 空态同一契约）。
+- **无头像**：`MessageItem` 不渲染 User / Assistant Avatar，仅显示内容。
 - **User 消息**：
-  - 整条消息 `flex justify-end` 靠右停靠。
-  - 气泡容器 `max-w-[80%]`，文字较短时自动收窄，文字超长时最大不超过父容器 80%。
-  - 保留圆角背景气泡样式（`bg-primary text-primary-foreground`，`rounded-[var(--radius-ui-lg)]`）。
-  - 气泡下方悬停显示 **复制** 和 **重新生成** 小图标按钮（`size-6`，hover 出现，`opacity-0 → group-hover/msg:opacity-100`）。
+  - 整条 `flex justify-end`；内容区 `max-w-[95%] ml-auto`。
+  - 气泡：`rounded-2xl bg-muted px-4 py-3 text-sm text-foreground`（**非** primary 实心）。
+  - 气泡下方悬停显示 **复制** / **重新生成**（`size-6`，`opacity-0 → group-hover/msg:opacity-100`）。
 - **Assistant 消息**：
-  - 容器 `w-full`，内容 100% 宽度平铺，不设气泡背景与边框，以纯文本/Markdown 形式直接输出。
-  - 错误态仍使用 `border-destructive/45 bg-destructive/8` 等语义色容器（见 4.5）。
+  - 容器 `w-full`，**无**气泡底、无圆角外壳，正文直接铺在画布上（Markdown / 纯文本）。
+  - 错误态用 `border-destructive/45 bg-destructive/8` 等（见 4.5）。
   - 底部悬停仍显示 Copy / Regenerate + TokenBadge。
 
-### 4.6.x Assistant 消息可读宽度与底色
+### 4.6.x Assistant 可读宽度
 
-- Assistant 消息容器使用 `max-w-[min(100%,48rem)] mx-auto` 约束可读宽度。
-- 内容区域使用 `bg-[color:var(--surface-card)]/50 rounded-[var(--radius-ui-lg)] px-4 py-3` 提供视觉区分。
-- 不形成气泡，不与 User 消息样式混淆。
+- 主列已由 `MessageList` 的 `max-w-3xl` 约束；Assistant **不再**套 `surface-card` 底色卡片。
+- 禁止用卡片底与 User 气泡混淆。
 
-### 4.6.y ToolCallBlock 状态行
+### 4.6.y 工具调用状态行（ToolActionsGroup）
 
-- 工具调用默认折叠为一行紧凑状态指示：状态图标 + 工具名(truncate) + 服务器名(truncate) + 耗时 + chevron。
-- pending 使用静态圆点（`size-2 rounded-full bg-muted-foreground/40`），running 使用蓝色 spinner。
-- 展开动画仅 `fade-in + slide-in-from-top-1`，不使用缩放。
+- 主路径为左色线分组 + 紧凑行；pending 用静态圆点（`size-2 rounded-full bg-muted-foreground/40`），running 用 **中性** spinner（`text-muted-foreground`，禁止蓝色品牌 spinner）。
+- 展开动画仅 `fade-in` / 极小 `slide-in-from-top-*`，不使用缩放。
 
 ## 5. 总结
 

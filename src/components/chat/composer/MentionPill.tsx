@@ -37,10 +37,10 @@ export function InlineMentionChip({ mention }: InlineMentionChipProps) {
   return (
     <span
         className={cn(
-          "inline-flex h-6 max-w-[240px] items-center gap-1.5 rounded-full px-2 text-xs",
-          "border border-border/40 bg-muted transition-colors duration-[var(--ds-dur-fast)]",
+          "inline-flex h-6 max-w-[240px] items-center gap-1.5 rounded-md px-2 text-xs",
+          "border border-primary/25 bg-primary/8 transition-colors duration-[var(--ds-dur-fast)]",
           isLoading && "opacity-60",
-          isError && "border-destructive/40 bg-destructive/8"
+          isError && "border-destructive/40 bg-destructive/8 text-destructive"
         )}
       title={isError ? `${mention.relPath} (read failed)` : mention.relPath}
     >

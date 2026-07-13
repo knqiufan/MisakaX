@@ -77,7 +77,7 @@ export function NewChatWelcome({ onSelectWorkspace }: NewChatWelcomeProps) {
           </h1>
         </div>
 
-        <div className="w-full rounded-2xl shadow-[var(--shadow-diffuse)]">
+        <div className="w-full">
           <MessageInput
             onSend={handleSend}
             onStop={() => undefined}
