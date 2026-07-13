@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SessionItem } from "./SessionItem";
+import { SessionPanelFooter } from "./SessionPanelFooter";
 import { MessageSearchResults } from "../message/MessageSearchResults";
 import { sessionsIpc } from "@/lib/ipc";
 import type { Session, MessageSearchResult } from "@/lib/ipc";
@@ -320,6 +321,8 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
           {showArchived && archivedSessions.map(renderSessionItem)}
         </div>
       </ScrollArea>
+
+      <SessionPanelFooter />
     </div>
   );
 }

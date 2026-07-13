@@ -16,8 +16,6 @@
   "comingSoon": "即将推出",
   "newSession": "新建会话",
   "back": "返回",
-  "collapseSessionList": "收起会话列表",
-  "expandSessionList": "展开会话列表",
   "emptyState": {
     "title": "这里还没有内容",
     "description": "开始创建新内容吧"

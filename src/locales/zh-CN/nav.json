@@ -6,11 +6,8 @@
   "notifications": "通知",
   "settings": "设置",
   "user": "用户",
-  "collapse": "收起侧边栏",
-  "expand": "展开侧边栏",
   "userMenu": {
     "profile": "个人中心",
-    "settings": "设置",
     "logout": "退出登录"
   }
 }

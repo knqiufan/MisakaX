@@ -6,11 +6,8 @@
   "notifications": "Notifications",
   "settings": "Settings",
   "user": "User",
-  "collapse": "Collapse sidebar",
-  "expand": "Expand sidebar",
   "userMenu": {
     "profile": "Profile",
-    "settings": "Settings",
     "logout": "Log Out"
   }
 }

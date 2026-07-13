@@ -1,11 +1,17 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useAppStore } from "@/stores/app-store";
+import {
+  useAppStore,
+  resolveLeftColumnWidth,
+  SESSION_LIST_MIN_WIDTH,
+  SESSION_LIST_DEFAULT_WIDTH,
+  LG_BREAKPOINT,
+} from "@/stores/app-store";
 
 describe("useAppStore", () => {
   beforeEach(() => {
     useAppStore.setState({
       route: { page: "chat" },
-      sidebarCollapsed: false,
+      sessionListWidth: SESSION_LIST_DEFAULT_WIDTH,
       globalLoading: false,
     });
   });
@@ -13,13 +19,16 @@ describe("useAppStore", () => {
   it("should have correct initial state", () => {
     const state = useAppStore.getState();
     expect(state.route).toEqual({ page: "chat" });
-    expect(state.sidebarCollapsed).toBe(false);
+    expect(state.sessionListWidth).toBe(SESSION_LIST_DEFAULT_WIDTH);
     expect(state.globalLoading).toBe(false);
   });
 
   it("should navigate to a new route", () => {
     useAppStore.getState().navigate({ page: "settings", tab: "models" });
-    expect(useAppStore.getState().route).toEqual({ page: "settings", tab: "models" });
+    expect(useAppStore.getState().route).toEqual({
+      page: "settings",
+      tab: "models",
+    });
   });
 
   it("should navigate to notifications", () => {
@@ -27,17 +36,11 @@ describe("useAppStore", () => {
     expect(useAppStore.getState().route).toEqual({ page: "notifications" });
   });
 
-  it("should toggle sidebar", () => {
-    expect(useAppStore.getState().sidebarCollapsed).toBe(false);
-    useAppStore.getState().toggleSidebar();
-    expect(useAppStore.getState().sidebarCollapsed).toBe(true);
-    useAppStore.getState().toggleSidebar();
-    expect(useAppStore.getState().sidebarCollapsed).toBe(false);
-  });
-
-  it("should set sidebar collapsed directly", () => {
-    useAppStore.getState().setSidebarCollapsed(true);
-    expect(useAppStore.getState().sidebarCollapsed).toBe(true);
+  it("should clamp and persist session list width", () => {
+    useAppStore.getState().setSessionListWidth(500);
+    expect(useAppStore.getState().sessionListWidth).toBe(300);
+    useAppStore.getState().setSessionListWidth(100);
+    expect(useAppStore.getState().sessionListWidth).toBe(SESSION_LIST_MIN_WIDTH);
   });
 
   it("should set global loading", () => {
@@ -45,5 +48,19 @@ describe("useAppStore", () => {
     expect(useAppStore.getState().globalLoading).toBe(true);
     useAppStore.getState().setGlobalLoading(false);
     expect(useAppStore.getState().globalLoading).toBe(false);
+  });
+});
+
+describe("resolveLeftColumnWidth", () => {
+  it("uses preferred width on wide viewports", () => {
+    expect(resolveLeftColumnWidth(240, LG_BREAKPOINT)).toBe(240);
+    expect(resolveLeftColumnWidth(280, 1400)).toBe(280);
+  });
+
+  it("shrinks toward min width on narrow viewports", () => {
+    expect(resolveLeftColumnWidth(240, LG_BREAKPOINT - 1)).toBe(
+      SESSION_LIST_MIN_WIDTH
+    );
+    expect(resolveLeftColumnWidth(180, 800)).toBe(SESSION_LIST_MIN_WIDTH);
   });
 });

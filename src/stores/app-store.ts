@@ -18,18 +18,19 @@ export const LG_BREAKPOINT = 1024;
 
 interface AppState {
   route: Route;
-  sidebarCollapsed: boolean;
-  sessionListOpen: boolean;
   sessionListWidth: number;
   globalLoading: boolean;
 
   navigate: (route: Route) => void;
-  toggleSidebar: () => void;
-  setSidebarCollapsed: (collapsed: boolean) => void;
-  toggleSessionList: () => void;
-  setSessionListOpen: (open: boolean) => void;
   setSessionListWidth: (width: number) => void;
   setGlobalLoading: (loading: boolean) => void;
+}
+
+function clampSessionListWidth(width: number): number {
+  return Math.min(
+    SESSION_LIST_MAX_WIDTH,
+    Math.max(SESSION_LIST_MIN_WIDTH, Math.round(width))
+  );
 }
 
 function loadSessionListWidth(): number {
@@ -38,30 +39,26 @@ function loadSessionListWidth(): number {
   if (!raw) return SESSION_LIST_DEFAULT_WIDTH;
   const parsed = Number.parseInt(raw, 10);
   if (Number.isNaN(parsed)) return SESSION_LIST_DEFAULT_WIDTH;
-  return Math.min(
-    SESSION_LIST_MAX_WIDTH,
-    Math.max(SESSION_LIST_MIN_WIDTH, parsed)
-  );
+  return clampSessionListWidth(parsed);
+}
+
+/** Display width: on narrow viewports shrink toward min without rewriting preference. */
+export function resolveLeftColumnWidth(
+  preferredWidth: number,
+  viewportWidth: number
+): number {
+  if (viewportWidth >= LG_BREAKPOINT) return preferredWidth;
+  return Math.min(preferredWidth, SESSION_LIST_MIN_WIDTH);
 }
 
 export const useAppStore = create<AppState>((set) => ({
   route: { page: "chat" },
-  sidebarCollapsed: false,
-  sessionListOpen: true,
   sessionListWidth: loadSessionListWidth(),
   globalLoading: false,
 
   navigate: (route) => set({ route }),
-  toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-  setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
-  toggleSessionList: () =>
-    set((state) => ({ sessionListOpen: !state.sessionListOpen })),
-  setSessionListOpen: (open) => set({ sessionListOpen: open }),
   setSessionListWidth: (width) => {
-    const clamped = Math.min(
-      SESSION_LIST_MAX_WIDTH,
-      Math.max(SESSION_LIST_MIN_WIDTH, Math.round(width))
-    );
+    const clamped = clampSessionListWidth(width);
     localStorage.setItem(SESSION_LIST_WIDTH_KEY, String(clamped));
     set({ sessionListWidth: clamped });
   },

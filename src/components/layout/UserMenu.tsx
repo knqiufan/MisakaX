@@ -1,6 +1,11 @@
 import { useTranslation } from "react-i18next";
-import { User, Settings, LogOut } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {
+  User,
+  LogOut,
+  Sparkles,
+  BookOpen,
+  LayoutDashboard,
+} from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -10,41 +15,26 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
-interface UserMenuProps {
-  collapsed: boolean;
-}
-
-export function UserMenu({ collapsed }: UserMenuProps) {
+export function UserMenu() {
   const navigate = useAppStore((s) => s.navigate);
   const { t } = useTranslation("nav");
 
-  const trigger = (
-    <button
-      className={cn(
-        "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-150 ease-out hover:bg-accent",
-        collapsed && "justify-center px-0"
-      )}
-    >
-      <Avatar className="h-7 w-7 shrink-0">
-        <AvatarFallback className="bg-primary/10 text-xs text-primary">
-          U
-        </AvatarFallback>
-      </Avatar>
-      {!collapsed && (
-        <span className="truncate text-muted-foreground">{t("user")}</span>
-      )}
-    </button>
-  );
-
-  const menu = (
+  return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex h-9 w-full items-center gap-2 rounded-xl px-3 text-[13px] font-normal text-sidebar-foreground outline-none transition-colors duration-150 hover:bg-sidebar-accent/60 focus-visible:ring-2 focus-visible:ring-ring/35"
+        >
+          <Avatar className="size-5 shrink-0">
+            <AvatarFallback className="bg-primary/10 text-[10px] text-primary">
+              U
+            </AvatarFallback>
+          </Avatar>
+          <span className="truncate">{t("user")}</span>
+        </button>
+      </DropdownMenuTrigger>
       <DropdownMenuContent
         side="right"
         align="end"
@@ -55,9 +45,17 @@ export function UserMenu({ collapsed }: UserMenuProps) {
           <User className="mr-2 h-4 w-4" />
           {t("userMenu.profile")}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate({ page: "settings" })}>
-          <Settings className="mr-2 h-4 w-4" />
-          {t("userMenu.settings")}
+        <DropdownMenuItem onClick={() => navigate({ page: "skills" })}>
+          <Sparkles className="mr-2 h-4 w-4" />
+          {t("skills")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate({ page: "knowledge" })}>
+          <BookOpen className="mr-2 h-4 w-4" />
+          {t("knowledge")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate({ page: "dashboard" })}>
+          <LayoutDashboard className="mr-2 h-4 w-4" />
+          {t("dashboard")}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled>
@@ -67,19 +65,4 @@ export function UserMenu({ collapsed }: UserMenuProps) {
       </DropdownMenuContent>
     </DropdownMenu>
   );
-
-  if (collapsed) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div>{menu}</div>
-        </TooltipTrigger>
-        <TooltipContent side="right" sideOffset={8}>
-          <p>{t("user")}</p>
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  return menu;
 }

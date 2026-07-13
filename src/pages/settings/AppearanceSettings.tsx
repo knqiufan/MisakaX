@@ -9,7 +9,6 @@ import {
   SettingsSectionHeader,
 } from "@/components/settings";
 import { useThemeStore } from "@/stores/theme-store";
-import { useAppStore } from "@/stores/app-store";
 import type { ThemeMode } from "@/lib/theme";
 
 const THEME_OPTIONS: {
@@ -30,8 +29,6 @@ export function AppearanceSettings() {
   const setReducedTransparency = useThemeStore((s) => s.setReducedTransparency);
   const uiFontSize = useThemeStore((s) => s.uiFontSize);
   const setUiFontSize = useThemeStore((s) => s.setUiFontSize);
-  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
-  const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed);
 
   return (
     <div className="space-y-6">
@@ -105,22 +102,6 @@ export function AppearanceSettings() {
               />
               <span className="text-[10px] text-muted-foreground">18</span>
             </div>
-          </FieldRow>
-
-          <FieldRow
-            label={t("appearance.sidebarDefault")}
-            description={t("appearance.sidebarDefaultDesc")}
-            separator
-          >
-            <Switch
-              checked={!sidebarCollapsed}
-              onCheckedChange={(checked) => setSidebarCollapsed(!checked)}
-              aria-label={
-                sidebarCollapsed
-                  ? t("appearance.sidebarCollapsed")
-                  : t("appearance.sidebarExpanded")
-              }
-            />
           </FieldRow>
         </div>
       </SettingsCard>

@@ -3,8 +3,8 @@
 | 属性 | 说明 |
 |------|------|
 | **用途** | 定义主窗口混合壳结构、会话侧栏、对话页顶栏、设置页与工作区布局语义。 |
-| **受众** | 负责 `AppShell`、`UnifiedTopBar`、`Sidebar`、`SessionPanel`、`ChatPage`、`WorkspaceBar`、`SettingsPage` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-07-14（v11） |
+| **受众** | 负责 `AppShell`、`UnifiedTopBar`、`SessionPanel`、`SettingsSidebar`、`ChatPage`、`WorkspaceBar`、`SettingsPage` 及相关布局的前端开发者。 |
+| **最后审阅** | 2026-07-14（v14） |
 
 ## 相关文档
 
@@ -20,34 +20,34 @@
 
 ## 1. 混合壳信息架构
 
-MisakaX 主界面（本期 Win / 跨平台**实心底**，无 macOS 悬浮卡）：
+MisakaX 主界面（本期 Win / 跨平台**实心底**，无 macOS 悬浮卡）为**单列左栏**（对齐 `docs/ui` ChatList 模型；**无**独立 NavRail）：
 
 ```
 AppShell (flex-col h-screen)
-  UnifiedTopBar          <!-- h-10 / 40px -->
+  [非 chat] UnifiedTopBar   <!-- h-10；返回 + 标题；chat 不渲染，避免空顶条 -->
   ContentRow (flex-1)
-    NavRail (Sidebar)    <!-- 展开 160px / 折叠 w-14 -->
-    [chat 且开启时] SessionPanel (默认 240px，可拖 180–300)
-    [chat 且开启时] ResizeGutter (8px)
+    [chat | settings] LeftColumn (默认 240px，可拖 180–300)
+      chat     → SessionPanel（含底栏）
+      settings → SettingsSidebar
+    [chat | settings] ResizeGutter (8px)
     Main → ContentArea
 ```
 
-1. **顶栏 `UnifiedTopBar`**：全局 40px；chat 页提供会话列表开关；非 chat 页显示页面标题；settings 提供返回。
-2. **主导航栏（NavRail）**：对话 / 技能 / 知识库 / 仪表盘等入口；底栏 Settings / 用户入口。
-3. **会话列表栏（SessionPanel）**：**仅** `route.page === "chat"` 且 `sessionListOpen` 时显示；固定像素宽，非百分比。
-4. **主内容区**：当前页面；无会话时为居中 hero（见 §6）。
+1. **顶栏 `UnifiedTopBar`**：**仅非 chat** 渲染（返回 → chat + 页面标题）；chat 页不渲染，对话 chrome 由 WorkspaceBar / Hero 承担。
+2. **左栏（单列）**：
+   - `chat`：会话列表 + Quick actions + 底栏（通知 / 用户菜单 / Settings）。
+   - `settings`：整列换成 `SettingsSidebar`（五分区导航）。
+   - `skills` / `knowledge` / `dashboard` / `notifications`：**无左栏**，仅 TopBar + 主内容。
+3. **主内容区**：当前页面；无会话时为居中 hero（见 §6）。
+4. **Sidecar / Agent 状态**：不在会话底栏展示；放在设置 → 关于 → 系统信息（`SidecarStatusBadge`，异常时可点重启）。
 
-### 1.1 收起行为（必须遵守）
+### 1.1 左栏显隐与窄屏（必须遵守）
 
-- **TopBar 会话列表开关**只控制 SessionPanel（第 2 列）显隐，**不**折叠 NavRail。
-- **NavRail 折叠**（设置项 / 窄屏）只收窄主导航为图标轨，**不**强制隐藏会话栏。
-- 两列状态解耦：`sidebarCollapsed` 与 `sessionListOpen` 独立存储。
+- chat / settings 时左栏**常显**，禁止顶栏整栏折叠开关。
+- **无** `sessionListOpen` / `sidebarCollapsed`；宽度由 `sessionListWidth` 持久化。
+- `LG_BREAKPOINT = 1024px`：窄于该宽度时，展示宽度夹到 `min(偏好宽, 180)`（`resolveLeftColumnWidth`），**不**隐藏左栏、**不**写回偏好；≥1024 恢复用户偏好宽。
 
-### 1.2 断点
-
-- `LG_BREAKPOINT = 1024px`：窄于该宽度时，默认折叠 NavRail，并关闭会话列表（用户可再手动打开）。
-
-### 1.3 会话栏宽度（必须遵守）
+### 1.2 左栏宽度（必须遵守）
 
 | 常量 | 值 |
 |------|-----|
@@ -56,30 +56,39 @@ AppShell (flex-col h-screen)
 | 持久化 | `localStorage.misakax_chatlist_width` |
 | 分隔 | `ResizeGutter` 宽 8px；默认线不可见，hover/drag 显线；双击重置 240 |
 
-- Gutter 必须是会话栏的**兄弟节点**，禁止放进 SessionPanel 内部。
+- Gutter 必须是左栏的**兄弟节点**，禁止放进 SessionPanel / SettingsSidebar 内部。
 - Chat 页内仅保留「消息 ↔ Explorer」的 `react-resizable-panels`；**不再**用百分比 Panel 承载会话列表。
 - Chat ↔ Explorer 分隔：命中区约 8px（`w-2`），默认细线不可见，hover/drag 显线。
 
-### 1.4 视觉连续性
+### 1.3 视觉连续性
 
-Nav / Session / Main 使用 `--sidebar`、`--border`、`--background` 等暖色 charcoal token；选中态用 `bg-sidebar-accent`，禁止冷蓝描边。
+Session / Settings 左栏 / Main 使用 `--sidebar`、`--border`、`--background` 等暖色 charcoal token；选中态用 `bg-sidebar-accent`，禁止冷蓝描边。
 
 ---
 
-## 2. 会话列表顶部工具区
+## 2. 会话列表（SessionPanel）
 
 ### 2.1 Quick actions
 
 - 自上而下：`新建会话` 全宽 ghost 行（`h-9`、`rounded-xl`、`text-[13px]`）+ 搜索输入（同高、同圆角）。
-- Settings **留在 NavFooter**，会话栏不重复底栏 Settings。
 
-### 2.2 会话行（SessionItem）
+### 2.2 底栏（SessionPanelFooter，必须遵守）
+
+固定在会话列表底部（`shrink-0`），行形与 Quick actions 一致（`h-9 rounded-xl text-[13px]`）：
+
+1. **通知** → `{ page: "notifications" }`
+2. **用户菜单** → 技能 / 知识库 / 仪表盘（进现有页）；个人中心 / 退出保持 disabled；**不**在菜单内重复 Settings
+3. **Settings** 全宽行 → `{ page: "settings" }`
+
+Sidecar 状态**不**放在底栏（见 §1 / 关于页）。
+
+### 2.3 会话行（SessionItem）
 
 - 行高 `h-8`、`rounded-xl`、`px-3`、标题 `text-[13px]` 单行截断。
 - 右侧时间固定宽约 `38px`、`text-[11px] text-muted-foreground/40`；hover 时让位给 ⋯ 菜单。
 - 激活：`bg-sidebar-accent`；过渡 `duration-150`。
 
-### 2.3 分区标题
+### 2.4 分区标题
 
 - `text-[13px] font-semibold text-sidebar-foreground/55`；可折叠分组 caret 12px。
 
@@ -110,10 +119,10 @@ Nav / Session / Main 使用 `--sidebar`、`--border`、`--background` 等暖色 
 
 ### 4.1 导航壳
 
-| 视口 | 形态 |
-|------|------|
-| Desktop `lg+` | 左栏 `w-52`，`bg-sidebar`，项 `h-9 px-3 rounded-xl text-[13px]`（与会话 quick actions 同形） |
-| Mobile `<lg` | 顶横条 pill：`rounded-full px-3 py-1.5` |
+- 进入 settings 时，**壳层左栏整列**换成 `SettingsSidebar`（与会话列表共用 `sessionListWidth` / gutter）。
+- 项形：`h-9 px-3 rounded-xl text-[13px]`（与会话 Quick actions 同形）。
+- `SettingsPage` **只渲染内容槽**；不再内嵌桌面左导航或窄屏横条 pill（避免双导航）。
+- Back 在 `UnifiedTopBar`（ghost sm、`h-7`、ArrowLeft）；**所有非 chat 页**（含 settings 与技能/知识库/仪表盘/通知）均提供返回 chat。
 
 导航唯一源：`src/components/settings/nav-config.ts`。路由仍为 Zustand `route.page === "settings"`（无 React Router）。
 
@@ -131,7 +140,7 @@ Nav / Session / Main 使用 `--sidebar`、`--border`、`--background` 等暖色 
 | `FieldRow` | label/description 左、Switch/Select 右；禁止手写 `flex justify-between + Switch` |
 | `StatusPill` | `text-[10px]` + `size-1.5` 色点（Provider / MCP 运行态） |
 
-Provider 目录网格仅 `md:grid-cols-2`。Appearance 主题分段：`rounded-md bg-muted p-0.5`；**无**强调色选择器。
+Provider 目录网格仅 `md:grid-cols-2`。Appearance 主题分段：`rounded-md bg-muted p-0.5`；**无**强调色选择器；**无**「侧边栏默认展开」折叠开关（左栏已无折叠态）。
 
 模型选择器 / Provider Dialog 业务规则不变；控件跟 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 

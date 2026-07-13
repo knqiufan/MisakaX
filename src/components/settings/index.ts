@@ -1,5 +1,6 @@
 export { SETTINGS_NAV, getSettingsNavItem } from "./nav-config";
 export type { SettingsNavItem } from "./nav-config";
+export { SettingsSidebar } from "./SettingsSidebar";
 export { SettingsCard } from "./SettingsCard";
 export { SettingsSubCard, SettingsSubRow } from "./SettingsSubCard";
 export { FieldRow } from "./FieldRow";

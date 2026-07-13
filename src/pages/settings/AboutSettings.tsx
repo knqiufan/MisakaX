@@ -11,6 +11,7 @@ import {
   SettingsSubCard,
   SettingsSubRow,
 } from "@/components/settings";
+import { SidecarStatusBadge } from "@/components/layout/SidecarStatusBadge";
 import { settingsIpc, sessionsIpc } from "@/lib/ipc";
 import type { SystemInfo } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
@@ -66,6 +67,14 @@ export function AboutSettings() {
             label={t("about.dbSize")}
             value={formatBytes(systemInfo?.db_size_bytes ?? 0)}
           />
+          <SettingsSubRow>
+            <dt className="text-xs text-muted-foreground">
+              {t("about.agentStatus")}
+            </dt>
+            <dd className="shrink-0">
+              <SidecarStatusBadge showLabel />
+            </dd>
+          </SettingsSubRow>
         </SettingsSubCard>
       </SettingsCard>
 

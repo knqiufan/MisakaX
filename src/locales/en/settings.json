@@ -124,14 +124,10 @@
     "reducedTransparencyDesc": "Increase surface opacity and remove backdrop blur for readability",
     "reducedTransparencyOn": "On — solid panels",
     "reducedTransparencyOff": "Off — glass effect",
-    "sidebarCollapsed": "Collapsed",
-    "sidebarExpanded": "Expanded",
     "accentColor": "Accent Color",
     "accentColorDesc": "Choose the primary accent color",
     "fontSize": "Font Size",
-    "fontSizeDesc": "Adjust the base font size ({{size}}px)",
-    "sidebarDefault": "Sidebar Expanded by Default",
-    "sidebarDefaultDesc": "Show the sidebar expanded when the app starts"
+    "fontSizeDesc": "Adjust the base font size ({{size}}px)"
   },
   "about": {
     "title": "About",
@@ -143,6 +139,7 @@
     "architecture": "Architecture",
     "dataDirectory": "Data Directory",
     "dbSize": "Database Size",
+    "agentStatus": "Agent Status",
     "techStack": "Technology Stack",
     "license": "License",
     "github": "GitHub Repository",

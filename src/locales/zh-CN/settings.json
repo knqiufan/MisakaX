@@ -124,14 +124,10 @@
     "reducedTransparencyDesc": "提高面板不透明度并关闭背景模糊以便阅读",
     "reducedTransparencyOn": "开 — 实色面板",
     "reducedTransparencyOff": "关 — 毛玻璃效果",
-    "sidebarCollapsed": "收起",
-    "sidebarExpanded": "展开",
     "accentColor": "强调色",
     "accentColorDesc": "选择界面主强调色",
     "fontSize": "字体大小",
-    "fontSizeDesc": "调整基础字号 ({{size}}px)",
-    "sidebarDefault": "默认展开侧边栏",
-    "sidebarDefaultDesc": "应用启动时默认展开侧边栏"
+    "fontSizeDesc": "调整基础字号 ({{size}}px)"
   },
   "about": {
     "title": "关于",
@@ -143,6 +139,7 @@
     "architecture": "架构",
     "dataDirectory": "数据目录",
     "dbSize": "数据库大小",
+    "agentStatus": "Agent 状态",
     "techStack": "技术栈",
     "license": "开源许可",
     "github": "GitHub 仓库",
