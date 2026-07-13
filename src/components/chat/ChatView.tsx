@@ -8,6 +8,7 @@ import { chatIpc, IpcError } from "@/lib/ipc";
 import type { Session, MessageAttachment, ToolCallRequestEvent } from "@/lib/ipc";
 import { useStreamListener } from "@/hooks/use-stream-listener";
 import { WorkspaceBar } from "./workspace/WorkspaceBar";
+import { ToolLogsPanel } from "./workspace/ToolLogsPanel";
 import { MessageList } from "./message/MessageList";
 import { MessageInput } from "./composer/MessageInput";
 import { ChatEmptyState } from "./ChatEmptyState";
@@ -47,6 +48,7 @@ export function ChatView({
 
   const [pendingApproval, setPendingApproval] =
     useState<ToolCallRequestEvent | null>(null);
+  const [toolLogsOpen, setToolLogsOpen] = useState(false);
 
   useStreamListener(session.id);
 
@@ -241,8 +243,12 @@ export function ChatView({
         onChangeDir={onChangeDir}
         onToggleExplorer={onToggleExplorer}
         explorerOpen={explorerOpen}
-        onToggleToolLogs={() => {}}
+        onToggleToolLogs={() => setToolLogsOpen((open) => !open)}
+        toolLogsOpen={toolLogsOpen}
       />
+      {toolLogsOpen ? (
+        <ToolLogsPanel onClose={() => setToolLogsOpen(false)} />
+      ) : null}
       {messages.length === 0 && !isStreaming ? (
         <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-4">
           <ChatEmptyState />

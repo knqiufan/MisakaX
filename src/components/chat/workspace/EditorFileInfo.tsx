@@ -36,17 +36,9 @@ export function EditorFileInfo({
   return (
     <div className="flex h-12 shrink-0 items-center gap-1 border-b border-border/40 bg-background px-3 pb-1">
       <div className="min-w-0 flex-1 space-y-0.5">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-xs font-medium text-foreground">
-            {name}
-          </span>
-          {tab.dirty ? (
-            <span
-              aria-hidden
-              className="size-1.5 shrink-0 rounded-full bg-[color:var(--status-warning)]"
-            />
-          ) : null}
-        </div>
+        <span className="block truncate text-xs font-medium text-foreground">
+          {name}
+        </span>
         <div className="flex min-w-0 items-center gap-1.5">
           <span
             className="max-w-[260px] truncate font-mono text-[10px] text-muted-foreground/60"
@@ -66,6 +58,12 @@ export function EditorFileInfo({
           ) : null}
         </div>
       </div>
+      {tab.dirty ? (
+        <span
+          aria-hidden
+          className="size-1.5 shrink-0 rounded-full bg-[color:var(--status-warning)]"
+        />
+      ) : null}
       <Button
         type="button"
         variant="ghost"

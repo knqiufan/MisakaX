@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type KeyboardEvent } from "react";
 import { File, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import {
   useWorkspaceExplorerStore,
   type OpenTab,
 } from "@/stores/workspace-explorer-store";
+
+export const EDITOR_TABPANEL_ID = "workspace-editor-tabpanel";
 
 interface EditorTabsProps {
   onSave: (path: string) => Promise<void>;
@@ -35,12 +37,42 @@ export function EditorTabs({ onSave }: EditorTabsProps) {
     closeTab(tab.path);
   };
 
+  const handleTabListKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (tabs.length === 0) return;
+    const currentIndex = tabs.findIndex((tab) => tab.path === activePath);
+    const fallbackIndex = currentIndex >= 0 ? currentIndex : 0;
+
+    let nextIndex: number | null = null;
+    switch (event.key) {
+      case "ArrowRight":
+        nextIndex = (fallbackIndex + 1) % tabs.length;
+        break;
+      case "ArrowLeft":
+        nextIndex = (fallbackIndex - 1 + tabs.length) % tabs.length;
+        break;
+      case "Home":
+        nextIndex = 0;
+        break;
+      case "End":
+        nextIndex = tabs.length - 1;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    setActive(tabs[nextIndex].path);
+    const nextId = editorTabDomId(tabs[nextIndex].path);
+    document.getElementById(nextId)?.focus();
+  };
+
   return (
     <>
       <div className="flex shrink-0 items-center bg-transparent px-2 pb-3 pt-1.5">
         <div
           role="tablist"
           className="flex min-w-0 flex-1 gap-0.5 overflow-x-auto"
+          onKeyDown={handleTabListKeyDown}
         >
           {tabs.map((tab) => (
             <EditorTab
@@ -92,6 +124,8 @@ function EditorTab({
   onClose,
   closeLabel,
 }: EditorTabProps) {
+  const tabDomId = editorTabDomId(tab.path);
+
   return (
     <div
       className={cn(
@@ -103,48 +137,53 @@ function EditorTab({
     >
       <button
         type="button"
-        role="tab"
-        aria-selected={active}
-        onClick={onActivate}
-        title={tab.path}
+        tabIndex={-1}
+        aria-label={closeLabel}
+        title={closeLabel}
+        onClick={(event) => {
+          event.stopPropagation();
+          onClose();
+        }}
         className={cn(
-          "flex min-w-0 flex-1 items-center gap-1.5 rounded-full py-2 pl-3 pr-1",
+          "relative size-7 shrink-0 rounded-full",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         )}
       >
-        <span className="relative size-4 shrink-0">
-          <File
-            className={cn(
-              "absolute inset-0 size-4 text-inherit transition-opacity duration-[var(--ds-dur-fast)]",
-              "opacity-100 group-hover:opacity-0"
-            )}
-            aria-hidden
-          />
-          <span
-            role="button"
-            tabIndex={0}
-            aria-label={closeLabel}
-            title={closeLabel}
-            onClick={(event) => {
-              event.stopPropagation();
-              onClose();
-            }}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter" && event.key !== " ") return;
-              event.preventDefault();
-              event.stopPropagation();
-              onClose();
-            }}
-            className={cn(
-              "absolute inset-0 flex items-center justify-center rounded-sm",
-              "opacity-0 transition-opacity duration-[var(--ds-dur-fast)]",
-              "group-hover:opacity-100 hover:bg-muted"
-            )}
-          >
-            <X className="size-3.5" />
-          </span>
-        </span>
-        <span className="min-w-0 flex-1 truncate text-left text-xs font-medium">
+        <File
+          className={cn(
+            "absolute inset-0 m-auto size-4 text-inherit transition-opacity duration-[var(--ds-dur-fast)]",
+            "opacity-100 group-hover:opacity-0 group-focus-within:opacity-0"
+          )}
+          aria-hidden
+        />
+        <X
+          className={cn(
+            "absolute inset-0 m-auto size-3.5 transition-opacity duration-[var(--ds-dur-fast)]",
+            "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+          )}
+          aria-hidden
+        />
+      </button>
+      <button
+        type="button"
+        id={tabDomId}
+        role="tab"
+        aria-selected={active}
+        aria-controls={EDITOR_TABPANEL_ID}
+        tabIndex={active ? 0 : -1}
+        onClick={onActivate}
+        onKeyDown={(event) => {
+          if (event.key !== "Delete" && event.key !== "Backspace") return;
+          event.preventDefault();
+          onClose();
+        }}
+        title={tab.path}
+        className={cn(
+          "flex min-w-0 flex-1 items-center gap-1.5 rounded-full py-2 pr-3",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">
           {fileName(tab.path)}
         </span>
         {tab.dirty ? (
@@ -195,6 +234,10 @@ function UnsavedDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+export function editorTabDomId(path: string): string {
+  return `editor-tab-${path.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
 }
 
 function fileName(path: string | null): string {

@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口混合壳结构、会话侧栏、对话页顶栏、设置页与工作区布局语义。 |
 | **受众** | 负责 `AppShell`、`UnifiedTopBar`、`Sidebar`、`SessionPanel`、`ChatPage`、`WorkspaceBar`、`SettingsPage` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-07-14（v9） |
+| **最后审阅** | 2026-07-14（v11） |
 
 ## 相关文档
 
@@ -97,7 +97,9 @@ Nav / Session / Main 使用 `--sidebar`、`--border`、`--background` 等暖色 
 ### 3.2 布局与令牌
 
 - 高度约 TopBar 量级：`min-h-10`，`px-3 py-1.5`，底边 `border-border/40`，表面 `bg-background`（无重 blur / 大图标槽）。
-- 图标操作：`ghost` + `size-7`；Explorer / Tool Logs **打开态**用 `variant="secondary"`（可再点，不强制 disabled）。
+- 图标操作：`ghost` + `size-7`；Explorer / Tool Logs **打开态**用 `variant="secondary"`（可再点关闭 = **toggle**，不强制 disabled）。
+- Explorer：`onToggleExplorer` 必须真正开/关；无工作目录时可不传回调（按钮 disabled）。
+- Tool Logs：与 Explorer **语义解耦**；本期挂载为**聊天列内抽屉**（WorkspaceBar 下方，`max-h-[min(40vh,320px)]`），头 `h-10` + 11px uppercase + 关闭 X；开态传 `toolLogsOpen`。
 - 控件细节见 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 
 ---
@@ -137,23 +139,30 @@ Provider 目录网格仅 `md:grid-cols-2`。Appearance 主题分段：`rounded-m
 
 ## 5. 对话页右侧 Workspace Explorer
 
-参考视觉：[`docs/ui/03-workspace.md`](../ui/03-workspace.md)。**产品模型**仍为 Chat 内单一 Explorer（文件树 + Monaco），不做 Git/Widget/Assistant 多轨。
+参考视觉：[`docs/ui/03-workspace.md`](../ui/03-workspace.md)（**仅 chrome**；Misaka **不**复刻其多轨 / 480px 像素宽模型）。**产品模型**仍为 Chat 内单一 Explorer（文件树 + Monaco），不做 Git/Widget/Assistant 多轨。
+
+宽度：Chat↔Explorer 用 `react-resizable-panels` **百分比**（默认约 70/30，Explorer `min 18%` / `max 55%`）；**不以** CodePilot `SIDEBAR_DEFAULT_WIDTH=480` 为 Misaka 目标。分隔命中区 `w-2`，默认细线不可见，hover/drag 显线（与会话栏 gutter 气质一致；类名集中在 `panelResizeHandle.ts`）。
 
 ### 5.1 表面与头
 
 - 表面：`bg-background` 不透明；左边框 `border-border/40`。
 - 面板头：`h-10`；标题 `text-[11px] font-semibold uppercase tracking-wider text-muted-foreground`；右：刷新 + 收起（X 14 / `size-3.5`），`ghost` icon。
-- 有打开文件时：左侧树列可有极简「FILES」小头；右侧编辑列用 Tab + 文件信息双行 header。
+- 有打开文件时：左侧树列「FILES」小头与总头同高（`h-10`）+ 同款 11px uppercase；右侧编辑列用 Tab + 文件信息双行 header。
 
 ### 5.2 编辑器 chrome
 
 | 元素 | 规格 |
 |------|------|
-| Tab 条 | **无** `border-b`；`px-2 pt-1.5 pb-3`；胶囊 `rounded-full`；激活 `bg-muted`；动态宽 40–160px |
-| 关 Tab | hover 时前导图标 ↔ X 交叉淡入 |
-| 文件信息行 | `h-12 border-b border-border/40`；文件名 `text-xs font-medium`；路径 `text-[10px] mono muted/60`；脏点 warning；保存钮 `size-7` |
+| Tab 条 | **无** `border-b`；`px-2 pt-1.5 pb-3`；胶囊 `rounded-full`；激活 `bg-muted`；动态宽 40–160px；标签 `text-sm font-medium` |
+| 关 Tab | 图标区与文字激活区**拆分**为两个 button；hover 时前导图标 ↔ X 交叉淡入；点图标关、点文字激活 |
+| 键盘 | ArrowLeft/Right 循环、Home/End；`role="tab"` + `aria-controls`；内容区 `role="tabpanel"` |
+| 文件信息行 | `h-12 border-b border-border/40`；文件名 `text-xs font-medium`；路径 `text-[10px] mono muted/60`；**脏点在右侧控件族**（Save 左侧）；保存钮 `size-7` |
 
-Explorer 与 Tool Logs **语义解耦**；Tool Logs 入口可占位，不强制本期挂载面板。
+### 5.3 Tool Logs（聊天列抽屉）
+
+- 与 Explorer **解耦**：不占右轨、不进 Explorer Tab。
+- 挂载：WorkspaceBar 下方；`border-b border-border/40`；头 `h-10` + uppercase 标题 + 关闭 X；内容区可滚动，高度上限约 `min(40vh, 320px)`。
+- 空态：居中 `text-sm muted`（i18n `chat.toolLogs.empty`）。
 
 ---
 
@@ -199,7 +208,7 @@ Explorer 与 Tool Logs **语义解耦**；Tool Logs 入口可占位，不强制�
 | 虚拟列表 | `@tanstack/react-virtual`；estimate 220；overscan 6 |
 | Prepend | 保位 `scrollToIndex(align:'start')`；仅尾追加才自动置底 |
 
-Composer 外壳：`rounded-2xl` 输入组 + `shadow-[var(--shadow-diffuse)]`（**会话页与 Hero 共用同一阴影**，禁止 Hero 外包再套一层 diffuse）。发送 / 附件外置钮均为 `size-8`（`icon-sm`）`rounded-full`。附件预览胶囊：`rounded-full border-border/40 bg-muted`。行内文件引用 chip（`InlineMentionChip`）：`rounded-md border-primary/25 bg-primary/8`，与附件胶囊可区分。不引入 CodePilot Hood vibrancy / ActionBar 产品控件。
+Composer 外壳：`rounded-2xl` 输入组 + `shadow-[var(--shadow-diffuse)]`（**会话页与 Hero 共用同一阴影**，禁止 Hero 外包再套一层 diffuse）。单行输入行高约 **32px 文本域 + py-1.5 外壳**（`SegmentTextarea` 须锁 32px，禁止空态被 `scrollHeight` 撑高）；发送 / 附件外置钮均为 `size-8`（`icon-sm`）`rounded-full`，图标约 `size-3.5`。底部 Model/MCP/Skill 行 `mt-2` + `pl-10`。附件预览胶囊：`rounded-full border-border/40 bg-muted`。行内文件引用 chip（`InlineMentionChip`）：`rounded-md border-primary/25 bg-primary/8`，与附件胶囊可区分。不引入 CodePilot Hood vibrancy / ActionBar 产品控件。
 
 ---
 

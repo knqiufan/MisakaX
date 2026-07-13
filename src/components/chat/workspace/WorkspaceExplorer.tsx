@@ -13,6 +13,10 @@ import { useWorkspaceExplorerStore } from "@/stores/workspace-explorer-store";
 import { FileTreeView } from "./FileTreeView";
 import { EditorColumn } from "./EditorColumn";
 import { useFileEditor } from "./useFileEditor";
+import {
+  PANEL_RESIZE_HANDLE_CLASS,
+  PANEL_RESIZE_HANDLE_LINE_CLASS,
+} from "./panelResizeHandle";
 
 interface WorkspaceExplorerProps {
   workingDir: string;
@@ -164,7 +168,7 @@ function ExplorerSplitLayout({
     <PanelGroup orientation="horizontal" id="misakax-workspace-explorer">
       <Panel id="tree" defaultSize="32%" minSize="22%" maxSize="50%">
         <div className="flex h-full min-h-0 flex-col border-r border-border/40">
-          <div className="flex h-8 shrink-0 items-center px-3">
+          <div className="flex h-10 shrink-0 items-center px-3">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               {t("explorer.files")}
             </span>
@@ -174,7 +178,9 @@ function ExplorerSplitLayout({
           </div>
         </div>
       </Panel>
-      <PanelResizeHandle className="w-2 bg-transparent transition-colors duration-[var(--ds-dur-fast)] hover:bg-border/60" />
+      <PanelResizeHandle className={PANEL_RESIZE_HANDLE_CLASS}>
+        <span className={PANEL_RESIZE_HANDLE_LINE_CLASS} />
+      </PanelResizeHandle>
       <Panel id="editor" minSize="35%">
         <EditorColumn
           workingDir={workingDir}

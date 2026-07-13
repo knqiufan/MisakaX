@@ -1,5 +1,4 @@
 import { useCallback, useEffect, type ClipboardEvent, type KeyboardEvent } from "react";
-import { cn } from "@/lib/utils";
 import {
   clearAllTextContent,
   findLastTextSegmentIndex,
@@ -130,7 +129,7 @@ function ComposerInlineFieldInner({
 
   return (
     <div
-      className={cn("flex min-w-0 flex-1 flex-wrap items-center gap-x-0.5", hasMentions)}
+      className="flex min-w-0 flex-1 flex-wrap items-center gap-x-0.5"
       onCopy={handleCopy}
     >
       {segments.map((segment, index) => {

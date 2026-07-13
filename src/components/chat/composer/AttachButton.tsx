@@ -33,7 +33,7 @@ export const AttachButton = forwardRef<HTMLButtonElement, AttachButtonProps>(
               className
             )}
           >
-            <Plus className="size-4" strokeWidth={2} />
+            <Plus className="size-3.5" strokeWidth={2} />
           </button>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">

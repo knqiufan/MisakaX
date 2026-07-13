@@ -1,6 +1,6 @@
 # MisakaX 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-07-14（v5）
+**最后审阅 / Last reviewed:** 2026-07-14（v6）
 
 > 主色已切换为 **charcoal**（非冷蓝强调色）。文中若仍出现历史「蓝调」示例，以实现侧 CSS 变量与 [frontend-ui-guidelines.md](./frontend-ui-guidelines.md) 为准。
 >
@@ -699,16 +699,15 @@ Hover:    transform=none, shadow=none, brightness(1)  [150ms]
   padding: 0;
   border-radius: 999px;                         /* 正圆形 */
   cursor: pointer;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  align-self: flex-end;
 }
 ```
 
-**尺寸：** 新版对话 Composer 使用 36×36px 正圆，图标为 `Plus`；按钮放在输入框容器外部左侧，不放在 textarea 内部。
+**尺寸：** 对话 Composer 附件入口为 **32×32px** 正圆（与发送同阶，见 §5.1），图标为 `Plus`（约 `size-3.5`）；按钮放在输入框容器外部左侧，不放在 textarea 内部。历史稿 36×36 已废弃。
 
 **Hover 状态：**
 ```css
@@ -2363,8 +2362,8 @@ RELEASE:    150ms ease  (transform, box-shadow, background-color, filter)
 | 搜索/排序/刷新 | 32px | 32px | 0 | 8px | — |
 | 工作区添加 | 22px | 22px | 0 | 999px | 13px |
 | All Threads 添加 | 24px | 24px | 0 | 999px | — |
-| Composer action | 30px | 30px | 0 | 999px | 12px |
-| Composer attach | 36px | 36px | 0 | 999px | 16px |
+| Composer action | 32px | 32px | 0 | 999px | 14px |
+| Composer attach | 32px | 32px | 0 | 999px | 14px |
 | Diff row action | 22px | 22px | 0 | 999px | — |
 | Git root button | auto | auto | 7px 11px | 999px | 12px |
 | Commit button | 100% | auto | 10px 14px | 14px | 12px |

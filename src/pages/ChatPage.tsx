@@ -8,6 +8,10 @@ import { WorkspaceSelector } from "@/components/chat/workspace/WorkspaceSelector
 import { ChatView } from "@/components/chat/ChatView";
 import { NewChatWelcome } from "@/components/chat/NewChatWelcome";
 import { WorkspaceExplorer } from "@/components/chat/workspace/WorkspaceExplorer";
+import {
+  PANEL_RESIZE_HANDLE_CLASS,
+  PANEL_RESIZE_HANDLE_LINE_CLASS,
+} from "@/components/chat/workspace/panelResizeHandle";
 import { useChatStore } from "@/stores/chat-store";
 import { useWorkspaceExplorerStore } from "@/stores/workspace-explorer-store";
 import { sessionsIpc } from "@/lib/ipc";
@@ -70,14 +74,14 @@ export function ChatPage() {
               <ChatView
                 session={activeSession}
                 onChangeDir={handleChangeWorkingDir}
-                onToggleExplorer={() => setExplorerOpen(true)}
+                onToggleExplorer={() => setExplorerOpen(!explorerOpen)}
                 explorerOpen={explorerOpen}
               />
             </Panel>
             {explorerOpen && activeSession.working_directory ? (
               <>
-                <PanelResizeHandle className="group relative w-2 bg-transparent">
-                  <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors duration-[var(--ds-dur-fast)] group-hover:bg-border group-active:bg-border" />
+                <PanelResizeHandle className={PANEL_RESIZE_HANDLE_CLASS}>
+                  <span className={PANEL_RESIZE_HANDLE_LINE_CLASS} />
                 </PanelResizeHandle>
                 <Panel id="explorer" defaultSize="30%" minSize="18%" maxSize="55%">
                   <WorkspaceExplorer workingDir={activeSession.working_directory} />

@@ -52,6 +52,7 @@
     "openInExplorerFailed": "Failed to reveal in File Explorer",
     "mentionReadFailed": "Failed to read file content",
     "workspace": "Workspace",
-    "toolLogs": "Tool Logs"
+    "toolLogs": "Tool Logs",
+    "collapseToolLogs": "Collapse tool logs"
   }
 }

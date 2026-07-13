@@ -8,7 +8,7 @@
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-07-14（v10）
+**最后审阅 / Last reviewed:** 2026-07-14（v11）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -75,10 +75,13 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 
 ### 4.3 对话输入区（Composer 单行）
 
-- 附件按钮、文本域、发送/停止按钮放在同一 `flex` 行时，使用 **`items-center`** 做垂直居中；避免在单行默认高度下配合过高的 `min-height` 使用 `items-end`，否则圆形图标按钮容易视觉上“沉底”。
-- 同行圆形图标按钮宜统一触控尺寸（例如均为 `size-8`），附件与发送样式对齐。
+- 外层（附件 + 输入壳）：`flex items-center gap-2`；附件 `size-8` 外置左侧，与输入壳垂直居中。
+- 同行圆形图标按钮宜统一触控尺寸（均为 `size-8` / `icon-sm`），附件与发送图标约 `size-3.5`，避免 + 钮视觉大于发送钮。
 - 新版 Composer 中，附件入口使用外置左侧圆形 `+` 按钮，不放入输入框内部；按钮与输入容器同属一行，输入容器内部只承载附件预览、文本域与发送/停止按钮。
-- `textarea` 单行态必须通过 `leading-[20px]` 与 `py-2` 保证文本视觉垂直居中；禁止只用 `min-h-[36px]` 撑高文本域，否则占位符会贴近左上角。
+- `textarea` 单行态高度与发送钮对齐：`leading-5`（20px）+ `py-1.5` → **32px**（`min-h-8` / `COMPOSER_SINGLE_LINE_HEIGHT_PX`），与 `icon-sm` 同高；占位符与发送钮视觉居中。
+- **禁止**用过大 `min-h`（如 CodePilot 参考的 `min-h-16`）或「先设高再读 `scrollHeight`」把空态撑高，导致占位符贴左上角、下方大块留白、外壳呈瘦高胶囊。`SegmentTextarea` 须先锁 32px，仅在硬换行或 `scrollHeight` 明确溢出时再增高（上限 200px）。
+- 输入组内行：`py-1.5 pl-3 pr-1.5` + `items-end`（单行时与 32px 发送钮齐平；多行时发送贴底）。外壳 `rounded-2xl border-input` + `--shadow-diffuse`。
+- 底部 Model / MCP / Skill 胶囊行：与输入壳间距 `mt-2`；`pl-10` 对齐输入壳左缘（越过 32px 附件 + `gap-2`）。
 - 附件预览支持图片缩略图与文本文件卡片两类；非图片附件不得伪装成图片缩略图，应使用文件图标、文件名与大小信息表达。
 - **附件入口与 Radix asChild 嵌套（必读，新增）**：
   - `AttachButton` 作为 `DropdownMenuTrigger asChild` 的 child 时，**必须**用 `forwardRef` 实现，并把 trigger 注入的 `ref` 与 `...rest` props 透传到底层 `<button>`，否则 Dropdown 的 click/keyboard handler 与定位 anchor 都无法生效，会出现「按钮点击无反应」的回归。

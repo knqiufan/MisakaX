@@ -58,7 +58,7 @@ export function ComposerFooter({ t }: ComposerFooterProps) {
   );
 
   return (
-    <div className="mt-1.5 flex items-center gap-2 px-1">
+    <div className="mt-2 flex items-center gap-2 pl-10">
       <ModelSelector
         models={flatModels}
         selectedModel={selectedModel}

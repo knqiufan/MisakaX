@@ -52,6 +52,7 @@
     "openInExplorerFailed": "无法在文件资源管理器中打开",
     "mentionReadFailed": "无法读取文件内容",
     "workspace": "工作区",
-    "toolLogs": "工具日志"
+    "toolLogs": "工具日志",
+    "collapseToolLogs": "收起工具日志"
   }
 }

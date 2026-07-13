@@ -180,7 +180,7 @@ export function MessageInput({
   );
 
   return (
-    <div className="shrink-0 border-t border-border/40 bg-background px-0 pb-2.5 pt-2">
+    <div className="shrink-0 bg-background pb-2 pt-2">
       <div className="flex items-center gap-2">
         <AttachmentMenu
           trigger={
@@ -203,20 +203,20 @@ export function MessageInput({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={cn(
-            "flex min-w-0 flex-1 flex-col rounded-2xl border",
+            "flex min-w-0 flex-1 flex-col rounded-2xl border border-input",
             "bg-background dark:bg-input/30",
             "shadow-[var(--shadow-diffuse)]",
             "transition-colors duration-[var(--ds-dur-fast)]",
             isDragOver
               ? "border-primary/50 bg-primary/5"
-              : "border-input focus-within:border-border"
+              : "focus-within:border-border"
           )}
         >
           <AttachmentPreview
             attachments={attachments}
             onRemove={removeAttachment}
           />
-          <div className="flex min-w-0 items-center gap-1 px-2 pb-2 pt-1">
+          <div className="flex min-w-0 items-end gap-1.5 py-1.5 pl-3 pr-1.5">
             <ComposerInlineField
               segments={segments}
               composerCursor={composerCursor}
