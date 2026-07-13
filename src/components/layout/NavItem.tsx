@@ -28,20 +28,15 @@ export function NavItem({ icon: Icon, label, route, badge }: NavItemProps) {
       onClick={() => navigate(route)}
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        "relative flex w-full items-center gap-3 px-3 py-2 text-[0.8125rem] font-semibold leading-snug outline-none transition-[color,background-color,box-shadow,transform] duration-[var(--ds-dur-fast)] [transition-timing-function:var(--ds-ease-out)] focus-visible:ring-2 focus-visible:ring-[color:var(--border-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
-        "rounded-[var(--radius-button)] border border-transparent",
+        "relative flex w-full items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-normal outline-none transition-colors duration-150",
+        "focus-visible:ring-2 focus-visible:ring-ring/35",
         collapsed && "justify-center px-0",
         isActive
-          ? "border-[color:var(--border-accent-soft)] bg-[color:var(--surface-active)] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-          : "text-muted-foreground hover:bg-[color:var(--surface-hover)] hover:text-foreground"
+          ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+          : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
       )}
     >
-      <Icon
-        className={cn(
-          "h-5 w-5 shrink-0",
-          isActive && "text-[color:var(--text-accent-soft)]"
-        )}
-      />
+      <Icon className="size-4 shrink-0" strokeWidth={isActive ? 2 : 1.75} />
       {!collapsed && <span className="truncate">{label}</span>}
       {badge !== undefined && badge > 0 && (
         <BadgeIndicator count={badge} collapsed={collapsed} />

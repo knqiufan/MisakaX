@@ -3,14 +3,12 @@ import { useTranslation } from "react-i18next";
 import {
   Plus,
   Search,
-  MessageSquare,
   ChevronDown,
   ChevronRight,
   Archive,
 } from "lucide-react";
 import { save as dialogSave } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -265,7 +263,7 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
     ungroupedSessions.length;
 
   return (
-    <div className="flex h-full min-w-0 w-full flex-col border-r border-[color:var(--border-muted)] bg-sidebar">
+    <div className="flex h-full min-w-0 w-full flex-col bg-sidebar">
       <SessionPanelHeader
         searchQuery={searchQuery}
         onSearchChange={handleSearch}
@@ -274,7 +272,7 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
       />
 
       <ScrollArea className="min-h-0 flex-1">
-        <div className="space-y-0.5 px-3 py-2">
+        <div className="space-y-0.5 px-2 py-2">
           {isSearching && messageResults && messageResults.length > 0 && (
             <MessageSearchResults
               results={messageResults}
@@ -339,36 +337,24 @@ function SessionPanelHeader({
 }) {
   const { t } = useTranslation("chat");
   return (
-    <div className="shrink-0 border-b border-[color:var(--border-muted)] bg-[color:var(--surface-sidebar)] px-3 pb-3 pt-3">
-      <div className="flex w-full items-stretch gap-2">
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/55" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder={t("session.searchPlaceholder")}
-            className={cn(
-              "h-10 w-full rounded-[var(--radius-ui-md)] border-[color:var(--border-muted)]",
-              "bg-[color:var(--surface-card)] pl-10 pr-3 text-sm shadow-none",
-              "placeholder:text-muted-foreground/55"
-            )}
-          />
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={onNewSession}
-          title={newSessionLabel}
-          aria-label={newSessionLabel}
-          className={cn(
-            "h-10 w-10 shrink-0 rounded-[var(--radius-ui-md)]",
-            "border-[color:var(--border-muted)] bg-[color:var(--surface-card)]",
-            "text-muted-foreground hover:bg-[color:var(--surface-control-hover)] hover:text-foreground"
-          )}
-        >
-          <Plus className="h-5 w-5" />
-        </Button>
+    <div className="flex shrink-0 flex-col gap-0.5 p-2">
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={onNewSession}
+        className="h-9 w-full justify-start gap-2 rounded-xl px-3 text-[13px] font-normal text-sidebar-foreground"
+      >
+        <Plus className="size-4 shrink-0" />
+        {newSessionLabel}
+      </Button>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/55" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder={t("session.searchPlaceholder")}
+          className="h-9 rounded-xl border-transparent bg-transparent pl-9 pr-3 text-[13px] shadow-none placeholder:text-muted-foreground/55 hover:bg-sidebar-accent focus-visible:bg-sidebar-accent"
+        />
       </div>
     </div>
   );
@@ -376,7 +362,7 @@ function SessionPanelHeader({
 
 function SectionHeader({ label }: { label: string }) {
   return (
-    <div className="px-1 pb-0.5 pt-3 text-[0.625rem] font-semibold uppercase tracking-wider text-muted-foreground/50">
+    <div className="px-3 pb-1 pt-2 text-[13px] font-semibold text-sidebar-foreground/55">
       {label}
     </div>
   );
@@ -397,15 +383,17 @@ function GroupHeader({
     <button
       type="button"
       onClick={onToggle}
-      className="flex w-full items-center gap-1 px-1 pb-0.5 pt-3 text-[0.625rem] font-semibold uppercase tracking-wider text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+      className="flex h-7 w-full items-center gap-1 rounded-xl px-3 text-[13px] font-semibold text-sidebar-foreground/55 transition-colors hover:bg-sidebar-accent/60"
     >
       {collapsed ? (
-        <ChevronRight className="h-3 w-3" />
+        <ChevronRight className="size-3 text-muted-foreground/80" />
       ) : (
-        <ChevronDown className="h-3 w-3" />
+        <ChevronDown className="size-3 text-muted-foreground/80" />
       )}
-      <span>{label}</span>
-      <span className="ml-auto text-[0.5625rem] tabular-nums">{count}</span>
+      <span className="truncate">{label}</span>
+      <span className="ml-auto text-[11px] tabular-nums text-muted-foreground/50">
+        {count}
+      </span>
     </button>
   );
 }
@@ -442,11 +430,8 @@ function ArchivedToggle({
 function EmptySessionList({ hasSearch }: { hasSearch: boolean }) {
   const { t } = useTranslation("chat");
   return (
-    <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-      <MessageSquare className="h-8 w-8 text-muted-foreground/30" strokeWidth={1.15} />
-      <p className="text-xs text-muted-foreground/70">
-        {hasSearch ? t("session.noMatchingSessions") : t("session.noSessions")}
-      </p>
+    <div className="px-2.5 py-3 text-[11px] text-muted-foreground/60">
+      {hasSearch ? t("session.noMatchingSessions") : t("session.noSessions")}
     </div>
   );
 }

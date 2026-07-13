@@ -1,5 +1,6 @@
 export { ChatView } from "./ChatView";
 export { ChatEmptyState } from "./ChatEmptyState";
+export { NewChatWelcome } from "./NewChatWelcome";
 export { ToolApprovalDialog } from "./ToolApprovalDialog";
 
 export { MessageList } from "./message/MessageList";

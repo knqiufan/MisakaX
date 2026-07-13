@@ -26,7 +26,7 @@ interface InlineMentionChipProps {
 }
 
 /**
- * 行内文件引用 chip，透明蓝底样式。
+ * 行内文件引用 chip，primary 低彩底。
  * 无删除按钮，通过 Backspace / Delete 键盘操作删除。
  */
 export function InlineMentionChip({ mention }: InlineMentionChipProps) {
@@ -38,7 +38,7 @@ export function InlineMentionChip({ mention }: InlineMentionChipProps) {
     <span
       className={cn(
         "inline-flex h-6 max-w-[240px] items-center gap-1.5 rounded-md px-2 text-xs",
-        "border border-sky-400/30 bg-sky-500/10 transition-colors duration-[var(--ds-dur-fast)]",
+        "border border-primary/25 bg-primary/8 transition-colors duration-[var(--ds-dur-fast)]",
         isLoading && "opacity-60",
         isError && "border-destructive/40 bg-destructive/8"
       )}

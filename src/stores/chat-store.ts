@@ -1,8 +1,14 @@
 import { create } from "zustand";
-import type { Message, Session, ToolCall } from "@/lib/ipc";
+import type { Message, MessageAttachment, Session, ToolCall } from "@/lib/ipc";
 import { chatIpc, sessionsIpc } from "@/lib/ipc";
 
 const SELECTED_MODEL_KEY = "misakax:selectedModel";
+
+export interface PendingOutbound {
+  content: string;
+  modelOverride?: string;
+  attachments?: MessageAttachment[];
+}
 
 function readCachedModel(): string | null {
   try {
@@ -36,9 +42,12 @@ interface ChatState {
   selectedModel: string | null;
   modelsVersion: number;
   sessionsReloadToken: number;
+  pendingOutbound: PendingOutbound | null;
 
   setActiveSession: (id: string | null) => void;
   setActiveSessionData: (session: Session | null) => void;
+  setPendingOutbound: (pending: PendingOutbound | null) => void;
+  consumePendingOutbound: () => PendingOutbound | null;
   setSessions: (sessions: Session[]) => void;
   setLoading: (loading: boolean) => void;
   setShowWorkspaceSelector: (show: boolean) => void;
@@ -78,6 +87,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   selectedModel: readCachedModel(),
   modelsVersion: 0,
   sessionsReloadToken: 0,
+  pendingOutbound: null,
 
   setActiveSession: (id) => set({ activeSessionId: id }),
   setActiveSessionData: (session) => {
@@ -90,6 +100,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       isThinkingStreaming: false,
     });
     get().refreshSessions();
+  },
+  setPendingOutbound: (pending) => set({ pendingOutbound: pending }),
+  consumePendingOutbound: () => {
+    const pending = get().pendingOutbound;
+    if (pending) set({ pendingOutbound: null });
+    return pending;
   },
   setSessions: (sessions) => set({ sessions }),
   setLoading: (loading) => set({ loading }),

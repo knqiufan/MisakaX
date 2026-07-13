@@ -3,7 +3,8 @@ import type { ModelInfo } from "./models";
 
 export interface AppConfig {
   language: string;
-  theme: "light" | "dark" | "dim" | "system";
+  theme: "light" | "dark" | "system";
+  /** Legacy field retained for config compatibility; UI no longer applies accent overrides. */
   accent_color: string;
   reduced_transparency: boolean;
   ui_font_size: number;

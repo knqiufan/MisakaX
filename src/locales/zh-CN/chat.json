@@ -12,6 +12,17 @@
   "modelSelector": "模型",
   "emptyTitle": "开始对话",
   "emptyDescription": "输入消息开始与 AI 对话，支持 Markdown 格式。",
+  "welcome": {
+    "hello": "你好",
+    "morning": "早上好",
+    "afternoon": "下午好",
+    "evening": "晚上好",
+    "night": "夜深了",
+    "prompt1": "今天想做什么？",
+    "prompt2": "有什么我可以帮忙的？",
+    "prompt3": "从一条消息开始。",
+    "workspaceHint": "可选工作目录后开始 Agent 任务，或直接输入消息创建会话。"
+  },
   "copyMessage": "复制消息",
   "copied": "已复制",
   "regenerate": "重新生成",

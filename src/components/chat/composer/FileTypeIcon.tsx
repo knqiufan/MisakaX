@@ -7,10 +7,10 @@ interface FileTypeStyle {
 }
 
 const EXTENSION_STYLES: Record<string, FileTypeStyle> = {
-  tsx: { icon: FileCode2, colorClass: "text-sky-400" },
-  jsx: { icon: FileCode2, colorClass: "text-sky-400" },
-  ts: { icon: FileCode2, colorClass: "text-blue-400" },
-  js: { icon: FileCode2, colorClass: "text-blue-400" },
+  tsx: { icon: FileCode2, colorClass: "text-foreground/70" },
+  jsx: { icon: FileCode2, colorClass: "text-foreground/70" },
+  ts: { icon: FileCode2, colorClass: "text-foreground/70" },
+  js: { icon: FileCode2, colorClass: "text-foreground/70" },
   rs: { icon: FileCode2, colorClass: "text-orange-400" },
   py: { icon: FileCode2, colorClass: "text-yellow-400" },
   md: { icon: FileText, colorClass: "text-muted-foreground" },

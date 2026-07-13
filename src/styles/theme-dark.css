@@ -1,80 +1,85 @@
 /**
- * Dark theme (default Codex Monitor palette) — ui-design-report §2.1.
- * html.dark without data-theme=dim uses this block; dim overrides in theme-dim.css.
+ * Dark theme — warm charcoal reverse (docs/ui/01 §3.2).
  */
 html.dark {
   color-scheme: dark;
 
-  --text-primary: #e6e7ea;
-  --text-strong: #ffffff;
-  --text-muted: rgba(255, 255, 255, 0.65);
-  --text-subtle: rgba(255, 255, 255, 0.52);
-  --text-faint: rgba(255, 255, 255, 0.38);
-  --text-accent-soft: rgba(164, 195, 255, 0.75);
+  --text-primary: oklch(0.985 0.001 106.423);
+  --text-strong: oklch(0.985 0.001 106.423);
+  --text-muted: oklch(0.709 0.01 56.259);
+  --text-subtle: oklch(0.709 0.01 56.259 / 0.85);
+  --text-faint: oklch(0.709 0.01 56.259 / 0.65);
+  --text-accent-soft: oklch(0.985 0.001 106.423 / 0.75);
 
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-muted: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.14);
-  --border-stronger: rgba(255, 255, 255, 0.2);
-  --border-accent: rgba(100, 200, 255, 0.55);
-  --border-accent-soft: rgba(100, 200, 255, 0.3);
+  --border-subtle: oklch(1 0 0 / 0.06);
+  --border-muted: oklch(1 0 0 / 0.1);
+  --border-strong: oklch(1 0 0 / 0.14);
+  --border-stronger: oklch(1 0 0 / 0.2);
+  --border-accent: oklch(1 0 0 / 0.28);
+  --border-accent-soft: oklch(1 0 0 / 0.16);
 
-  --surface-sidebar: rgba(18, 18, 18, 0.52);
-  --surface-topbar: rgba(10, 14, 20, 0.48);
-  --surface-messages: rgba(8, 10, 16, 0.72);
-  --surface-card: rgba(255, 255, 255, 0.045);
-  --surface-card-strong: rgba(255, 255, 255, 0.11);
-  --surface-item: rgba(255, 255, 255, 0.03);
-  --surface-control: rgba(255, 255, 255, 0.08);
-  --surface-control-hover: rgba(255, 255, 255, 0.14);
-  --surface-hover: rgba(255, 255, 255, 0.06);
-  --surface-active: rgba(100, 200, 255, 0.16);
-  --surface-popover: rgba(14, 16, 24, 0.98);
+  --surface-sidebar: oklch(0.216 0.006 56.043);
+  --surface-topbar: oklch(0.147 0.004 49.25);
+  --surface-messages: oklch(0.147 0.004 49.25);
+  --surface-card: oklch(0.268 0.007 34.298 / 0.55);
+  --surface-card-strong: oklch(0.268 0.007 34.298);
+  --surface-item: oklch(0.268 0.007 34.298 / 0.65);
+  --surface-control: oklch(0.268 0.007 34.298);
+  --surface-control-hover: oklch(0.3 0.008 34);
+  --surface-hover: oklch(0.268 0.007 34.298 / 0.8);
+  --surface-active: oklch(1 0 0 / 0.1);
+  --surface-popover: oklch(0.216 0.006 56.043);
 
-  /* --cm-* compatibility aliases — resolve to generic tokens */
   --cm-surface-panel-strong: var(--surface-card-strong);
   --cm-surface-panel-solid: var(--surface-card-strong);
   --cm-border-emphasis: var(--border-strong);
   --cm-border-strong: var(--border-strong);
 
-  --status-success: rgba(120, 235, 190, 0.95);
-  --status-warning: rgba(255, 175, 85, 0.95);
-  --status-error: rgba(255, 110, 110, 0.95);
+  --status-success: oklch(0.65 0.15 150);
+  --status-warning: oklch(0.75 0.14 55);
+  --status-error: oklch(0.65 0.2 25);
+  --status-info: oklch(0.65 0.18 262);
 
-  --radius-ui-sm: 0.5rem;
-  --radius-ui-md: 0.625rem;
-  --radius-ui-lg: 0.875rem;
-  --radius-ui-xl: 1.125rem;
-  --radius-button: 0.625rem;
+  --radius-ui-sm: 0.75rem;
+  --radius-ui-md: 0.875rem;
+  --radius-ui-lg: 1rem;
+  --radius-ui-xl: 1.25rem;
+  --radius-button: 0.75rem;
 
-  --background: rgb(6 8 12);
-  --foreground: var(--text-primary);
+  --background: oklch(0.147 0.004 49.25);
+  --foreground: oklch(0.985 0.001 106.423);
 
-  --card: var(--surface-card);
+  --card: oklch(0.216 0.006 56.043);
   --card-foreground: var(--foreground);
-  --popover: var(--surface-popover);
+  --popover: oklch(0.216 0.006 56.043);
   --popover-foreground: var(--foreground);
-  --muted: var(--surface-item);
-  --muted-foreground: var(--text-muted);
-  --accent: var(--surface-control-hover);
-  --accent-foreground: var(--text-strong);
-  --secondary: var(--surface-card-strong);
+  --muted: oklch(0.268 0.007 34.298);
+  --muted-foreground: oklch(0.709 0.01 56.259);
+  --accent: oklch(0.268 0.007 34.298);
+  --accent-foreground: var(--foreground);
+  --secondary: oklch(0.268 0.007 34.298);
   --secondary-foreground: var(--foreground);
-  --border: var(--border-strong);
-  --input: var(--border-muted);
-  --ring: var(--border-accent-soft);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.985 0.001 106.423);
 
-  --destructive: var(--status-error);
-  --destructive-foreground: #1a0505;
+  --destructive: oklch(0.65 0.2 25);
+  --destructive-foreground: oklch(0.147 0.004 49.25);
 
-  --sidebar: var(--surface-sidebar);
+  --sidebar: oklch(0.216 0.006 56.043);
   --sidebar-foreground: var(--foreground);
-  --sidebar-primary: var(--text-accent-soft);
-  --sidebar-primary-foreground: var(--text-strong);
-  --sidebar-accent: var(--surface-active);
-  --sidebar-accent-foreground: var(--text-strong);
-  --sidebar-border: var(--border-muted);
-  --sidebar-ring: var(--border-accent);
+  --sidebar-primary: oklch(0.985 0.001 106.423);
+  --sidebar-primary-foreground: oklch(0.262 0 0);
+  --sidebar-accent: oklch(0.268 0.007 34.298);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  --user-bubble: oklch(0.9 0.003 106);
+  --user-bubble-foreground: oklch(0.216 0.006 56.043);
+
+  --shadow-diffuse:
+    0 12px 40px -8px rgba(0, 0, 0, 0.45), 0 4px 12px -4px rgba(0, 0, 0, 0.25);
 
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
@@ -82,7 +87,6 @@ html.dark {
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
 
-  --primary: oklch(0.72 0.12 232);
-  --primary-foreground: oklch(0.2 0.04 260);
+  --primary: oklch(0.985 0.001 106.423);
+  --primary-foreground: oklch(0.262 0 0);
 }
-

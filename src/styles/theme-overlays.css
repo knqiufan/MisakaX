@@ -1,34 +1,29 @@
 /**
- * Reduced transparency & Windows — §6.3, §6.4 (variables cascade into app subtree).
+ * Reduced transparency & Windows solid surfaces.
  */
 html.dark .misaka-app.reduced-transparency {
-  --surface-sidebar: rgb(22 22 22);
-  --surface-topbar: rgb(14 17 22);
-  --surface-messages: rgb(12 14 18);
-  --surface-popover: rgb(22 24 30);
-  --surface-card: rgba(255, 255, 255, 0.09);
-  --sidebar: rgb(22 22 22);
-  --popover: rgb(22 24 30);
-  --card: rgba(255, 255, 255, 0.09);
-  --background: rgb(12 14 18);
+  --surface-sidebar: oklch(0.216 0.006 56.043);
+  --surface-topbar: oklch(0.147 0.004 49.25);
+  --surface-messages: oklch(0.147 0.004 49.25);
+  --surface-popover: oklch(0.216 0.006 56.043);
+  --surface-card: oklch(0.268 0.007 34.298);
+  --sidebar: oklch(0.216 0.006 56.043);
+  --popover: oklch(0.216 0.006 56.043);
+  --card: oklch(0.216 0.006 56.043);
+  --background: oklch(0.147 0.004 49.25);
 }
 
 html:not(.dark) .misaka-app.reduced-transparency {
-  --surface-sidebar: rgb(246 247 250);
-  --surface-topbar: rgb(250 251 253);
-  --surface-messages: rgb(238 241 246);
-  --sidebar: rgb(246 247 250);
-  --background: rgb(238 241 246);
+  --surface-sidebar: oklch(0.985 0.001 106.423);
+  --surface-topbar: oklch(1 0 0);
+  --surface-messages: oklch(1 0 0);
+  --sidebar: oklch(0.985 0.001 106.423);
+  --background: oklch(1 0 0);
 }
 
 html.dark .misaka-app.is-windows:not(.reduced-transparency) {
-  --surface-sidebar: rgba(18, 18, 18, 0.94);
-  --surface-topbar: rgba(10, 14, 20, 0.92);
-  --surface-messages: rgba(8, 10, 16, 0.94);
-  --sidebar: var(--surface-sidebar);
-}
-
-html.dark[data-theme="dim"] .misaka-app.is-windows:not(.reduced-transparency) {
-  --surface-sidebar: rgba(41, 44, 51, 0.96);
+  --surface-sidebar: oklch(0.216 0.006 56.043);
+  --surface-topbar: oklch(0.147 0.004 49.25);
+  --surface-messages: oklch(0.147 0.004 49.25);
   --sidebar: var(--surface-sidebar);
 }

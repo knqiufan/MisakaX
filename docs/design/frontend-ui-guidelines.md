@@ -7,7 +7,7 @@
 - **壳层布局、主导航收起语义、会话列表工具区、对话页工作目录顶栏**等专项约定：见 [shell-and-workspace-ui-spec.md](./shell-and-workspace-ui-spec.md)。  
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 
-**最后审阅 / Last reviewed:** 2026-06-07（v6）
+**最后审阅 / Last reviewed:** 2026-07-13（v7）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -15,6 +15,7 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - **桌面端直觉优先**：交互应该干脆利落，符合桌面软件的使用直觉，而不是移动端或网页端的体验。
 - **克制的动效**：避免过度设计，去除花哨的过渡和缩放，让用户的注意力集中在内容和 AI 交互上。
 - **高信息密度**：UI 元素应紧凑合理，留白适中。
+- **视觉关键词**：charcoal 单色主色、暖灰边框、Geist 字体；**禁止**蓝紫品牌主色与可切换强调色。
 
 ## 2. 动效与交互规范 (Motion & Interaction)
 
@@ -32,17 +33,32 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 
 ## 3. 视觉与色彩规范 (Visual & Color)
 
-项目基于 **Tailwind CSS v4** 和 **shadcn/ui (New York 风格 / Zinc 基础色)** 构建。
+项目基于 **Tailwind CSS v4** 和 **shadcn/ui (New York)**，主色为 **charcoal**（非 Zinc 蓝灰冷色）。
+
+### 3.0 主题模式
+
+- 仅支持 **`light` / `dark` / `system`** 三种；旧配置 `dim` 迁移为 `dark`。
+- 主色固定 charcoal：Light `--primary: oklch(0.262 0 0)`；Dark 近白反转。
+- **不提供**用户可选强调色（Accent）；Appearance 设置中不展示色板。
 
 ### 3.1 颜色变量 (CSS Variables)
 - 强制使用 CSS 变量来定义颜色，以完美适配深色/浅色模式。
+- 边框色温为**暖灰**（如 Light `--border: oklch(0.923 0.003 48.717)`），交互激活用 `sidebar-accent` / `primary` 低透明，**禁止**冷蓝 `--border-accent` / `--surface-active` 作为主交互色。
 - 常用背景：`bg-background`、`bg-muted`、`bg-[color:var(--surface-card)]`、`bg-[color:var(--surface-hover)]`。
 - 常用边框：`border-border`、`border-[color:var(--border-subtle)]`、`border-[color:var(--border-strong)]`。
 - 常用文字：`text-foreground`、`text-muted-foreground`。
+- 字体：Geist Variable + Geist Mono；`body` 使用 `antialiased`。
+- 产品圆角：`--radius: 1rem`（16px）。
 
 ### 3.2 阴影与层级 (Shadows & Elevation)
 - **扁平化为主**：基础按钮、输入框等控件尽量减少阴影，使用边框（Border）来区分边界。
-- **弹出层阴影**：仅在下拉菜单、模态框、Tooltip 等悬浮层级（z-index 较高）的元素上使用 `shadow-lg` 或自定义的深阴影，并配合 `backdrop-blur` 增加质感。
+- **Composer / Hero**：可用 `--shadow-diffuse` 弥散阴影。
+- **弹出层阴影**：仅在下拉菜单、模态框、Tooltip 等悬浮层级（z-index 较高）的元素上使用 `shadow-lg` 或自定义的深阴影。
+- 本期跨平台壳为**实心底**；不做 macOS 悬浮卡 / vibrancy。
+
+### 3.3 首页 Hero
+- 无会话时主区为居中 hero：`max-w-3xl` + `MonolithIcon`（36px）+ 时段问候标题（`text-3xl font-medium`）+ Composer。
+- 空会话态与 hero 共用品牌标视觉，避免大尺寸冷色图标占位。
 
 ## 4. 组件编写原则 (Component Guidelines)
 
@@ -72,13 +88,13 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - Composer 顶层 `<div>` 必须使用 **`flex items-center gap-2`**；输入行内 `ComposerInlineField` 必须带 **`flex-1 min-w-0`**，发送按钮 `shrink-0` 贴右，禁止仅按内容宽度收缩导致按钮悬空中部。
 - 数据模型为 **`ComposerSegment[]`**（`text` 与 `mention` 交错），引用插入当前 `composerCursor` 位置（`insertMentionAtCursor`），而非固定堆在输入框最前。`normalizeSegments` 会 **prune 掉 mention 之间的空 text 段**，避免空 `textarea` 默认宽度把 chip 撑开；仅保留末尾 text 段作为输入区。
 - `ComposerInlineField` 按 segment 渲染多个 `SegmentTextarea` 与 `InlineMentionChip` 交错；**仅最后一个 text segment** 使用 `flex-1 min-w-[2rem]` 撑满剩余宽度，前面的 text segment 用 **`scrollWidth` 动态测宽**（`shrink-0`、`whitespace-nowrap`、`wrap="off"`），**禁止** `cols={1}` 或 `Nch` 固定宽度（中文会竖排）。
-- `InlineMentionChip` 视觉（透明蓝底，对齐 Cursor 行内引用）：
-  - ready：`h-6`、`rounded-md`、`border border-sky-400/30`、`bg-sky-500/10`，`FileTypeIcon` + 文件名同色（如 `.tsx` → `text-sky-400`）；
+- `InlineMentionChip` 视觉（中性 / primary 低彩，对齐 charcoal 体系）：
+  - ready：`h-6`、`rounded-md`、`border border-primary/25`、`bg-primary/8`，`FileTypeIcon` + 文件名同色族；
   - loading：`opacity-60` + `Loader2`；
   - error：`bg-destructive/8` + `AlertTriangle` + `text-destructive`；
   - **禁止**显示删除 `X` 按钮；删除通过 **Backspace**（光标在 text 段 offset=0 时删前一个 mention）或 **Delete**（光标在 text 段末尾时删后一个 mention）完成。
 - 引用触发后通过 `focusRequestId` + `composerCursor` 自动 focus 到插入点后的 text segment；**不**弹出「已引用」成功 toast（失败仍 `toast.error`）。
-- **跨段全选**：多 `textarea` 无法原生跨 chip 选区；`Ctrl/Cmd+A` 由 `useComposerTextSelection` 选中全部 text segment（chip 不参与），各段 `bg-sky-500/20` 高亮；`Ctrl+C` 复制纯文本；`Backspace/Delete` 清空全部文本但保留 chip。
+- **跨段全选**：多 `textarea` 无法原生跨 chip 选区；`Ctrl/Cmd+A` 由 `useComposerTextSelection` 选中全部 text segment（chip 不参与），各段 `bg-primary/15` 高亮；`Ctrl+C` 复制纯文本；`Backspace/Delete` 清空全部文本但保留 chip。
 - 发送：`ready` mentions 走 `mentionsToWorkspaceAttachments(segments)`；展示正文用 `buildOutgoingFromSegments` 按 segment 顺序交错 `@relPath` 与文本；发送成功后 `clearMentions()` 重置为 `createEmptyDocument()`。
 - `canSendComposerMessage` 使用 `getDocumentPlainText(segments)` 作为 `content`，`countSendableFromSegments` + `attachments.length` 作为 `attachmentCount`。
 - `AttachmentPreview` 仍在 segment 行**之上**，与 workspace 引用语义分离。

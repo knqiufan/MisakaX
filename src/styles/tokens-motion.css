@@ -1,8 +1,8 @@
 /**
- * Misaka UI motion & layer tokens — aligned with ui-design-report §3.4, §18.
+ * Misaka UI motion & layer tokens.
  */
 :root {
-  --radius: 0.625rem;
+  --radius: 1rem;
 
   --ds-dur-fast: 120ms;
   --ds-dur-normal: 160ms;

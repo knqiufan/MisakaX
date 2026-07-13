@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { listen } from "@tauri-apps/api/event";
@@ -44,10 +44,6 @@ export function ChatView({
     useState<ToolCallRequestEvent | null>(null);
 
   useStreamListener(session.id);
-
-  useEffect(() => {
-    loadMessages(session.id);
-  }, [session.id, loadMessages]);
 
   const { addToolCall, clearToolCalls } = useToolLogsStore();
 
@@ -113,7 +109,7 @@ export function ChatView({
       addMessage(assistantPlaceholder);
       setStreaming(true, assistantId);
 
-      const isFirstMessage = messages.length === 0;
+      const isFirstMessage = useChatStore.getState().messages.length <= 2;
 
       try {
         await chatIpc.sendMessage({
@@ -141,22 +137,36 @@ export function ChatView({
         setStreaming(false);
         toast.error(t("errorOccurred"), {
           description:
-            assistant?.status === "error"
-              ? assistant.content
-              : shown,
+            assistant?.status === "error" ? assistant.content : shown,
         });
       }
     },
-    [
-      session.id,
-      addMessage,
-      setStreaming,
-      updateMessageError,
-      messages.length,
-      requestAutoTitle,
-      t,
-    ]
+    [session.id, addMessage, setStreaming, updateMessageError, requestAutoTitle, t]
   );
+
+  const handleSendRef = useRef(handleSend);
+  handleSendRef.current = handleSend;
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const pending = useChatStore.getState().consumePendingOutbound();
+      if (pending) {
+        if (!cancelled) {
+          await handleSendRef.current(
+            pending.content,
+            pending.modelOverride,
+            pending.attachments
+          );
+        }
+        return;
+      }
+      await loadMessages(session.id);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session.id, loadMessages]);
 
   const handleStop = useCallback(async () => {
     try {
@@ -205,9 +215,7 @@ export function ChatView({
         setStreaming(false);
         toast.error(t("errorOccurred"), {
           description:
-            assistant?.status === "error"
-              ? assistant.content
-              : shown,
+            assistant?.status === "error" ? assistant.content : shown,
         });
       }
     },

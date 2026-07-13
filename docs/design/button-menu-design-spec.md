@@ -1,6 +1,8 @@
-# Codex Monitor 按钮与菜单 UI 设计规范
+# MisakaX 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-06-07（v3）
+**最后审阅 / Last reviewed:** 2026-07-13（v4）
+
+> 主色已切换为 **charcoal**（非冷蓝强调色）。文中若仍出现历史「蓝调」示例，以实现侧 CSS 变量与 [frontend-ui-guidelines.md](./frontend-ui-guidelines.md) 为准。
 
 ## 目录
 
@@ -58,8 +60,8 @@
 | `--surface-control` | `rgba(255,255,255,0.08)` | 控件底色 |
 | `--surface-control-hover` | `rgba(255,255,255,0.14)` | 控件悬停 |
 | `--surface-hover` | `rgba(255,255,255,0.05)` | 通用悬停 |
-| `--surface-active` | `rgba(100,200,255,0.14)` | 选中态（蓝调） |
-| `--surface-popover` | `rgba(10,14,20,0.995)` | 弹出层背景 |
+| `--surface-active` | `oklch(primary 低透明)` / dark `white/10%` | 选中态（中性 charcoal，非冷蓝） |
+| `--surface-popover` | 抬升表面 | 弹出层背景 |
 
 ### 1.4 CM 应用层表面令牌
 
@@ -185,7 +187,7 @@ button:disabled {
 |------|-----|
 | 背景 | `linear-gradient(135deg, #62b7ff, #4fe3a3)` — 蓝→绿 135° 渐变 |
 | 文字色 | `#0b0f1a` — 极深蓝黑色 |
-| 阴影 | `0 12px 22px var(--shadow-accent)` — 使用强调色阴影（Dark: `rgba(92,168,255,0.28)`） |
+| 阴影 | `0 12px 22px` 使用中性 / primary 低透明阴影（**禁止**蓝调 `rgba(92,168,255,*)`） |
 | 圆角 | 10px |
 | 内边距 | 8px 14px |
 | 字号 | 13px |

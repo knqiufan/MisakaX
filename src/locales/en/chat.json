@@ -12,6 +12,17 @@
   "modelSelector": "Model",
   "emptyTitle": "Start a conversation",
   "emptyDescription": "Type a message to start chatting with AI. Markdown is supported.",
+  "welcome": {
+    "hello": "Hello",
+    "morning": "Good morning",
+    "afternoon": "Good afternoon",
+    "evening": "Good evening",
+    "night": "Still up",
+    "prompt1": "What would you like to do?",
+    "prompt2": "How can I help?",
+    "prompt3": "Start with a message.",
+    "workspaceHint": "Optionally pick a working directory for Agent tasks, or just type to start a session."
+  },
   "copyMessage": "Copy message",
   "copied": "Copied",
   "regenerate": "Regenerate",

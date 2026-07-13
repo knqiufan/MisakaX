@@ -82,7 +82,7 @@ export function SegmentTextarea({
         "max-h-[200px] resize-none py-2.5 text-sm leading-[20px]",
         "text-foreground outline-none placeholder:text-muted-foreground/55",
         "disabled:cursor-not-allowed disabled:opacity-50",
-        hasHighlight ? "bg-sky-500/20" : "bg-transparent",
+        hasHighlight ? "bg-primary/15" : "bg-transparent",
         isLastText
           ? "min-h-[36px] min-w-[2rem] flex-1"
           : "min-h-[36px] shrink-0 overflow-hidden whitespace-nowrap"

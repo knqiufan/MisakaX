@@ -15,6 +15,9 @@
   "success": "Success",
   "comingSoon": "Coming soon",
   "newSession": "New Session",
+  "back": "Back",
+  "collapseSessionList": "Collapse session list",
+  "expandSessionList": "Expand session list",
   "emptyState": {
     "title": "Nothing here yet",
     "description": "Get started by creating something new"

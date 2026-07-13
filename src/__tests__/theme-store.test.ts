@@ -3,22 +3,18 @@ import { useThemeStore } from "@/stores/theme-store";
 
 vi.mock("@/lib/theme", () => ({
   resolveTheme: vi.fn((mode: string) => {
-    if (mode === "dark" || mode === "dim") return "dark";
+    if (mode === "dark") return "dark";
     return "light";
   }),
   applyThemeToDOM: vi.fn(),
-  applyAccentColor: vi.fn(),
   applyUIFontSize: vi.fn(),
   startSystemThemeListener: vi.fn(),
   stopSystemThemeListener: vi.fn(),
-  ACCENT_COLORS: [
-    {
-      name: "Indigo",
-      value: "#6366F1",
-      hsl: "238.7 83.5% 66.7%",
-      hslForeground: "0 0% 100%",
-    },
-  ],
+  parseThemeMode: vi.fn((value: string) => {
+    if (value === "light" || value === "dark" || value === "system") return value;
+    if (value === "dim") return "dark";
+    return "system";
+  }),
 }));
 
 vi.mock("@/lib/ipc", () => ({
@@ -43,17 +39,16 @@ vi.mock("@/lib/ipc", () => ({
 import {
   resolveTheme,
   applyThemeToDOM,
-  applyAccentColor,
   applyUIFontSize,
   startSystemThemeListener,
   stopSystemThemeListener,
+  parseThemeMode,
 } from "@/lib/theme";
 
 describe("useThemeStore", () => {
   beforeEach(() => {
     useThemeStore.setState({
       mode: "system",
-      accentColor: "#6366F1",
       resolvedTheme: "light",
       reducedTransparency: false,
       uiFontSize: 14,
@@ -65,7 +60,6 @@ describe("useThemeStore", () => {
   it("should have correct initial state", () => {
     const state = useThemeStore.getState();
     expect(state.mode).toBe("system");
-    expect(state.accentColor).toBe("#6366F1");
     expect(state.resolvedTheme).toBe("light");
     expect(state.reducedTransparency).toBe(false);
     expect(state.uiFontSize).toBe(14);
@@ -96,13 +90,6 @@ describe("useThemeStore", () => {
     expect(startSystemThemeListener).not.toHaveBeenCalled();
   });
 
-  it("should set accent color", () => {
-    useThemeStore.getState().setAccentColor("#F43F5E");
-
-    expect(useThemeStore.getState().accentColor).toBe("#F43F5E");
-    expect(applyAccentColor).toHaveBeenCalledWith("#F43F5E");
-  });
-
   it("should set reduced transparency", () => {
     useThemeStore.getState().setReducedTransparency(true);
     expect(useThemeStore.getState().reducedTransparency).toBe(true);
@@ -121,8 +108,8 @@ describe("useThemeStore", () => {
     const state = useThemeStore.getState();
     expect(state.initialized).toBe(true);
     expect(state.mode).toBe("dark");
-    expect(state.accentColor).toBe("#6366F1");
     expect(state.resolvedTheme).toBe("dark");
+    expect(parseThemeMode).toHaveBeenCalledWith("dark");
   });
 
   it("should not reinitialize if already initialized", async () => {

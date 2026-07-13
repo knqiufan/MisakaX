@@ -45,6 +45,7 @@ desktop.ini
 
 # ===== Others =====
 learning/
+docs/ui/
 
 # ===== Agent IDE config (local only, do not publish) =====
 .claude/

@@ -55,12 +55,16 @@ export function SessionItem({
   const [editValue, setEditValue] = useState("");
   const [newGroupInput, setNewGroupInput] = useState("");
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const newGroupRef = useRef<HTMLInputElement>(null);
 
   const isArchived = session.status === "archived";
   const displayTitle = session.title || "New Chat";
-  const timeLabel = formatRelativeTime(session.last_message_at ?? session.updated_at, i18n.language);
+  const timeLabel = formatCompactTime(
+    session.last_message_at ?? session.updated_at,
+    i18n.language
+  );
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -117,17 +121,17 @@ export function SessionItem({
         if (e.key === "Enter" && !isEditing) onSelect(session.id);
       }}
       className={cn(
-        "group relative flex w-full cursor-pointer items-center gap-2 rounded-[var(--radius-button)] px-2.5 py-2 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/35 focus-visible:ring-offset-1",
-        "transition-[background-color,color] duration-[var(--ds-dur-fast)] ease-out",
+        "group relative flex h-8 w-full cursor-pointer items-center gap-2 rounded-xl px-3 text-left outline-none transition-all duration-150",
+        "focus-visible:ring-2 focus-visible:ring-ring/35",
         isArchived && "opacity-50",
         isActive
-          ? "bg-[color:var(--surface-active)] text-foreground"
-          : "text-muted-foreground hover:bg-[color:var(--surface-hover)] hover:text-foreground"
+          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+          : "text-sidebar-foreground hover:bg-sidebar-accent"
       )}
     >
-      {session.pinned && (
-        <Pin className="h-3 w-3 shrink-0 text-primary/60" />
-      )}
+      {session.pinned ? (
+        <Pin className="size-3 shrink-0 text-muted-foreground/70" />
+      ) : null}
 
       <div className="min-w-0 flex-1">
         {isEditing ? (
@@ -137,51 +141,44 @@ export function SessionItem({
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={handleCommitRename}
             onKeyDown={handleKeyDown}
-            className="h-6 px-1 py-0 text-sm"
+            className="h-6 px-1 py-0 text-[13px]"
+            onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <p className="truncate text-[0.8125rem] font-medium leading-snug">
+          <p className="line-clamp-1 text-[13px] font-normal leading-tight">
             {displayTitle}
           </p>
         )}
-        <p className="mt-0.5 truncate text-[0.6875rem] text-muted-foreground/70">
-          {session.group_name && (
-            <span className="mr-1.5 inline-flex items-center gap-0.5">
-              <FolderOpen className="inline h-2.5 w-2.5" />
-              {session.group_name}
-            </span>
-          )}
-          {session.project_name && (
-            <span className="mr-1.5">{session.project_name}</span>
-          )}
-          <span>{timeLabel}</span>
-        </p>
       </div>
 
-      <DropdownMenu>
+      <span className="w-[38px] shrink-0 text-right text-[11px] text-muted-foreground/40 group-hover:opacity-0">
+        {timeLabel}
+      </span>
+
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger
           onClick={(e) => e.stopPropagation()}
           className={cn(
-            "flex h-6 w-6 shrink-0 items-center justify-center rounded-[var(--radius-button)] text-muted-foreground/60 opacity-40 transition-opacity duration-[var(--ds-dur-fast)] hover:bg-[color:var(--surface-hover)] hover:text-foreground",
+            "absolute right-2 flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition-opacity duration-150 hover:bg-muted hover:text-foreground",
             "group-hover:opacity-100",
-            isActive && "opacity-100"
+            (menuOpen || isActive) && "opacity-100"
           )}
         >
-          <MoreHorizontal className="h-3.5 w-3.5" />
+          <MoreHorizontal className="size-3.5" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" sideOffset={4} className="w-44">
+        <DropdownMenuContent align="end" sideOffset={4} className="min-w-[160px]">
           <DropdownMenuItem onClick={handleStartRename}>
-            <Pencil className="mr-2 h-3.5 w-3.5" />
+            <Pencil className="mr-2 size-3.5" />
             {t("session.rename")}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onTogglePin(session.id, !session.pinned)}>
-            <Pin className="mr-2 h-3.5 w-3.5" />
+            <Pin className="mr-2 size-3.5" />
             {session.pinned ? t("session.unpin") : t("session.pin")}
           </DropdownMenuItem>
 
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
-              <FolderOpen className="mr-2 h-3.5 w-3.5" />
+              <FolderOpen className="mr-2 size-3.5" />
               {t("session.setGroup")}
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="w-40">
@@ -217,7 +214,7 @@ export function SessionItem({
                 </div>
               ) : (
                 <DropdownMenuItem onClick={() => setIsCreatingGroup(true)}>
-                  <Plus className="mr-2 h-3.5 w-3.5" />
+                  <Plus className="mr-2 size-3.5" />
                   {t("session.newGroup")}
                 </DropdownMenuItem>
               )}
@@ -225,19 +222,19 @@ export function SessionItem({
           </DropdownMenuSub>
 
           <DropdownMenuItem onClick={() => onExport(session.id)}>
-            <Download className="mr-2 h-3.5 w-3.5" />
+            <Download className="mr-2 size-3.5" />
             {t("session.export")}
           </DropdownMenuItem>
 
           <DropdownMenuItem onClick={() => onArchive(session.id, !isArchived)}>
             {isArchived ? (
               <>
-                <ArchiveRestore className="mr-2 h-3.5 w-3.5" />
+                <ArchiveRestore className="mr-2 size-3.5" />
                 {t("session.unarchive")}
               </>
             ) : (
               <>
-                <Archive className="mr-2 h-3.5 w-3.5" />
+                <Archive className="mr-2 size-3.5" />
                 {t("session.archive")}
               </>
             )}
@@ -248,7 +245,7 @@ export function SessionItem({
             onClick={() => onDelete(session.id)}
             className="text-destructive focus:text-destructive"
           >
-            <Trash2 className="mr-2 h-3.5 w-3.5" />
+            <Trash2 className="mr-2 size-3.5" />
             {t("session.delete")}
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -257,22 +254,20 @@ export function SessionItem({
   );
 }
 
-function formatRelativeTime(dateStr: string, locale = "en"): string {
+function formatCompactTime(dateStr: string, locale = "en"): string {
   const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMin = Math.floor(diffMs / 60_000);
 
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-
-  if (diffMin < 1) return rtf.format(0, "second");
-  if (diffMin < 60) return rtf.format(-diffMin, "minute");
+  if (diffMin < 1) return locale.startsWith("zh") ? "刚刚" : "now";
+  if (diffMin < 60) return `${diffMin}m`;
 
   const diffHour = Math.floor(diffMin / 60);
-  if (diffHour < 24) return rtf.format(-diffHour, "hour");
+  if (diffHour < 24) return `${diffHour}h`;
 
   const diffDay = Math.floor(diffHour / 24);
-  if (diffDay < 7) return rtf.format(-diffDay, "day");
+  if (diffDay < 7) return `${diffDay}d`;
 
   return date.toLocaleDateString(locale, { month: "short", day: "numeric" });
 }
