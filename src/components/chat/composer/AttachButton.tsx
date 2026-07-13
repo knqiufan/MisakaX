@@ -15,7 +15,7 @@ interface AttachButtonProps
 export const AttachButton = forwardRef<HTMLButtonElement, AttachButtonProps>(
   function AttachButton({ label, disabled, className, ...rest }, ref) {
     return (
-      <Tooltip>
+      <Tooltip delayDuration={2000}>
         <TooltipTrigger asChild>
           <button
             ref={ref}
@@ -36,7 +36,13 @@ export const AttachButton = forwardRef<HTMLButtonElement, AttachButtonProps>(
             <Plus className="size-3.5" strokeWidth={2} />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="top" className="text-xs">
+        <TooltipContent
+          side="top"
+          className={cn(
+            "text-xs duration-150",
+            "data-[state=closed]:duration-150"
+          )}
+        >
           {label}
         </TooltipContent>
       </Tooltip>

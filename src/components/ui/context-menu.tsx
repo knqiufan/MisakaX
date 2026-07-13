@@ -5,6 +5,7 @@ import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react";
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui";
 
 import { cn } from "@/lib/utils";
+import { OVERLAY_MOTION } from "@/lib/overlay-motion";
 
 function ContextMenu({
   ...props
@@ -37,7 +38,8 @@ function ContextMenuContent({
       <ContextMenuPrimitive.Content
         data-slot="context-menu-content"
         className={cn(
-          "z-[var(--ds-layer-modal)] min-w-[10rem] origin-(--radix-context-menu-content-transform-origin) overflow-hidden rounded-[var(--radius-ui-lg)] border border-[color:var(--border-strong)] bg-popover/95 p-1 text-popover-foreground shadow-lg backdrop-blur-xl data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
+          "z-[var(--ds-layer-modal)] min-w-[10rem] origin-(--radix-context-menu-content-transform-origin) overflow-hidden rounded-[var(--radius-ui-lg)] border border-[color:var(--border-strong)] bg-popover/95 p-1 text-popover-foreground shadow-lg backdrop-blur-xl",
+          OVERLAY_MOTION,
           className
         )}
         {...props}
@@ -217,7 +219,8 @@ function ContextMenuSubContent({
     <ContextMenuPrimitive.SubContent
       data-slot="context-menu-sub-content"
       className={cn(
-        "z-[var(--ds-layer-modal)] min-w-[10rem] origin-(--radix-context-menu-content-transform-origin) overflow-hidden rounded-[var(--radius-ui-lg)] border border-[color:var(--border-strong)] bg-popover/95 p-1 text-popover-foreground shadow-lg backdrop-blur-xl data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
+        "z-[var(--ds-layer-modal)] min-w-[10rem] origin-(--radix-context-menu-content-transform-origin) overflow-hidden rounded-[var(--radius-ui-lg)] border border-[color:var(--border-strong)] bg-popover/95 p-1 text-popover-foreground shadow-lg backdrop-blur-xl",
+        OVERLAY_MOTION,
         className
       )}
       {...props}

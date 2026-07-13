@@ -1,6 +1,6 @@
 # MisakaX 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-07-14（v6）
+**最后审阅 / Last reviewed:** 2026-07-14（v8）
 
 > 主色已切换为 **charcoal**（非冷蓝强调色）。文中若仍出现历史「蓝调」示例，以实现侧 CSS 变量与 [frontend-ui-guidelines.md](./frontend-ui-guidelines.md) 为准。
 >
@@ -601,7 +601,7 @@ Hover:    transform=none, shadow=none, brightness(1)  [150ms]
 | 形状 | 正圆 `rounded-full` |
 | 图标 | 约 14–16px（`size-3.5`–`size-4`） |
 | 附件入口 | 外置左侧圆形 `+`，与发送同尺寸、同行 `items-center` |
-| 发送 | 可发时 `bg-primary`；图标 `ArrowUp` |
+| 发送 | 可发时 `variant="default"` / `bg-primary text-primary-foreground`；hover 须保持浅色图标（`hover:text-primary-foreground`）；**禁止**可发态用 `ghost`（会 hover 成 `accent-foreground` 近黑） |
 | 停止 | 既有停止色边框/底，图标 `Square` |
 
 > 历史稿中的 30×30 已废弃；Composer 附件与发送必须同为 32px，避免视觉阶梯错位。
@@ -1410,6 +1410,15 @@ Hover:    transform=none, shadow=none, brightness(1)  [150ms]
 
 ## 10. 弹出菜单系统 (Popover)
 
+### 10.0 实施约定（权威）
+
+- 动效依赖：`tw-animate-css`（见 [frontend-ui-guidelines.md §2.3](./frontend-ui-guidelines.md)）。
+- Radix `DropdownMenuContent` / `SelectContent` / `TooltipContent` 统一使用 `OVERLAY_MOTION` + `OVERLAY_SIDE_SLIDE`（`duration-150` + `ease-out` + fade 入/出 + `slide-in-from-*-1`，位移 ≤4px）。
+- `ContextMenuContent` 仅用 `OVERLAY_MOTION`（fade，不加侧向滑入），避免右键菜单位移感过强。
+- `DialogOverlay` / `DialogContent` 使用 `DIALOG_MOTION`（`--ds-dur-entrance`）。
+- **禁止** `zoom-in*` / `zoom-out*`；**禁止** `slide-in-from-*-2` 及以上。
+- 自定义非 Portal 面板关闭时必须走 `usePresence`，保证 `data-state=closed` 的 `animate-out` 播完再卸载。
+
 ### 10.1 Popover 容器 (`.ds-popover`)
 
 ```css
@@ -1418,25 +1427,13 @@ Hover:    transform=none, shadow=none, brightness(1)  [150ms]
   border: 1px solid var(--border-muted);   /* rgba(255,255,255,0.06) */
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);  /* 深阴影 */
   border-radius: 10px;
-  animation: ds-popover-in 120ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* 现行实现：tw-animate fade + ≤4px slide；禁止 scale/zoom */
 }
 ```
 
-**入场动画：**
-```css
-@keyframes ds-popover-in {
-  from {
-    opacity: 0;
-    translate: 0 -4px;    /* 从上方 4px 滑入 */
-    scale: 0.98;           /* 从 98% 放大 */
-  }
-  to {
-    opacity: 1;
-    translate: 0 0;
-    scale: 1;
-  }
-}
-```
+**入场 / 退场（与 `OVERLAY_MOTION` 对齐）：**
+- 打开：`animate-in fade-in-0` + 对应方向 `slide-in-from-*-1`，`duration-150` `ease-out`
+- 关闭：`animate-out fade-out-0`（自定义面板可加对称 `slide-out-to-*-1`）
 
 ### 10.2 Popover 菜单项 (`.ds-popover-item`)
 
@@ -2209,7 +2206,8 @@ Hover:    transform=none, shadow=none, brightness(1)  [150ms]
 - **圆角**：必须用 `rounded-[var(--radius-ui-md)]`，与 Dropdown/ContextMenu 共享圆角语言；不得退回 `rounded-md` 这种字面值。
 - **阴影**：使用双层柔阴影 `shadow-[0_10px_24px_-12px_rgba(0,0,0,0.45),0_2px_6px_-1px_rgba(0,0,0,0.25)]`，避免单层硬阴影。
 - **箭头（Arrow）**：默认**不渲染** `TooltipPrimitive.Arrow`。旧实现里带边框的小三角在多种 side 下会与气泡边框错位、形成「断角」视觉缺陷，现已删除。
-- **入场动画**：`animate-in fade-in-0 ease-out duration-[120ms]` + `data-[side=*]:slide-in-from-*-1`；不得使用 `slide-in-from-*-2` 等大于 4px 的位移，避免桌面感丢失。
+- **入场 / 退场动画**：`animate-in fade-in-0 ease-out duration-150` + 微位移 `data-[side=*]:slide-in-from-*-1`；关闭 `data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-150`。不得使用 `slide-in-from-*-2` 等大于 4px 的位移；不得省略 fade-out（避免气泡「闪断」）。
+- **Composer 附件 / 发送**：局部 `Tooltip` 须设 `delayDuration={2000}`（约 2s 后再显示），与壳层默认 300ms 解耦。
 - **z-index**：使用 `z-[var(--ds-layer-modal)]`；**禁止**使用 `z-[calc(var(--ds-layer-modal)+2)]` 这种 magic 偏移，Modal 之上再有 toast 等更高层级时由 toast 自己处理。
 - **指针**：`pointer-events-none`，避免遮挡其它控件。
 
@@ -2298,8 +2296,9 @@ RELEASE:    150ms ease  (transform, box-shadow, background-color, filter)
 | Diff row action | background, border-color, color | 160ms | ease |
 | Diff row actions 容器 | max-width, opacity, transform | 140-180ms | ease |
 | Git 面板按钮 | background, border-color, color | 160ms | ease |
-| Popover item | background-color, color | 120ms | ease-out-soft |
-| Popover 入场 | opacity, translate, scale | 120ms | ease-out |
+| Popover / Dropdown / Select | opacity + ≤4px slide | 150ms | ease-out（`OVERLAY_MOTION`） |
+| ContextMenu | opacity | 150ms | ease-out（仅 fade） |
+| Dialog overlay / card | opacity | `--ds-dur-entrance` | `--ds-ease-out`（`DIALOG_MOTION`） |
 | Segmented control 滑块 | transform | 200ms | `cubic-bezier(0.645, 0.045, 0.355, 1)` |
 | Toggle 旋钮 | transform | 160ms | ease-spring |
 | Modal 卡片入场 | opacity, transform | 220ms | ease-out |
@@ -2432,7 +2431,7 @@ RELEASE:    150ms ease  (transform, box-shadow, background-color, filter)
 ### 11.1.2 视觉规范
 
 - 复用 `DropdownMenuContent` 的视觉语言：圆角 `var(--radius-ui-lg)`、边框 `var(--border-strong)`、`bg-popover/95` + `backdrop-blur-xl` + `shadow-lg`。
-- 入场动画**只允许** `animate-in fade-in-0`，不得使用 `zoom-in*` 或大幅 `slide-*`，与全局动效规范一致。
+- 入场/退场使用共享 `OVERLAY_MOTION`（`animate-in/out` + `fade-in-0` / `fade-out-0`，`duration-150`）；不得使用 `zoom-in*` 或大幅 `slide-*`，与全局动效规范一致。
 - Item 高度与 Dropdown 对齐（`py-1.5`、`text-sm`），图标统一 `size-4`，左侧 8px gap。
 - 提供 `ContextMenuSeparator` 分组；分组数量 ≤ 3，超过应抽象为子菜单或 Popover。
 

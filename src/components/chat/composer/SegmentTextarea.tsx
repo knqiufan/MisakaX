@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, type ClipboardEvent, type KeyboardEvent
 import { cn } from "@/lib/utils";
 import type { LocalTextSelection } from "./composerTextSelection";
 
-/** leading-5 (20) + py-1.5×2 (12) = 32，与发送钮 size-8 对齐 */
+/** 单行固定 32px，与发送钮 size-8 对齐 */
 export const COMPOSER_SINGLE_LINE_HEIGHT_PX = 32;
 const MAX_HEIGHT_PX = 200;
 
@@ -36,6 +36,8 @@ export function SegmentTextarea({
   registerRef,
 }: SegmentTextareaProps) {
   const localRef = useRef<HTMLTextAreaElement>(null);
+  const hardLines = Math.max(1, value.split("\n").length);
+  const isMultiline = hardLines > 1;
   const hasHighlight =
     highlightRange !== null &&
     highlightRange !== undefined &&
@@ -52,12 +54,11 @@ export function SegmentTextarea({
       el.style.width = `${Math.max(el.scrollWidth + 4, 8)}px`;
     }
 
-    // 先锁单行高，避免 UA 默认 rows 高度 / scrollHeight 虚高把空态撑成「瘦高胶囊」
-    el.style.height = `${COMPOSER_SINGLE_LINE_HEIGHT_PX}px`;
-    const hardLines = value.split("\n").length;
-    const needsGrow =
-      hardLines > 1 || el.scrollHeight > COMPOSER_SINGLE_LINE_HEIGHT_PX + 2;
-    if (!needsGrow) return;
+    // wrap=off：仅硬换行增高。勿用 scrollHeight 判定单行——leading-8 下会虚高，把框撑高后文字贴顶。
+    if (!isMultiline) {
+      el.style.height = `${COMPOSER_SINGLE_LINE_HEIGHT_PX}px`;
+      return;
+    }
 
     el.style.height = "0px";
     const next = Math.min(
@@ -65,11 +66,11 @@ export function SegmentTextarea({
       MAX_HEIGHT_PX
     );
     el.style.height = `${next}px`;
-  }, [isLastText, value]);
+  }, [isLastText, isMultiline]);
 
   useEffect(() => {
     syncSize();
-  }, [value, isLastText, syncSize]);
+  }, [value, isLastText, isMultiline, syncSize]);
 
   return (
     <textarea
@@ -90,16 +91,21 @@ export function SegmentTextarea({
       rows={1}
       wrap="off"
       className={cn(
-        "box-border max-h-[200px] min-h-8 resize-none overflow-y-auto",
-        "py-1.5 text-sm leading-5",
+        "box-border resize-none text-sm leading-8",
+        "py-0 [field-sizing:fixed]",
         "text-foreground outline-none placeholder:text-muted-foreground/55",
         "disabled:cursor-not-allowed disabled:opacity-50",
         hasHighlight ? "bg-primary/15" : "bg-transparent",
+        isMultiline
+          ? "max-h-[200px] min-h-8 overflow-y-auto"
+          : "h-8 max-h-8 min-h-8 overflow-hidden",
         isLastText
           ? "min-w-[2rem] flex-1"
           : "shrink-0 overflow-hidden whitespace-nowrap"
       )}
-      style={{ height: `${COMPOSER_SINGLE_LINE_HEIGHT_PX}px` }}
+      style={{
+        height: isMultiline ? undefined : `${COMPOSER_SINGLE_LINE_HEIGHT_PX}px`,
+      }}
     />
   );
 }

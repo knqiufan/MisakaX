@@ -2,6 +2,7 @@ import * as React from "react";
 import { Tooltip as TooltipPrimitive } from "radix-ui";
 
 import { cn } from "@/lib/utils";
+import { OVERLAY_MOTION, OVERLAY_SIDE_SLIDE } from "@/lib/overlay-motion";
 
 function TooltipProvider({
   delayDuration = 0,
@@ -48,10 +49,8 @@ function TooltipContent({
           "px-2 py-1 text-[12px] font-medium leading-[18px] tracking-tight",
           "text-popover-foreground/95 text-balance",
           "shadow-[0_10px_24px_-12px_rgba(0,0,0,0.45),0_2px_6px_-1px_rgba(0,0,0,0.25)]",
-          "animate-in fade-in-0 ease-out duration-[120ms]",
-          "data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1",
-          "data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1",
-          "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
+          OVERLAY_MOTION,
+          OVERLAY_SIDE_SLIDE,
           className
         )}
         {...props}

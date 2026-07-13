@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口混合壳结构、会话侧栏、对话页顶栏、设置页与工作区布局语义。 |
 | **受众** | 负责 `AppShell`、`UnifiedTopBar`、`SessionPanel`、`SettingsSidebar`、`ChatPage`、`WorkspaceBar`、`SettingsPage` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-07-14（v14） |
+| **最后审阅** | 2026-07-14（v15） |
 
 ## 相关文档
 
@@ -217,7 +217,7 @@ Provider 目录网格仅 `md:grid-cols-2`。Appearance 主题分段：`rounded-m
 | 虚拟列表 | `@tanstack/react-virtual`；estimate 220；overscan 6 |
 | Prepend | 保位 `scrollToIndex(align:'start')`；仅尾追加才自动置底 |
 
-Composer 外壳：`rounded-2xl` 输入组 + `shadow-[var(--shadow-diffuse)]`（**会话页与 Hero 共用同一阴影**，禁止 Hero 外包再套一层 diffuse）。单行输入行高约 **32px 文本域 + py-1.5 外壳**（`SegmentTextarea` 须锁 32px，禁止空态被 `scrollHeight` 撑高）；发送 / 附件外置钮均为 `size-8`（`icon-sm`）`rounded-full`，图标约 `size-3.5`。底部 Model/MCP/Skill 行 `mt-2` + `pl-10`。附件预览胶囊：`rounded-full border-border/40 bg-muted`。行内文件引用 chip（`InlineMentionChip`）：`rounded-md border-primary/25 bg-primary/8`，与附件胶囊可区分。不引入 CodePilot Hood vibrancy / ActionBar 产品控件。
+Composer 外壳：`rounded-2xl` 输入组 + `shadow-[var(--shadow-diffuse)]`（**会话页与 Hero 共用同一阴影**，禁止 Hero 外包再套一层 diffuse）。单行输入行高约 **32px 文本域**（`leading-8` + `py-0`，与发送 `size-8` 对齐）+ 外壳 `py-1.5`；输入行 **`items-center`**。发送 / 附件外置钮均为 `size-8`（`icon-sm`）`rounded-full`，图标约 `size-3.5`；可发送态**不得**用 ghost（避免 hover 图标变黑）。附件与发送 Tooltip：`delayDuration={2000}` + fade 约 150ms。底部 Model/MCP/Skill 行 `mt-2` + `pl-10`。附件预览胶囊：`rounded-full border-border/40 bg-muted`。行内文件引用 chip（`InlineMentionChip`）：`rounded-md border-primary/25 bg-primary/8`，与附件胶囊可区分。不引入 CodePilot Hood vibrancy / ActionBar 产品控件。
 
 ---
 

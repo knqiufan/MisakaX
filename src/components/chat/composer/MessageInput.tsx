@@ -216,7 +216,7 @@ export function MessageInput({
             attachments={attachments}
             onRemove={removeAttachment}
           />
-          <div className="flex min-w-0 items-end gap-1.5 py-1.5 pl-3 pr-1.5">
+          <div className="flex min-w-0 items-center gap-1.5 py-1.5 pl-3 pr-1.5">
             <ComposerInlineField
               segments={segments}
               composerCursor={composerCursor}
@@ -277,7 +277,7 @@ function InputToolbar({
 }) {
   if (isStreaming) {
     return (
-      <Tooltip>
+      <Tooltip delayDuration={2000}>
         <TooltipTrigger asChild>
           <Button
             type="button"
@@ -289,13 +289,20 @@ function InputToolbar({
               "shrink-0 rounded-full",
               "border border-[color:rgba(255,107,107,0.6)]",
               "bg-[color:rgba(255,107,107,0.12)] text-[#ff6b6b]",
-              "hover:bg-[color:rgba(255,107,107,0.2)] hover:text-[#ff6b6b]"
+              "hover:bg-[color:rgba(255,107,107,0.2)] hover:text-[#ff6b6b]",
+              "[&_svg]:text-current"
             )}
           >
             <Square className="size-3 fill-current" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="top" className="text-xs">
+        <TooltipContent
+          side="top"
+          className={cn(
+            "text-xs duration-150",
+            "data-[state=closed]:duration-150"
+          )}
+        >
           {t("stop")}
         </TooltipContent>
       </Tooltip>
@@ -303,26 +310,32 @@ function InputToolbar({
   }
 
   return (
-    <Tooltip>
+    <Tooltip delayDuration={2000}>
       <TooltipTrigger asChild>
         <Button
           type="button"
-          variant="ghost"
+          variant={canSend ? "default" : "ghost"}
           size="icon-sm"
           onClick={onSend}
           disabled={!canSend}
           aria-label={t("send")}
           className={cn(
-            "shrink-0 rounded-full",
+            "shrink-0 rounded-full [&_svg]:text-current",
             canSend
-              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "border border-border bg-muted text-muted-foreground"
+              ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+              : "border border-border bg-muted text-muted-foreground hover:bg-muted hover:text-muted-foreground"
           )}
         >
           <ArrowUp className="size-3.5" />
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="top" className="text-xs">
+      <TooltipContent
+        side="top"
+        className={cn(
+          "text-xs duration-150",
+          "data-[state=closed]:duration-150"
+        )}
+      >
         {t("send")}
       </TooltipContent>
     </Tooltip>

@@ -8,7 +8,7 @@
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-07-14（v12）
+**最后审阅 / Last reviewed:** 2026-07-14（v15）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -31,6 +31,12 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - **颜色与背景过渡**：交互反馈主要通过 `background-color`、`color`、`border-color` 的变化来实现。
 - **弹出层动效**：仅使用淡入淡出（`fade-in` / `fade-out`）配合极小范围的滑入（`slide-in-from-*`）。
 - **过渡时间**：保持快速响应。使用 Tailwind 的 `duration-150` 或系统定义的 `duration-[var(--ds-dur-fast)]`，缓动函数推荐使用 `ease-out`。
+
+### 2.3 弹出层动效基础设施（必读）
+
+- 项目依赖 **`tw-animate-css`**（在 `src/index.css` 中 `@import "tw-animate-css"`）。`animate-in` / `animate-out` / `fade-in-0` / `slide-in-from-*-1` 等类名由此提供；**禁止**删除该依赖或省略 import，否则所有菜单会瞬间出现/消失。
+- 共享类字符串：`src/lib/overlay-motion.ts` 的 `OVERLAY_MOTION` + `OVERLAY_SIDE_SLIDE`（菜单 / Select / Tooltip）与 `DIALOG_MOTION`（Dialog）。新建 Radix 弹出层 Content **必须**复用这些常量，不要手写另一套时长或 `slide-*-2`（位移 >4px）。
+- 非 Radix、用条件渲染挂载的自定义面板（如 ModelSelector）必须用 `usePresence`（`src/hooks/usePresence.ts`）保留关闭退场帧，**禁止** `{open && <Panel />}` 直接卸载导致收回闪断。
 
 ## 3. 视觉与色彩规范 (Visual & Color)
 
@@ -78,9 +84,10 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - 外层（附件 + 输入壳）：`flex items-center gap-2`；附件 `size-8` 外置左侧，与输入壳垂直居中。
 - 同行圆形图标按钮宜统一触控尺寸（均为 `size-8` / `icon-sm`），附件与发送图标约 `size-3.5`，避免 + 钮视觉大于发送钮。
 - 新版 Composer 中，附件入口使用外置左侧圆形 `+` 按钮，不放入输入框内部；按钮与输入容器同属一行，输入容器内部只承载附件预览、文本域与发送/停止按钮。
-- `textarea` 单行态高度与发送钮对齐：`leading-5`（20px）+ `py-1.5` → **32px**（`min-h-8` / `COMPOSER_SINGLE_LINE_HEIGHT_PX`），与 `icon-sm` 同高；占位符与发送钮视觉居中。
-- **禁止**用过大 `min-h`（如 CodePilot 参考的 `min-h-16`）或「先设高再读 `scrollHeight`」把空态撑高，导致占位符贴左上角、下方大块留白、外壳呈瘦高胶囊。`SegmentTextarea` 须先锁 32px，仅在硬换行或 `scrollHeight` 明确溢出时再增高（上限 200px）。
-- 输入组内行：`py-1.5 pl-3 pr-1.5` + `items-end`（单行时与 32px 发送钮齐平；多行时发送贴底）。外壳 `rounded-2xl border-input` + `--shadow-diffuse`。
+- `textarea` 单行态高度与发送钮对齐：`leading-8` + `py-0` → **32px**（`h-8` / `COMPOSER_SINGLE_LINE_HEIGHT_PX`），与 `icon-sm` 同高。`wrap="off"` 时**仅硬换行**才增高；**禁止**用 `scrollHeight > 32` 判定单行（leading-8 下 scrollHeight 会虚高，框被撑高后文字贴顶、下方留白）。
+- 输入组内行：`py-1.5 pl-3 pr-1.5` + **`items-center`**（文本域与发送钮相对外壳垂直居中；多行增高时仍保持居中）。外壳 `rounded-2xl border-input` + `--shadow-diffuse`。
+- **发送钮颜色**：可发时用 `variant="default"`（或显式 `text-primary-foreground hover:text-primary-foreground [&_svg]:text-current`）；**禁止**可发态套 `variant="ghost"`——其 `hover:text-accent-foreground` 会在深色 primary 底上把箭头染成近黑而「消失」。
+- **附件 / 发送 Tooltip**：`delayDuration={2000}`（悬停约 2s 再出）；气泡沿用统一 Tooltip 的 fade 入/出（约 150ms），禁止零延迟闪现。
 - 底部 Model / MCP / Skill 胶囊行：与输入壳间距 `mt-2`；`pl-10` 对齐输入壳左缘（越过 32px 附件 + `gap-2`）。
 - 附件预览支持图片缩略图与文本文件卡片两类；非图片附件不得伪装成图片缩略图，应使用文件图标、文件名与大小信息表达。
 - **附件入口与 Radix asChild 嵌套（必读，新增）**：

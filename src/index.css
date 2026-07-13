@@ -1,6 +1,7 @@
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
 @import "tailwindcss";
+@import "tw-animate-css";
 @import "./styles/base.css";
 @import "streamdown/styles.css";
 @import "katex/dist/katex.min.css";
