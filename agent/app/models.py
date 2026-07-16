@@ -51,12 +51,21 @@ class TokenUsage(BaseModel):
 
 
 class ChatConfig(BaseModel):
-    """Configuration for a chat/agent request."""
+    """Configuration for a chat/agent request.
+
+    Provider binding fields (`provider` / `api_compat` / `base_url` / `api_key`)
+    are filled by Rust from the selected RouterConfig so Sidecar uses the same
+    protocol as the settings UI (not a hardcoded Anthropic default).
+    """
 
     model: str | None = None
     temperature: float = 0.7
     max_tokens: int | None = None
     stream: bool = False
+    provider: str | None = None
+    api_compat: str | None = None
+    base_url: str | None = None
+    api_key: str | None = None
 
     model_config = {"frozen": False, "extra": "ignore"}
 

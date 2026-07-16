@@ -13,6 +13,7 @@ from fastapi.responses import StreamingResponse
 from app.agent import build_agent
 from app.config import get_settings
 from app.dependencies import get_checkpointer, get_store
+from app.llm import resolve_chat_model
 from app.models import ChatMessage, ChatRequest, ChatResponse, MessageRole, TokenUsage, ToolCall
 
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -23,17 +24,12 @@ logger = logging.getLogger(__name__)
 async def agent_chat(request: ChatRequest) -> ChatResponse:
     """Synchronous agent chat — wait for the full response."""
     try:
-        agent = build_agent(
-            session_id=request.session_id,
-            working_dir=request.working_dir,
-            checkpointer=get_checkpointer(),
-            store=get_store(),
-        )
+        agent = _build_request_agent(request)
         result = await agent.ainvoke(
             {"messages": _request_to_agent_messages(request)},
             config=_thread_config(request),
         )
-        return _result_to_chat_response(result)
+        return _result_to_chat_response(result, model=request.config.model)
     except HTTPException:
         raise
     except Exception as exc:
@@ -57,12 +53,7 @@ async def agent_stream(request: ChatRequest):
 
 async def _stream_agent(request: ChatRequest) -> AsyncGenerator[str, None]:
     try:
-        agent = build_agent(
-            session_id=request.session_id,
-            working_dir=request.working_dir,
-            checkpointer=get_checkpointer(),
-            store=get_store(),
-        )
+        agent = _build_request_agent(request)
         async for event in agent.astream_events(
             {"messages": _request_to_agent_messages(request)},
             config=_thread_config(request),
@@ -75,6 +66,18 @@ async def _stream_agent(request: ChatRequest) -> AsyncGenerator[str, None]:
     except Exception as exc:
         logger.exception("agent stream failed")
         yield _sse("error", {"message": str(exc)})
+
+
+def _build_request_agent(request: ChatRequest):
+    """Assemble agent using the provider binding from the chat request."""
+    model = resolve_chat_model(request.config)
+    return build_agent(
+        session_id=request.session_id,
+        working_dir=request.working_dir,
+        checkpointer=get_checkpointer(),
+        store=get_store(),
+        model=model,
+    )
 
 
 def _request_to_agent_messages(request: ChatRequest) -> list[dict[str, str]]:
@@ -130,7 +133,10 @@ def _sse(event: str, data: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-def _result_to_chat_response(result: dict[str, Any]) -> ChatResponse:
+def _result_to_chat_response(
+    result: dict[str, Any],
+    model: str | None = None,
+) -> ChatResponse:
     messages = result.get("messages") or []
     if not messages:
         raise RuntimeError("Agent returned no messages")
@@ -159,7 +165,7 @@ def _result_to_chat_response(result: dict[str, Any]) -> ChatResponse:
         message=ChatMessage(role=MessageRole.assistant, content=content),
         tool_calls=tool_calls,
         usage=_extract_usage(result),
-        model=get_settings().agent_model,
+        model=model or get_settings().agent_model,
     )
 
 

@@ -61,6 +61,29 @@ def test_build_agent_ignores_invalid_working_dir(tmp_path: Path):
     fs_backend.assert_not_called()
 
 
+def test_build_agent_uses_explicit_model_override():
+    captured: dict = {}
+    fake_model = MagicMock(name="openai-chat-model")
+
+    def fake_create_deep_agent(**kwargs):
+        captured.update(kwargs)
+        return MagicMock(name="compiled-agent")
+
+    with (
+        patch("deepagents.create_deep_agent", side_effect=fake_create_deep_agent),
+        patch("deepagents.backends.CompositeBackend"),
+        patch("deepagents.backends.StateBackend"),
+    ):
+        build_agent(
+            session_id="s1",
+            tools=[],
+            include_subagents=False,
+            model=fake_model,
+        )
+
+    assert captured["model"] is fake_model
+
+
 def test_build_subagents_has_three_roles():
     settings = get_settings()
     # tools.py may be absent during early phases; _build_subagents must still work.

@@ -50,6 +50,19 @@ class TestChatConfig:
         assert cfg.model == "gpt-4"
         assert cfg.temperature == 0.2
 
+    def test_provider_binding_fields(self):
+        cfg = ChatConfig(
+            model="deepseek-chat",
+            provider="custom",
+            api_compat="openai",
+            base_url="https://api.example.com/v1",
+            api_key="sk-test",
+        )
+        assert cfg.provider == "custom"
+        assert cfg.api_compat == "openai"
+        assert cfg.base_url == "https://api.example.com/v1"
+        assert cfg.api_key == "sk-test"
+
 
 class TestChatRequest:
     def test_minimal_request(self):

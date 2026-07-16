@@ -77,12 +77,15 @@ pub(crate) async fn send_via_sidecar(
     abort_flag: Arc<AtomicBool>,
     assistant_msg_id: &str,
 ) -> Result<(StreamResult, Option<String>), String> {
+    let (router_config, decrypted_key) = load_and_decrypt_config(state, &model_spec.config_id)?;
     let request = build_agent_chat_request(
         session,
         history,
         user_content,
         &model_spec.model_id,
         llm_config,
+        &router_config,
+        &decrypted_key,
     );
     let response = state.sidecar_client.stream(&request).await?;
     if !response.status().is_success() {
@@ -136,12 +139,16 @@ pub(crate) async fn send_via_rig(
 // ─── 请求构造 ───────────────────────────────────────────────────────────
 
 /// Build AgentChatRequest for Sidecar (text-only; attachments stay on Rig path).
+///
+/// Includes provider binding so Python uses the same protocol/base_url/key as Rig.
 pub fn build_agent_chat_request(
     session: &Session,
     history: &[Message],
     user_content: &str,
     model_id: &str,
     llm_config: Option<LlmConfig>,
+    router: &RouterConfig,
+    api_key: &str,
 ) -> AgentChatRequest {
     let llm_config = llm_config.unwrap_or_default().sanitized();
     let mut messages = build_agent_messages(session, history);
@@ -159,6 +166,10 @@ pub fn build_agent_chat_request(
             temperature: llm_config.temperature,
             max_tokens: llm_config.max_tokens,
             stream: true,
+            provider: Some(router.provider.clone()),
+            api_compat: router.api_compat.clone(),
+            base_url: router.base_url.clone(),
+            api_key: Some(api_key.to_string()),
         },
         session_id: Some(session.id.clone()),
         working_dir: session.working_directory.clone(),

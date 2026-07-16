@@ -26,6 +26,17 @@ pub struct AgentChatConfig {
     pub max_tokens: Option<u32>,
     #[serde(default)]
     pub stream: bool,
+    /// Router provider id (`openai` / `anthropic` / custom name).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    /// Compatibility mode for custom providers (`openai` / `anthropic`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_compat: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    /// Decrypted key for this turn (localhost Sidecar only; never logged).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
 }
 
 fn default_temperature() -> f64 {
@@ -39,6 +50,10 @@ impl Default for AgentChatConfig {
             temperature: 0.7,
             max_tokens: None,
             stream: false,
+            provider: None,
+            api_compat: None,
+            base_url: None,
+            api_key: None,
         }
     }
 }

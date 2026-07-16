@@ -79,7 +79,7 @@ fn test_send_message_result_serialize() {
 
 #[cfg(feature = "test-private")]
 mod agent_message_builders {
-    use misaka_x_lib::db::models::{Message, Session};
+    use misaka_x_lib::db::models::{Message, RouterConfig, Session};
     use misaka_x_lib::services::chat::{
         build_agent_chat_request, build_agent_messages, build_title_prompt, sanitize_session_title,
     };
@@ -101,6 +101,23 @@ mod agent_message_builders {
             group_name: None,
             created_at: "now".to_string(),
             updated_at: "now".to_string(),
+        }
+    }
+
+    fn sample_router() -> RouterConfig {
+        RouterConfig {
+            id: "cfg".to_string(),
+            name: "OpenAI Compat".to_string(),
+            provider: "custom".to_string(),
+            vendor: Some("openai".to_string()),
+            api_key_encrypted: None,
+            model: Some("gpt-4o".to_string()),
+            base_url: Some("https://api.example.com/v1".to_string()),
+            config_json: None,
+            advanced_json: None,
+            is_active: true,
+            created_at: "now".to_string(),
+            api_compat: Some("openai".to_string()),
         }
     }
 
@@ -139,10 +156,26 @@ mod agent_message_builders {
     fn build_agent_chat_request_sets_working_dir_and_session() {
         let session = sample_session();
         let history = vec![sample_message("user", "prior")];
-        let req = build_agent_chat_request(&session, &history, "next", "claude", None);
+        let router = sample_router();
+        let req = build_agent_chat_request(
+            &session,
+            &history,
+            "next",
+            "gpt-4o",
+            None,
+            &router,
+            "sk-test",
+        );
         assert_eq!(req.session_id.as_deref(), Some("s1"));
         assert_eq!(req.working_dir.as_deref(), Some("D:/code"));
-        assert_eq!(req.config.model.as_deref(), Some("claude"));
+        assert_eq!(req.config.model.as_deref(), Some("gpt-4o"));
+        assert_eq!(req.config.provider.as_deref(), Some("custom"));
+        assert_eq!(req.config.api_compat.as_deref(), Some("openai"));
+        assert_eq!(
+            req.config.base_url.as_deref(),
+            Some("https://api.example.com/v1")
+        );
+        assert_eq!(req.config.api_key.as_deref(), Some("sk-test"));
         assert!(req.config.stream);
         assert_eq!(
             req.messages

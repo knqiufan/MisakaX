@@ -23,8 +23,13 @@ def build_agent(
     store=None,
     tools: list[Any] | None = None,
     include_subagents: bool = True,
+    model: Any | None = None,
 ):
-    """Create a DeepAgent graph for the given session context."""
+    """Create a DeepAgent graph for the given session context.
+
+    ``model`` may be a LangChain chat model instance or a provider:model string.
+    When omitted, falls back to ``settings.agent_model``.
+    """
     del session_id  # reserved for future per-session customization
     settings = get_settings()
 
@@ -45,7 +50,7 @@ def build_agent(
     subagents = _build_subagents(settings) if include_subagents else []
 
     kwargs: dict[str, Any] = {
-        "model": settings.agent_model,
+        "model": model if model is not None else settings.agent_model,
         "tools": agent_tools,
         "system_prompt": SYSTEM_PROMPT,
         "subagents": subagents,
