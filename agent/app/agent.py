@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+import threading
+from typing import Any, Literal
 
 from app.config import get_settings
 from app.prompts import (
@@ -13,8 +14,21 @@ from app.prompts import (
     SYSTEM_PROMPT,
     build_system_prompt,
 )
+from app.workspace_backend import make_workspace_backend_factory
 
 logger = logging.getLogger(__name__)
+
+AgentMode = Literal["chat", "research"]
+
+_HARNESS_LOCK = threading.Lock()
+_PROVIDER_PROFILE_KEYS = (
+    "openai",
+    "anthropic",
+    "google",
+    "google_genai",
+    "azure_openai",
+    "bedrock",
+)
 
 
 def build_agent(
@@ -23,17 +37,15 @@ def build_agent(
     checkpointer=None,
     store=None,
     tools: list[Any] | None = None,
-    include_subagents: bool = True,
+    include_subagents: bool | None = None,
+    agent_mode: AgentMode = "chat",
     model: Any | None = None,
 ):
     """Create a DeepAgent graph for the given session context.
 
-    ``model`` may be a LangChain chat model instance or a provider:model string.
-    When omitted, falls back to ``settings.agent_model``.
-
-    When ``working_dir`` validates, filesystem tools (`ls` / `read_file` / …)
-    and shell `execute` use that directory as the default root — not an
-    ephemeral in-memory StateBackend.
+    ``agent_mode="chat"`` (default) disables the ``task`` tool and all sync
+    subagents, including DeepAgents' auto-injected general-purpose agent.
+    ``agent_mode="research"`` enables researcher/coder/analyst plus GP.
     """
     del session_id  # reserved for future per-session customization
     settings = get_settings()
@@ -50,16 +62,15 @@ def build_agent(
             "deepagents is not installed. Install with: pip install -e '.[agent]'"
         ) from exc
 
+    mode = _resolve_agent_mode(agent_mode, include_subagents)
     validated = _resolve_working_dir(working_dir)
     agent_tools = tools if tools is not None else _safe_get_tools()
-    subagents = _build_subagents(settings) if include_subagents else []
+    subagents = _build_subagents(settings) if mode == "research" else []
 
     kwargs: dict[str, Any] = {
         "model": model if model is not None else settings.agent_model,
         "tools": agent_tools,
-        "system_prompt": build_system_prompt(
-            working_dir=str(validated) if validated is not None else None
-        ),
+        "system_prompt": build_system_prompt(has_workspace=validated is not None),
         "subagents": subagents,
         "interrupt_on": settings.interrupt_config,
         "checkpointer": checkpointer,
@@ -68,25 +79,43 @@ def build_agent(
 
     kwargs["skills"] = [str(settings.skills_dir)]
     kwargs["memory"] = [str(settings.memories_dir)]
-    kwargs["backend"] = _make_backend_factory(validated, LocalShellBackend, StateBackend, CompositeBackend)
-    return create_deep_agent(**kwargs)
+    kwargs["backend"] = make_workspace_backend_factory(
+        validated, LocalShellBackend, StateBackend, CompositeBackend
+    )
+
+    with _HARNESS_LOCK:
+        _apply_mode_harness_profile(mode)
+        return create_deep_agent(**kwargs)
 
 
-def _make_backend_factory(validated, local_shell_cls, state_cls, composite_cls):
-    """Bind filesystem + shell to working_dir when present; else StateBackend."""
+def _resolve_agent_mode(
+    agent_mode: AgentMode,
+    include_subagents: bool | None,
+) -> AgentMode:
+    if include_subagents is None:
+        return "research" if agent_mode == "research" else "chat"
+    # Backward-compatible override used by older tests/callers.
+    return "research" if include_subagents else "chat"
 
-    def factory(rt):
-        if validated is not None:
-            # virtual_mode: `/` and relative paths map under working_dir.
-            # LocalShellBackend also sets shell cwd to working_dir.
-            return local_shell_cls(
-                root_dir=str(validated),
-                virtual_mode=True,
-                inherit_env=True,
-            )
-        return composite_cls(default=state_cls(rt), routes={})
 
-    return factory
+def _apply_mode_harness_profile(mode: AgentMode) -> None:
+    """Register provider harness profiles so chat mode truly drops ``task``."""
+    try:
+        from deepagents import (
+            GeneralPurposeSubagentProfile,
+            HarnessProfileConfig,
+            register_harness_profile,
+        )
+    except ImportError:
+        logger.warning("Harness profile APIs unavailable; cannot disable general-purpose")
+        return
+
+    enabled = mode == "research"
+    profile = HarnessProfileConfig(
+        general_purpose_subagent=GeneralPurposeSubagentProfile(enabled=enabled)
+    )
+    for key in _PROVIDER_PROFILE_KEYS:
+        register_harness_profile(key, profile)
 
 
 def _resolve_working_dir(working_dir: str | None):
@@ -152,4 +181,10 @@ def _build_subagents(settings) -> list[dict[str, Any]]:
 
 
 # Re-export for tests that imported SYSTEM_PROMPT via this module historically.
-__all__ = ["SYSTEM_PROMPT", "build_agent", "_build_subagents", "_resolve_working_dir"]
+__all__ = [
+    "SYSTEM_PROMPT",
+    "build_agent",
+    "_build_subagents",
+    "_resolve_working_dir",
+    "_apply_mode_harness_profile",
+]

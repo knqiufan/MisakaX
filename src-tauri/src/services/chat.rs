@@ -186,6 +186,9 @@ pub(crate) async fn send_via_sidecar(
     abort_flag: Arc<AtomicBool>,
     assistant_msg_id: &str,
 ) -> Result<(StreamResult, Option<String>), String> {
+    if !state.sidecar.is_ready_for_chat() {
+        return Err(state.sidecar.not_ready_message());
+    }
     let (router_config, decrypted_key) =
         load_and_decrypt_config(state, &turn.effective.config_id)?;
     let request = build_agent_chat_request_for_turn(
@@ -295,6 +298,7 @@ pub fn build_agent_chat_request(
         },
         session_id: Some(session.id.clone()),
         working_dir: session.working_directory.clone(),
+        agent_mode: llm_config.agent_mode.clone(),
     }
 }
 

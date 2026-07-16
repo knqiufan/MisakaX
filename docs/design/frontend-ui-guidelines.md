@@ -8,7 +8,7 @@
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-07-16（v19）
+**最后审阅 / Last reviewed:** 2026-07-16（v20）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -93,12 +93,17 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - **发送钮颜色**：可发时用 `variant="default"`（或显式 `text-primary-foreground hover:text-primary-foreground [&_svg]:text-current`）；**禁止**可发态套 `variant="ghost"`——其 `hover:text-accent-foreground` 会在深色 primary 底上把箭头染成近黑而「消失」。
 - **附件 / 发送 Tooltip**：`delayDuration={2000}`（悬停约 2s 再出）；气泡沿用统一 Tooltip 的 fade 入/出（约 150ms），禁止零延迟闪现。
 - 底部 Model / MCP / Skill 胶囊行：与输入壳间距 `mt-2`；`pl-10` 对齐输入壳左缘（越过 32px 附件 + `gap-2`）。
-- **思考开关（Brain，新增）**：
+- **思考开关（Brain）**：
   - 位于 Model / MCP / Skill 同行，使用 `Brain` 图标的 `icon-sm` 圆形按钮 + Tooltip；须设置 `aria-pressed`。
   - **开启态**（默认）：低强度 primary 高亮（如 `bg-primary/10 text-primary`），表示请求供应商可展示的思考/reasoning 流，并写入历史 `thinking_content`。
   - **关闭态**：中性 ghost；关闭时后端使用原生关闭参数或同 Provider 的 `thinking_off_model_id`，二者皆不可用则拒绝发送并提示配置。
   - 状态持久化于 localStorage（`misakax:thinkingEnabled`），发送时快照进 `llm_config.thinking_enabled`；**禁止**仅做前端隐藏、而后端仍请求思考。
   - **不伪造思考内容**：只渲染供应商实际返回、可安全展示的 reasoning；历史回放仅用于 UI，不把纯文本 reasoning 当作带签名上下文回灌模型。
+- **深度研究开关（Telescope，新增）**：
+  - 与思考开关同一 Composer 底栏行，使用 `Telescope` 图标的 `icon-sm` 圆形按钮 + Tooltip；须设置 `aria-pressed`。
+  - **关闭态**（默认）：中性 ghost；普通聊天仅允许直接文件工具 / PowerMem / MCP，**禁止** DeepAgents `task` 与同步子代理。
+  - **开启态**：低强度 primary 高亮；该回合以 `llm_config.agent_mode: "research"` 快照发送，启用 researcher/coder/analyst 与 general-purpose 子代理编排。
+  - 状态持久化于 localStorage（`misakax:researchEnabled`）；发送与重新生成都必须携带当前快照，**禁止**仅改前端展示。
 - 附件预览支持图片缩略图与文本文件卡片两类；非图片附件不得伪装成图片缩略图，应使用文件图标、文件名与大小信息表达。
 - **附件入口与 Radix asChild 嵌套（必读，新增）**：
   - `AttachButton` 作为 `DropdownMenuTrigger asChild` 的 child 时，**必须**用 `forwardRef` 实现，并把 trigger 注入的 `ref` 与 `...rest` props 透传到底层 `<button>`，否则 Dropdown 的 click/keyboard handler 与定位 anchor 都无法生效，会出现「按钮点击无反应」的回归。

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Brain, ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Brain, ChevronDown, Telescope } from "lucide-react";
 import { modelsIpc } from "@/lib/ipc";
 import type { ProviderModels } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
@@ -30,6 +30,8 @@ export function ComposerFooter({ t }: ComposerFooterProps) {
     setSelectedModel,
     thinkingEnabled,
     setThinkingEnabled,
+    researchEnabled,
+    setResearchEnabled,
   } = useChatStore();
   const [providerModels, setProviderModels] = useState<ProviderModels[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -72,6 +74,9 @@ export function ComposerFooter({ t }: ComposerFooterProps) {
   const thinkingLabel = thinkingEnabled
     ? t("composer.thinkingOn")
     : t("composer.thinkingOff");
+  const researchLabel = researchEnabled
+    ? t("composer.researchOn")
+    : t("composer.researchOff");
 
   return (
     <div className="mt-2 flex items-center gap-2 pl-10">
@@ -97,28 +102,20 @@ export function ComposerFooter({ t }: ComposerFooterProps) {
           </button>
         }
       />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant={thinkingEnabled ? "secondary" : "ghost"}
-            size="icon-sm"
-            aria-label={thinkingLabel}
-            aria-pressed={thinkingEnabled}
-            onClick={() => setThinkingEnabled(!thinkingEnabled)}
-            className={cn(
-              "shrink-0 rounded-full",
-              thinkingEnabled &&
-                "bg-primary/15 text-primary hover:bg-primary/20 hover:text-primary"
-            )}
-          >
-            <Brain className="size-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="text-xs">
-          {thinkingLabel}
-        </TooltipContent>
-      </Tooltip>
+      <ComposerToggleButton
+        pressed={thinkingEnabled}
+        label={thinkingLabel}
+        onToggle={() => setThinkingEnabled(!thinkingEnabled)}
+      >
+        <Brain className="size-3.5" />
+      </ComposerToggleButton>
+      <ComposerToggleButton
+        pressed={researchEnabled}
+        label={researchLabel}
+        onToggle={() => setResearchEnabled(!researchEnabled)}
+      >
+        <Telescope className="size-3.5" />
+      </ComposerToggleButton>
       <McpStatusPopover
         label={t("composer.mcp")}
         emptyLabel={t("composer.mcpEmpty")}
@@ -128,5 +125,42 @@ export function ComposerFooter({ t }: ComposerFooterProps) {
         comingSoonLabel={t("composer.skillComingSoon")}
       />
     </div>
+  );
+}
+
+function ComposerToggleButton({
+  pressed,
+  label,
+  onToggle,
+  children,
+}: {
+  pressed: boolean;
+  label: string;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant={pressed ? "secondary" : "ghost"}
+          size="icon-sm"
+          aria-label={label}
+          aria-pressed={pressed}
+          onClick={onToggle}
+          className={cn(
+            "shrink-0 rounded-full",
+            pressed &&
+              "bg-primary/15 text-primary hover:bg-primary/20 hover:text-primary"
+          )}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs">
+        {label}
+      </TooltipContent>
+    </Tooltip>
   );
 }

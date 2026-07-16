@@ -6,6 +6,11 @@ mod tests {
         should_use_packaged_sidecar, sidecar_executable_name, SidecarApiKeySource, SidecarStatus,
         SidecarStatusEvent, SIDECAR_BINARY_STEM,
     };
+    use misaka_x_lib::sidecar_ownership::{
+        classify_port_occupancy, clear_runtime_record, read_runtime_record, runtime_record_path,
+        unknown_occupant_message, write_runtime_record, ManagedKind, PortOccupancy,
+        SidecarRuntimeRecord,
+    };
     use serde_json::json;
     use std::path::PathBuf;
 
@@ -256,5 +261,45 @@ mod tests {
             env.get("MISAKA_OPENAI_API_KEY").map(String::as_str),
             Some("first")
         );
+    }
+
+    #[test]
+    fn ownership_classifies_managed_and_unknown() {
+        let rec = SidecarRuntimeRecord {
+            nonce: "n1".into(),
+            pid: 1001,
+            port: 9527,
+            agent_dir: r"D:\code\agent".into(),
+            kind: ManagedKind::PythonUvicorn,
+            started_at_ms: 1,
+        };
+        let cmd = "python -m uvicorn app.main:app --port 9527";
+        assert!(matches!(
+            classify_port_occupancy(true, &[1001], Some(&rec), true, Some(cmd)),
+            PortOccupancy::Managed(_)
+        ));
+        assert_eq!(
+            classify_port_occupancy(true, &[2002], Some(&rec), true, Some(cmd)),
+            PortOccupancy::Unknown { pid: Some(2002) }
+        );
+        assert!(unknown_occupant_message(9527, Some(9)).contains("PID 9"));
+    }
+
+    #[test]
+    fn ownership_runtime_record_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = runtime_record_path(dir.path());
+        let rec = SidecarRuntimeRecord {
+            nonce: "n2".into(),
+            pid: 7,
+            port: 9527,
+            agent_dir: "/tmp/agent".into(),
+            kind: ManagedKind::PackagedBinary,
+            started_at_ms: 2,
+        };
+        write_runtime_record(&path, &rec).unwrap();
+        assert_eq!(read_runtime_record(&path), Some(rec));
+        clear_runtime_record(&path);
+        assert!(read_runtime_record(&path).is_none());
     }
 }

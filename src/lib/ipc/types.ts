@@ -218,6 +218,8 @@ export type ImageAttachment = MessageAttachment;
 
 export interface LlmConfigPayload {
   thinking_enabled?: boolean;
+  /** `chat` (default) or `research` — enables DeepAgents task/subagents. */
+  agent_mode?: "chat" | "research";
   temperature?: number;
   max_tokens?: number;
 }
@@ -293,7 +295,12 @@ export interface ImportResult {
 
 // ─── MCP Types ───────────────────────────────────────────────────────
 
-export type ToolCallStatus = "pending" | "running" | "complete" | "error";
+export type ToolCallStatus =
+  | "pending"
+  | "running"
+  | "complete"
+  | "error"
+  | "aborted";
 
 export interface ToolCall {
   id: string;

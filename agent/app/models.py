@@ -80,6 +80,8 @@ class ChatRequest(BaseModel):
     config: ChatConfig = Field(default_factory=ChatConfig)
     session_id: str | None = None
     working_dir: str | None = None
+    # chat = direct tools only; research = DeepAgents task/subagents
+    agent_mode: str = "chat"
 
     model_config = {"frozen": False, "extra": "ignore"}
 

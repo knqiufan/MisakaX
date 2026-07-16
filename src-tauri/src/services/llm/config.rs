@@ -33,6 +33,10 @@ pub struct LlmConfig {
     /// Composer thinking preference snapshot for this turn (default true).
     #[serde(default = "default_thinking_enabled")]
     pub thinking_enabled: bool,
+
+    /// Composer deep-research preference (`chat` | `research`, default chat).
+    #[serde(default = "default_agent_mode")]
+    pub agent_mode: String,
 }
 
 fn default_temperature() -> f64 {
@@ -41,6 +45,10 @@ fn default_temperature() -> f64 {
 
 fn default_thinking_enabled() -> bool {
     true
+}
+
+fn default_agent_mode() -> String {
+    "chat".to_string()
 }
 
 impl Default for LlmConfig {
@@ -53,6 +61,7 @@ impl Default for LlmConfig {
             presence_penalty: None,
             stop_sequences: None,
             thinking_enabled: true,
+            agent_mode: default_agent_mode(),
         }
     }
 }
@@ -70,6 +79,12 @@ impl LlmConfig {
         if let Some(pp) = self.presence_penalty {
             self.presence_penalty = Some(pp.clamp(-2.0, 2.0));
         }
+        let mode = self.agent_mode.trim().to_ascii_lowercase();
+        self.agent_mode = if mode == "research" {
+            "research".to_string()
+        } else {
+            "chat".to_string()
+        };
         self
     }
 }

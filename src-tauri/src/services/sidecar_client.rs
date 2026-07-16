@@ -78,6 +78,13 @@ pub struct AgentChatRequest {
     pub session_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub working_dir: Option<String>,
+    /// `chat` (default) or `research` — controls DeepAgents task/subagents.
+    #[serde(default = "default_agent_mode")]
+    pub agent_mode: String,
+}
+
+fn default_agent_mode() -> String {
+    "chat".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -134,7 +134,11 @@ def expand_tool_payload(
     }
 
 
-def should_emit_langgraph_event(event: dict[str, Any]) -> bool:
+def should_emit_langgraph_event(
+    event: dict[str, Any],
+    *,
+    agent_mode: str = "chat",
+) -> bool:
     """Skip nested/internal LangGraph frames that would duplicate tool/token SSE.
 
     Prefer root-level chat/tool events. Nested subagent or middleware echoes
@@ -147,12 +151,14 @@ def should_emit_langgraph_event(event: dict[str, Any]) -> bool:
         if any(t in skip for t in tags):
             return False
 
-    # Events from deeply nested graphs (parent_ids length > 1) that are
-    # chat-model streams can still be valuable; only filter tool events that
-    # clearly belong to an internal "task" wrapper when name is task.
     kind = event.get("event")
     name = str(event.get("name") or "")
-    if kind in {"on_tool_start", "on_tool_end", "on_tool_error"} and name == "task":
-        # The outer task tool wraps subagent work; UI should show leaf tools.
+    # Research mode may still emit an outer task wrapper; UI shows leaf tools.
+    # Chat mode must not rely on task at all (harness disables it).
+    if (
+        agent_mode == "research"
+        and kind in {"on_tool_start", "on_tool_end", "on_tool_error"}
+        and name == "task"
+    ):
         return False
     return True

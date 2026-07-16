@@ -64,27 +64,42 @@ impl SidecarStreamAccumulator {
         &self.thinking
     }
 
-    pub fn into_outcome(self, was_aborted: bool) -> SidecarStreamOutcome {
-        let mut tool_calls = self.tool_calls;
+    /// Force-close still-running tools and return payloads that must be emitted
+    /// to the UI before stream_complete / stream_error.
+    pub fn settle_open_tools(&mut self, was_aborted: bool) -> Vec<StreamToolResultPayload> {
         let now = now_millis();
-        for record in &mut tool_calls {
-            if record.status == "running" {
-                record.status = if was_aborted {
-                    "aborted".to_string()
-                } else {
-                    "error".to_string()
-                };
-                if record.error.is_none() {
-                    record.error = Some(if was_aborted {
-                        "Stream aborted before tool completed".to_string()
-                    } else {
-                        "Tool ended without a matching tool_end event".to_string()
-                    });
-                }
-                record.completed_at = Some(now);
-            }
-        }
+        let mut payloads = Vec::new();
+        let status = if was_aborted { "aborted" } else { "error" };
+        let default_error = if was_aborted {
+            "Stream aborted before tool completed"
+        } else {
+            "Tool ended without a matching tool_end event"
+        };
 
+        for record in &mut self.tool_calls {
+            if record.status != "running" {
+                continue;
+            }
+            record.status = status.to_string();
+            if record.error.is_none() {
+                record.error = Some(default_error.to_string());
+            }
+            record.completed_at = Some(now);
+            self.open_tools.remove(&record.id);
+            payloads.push(StreamToolResultPayload {
+                session_id: String::new(),
+                message_id: String::new(),
+                tool_call_id: record.id.clone(),
+                result: None,
+                error: record.error.clone(),
+                status: status.to_string(),
+            });
+        }
+        payloads
+    }
+
+    pub fn into_outcome(mut self, was_aborted: bool) -> SidecarStreamOutcome {
+        let _ = self.settle_open_tools(was_aborted);
         SidecarStreamOutcome {
             result: StreamResult {
                 content: self.content,
@@ -92,7 +107,7 @@ impl SidecarStreamAccumulator {
                 usage: self.usage,
                 was_aborted,
             },
-            tool_calls,
+            tool_calls: self.tool_calls,
         }
     }
 
@@ -467,18 +482,24 @@ pub async fn consume_sidecar_stream(
                     emit_tool_result(app, &payload);
                 }
                 Ok(Some(MappedSidecarEvent::Done)) => {
-                    return finalize_stream(app, session_id, message_id, acc, &abort_flag);
+                    return finalize_stream(app, session_id, message_id, acc, &abort_flag, None);
                 }
                 Ok(None) => {}
                 Err(err) => {
-                    emit_stream_error(app, session_id, message_id, &err);
-                    return Err(err);
+                    return finalize_stream(
+                        app,
+                        session_id,
+                        message_id,
+                        acc,
+                        &abort_flag,
+                        Some(err),
+                    );
                 }
             }
         }
     }
 
-    finalize_stream(app, session_id, message_id, acc, &abort_flag)
+    finalize_stream(app, session_id, message_id, acc, &abort_flag, None)
 }
 
 /// Append a byte chunk and return any complete SSE frames.
@@ -507,11 +528,34 @@ fn finalize_stream(
     app: &AppHandle,
     session_id: &str,
     message_id: &str,
-    acc: SidecarStreamAccumulator,
+    mut acc: SidecarStreamAccumulator,
     abort_flag: &Arc<AtomicBool>,
+    stream_error: Option<String>,
 ) -> Result<SidecarStreamOutcome, String> {
-    let was_aborted = abort_flag.load(Ordering::Relaxed);
-    let outcome = acc.into_outcome(was_aborted);
+    let was_aborted = abort_flag.load(Ordering::Relaxed) && stream_error.is_none();
+    // Aborted streams mark leftovers aborted; errors/orphans become error.
+    let pending = acc.settle_open_tools(was_aborted);
+    for mut tool_payload in pending {
+        tool_payload.session_id = session_id.to_string();
+        tool_payload.message_id = message_id.to_string();
+        emit_tool_result(app, &tool_payload);
+    }
+
+    let outcome = SidecarStreamOutcome {
+        result: StreamResult {
+            content: acc.content.clone(),
+            thinking: acc.thinking.clone(),
+            usage: acc.usage.clone(),
+            was_aborted,
+        },
+        tool_calls: acc.tool_calls,
+    };
+
+    if let Some(err) = stream_error {
+        emit_stream_error(app, session_id, message_id, &err);
+        return Err(err);
+    }
+
     let payload = StreamCompletePayload {
         session_id: session_id.to_string(),
         message_id: message_id.to_string(),

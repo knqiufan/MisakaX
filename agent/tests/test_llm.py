@@ -69,7 +69,15 @@ def test_resolve_chat_model_legacy_string_without_binding():
     assert resolve_chat_model(cfg) == "claude-sonnet-4-20250514"
 
 
-def test_resolve_chat_model_requires_api_key_when_provider_set():
+def test_resolve_chat_model_requires_api_key_when_provider_set(monkeypatch):
+    # Isolate from developer shell / Sidecar-bridged provider env vars.
+    for key in (
+        "OPENAI_API_KEY",
+        "MISAKA_OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "MISAKA_ANTHROPIC_API_KEY",
+    ):
+        monkeypatch.delenv(key, raising=False)
     cfg = ChatConfig(model="gpt-4o", provider="openai")
     with pytest.raises(RuntimeError, match="No API key"):
         resolve_chat_model(cfg)

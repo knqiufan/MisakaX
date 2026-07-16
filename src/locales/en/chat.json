@@ -39,7 +39,9 @@
     "skill": "Skill",
     "skillComingSoon": "Skill module is under development",
     "thinkingOn": "Thinking: on (click to turn off)",
-    "thinkingOff": "Thinking: off (click to turn on)"
+    "thinkingOff": "Thinking: off (click to turn on)",
+    "researchOn": "Deep research: on (click to turn off)",
+    "researchOff": "Deep research: off (click to turn on)"
   },
   "thinkingStreaming": "Thinking…",
   "thinkingDone": "Thought process",

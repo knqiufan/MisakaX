@@ -98,12 +98,23 @@ async def test_agent_chat_returns_500_on_failure(client):
 
 
 def test_thread_config_raises_langgraph_recursion_limit():
-    request = ChatRequest(messages=[{"role": "user", "content": "hello"}], session_id="sess-1")
+    chat_req = ChatRequest(
+        messages=[{"role": "user", "content": "hello"}],
+        session_id="sess-1",
+        agent_mode="chat",
+    )
+    research_req = ChatRequest(
+        messages=[{"role": "user", "content": "hello"}],
+        session_id="sess-1",
+        agent_mode="research",
+    )
 
-    config = _thread_config(request)
+    chat_config = _thread_config(chat_req)
+    research_config = _thread_config(research_req)
 
-    assert config["configurable"]["thread_id"] == "sess-1"
-    assert config["recursion_limit"] == 100
+    assert chat_config["configurable"]["thread_id"] == "sess-1"
+    assert chat_config["recursion_limit"] == 50
+    assert research_config["recursion_limit"] == 100
 
 
 @pytest.mark.asyncio

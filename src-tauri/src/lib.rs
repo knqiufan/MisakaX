@@ -10,6 +10,10 @@ pub mod services;
 mod sidecar;
 #[cfg(feature = "test-private")]
 pub mod sidecar;
+#[cfg(not(feature = "test-private"))]
+mod sidecar_ownership;
+#[cfg(feature = "test-private")]
+pub mod sidecar_ownership;
 
 use config::AppConfig;
 use db::repository::SessionRepo;
@@ -18,7 +22,7 @@ use services::mcp::McpManager;
 use services::sidecar_client::SidecarClient;
 use sidecar::SidecarManager;
 use std::sync::{Arc, Mutex};
-use tauri::Manager;
+use tauri::{Manager, RunEvent};
 
 /// Application state shared across commands
 pub struct AppState {
@@ -189,24 +193,52 @@ pub fn run() {
                 }
             }
 
+            // MCP HTTP Bridge must bind before Sidecar becomes Ready.
+            let mcp_bridge_port = {
+                let cfg = app.state::<AppState>();
+                cfg.config.lock().map(|c| c.mcp_bridge_port).unwrap_or(9528)
+            };
+            let bridge_app = app.handle().clone();
+            let sidecar_for_bridge_err = Arc::clone(&sidecar);
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = services::mcp_http_bridge::serve(bridge_app, mcp_bridge_port).await
+                {
+                    sidecar_for_bridge_err.set_mcp_bridge_ready(false);
+                    tracing::error!(error = %e, "MCP HTTP bridge stopped");
+                }
+            });
+
             if auto_start {
                 let app_handle = app.handle().clone();
-                sidecar.preheat(app_handle.clone());
+                let sidecar_for_preheat = Arc::clone(&sidecar);
+                // Give the bridge a brief head start, then preheat Sidecar.
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                    sidecar_for_preheat.preheat(app_handle);
+                });
 
-                let sidecar_port_for_check = sidecar_port;
+                let sidecar_for_check = Arc::clone(&sidecar);
                 tauri::async_runtime::spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_secs(12)).await;
-                    let client = SidecarClient::new(sidecar_port_for_check);
+                    if !sidecar_for_check.is_ready_for_chat() {
+                        tracing::warn!(
+                            status = ?sidecar_for_check.status(),
+                            bridge_ready = sidecar_for_check.mcp_bridge_is_ready(),
+                            "Managed Sidecar is not ready after startup window"
+                        );
+                        return;
+                    }
+                    let client = SidecarClient::new(sidecar_port);
                     match client.health().await {
                         Ok(resp) => {
                             tracing::info!(
-                                "Sidecar health check via SidecarClient: OK (v{}, uptime={:.1}s)",
+                                "Managed Sidecar health OK (v{}, uptime={:.1}s)",
                                 resp.version,
                                 resp.uptime_seconds,
                             );
                         }
                         Err(e) => {
-                            tracing::warn!("Sidecar health check via SidecarClient failed: {}", e);
+                            tracing::warn!("Managed Sidecar health check failed: {}", e);
                         }
                     }
                 });
@@ -215,19 +247,6 @@ pub fn run() {
                     "Python Sidecar auto-start disabled (set auto_start_sidecar: true in config)"
                 );
             }
-
-            // MCP HTTP Bridge for Python Sidecar tools
-            let mcp_bridge_port = {
-                let cfg = app.state::<AppState>();
-                cfg.config.lock().map(|c| c.mcp_bridge_port).unwrap_or(9528)
-            };
-            let bridge_app = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                if let Err(e) = services::mcp_http_bridge::serve(bridge_app, mcp_bridge_port).await
-                {
-                    tracing::error!(error = %e, "MCP HTTP bridge stopped");
-                }
-            });
 
             // MCP: 异步连接 auto_connect Server
             let mcp_for_connect = Arc::clone(&mcp_manager);
@@ -263,6 +282,12 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running MisakaX");
+        .build(tauri::generate_context!())
+        .expect("error while building MisakaX")
+        .run(|app_handle, event| {
+            if matches!(event, RunEvent::Exit | RunEvent::ExitRequested { .. }) {
+                let state = app_handle.state::<AppState>();
+                state.sidecar.shutdown();
+            }
+        });
 }

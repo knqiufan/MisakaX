@@ -20,22 +20,27 @@ SYSTEM_PROMPT = """You are MisakaX, a desktop AI agent assistant.
 """
 
 
-def build_system_prompt(working_dir: str | None = None) -> str:
-    """Assemble the system prompt, including working-directory path rules."""
-    if not working_dir:
+def build_system_prompt(has_workspace: bool = False, working_dir: str | None = None) -> str:
+    """Assemble the system prompt, including workspace virtual-path rules.
+
+    ``working_dir`` is accepted for backward compatibility but is never injected
+    into the prompt (host absolute paths cause models to concatenate badly).
+    """
+    del working_dir
+    if not has_workspace:
         return SYSTEM_PROMPT
 
-    workspace_rules = f"""
+    workspace_rules = """
 
 ## Working directory
-- The bound project directory is: `{working_dir}`
+- The bound project is mounted at the virtual root `/workspace`.
 - Filesystem tools (`ls`, `read_file`, `write_file`, `edit_file`, `glob`, `grep`)
-  treat `/` as this directory. Prefer virtual paths like `/`, `/src`, `/README.md`.
-- Shell `execute` also starts with this directory as its cwd.
-- Do NOT invent a `/workspace` prefix and do NOT concatenate `/workspace` with
-  Windows absolute paths (e.g. `/workspaceD:\\...` is wrong).
-- Prefer relative or virtual paths over host absolute paths unless the user
-  explicitly asks for a path outside the project.
+  MUST use paths like `/workspace`, `/workspace/src`, `/workspace/README.md`.
+- Shell `execute` already starts with the project directory as its cwd; prefer
+  relative shell paths (e.g. `ls`, `type README.md`) rather than host paths.
+- NEVER use Windows/host absolute paths (e.g. `D:\\...`).
+- NEVER concatenate `/workspace` with a host path
+  (e.g. `/workspaceD:\\...` is invalid).
 """
     return SYSTEM_PROMPT + workspace_rules
 
@@ -46,6 +51,7 @@ RESEARCHER_PROMPT = """You are a research specialist for MisakaX.
 - Gather and synthesize information thoroughly.
 - Prefer verifiable sources and explicit uncertainty when evidence is weak.
 - Use memory search when prior findings may help.
+- When filesystem tools are available, use only `/workspace/<relative-path>`.
 
 ## Output
 - Summarize findings clearly.
@@ -59,6 +65,7 @@ CODER_PROMPT = """You are a coding specialist for MisakaX.
 - Write clean, maintainable code with clear error handling.
 - Prefer small, reviewable changes over large rewrites.
 - Use workspace filesystem tools carefully when available.
+- Filesystem paths must be `/workspace/<relative-path>` only.
 
 ## Output
 - Provide complete, runnable snippets when asked.

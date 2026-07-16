@@ -159,6 +159,8 @@ pub struct SidecarManager {
     /// Local MCP HTTP bridge port exposed by Rust for Python tools.
     mcp_bridge_port: u16,
     agent_dir: PathBuf,
+    /// Path to `~/.misakax/data/sidecar-runtime.json`.
+    runtime_record_path: PathBuf,
     /// Decrypted provider keys for child env (never logged).
     api_key_env: HashMap<String, String>,
     max_retries: u32,
@@ -171,6 +173,8 @@ pub struct SidecarManager {
     lifecycle_lock: Arc<AsyncMutex<()>>,
     watchdog_active: Arc<Mutex<bool>>,
     lifecycle_generation: Arc<Mutex<u64>>,
+    /// MCP HTTP bridge must be listening before Sidecar can become Ready.
+    mcp_bridge_ready: Arc<Mutex<bool>>,
 }
 
 /// Input for selecting which decrypted keys to inject into the sidecar process.
@@ -267,11 +271,17 @@ impl SidecarManager {
         mcp_bridge_port: u16,
         api_key_env: HashMap<String, String>,
     ) -> Self {
+        let runtime_record_path = crate::config::config_dir()
+            .map(|root| crate::sidecar_ownership::runtime_record_path(&root.join("data")))
+            .unwrap_or_else(|_| {
+                PathBuf::from(".").join("sidecar-runtime.json")
+            });
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
         Self {
             port,
             mcp_bridge_port,
             agent_dir,
+            runtime_record_path,
             api_key_env,
             max_retries: STARTUP_MAX_RETRIES,
             max_runtime_restarts: RUNTIME_MAX_RESTARTS,
@@ -283,6 +293,40 @@ impl SidecarManager {
             lifecycle_lock: Arc::new(AsyncMutex::new(())),
             watchdog_active: Arc::new(Mutex::new(false)),
             lifecycle_generation: Arc::new(Mutex::new(0)),
+            mcp_bridge_ready: Arc::new(Mutex::new(false)),
+        }
+    }
+
+    pub fn set_mcp_bridge_ready(&self, ready: bool) {
+        *self.mcp_bridge_ready.lock().unwrap() = ready;
+    }
+
+    pub fn mcp_bridge_is_ready(&self) -> bool {
+        *self.mcp_bridge_ready.lock().unwrap()
+    }
+
+    /// Chat/stream may proceed only when this process owns a Ready Sidecar.
+    pub fn is_ready_for_chat(&self) -> bool {
+        self.status() == SidecarStatus::Ready && self.mcp_bridge_is_ready()
+    }
+
+    pub fn not_ready_message(&self) -> String {
+        match self.status() {
+            SidecarStatus::Ready if !self.mcp_bridge_is_ready() => {
+                format!(
+                    "MCP HTTP bridge is not ready on port {}. Sidecar chat is blocked.",
+                    self.mcp_bridge_port
+                )
+            }
+            SidecarStatus::Ready => "Sidecar is ready.".to_string(),
+            SidecarStatus::Starting | SidecarStatus::Restarting => {
+                "Sidecar is still starting. Wait until it is ready.".to_string()
+            }
+            SidecarStatus::Stopped => "Sidecar is stopped.".to_string(),
+            SidecarStatus::Error => {
+                "Sidecar is not ready. Check Sidecar status and free ports 9527/9528 if needed."
+                    .to_string()
+            }
         }
     }
 
@@ -347,8 +391,19 @@ impl SidecarManager {
     async fn start_process_inner(self: &Arc<Self>, app: &AppHandle) {
         self.set_status(SidecarStatus::Starting, None, app);
 
-        if Self::is_healthy(self.port).await {
-            self.handle_existing_sidecar(app).await;
+        if !self.wait_for_mcp_bridge_ready().await {
+            let msg = format!(
+                "MCP HTTP bridge is not listening on port {}. Sidecar will not start.",
+                self.mcp_bridge_port
+            );
+            tracing::error!("{}", msg);
+            self.set_status(SidecarStatus::Error, Some(msg), app);
+            return;
+        }
+
+        if let Err(msg) = self.reconcile_port_before_spawn().await {
+            tracing::error!("{}", msg);
+            self.set_status(SidecarStatus::Error, Some(msg), app);
             return;
         }
 
@@ -364,13 +419,26 @@ impl SidecarManager {
 
             match spawn_result {
                 Ok(child) => {
+                    let pid = child.id();
+                    let kind = if should_use_packaged_sidecar()
+                        && resolve_sidecar_executable(&self.agent_dir).is_some()
+                    {
+                        crate::sidecar_ownership::ManagedKind::PackagedBinary
+                    } else {
+                        crate::sidecar_ownership::ManagedKind::PythonUvicorn
+                    };
                     {
                         let mut guard = self.child.lock().unwrap();
                         *guard = Some(child);
                     }
+                    self.persist_runtime_record(pid, kind);
 
                     if self.wait_for_healthy(app).await {
-                        tracing::info!("Python Sidecar ready on port {}", self.port);
+                        tracing::info!(
+                            pid,
+                            port = self.port,
+                            "Python Sidecar ready"
+                        );
                         self.set_status(SidecarStatus::Ready, None, app);
                         self.spawn_watchdog_once(app.clone());
                         return;
@@ -405,6 +473,93 @@ impl SidecarManager {
         self.set_status(SidecarStatus::Error, Some(msg), app);
     }
 
+    async fn wait_for_mcp_bridge_ready(&self) -> bool {
+        for _ in 0..40 {
+            if self.mcp_bridge_is_ready() {
+                return true;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        self.mcp_bridge_is_ready()
+    }
+
+    async fn reconcile_port_before_spawn(&self) -> Result<(), String> {
+        use crate::sidecar_ownership::{
+            classify_port_occupancy, clear_runtime_record, listening_pids_on_port,
+            process_command_line, process_is_alive, read_runtime_record, terminate_pid,
+            unknown_occupant_message, PortOccupancy,
+        };
+
+        let healthy = Self::is_healthy(self.port).await;
+        let pids = listening_pids_on_port(self.port);
+        let port_in_use = healthy || !pids.is_empty();
+        let record = read_runtime_record(&self.runtime_record_path);
+        let (pid_alive, cmdline) = match record.as_ref() {
+            Some(rec) => (
+                process_is_alive(rec.pid),
+                process_command_line(rec.pid),
+            ),
+            None => (false, None),
+        };
+
+        match classify_port_occupancy(
+            port_in_use,
+            &pids,
+            record.as_ref(),
+            pid_alive,
+            cmdline.as_deref(),
+        ) {
+            PortOccupancy::Free => {
+                clear_runtime_record(&self.runtime_record_path);
+                Ok(())
+            }
+            PortOccupancy::Managed(rec) => {
+                tracing::warn!(
+                    pid = rec.pid,
+                    port = rec.port,
+                    "Terminating previous managed Sidecar before spawn"
+                );
+                let _ = terminate_pid(rec.pid);
+                clear_runtime_record(&self.runtime_record_path);
+                for _ in 0..20 {
+                    if !Self::is_healthy(self.port).await
+                        && listening_pids_on_port(self.port).is_empty()
+                    {
+                        return Ok(());
+                    }
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                }
+                Err(format!(
+                    "Managed Sidecar PID {} did not release port {}",
+                    rec.pid, self.port
+                ))
+            }
+            PortOccupancy::Unknown { pid } => Err(unknown_occupant_message(self.port, pid)),
+        }
+    }
+
+    fn persist_runtime_record(&self, pid: u32, kind: crate::sidecar_ownership::ManagedKind) {
+        use crate::sidecar_ownership::{now_millis, write_runtime_record, SidecarRuntimeRecord};
+        let record = SidecarRuntimeRecord {
+            nonce: uuid::Uuid::new_v4().to_string(),
+            pid,
+            port: self.port,
+            agent_dir: self.agent_dir.to_string_lossy().to_string(),
+            kind,
+            started_at_ms: now_millis(),
+        };
+        if let Err(e) = write_runtime_record(&self.runtime_record_path, &record) {
+            tracing::warn!(error = %e, "Failed to persist Sidecar runtime record");
+        } else {
+            tracing::info!(
+                pid = record.pid,
+                nonce = %record.nonce,
+                path = %self.runtime_record_path.display(),
+                "Persisted Sidecar runtime ownership record"
+            );
+        }
+    }
+
     async fn wait_for_healthy(&self, _app: &AppHandle) -> bool {
         let mut rx = self.shutdown_rx.clone();
         for _ in 0..STARTUP_HEALTH_CHECK_ATTEMPTS {
@@ -435,56 +590,6 @@ impl SidecarManager {
                 .unwrap_or(false),
             Err(_) => false,
         }
-    }
-
-    async fn handle_existing_sidecar(self: &Arc<Self>, app: &AppHandle) {
-        if !should_use_packaged_sidecar() {
-            let msg = format!(
-                "A Sidecar already listens on port {}. Stop it before running tauri dev so the \
-                 current Python source is used.",
-                self.port
-            );
-            tracing::error!("{}", msg);
-            self.set_status(SidecarStatus::Error, Some(msg), app);
-            return;
-        }
-
-        if Self::supports_agent_stream(self.port).await {
-            tracing::info!(
-                "Compatible Python Sidecar already running on port {}",
-                self.port
-            );
-            self.set_status(SidecarStatus::Ready, None, app);
-            self.spawn_watchdog_once(app.clone());
-            return;
-        }
-
-        let msg = format!(
-            "The Sidecar on port {} does not support agent streaming. Restart it with the \
-             current MisakaX version.",
-            self.port
-        );
-        tracing::error!("{}", msg);
-        self.set_status(SidecarStatus::Error, Some(msg), app);
-    }
-
-    async fn supports_agent_stream(port: u16) -> bool {
-        let url = health_check_url(port);
-        let client = reqwest::Client::builder()
-            .timeout(HEALTH_CHECK_TIMEOUT)
-            .build();
-        let Ok(client) = client else {
-            return false;
-        };
-        let response = client.get(url).send().await;
-        let Ok(response) = response else {
-            return false;
-        };
-        let body = response.json::<serde_json::Value>().await;
-        body.ok()
-            .and_then(|data| data.get("capabilities").cloned())
-            .and_then(|caps| caps.as_array().cloned())
-            .is_some_and(|caps| caps.iter().any(|item| item == "agent_stream"))
     }
 
     /// Spawn the sidecar process.
@@ -675,6 +780,7 @@ impl SidecarManager {
             let _ = child.wait();
         }
         *guard = None;
+        crate::sidecar_ownership::clear_runtime_record(&self.runtime_record_path);
     }
 
     fn set_status(&self, new_status: SidecarStatus, message: Option<String>, app: &AppHandle) {

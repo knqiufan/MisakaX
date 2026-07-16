@@ -4,6 +4,7 @@ import { chatIpc, sessionsIpc } from "@/lib/ipc";
 
 const SELECTED_MODEL_KEY = "misakax:selectedModel";
 const THINKING_ENABLED_KEY = "misakax:thinkingEnabled";
+const RESEARCH_ENABLED_KEY = "misakax:researchEnabled";
 const MESSAGE_INITIAL_LIMIT = 50;
 const MESSAGE_EARLIER_LIMIT = 100;
 
@@ -49,6 +50,22 @@ function writeThinkingEnabled(enabled: boolean) {
   } catch { /* noop */ }
 }
 
+function readResearchEnabled(): boolean {
+  try {
+    const raw = localStorage.getItem(RESEARCH_ENABLED_KEY);
+    if (raw === null) return false;
+    return raw === "true";
+  } catch {
+    return false;
+  }
+}
+
+function writeResearchEnabled(enabled: boolean) {
+  try {
+    localStorage.setItem(RESEARCH_ENABLED_KEY, String(enabled));
+  } catch { /* noop */ }
+}
+
 interface ChatState {
   sessions: Session[];
   activeSessionId: string | null;
@@ -58,6 +75,7 @@ interface ChatState {
   workspaceSelectorIntent: WorkspaceSelectorIntent | null;
   workspaceSelectorTargetSessionId: string | null;
   thinkingEnabled: boolean;
+  researchEnabled: boolean;
 
   messages: Message[];
   isStreaming: boolean;
@@ -85,6 +103,7 @@ interface ChatState {
   ) => void;
   closeWorkspaceSelector: () => void;
   setThinkingEnabled: (enabled: boolean) => void;
+  setResearchEnabled: (enabled: boolean) => void;
   updateActiveSessionWorkingDir: (
     dir: string | null,
     workspaceKind?: string
@@ -121,6 +140,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   workspaceSelectorIntent: null,
   workspaceSelectorTargetSessionId: null,
   thinkingEnabled: readThinkingEnabled(),
+  researchEnabled: readResearchEnabled(),
 
   messages: [],
   isStreaming: false,
@@ -208,6 +228,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setThinkingEnabled: (enabled) => {
     writeThinkingEnabled(enabled);
     set({ thinkingEnabled: enabled });
+  },
+  setResearchEnabled: (enabled) => {
+    writeResearchEnabled(enabled);
+    set({ researchEnabled: enabled });
   },
   updateActiveSessionWorkingDir: (dir, workspaceKind) =>
     set((state) => ({

@@ -39,7 +39,9 @@
     "skill": "Skill",
     "skillComingSoon": "Skill 模块开发中",
     "thinkingOn": "思考模式：开（点击关闭）",
-    "thinkingOff": "思考模式：关（点击开启）"
+    "thinkingOff": "思考模式：关（点击开启）",
+    "researchOn": "深度研究：开（点击关闭）",
+    "researchOff": "深度研究：关（点击开启）"
   },
   "thinkingStreaming": "思考中…",
   "thinkingDone": "思考过程",

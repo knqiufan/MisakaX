@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import traceback
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -39,7 +40,11 @@ async def agent_chat(request: ChatRequest) -> ChatResponse:
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("agent chat failed")
+        logger.exception(
+            "agent chat failed session_id=%s mode=%s",
+            request.session_id,
+            request.agent_mode,
+        )
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
@@ -58,43 +63,57 @@ async def agent_stream(request: ChatRequest):
 
 
 async def _stream_agent(request: ChatRequest) -> AsyncGenerator[str, None]:
+    open_tools: dict[str, dict[str, Any]] = {}
+    thinking_acc = ""
+    emitted_tool_ids: set[str] = set()
     try:
         agent = _build_request_agent(request)
-        thinking_acc = ""
-        emitted_tool_ids: set[str] = set()
         async for event in agent.astream_events(
             {"messages": _request_to_agent_messages(request)},
             config=_thread_config(request),
             version="v2",
         ):
-            if not should_emit_langgraph_event(event):
+            if not should_emit_langgraph_event(event, agent_mode=request.agent_mode):
                 continue
             for sse_data in _format_sse_events(
                 event,
                 thinking_acc=thinking_acc,
                 emitted_tool_ids=emitted_tool_ids,
+                open_tools=open_tools,
             ):
-                # Keep cumulative thinking for suffix-delta extraction.
                 if sse_data.startswith("event: thinking\n"):
                     data_line = sse_data.split("\n", 2)[1]
                     payload = json.loads(data_line.removeprefix("data: "))
                     thinking_acc += str(payload.get("content") or "")
                 yield sse_data
+        for frame in _close_open_tools(open_tools, reason="Stream ended without tool_end"):
+            yield frame
         yield _sse("done", {"finished": True})
     except Exception as exc:
-        logger.exception("agent stream failed")
+        tb = traceback.format_exc()
+        logger.error(
+            "agent stream failed session_id=%s mode=%s error=%s\n%s",
+            request.session_id,
+            request.agent_mode,
+            exc,
+            tb,
+        )
+        for frame in _close_open_tools(open_tools, reason=str(exc) or "stream error"):
+            yield frame
         yield _sse("error", {"message": str(exc)})
 
 
 def _build_request_agent(request: ChatRequest):
     """Assemble agent using the provider binding from the chat request."""
     model = resolve_chat_model(request.config)
+    mode = "research" if request.agent_mode == "research" else "chat"
     return build_agent(
         session_id=request.session_id,
         working_dir=request.working_dir,
         checkpointer=get_checkpointer(),
         store=get_store(),
         model=model,
+        agent_mode=mode,
     )
 
 
@@ -104,9 +123,11 @@ def _request_to_agent_messages(request: ChatRequest) -> list[dict[str, str]]:
 
 def _thread_config(request: ChatRequest) -> dict[str, Any]:
     settings = get_settings()
+    # Keep a finite recursion ceiling for research; chat stays leaner.
+    limit = settings.agent_recursion_limit if request.agent_mode == "research" else 50
     config: dict[str, Any] = {
         "configurable": {"thread_id": request.session_id or "default"},
-        "recursion_limit": settings.agent_recursion_limit,
+        "recursion_limit": limit,
     }
     if request.config.model:
         config["configurable"]["model"] = request.config.model
@@ -118,11 +139,13 @@ def _format_sse_events(
     *,
     thinking_acc: str = "",
     emitted_tool_ids: set[str] | None = None,
+    open_tools: dict[str, dict[str, Any]] | None = None,
 ) -> list[str]:
     """Convert a LangGraph event into zero or more SSE payloads."""
     kind = event.get("event")
     run_id = event.get("run_id") or event.get("id")
     tool_ids = emitted_tool_ids if emitted_tool_ids is not None else set()
+    open_map = open_tools if open_tools is not None else {}
 
     if kind == "on_chat_model_stream":
         chunk = event.get("data", {}).get("chunk")
@@ -146,16 +169,45 @@ def _format_sse_events(
             return []
         if tool_id:
             tool_ids.add(tool_id)
+            open_map[tool_id] = {
+                "name": payload.get("name") or "",
+                "server_id": payload.get("server_id"),
+            }
         return [_sse("tool_start", payload)]
 
     if kind == "on_tool_end":
+        tool_id = str(run_id) if run_id else ""
+        open_map.pop(tool_id, None)
         return [_format_tool_end(event, run_id, error=None)]
 
     if kind == "on_tool_error":
+        tool_id = str(run_id) if run_id else ""
+        open_map.pop(tool_id, None)
         err = event.get("data", {}).get("error") or event.get("data", {}).get("message")
         return [_format_tool_end(event, run_id, error=str(err or "tool error"))]
 
     return []
+
+
+def _close_open_tools(
+    open_tools: dict[str, dict[str, Any]],
+    *,
+    reason: str,
+) -> list[str]:
+    frames: list[str] = []
+    for tool_id, meta in list(open_tools.items()):
+        payload: dict[str, Any] = {
+            "id": tool_id,
+            "name": str(meta.get("name") or "unknown"),
+            "output": "",
+            "status": "error",
+            "error": reason,
+        }
+        if meta.get("server_id"):
+            payload["server_id"] = meta["server_id"]
+        frames.append(_sse("tool_end", payload))
+        open_tools.pop(tool_id, None)
+    return frames
 
 
 def _format_tool_end(event: dict[str, Any], run_id: Any, error: str | None) -> str:
@@ -168,7 +220,6 @@ def _format_tool_end(event: dict[str, Any], run_id: Any, error: str | None) -> s
         "status": "error" if error else "complete",
     }
     if name == "mcp_bridge":
-        # Prefer the expanded tool name from inputs when available.
         raw_input = event.get("data", {}).get("input")
         if isinstance(raw_input, dict):
             payload["name"] = str(

@@ -87,23 +87,35 @@ fn build_router(state: BridgeState) -> Router {
 }
 
 pub async fn serve(app: AppHandle, port: u16) -> Result<(), String> {
-    let manager = {
+    let (manager, sidecar) = {
         let state = app.state::<AppState>();
-        Arc::clone(&state.mcp_manager)
+        (Arc::clone(&state.mcp_manager), Arc::clone(&state.sidecar))
     };
     let state = BridgeState {
         manager,
         app: Some(app),
     };
     let addr = bridge_bind_addr(port);
-    let listener = tokio::net::TcpListener::bind(addr)
-        .await
-        .map_err(|e| format!("MCP HTTP bridge bind failed on {addr}: {e}"))?;
+    let listener = tokio::net::TcpListener::bind(addr).await.map_err(|e| {
+        sidecar.set_mcp_bridge_ready(false);
+        let pids = crate::sidecar_ownership::listening_pids_on_port(port);
+        let pid_hint = pids
+            .first()
+            .map(|p| format!(" (listener PID {p})"))
+            .unwrap_or_default();
+        format!(
+            "MCP HTTP bridge bind failed on {addr}{pid_hint}: {e}. \
+             Stop the unmanaged listener or free port {port}; MisakaX will not kill unknown processes."
+        )
+    })?;
 
+    sidecar.set_mcp_bridge_ready(true);
     tracing::info!(%addr, "MCP HTTP bridge listening");
-    axum::serve(listener, build_router(state))
+    let result = axum::serve(listener, build_router(state))
         .await
-        .map_err(|e| format!("MCP HTTP bridge server error: {e}"))
+        .map_err(|e| format!("MCP HTTP bridge server error: {e}"));
+    sidecar.set_mcp_bridge_ready(false);
+    result
 }
 
 /// Test/helper entrypoint that skips UI approval and only uses McpManager.

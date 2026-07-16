@@ -227,6 +227,7 @@ function StatusIcon({ status }: { status: ToolCall["status"] }) {
     case "complete":
       return <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />;
     case "error":
+    case "aborted":
       return <XCircle className="size-3.5 shrink-0 text-destructive" />;
     default:
       return null;

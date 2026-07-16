@@ -126,6 +126,9 @@ export function ChatView({
           model_override: modelOverride,
           llm_config: {
             thinking_enabled: useChatStore.getState().thinkingEnabled,
+            agent_mode: useChatStore.getState().researchEnabled
+              ? "research"
+              : "chat",
           },
         });
         if (isFirstMessage) {
@@ -210,6 +213,9 @@ export function ChatView({
       try {
         await chatIpc.regenerateMessage(session.id, messageId, {
           thinking_enabled: useChatStore.getState().thinkingEnabled,
+          agent_mode: useChatStore.getState().researchEnabled
+            ? "research"
+            : "chat",
         });
       } catch (err) {
         console.error("Failed to regenerate:", err);

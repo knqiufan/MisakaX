@@ -27,6 +27,7 @@ describe("useChatStore", () => {
       workspaceSelectorIntent: null,
       workspaceSelectorTargetSessionId: null,
       thinkingEnabled: true,
+      researchEnabled: false,
       messages: [],
       isStreaming: false,
       streamingMessageId: null,
@@ -35,6 +36,7 @@ describe("useChatStore", () => {
     });
     try {
       localStorage.removeItem("misakax:thinkingEnabled");
+      localStorage.removeItem("misakax:researchEnabled");
     } catch { /* noop */ }
   });
 
@@ -60,6 +62,17 @@ describe("useChatStore", () => {
       useChatStore.getState().setThinkingEnabled(true);
       expect(useChatStore.getState().thinkingEnabled).toBe(true);
       expect(localStorage.getItem("misakax:thinkingEnabled")).toBe("true");
+    });
+  });
+
+  describe("researchEnabled", () => {
+    it("should persist researchEnabled to localStorage and default off", () => {
+      expect(useChatStore.getState().researchEnabled).toBe(false);
+      useChatStore.getState().setResearchEnabled(true);
+      expect(useChatStore.getState().researchEnabled).toBe(true);
+      expect(localStorage.getItem("misakax:researchEnabled")).toBe("true");
+      useChatStore.getState().setResearchEnabled(false);
+      expect(localStorage.getItem("misakax:researchEnabled")).toBe("false");
     });
   });
 

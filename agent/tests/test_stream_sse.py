@@ -161,15 +161,44 @@ def test_format_sse_thinking_uses_cumulative_suffix():
     assert "hello world" not in frames[0].split("data: ", 1)[1]
 
 
-def test_should_emit_skips_task_wrapper_tools():
+def test_should_emit_skips_task_wrapper_tools_in_research_mode():
     from app.stream_content import should_emit_langgraph_event
 
     assert should_emit_langgraph_event(
-        {"event": "on_tool_start", "name": "task", "data": {}}
+        {"event": "on_tool_start", "name": "task", "data": {}},
+        agent_mode="research",
     ) is False
     assert should_emit_langgraph_event(
-        {"event": "on_tool_start", "name": "ls", "data": {}}
+        {"event": "on_tool_start", "name": "ls", "data": {}},
+        agent_mode="research",
     ) is True
+    # Chat mode must not depend on task filtering (task is disabled in harness).
+    assert should_emit_langgraph_event(
+        {"event": "on_tool_start", "name": "task", "data": {}},
+        agent_mode="chat",
+    ) is True
+
+
+def test_format_sse_tracks_and_can_close_open_tools():
+    from app.routers.agent import _close_open_tools, _format_sse_events
+
+    open_tools: dict = {}
+    seen: set[str] = set()
+    start = {
+        "event": "on_tool_start",
+        "name": "ls",
+        "run_id": "run-1",
+        "data": {"input": {"path": "/workspace"}},
+    }
+    frames = _format_sse_events(start, emitted_tool_ids=seen, open_tools=open_tools)
+    assert any("event: tool_start" in f for f in frames)
+    assert "run-1" in open_tools
+
+    closed = _close_open_tools(open_tools, reason="boom")
+    assert len(closed) == 1
+    assert "event: tool_end" in closed[0]
+    assert "boom" in closed[0]
+    assert open_tools == {}
 
 
 def test_expand_tool_payload_powermem_stays_sidecar():

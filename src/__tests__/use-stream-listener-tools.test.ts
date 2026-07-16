@@ -135,4 +135,37 @@ describe("useStreamListener tool events", () => {
     const msg = useChatStore.getState().messages.find((m) => m.id === MESSAGE_ID);
     expect(msg?.tool_calls ?? []).toHaveLength(0);
   });
+
+  it("settles running tools on stream_complete without tool_result", async () => {
+    await mountListener();
+
+    dispatch("stream:tool_call", toolCallPayload);
+    dispatch("stream_complete", {
+      session_id: SESSION_ID,
+      message_id: MESSAGE_ID,
+      full_content: "done",
+      full_thinking: "",
+      usage: null,
+      was_aborted: false,
+    });
+
+    const msg = useChatStore.getState().messages.find((m) => m.id === MESSAGE_ID);
+    expect(msg?.tool_calls?.[0].status).toBe("error");
+    expect(msg?.tool_calls?.[0].error).toContain("without a matching tool_end");
+  });
+
+  it("settles running tools on stream_error", async () => {
+    await mountListener();
+
+    dispatch("stream:tool_call", toolCallPayload);
+    dispatch("stream_error", {
+      session_id: SESSION_ID,
+      message_id: MESSAGE_ID,
+      error: "boom",
+    });
+
+    const msg = useChatStore.getState().messages.find((m) => m.id === MESSAGE_ID);
+    expect(msg?.tool_calls?.[0].status).toBe("error");
+    expect(msg?.tool_calls?.[0].error).toBe("boom");
+  });
 });

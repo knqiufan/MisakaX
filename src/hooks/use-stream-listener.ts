@@ -193,6 +193,13 @@ export function useStreamListener(sessionId: string | null) {
         ensureMessageId(message_id);
         const status = was_aborted ? "aborted" : "complete";
         setMessageStatus(message_id, status);
+        settleOpenTools(
+          message_id,
+          was_aborted ? "aborted" : "error",
+          was_aborted
+            ? "Stream aborted before tool completed"
+            : "Tool ended without a matching tool_end event"
+        );
         setStreaming(false);
 
         const store = useChatStore.getState();
@@ -230,6 +237,7 @@ export function useStreamListener(sessionId: string | null) {
           if (msg?.status === "streaming") {
             updateMessageError(message_id, detail);
           }
+          settleOpenTools(message_id, "error", detail);
         }
 
         setStreaming(false);
@@ -305,4 +313,23 @@ export function thinkingSuffixDelta(previous: string, incoming: string): string 
   if (incoming === previous) return "";
   if (incoming.startsWith(previous)) return incoming.slice(previous.length);
   return incoming;
+}
+
+/** Close any tools still running/pending when the stream ends or errors. */
+export function settleOpenTools(
+  messageId: string,
+  status: Extract<ToolCallStatus, "error" | "aborted">,
+  error: string
+) {
+  const store = useChatStore.getState();
+  const message = store.messages.find((m) => m.id === messageId);
+  if (!message?.tool_calls?.length) return;
+  for (const tool of message.tool_calls) {
+    if (tool.status !== "running" && tool.status !== "pending") continue;
+    store.updateToolCall(messageId, tool.id, {
+      status,
+      error,
+      completed_at: Date.now(),
+    });
+  }
 }

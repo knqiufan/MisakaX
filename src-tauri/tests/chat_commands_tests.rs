@@ -179,6 +179,7 @@ mod agent_message_builders {
         assert_eq!(req.config.api_key.as_deref(), Some("sk-test"));
         assert!(req.config.stream);
         assert_eq!(req.config.thinking_enabled, Some(true));
+        assert_eq!(req.agent_mode, "chat");
         assert_eq!(
             req.messages
                 .last()
