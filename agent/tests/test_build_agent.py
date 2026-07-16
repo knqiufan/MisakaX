@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 from app.agent import _apply_mode_harness_profile, _build_subagents, build_agent
 from app.config import get_settings
 from app.prompts import build_system_prompt
-from app.workspace_backend import WorkspacePathBackend
+from app.workspace_backend import MEMORY_FILE, SKILLS_PREFIX, WorkspacePathBackend
 
 
 def test_build_agent_mounts_workspace_for_valid_dir(tmp_path: Path):
@@ -22,12 +22,14 @@ def test_build_agent_mounts_workspace_for_valid_dir(tmp_path: Path):
     with (
         patch("deepagents.create_deep_agent", side_effect=fake_create_deep_agent),
         patch("deepagents.backends.LocalShellBackend") as local_shell,
+        patch("deepagents.backends.FilesystemBackend") as filesystem,
         patch("deepagents.backends.CompositeBackend") as composite,
         patch("deepagents.backends.StateBackend"),
         patch("app.agent._apply_mode_harness_profile") as apply_profile,
     ):
         shell = MagicMock(name="local-shell")
         local_shell.return_value = shell
+        filesystem.side_effect = lambda **kwargs: MagicMock(name="fs", kwargs=kwargs)
         composite.return_value = MagicMock(name="composite")
         agent = build_agent(
             session_id="s1",
@@ -47,6 +49,10 @@ def test_build_agent_mounts_workspace_for_valid_dir(tmp_path: Path):
     composite.assert_called_once()
     routes = composite.call_args.kwargs.get("routes") or composite.call_args.args[1]
     assert "/workspace/" in routes
+    assert f"{SKILLS_PREFIX}/" in routes
+    assert "/memories/" in routes
+    assert captured["skills"] == [f"{SKILLS_PREFIX}/"]
+    assert captured["memory"] == [MEMORY_FILE]
     assert captured["subagents"] == []
     assert "/workspace" in captured["system_prompt"]
     assert str(tmp_path.resolve()) not in captured["system_prompt"]
@@ -63,6 +69,7 @@ def test_build_agent_research_mode_includes_subagents(tmp_path: Path):
     with (
         patch("deepagents.create_deep_agent", side_effect=fake_create_deep_agent),
         patch("deepagents.backends.LocalShellBackend"),
+        patch("deepagents.backends.FilesystemBackend"),
         patch("deepagents.backends.CompositeBackend"),
         patch("deepagents.backends.StateBackend"),
         patch("app.agent._apply_mode_harness_profile") as apply_profile,
@@ -92,6 +99,7 @@ def test_build_agent_uses_state_backend_without_working_dir():
     with (
         patch("deepagents.create_deep_agent", side_effect=fake_create_deep_agent),
         patch("deepagents.backends.LocalShellBackend") as local_shell,
+        patch("deepagents.backends.FilesystemBackend"),
         patch("deepagents.backends.CompositeBackend") as composite,
         patch("deepagents.backends.StateBackend") as state_backend,
         patch("app.agent._apply_mode_harness_profile"),
@@ -111,6 +119,9 @@ def test_build_agent_uses_state_backend_without_working_dir():
     assert backend is composite.return_value
     local_shell.assert_not_called()
     state_backend.assert_called_once()
+    routes = composite.call_args.kwargs.get("routes") or {}
+    assert f"{SKILLS_PREFIX}/" in routes
+    assert captured["skills"] == [f"{SKILLS_PREFIX}/"]
     assert captured["system_prompt"] == build_system_prompt(has_workspace=False)
 
 
@@ -126,6 +137,7 @@ def test_build_agent_ignores_invalid_working_dir(tmp_path: Path):
     with (
         patch("deepagents.create_deep_agent", side_effect=fake_create_deep_agent),
         patch("deepagents.backends.LocalShellBackend") as local_shell,
+        patch("deepagents.backends.FilesystemBackend"),
         patch("deepagents.backends.CompositeBackend") as composite,
         patch("deepagents.backends.StateBackend") as state_backend,
         patch("app.agent._apply_mode_harness_profile"),
@@ -154,6 +166,7 @@ def test_build_agent_uses_explicit_model_override():
 
     with (
         patch("deepagents.create_deep_agent", side_effect=fake_create_deep_agent),
+        patch("deepagents.backends.FilesystemBackend"),
         patch("deepagents.backends.CompositeBackend"),
         patch("deepagents.backends.StateBackend"),
         patch("app.agent._apply_mode_harness_profile"),

@@ -14,7 +14,11 @@ from app.prompts import (
     SYSTEM_PROMPT,
     build_system_prompt,
 )
-from app.workspace_backend import make_workspace_backend_factory
+from app.workspace_backend import (
+    MEMORY_FILE,
+    SKILLS_PREFIX,
+    make_workspace_backend_factory,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +58,7 @@ def build_agent(
         from deepagents import create_deep_agent
         from deepagents.backends import (
             CompositeBackend,
+            FilesystemBackend,
             LocalShellBackend,
             StateBackend,
         )
@@ -77,10 +82,18 @@ def build_agent(
         "store": store,
     }
 
-    kwargs["skills"] = [str(settings.skills_dir)]
-    kwargs["memory"] = [str(settings.memories_dir)]
+    # DeepAgents skills/memory paths are backend-virtual, not host absolute paths.
+    # Host dirs are mounted at /skills and /memories via CompositeBackend routes.
+    kwargs["skills"] = [f"{SKILLS_PREFIX}/"]
+    kwargs["memory"] = [MEMORY_FILE]
     kwargs["backend"] = make_workspace_backend_factory(
-        validated, LocalShellBackend, StateBackend, CompositeBackend
+        validated,
+        LocalShellBackend,
+        StateBackend,
+        CompositeBackend,
+        filesystem_cls=FilesystemBackend,
+        skills_dir=settings.skills_dir,
+        memories_dir=settings.memories_dir,
     )
 
     with _HARNESS_LOCK:

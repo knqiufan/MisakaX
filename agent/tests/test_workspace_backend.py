@@ -5,8 +5,11 @@ from pathlib import Path
 import pytest
 
 from app.workspace_backend import (
+    MEMORIES_PREFIX,
+    SKILLS_PREFIX,
     coerce_file_data,
     make_workspace_backend_factory,
+    normalize_backend_path,
     normalize_workspace_path,
 )
 
@@ -18,6 +21,13 @@ def test_normalize_accepts_workspace_paths():
     assert normalize_workspace_path("/") == "/workspace"
 
 
+def test_normalize_backend_accepts_system_mounts():
+    assert normalize_backend_path("/skills") == "/skills"
+    assert normalize_backend_path("/skills/demo/SKILL.md") == "/skills/demo/SKILL.md"
+    assert normalize_backend_path("/memories/AGENTS.md") == "/memories/AGENTS.md"
+    assert normalize_backend_path("/workspace/src") == "/workspace/src"
+
+
 def test_normalize_rejects_host_and_concat_paths():
     with pytest.raises(ValueError, match="Host absolute"):
         normalize_workspace_path(r"D:\learn\GitHub\powermem\README_CN.md")
@@ -25,6 +35,8 @@ def test_normalize_rejects_host_and_concat_paths():
         normalize_workspace_path(r"/workspaceD:\learn\GitHub\powermem\README_CN.md")
     with pytest.raises(ValueError, match="traversal"):
         normalize_workspace_path("/workspace/../secret")
+    with pytest.raises(ValueError, match="Host absolute"):
+        normalize_backend_path(r"C:\Users\Administrator\.misakax\skills")
 
 
 def test_coerce_file_data_none_content():
@@ -64,3 +76,71 @@ def test_workspace_backend_reads_via_workspace_prefix(tmp_path: Path):
 
     with pytest.raises(ValueError, match="concatenate"):
         backend.read(r"/workspaceD:\x\README.md")
+
+
+def test_factory_mounts_skills_and_memories(tmp_path: Path):
+    project = tmp_path / "project"
+    skills = tmp_path / "skills"
+    memories = tmp_path / "memories"
+    project.mkdir()
+
+    class FakeLocal:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class FakeFs:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class FakeComposite:
+        def __init__(self, default, routes=None, **_kwargs):
+            self.default = default
+            self.routes = routes or {}
+
+    factory = make_workspace_backend_factory(
+        project,
+        FakeLocal,
+        object,
+        FakeComposite,
+        filesystem_cls=FakeFs,
+        skills_dir=skills,
+        memories_dir=memories,
+    )
+    backend = factory(object())
+    routes = backend._inner.routes
+    assert f"{SKILLS_PREFIX}/" in routes
+    assert f"{MEMORIES_PREFIX}/" in routes
+    assert f"/workspace/" in routes
+    assert skills.is_dir()
+    assert memories.is_dir()
+    assert Path(routes[f"{SKILLS_PREFIX}/"].kwargs["root_dir"]) == skills
+    assert routes[f"{SKILLS_PREFIX}/"].kwargs["virtual_mode"] is True
+
+
+def test_skills_route_outside_workspace_root(tmp_path: Path):
+    """Regression: global skills must not be resolved under the project root."""
+    pytest.importorskip("deepagents")
+    from deepagents.backends import CompositeBackend, FilesystemBackend, LocalShellBackend
+
+    project = tmp_path / "project"
+    skills = tmp_path / "global-skills"
+    project.mkdir()
+    (project / "README.md").write_text("project", encoding="utf-8")
+    skill_dir = skills / "demo"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("# demo\n", encoding="utf-8")
+
+    factory = make_workspace_backend_factory(
+        project,
+        LocalShellBackend,
+        object,
+        CompositeBackend,
+        filesystem_cls=FilesystemBackend,
+        skills_dir=skills,
+        memories_dir=tmp_path / "memories",
+    )
+    backend = factory(object())
+    listed = backend.ls("/skills/")
+    entries = listed.entries if hasattr(listed, "entries") else listed
+    paths = {item.get("path") for item in (entries or [])}
+    assert any(path and "demo" in path for path in paths)
