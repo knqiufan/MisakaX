@@ -11,6 +11,7 @@ from app.prompts import (
     CODER_PROMPT,
     RESEARCHER_PROMPT,
     SYSTEM_PROMPT,
+    build_system_prompt,
 )
 
 logger = logging.getLogger(__name__)
@@ -29,30 +30,36 @@ def build_agent(
 
     ``model`` may be a LangChain chat model instance or a provider:model string.
     When omitted, falls back to ``settings.agent_model``.
+
+    When ``working_dir`` validates, filesystem tools (`ls` / `read_file` / …)
+    and shell `execute` use that directory as the default root — not an
+    ephemeral in-memory StateBackend.
     """
     del session_id  # reserved for future per-session customization
     settings = get_settings()
 
     try:
         from deepagents import create_deep_agent
-        from deepagents.backends import CompositeBackend, FilesystemBackend, StateBackend
+        from deepagents.backends import (
+            CompositeBackend,
+            LocalShellBackend,
+            StateBackend,
+        )
     except ImportError as exc:
         raise RuntimeError(
             "deepagents is not installed. Install with: pip install -e '.[agent]'"
         ) from exc
 
-    routes: dict[str, object] = {}
     validated = _resolve_working_dir(working_dir)
-    if validated is not None:
-        routes["/workspace/"] = FilesystemBackend(root_dir=str(validated))
-
     agent_tools = tools if tools is not None else _safe_get_tools()
     subagents = _build_subagents(settings) if include_subagents else []
 
     kwargs: dict[str, Any] = {
         "model": model if model is not None else settings.agent_model,
         "tools": agent_tools,
-        "system_prompt": SYSTEM_PROMPT,
+        "system_prompt": build_system_prompt(
+            working_dir=str(validated) if validated is not None else None
+        ),
         "subagents": subagents,
         "interrupt_on": settings.interrupt_config,
         "checkpointer": checkpointer,
@@ -61,11 +68,25 @@ def build_agent(
 
     kwargs["skills"] = [str(settings.skills_dir)]
     kwargs["memory"] = [str(settings.memories_dir)]
-    kwargs["backend"] = lambda rt: CompositeBackend(
-        default=StateBackend(rt),
-        routes=routes,
-    )
+    kwargs["backend"] = _make_backend_factory(validated, LocalShellBackend, StateBackend, CompositeBackend)
     return create_deep_agent(**kwargs)
+
+
+def _make_backend_factory(validated, local_shell_cls, state_cls, composite_cls):
+    """Bind filesystem + shell to working_dir when present; else StateBackend."""
+
+    def factory(rt):
+        if validated is not None:
+            # virtual_mode: `/` and relative paths map under working_dir.
+            # LocalShellBackend also sets shell cwd to working_dir.
+            return local_shell_cls(
+                root_dir=str(validated),
+                virtual_mode=True,
+                inherit_env=True,
+            )
+        return composite_cls(default=state_cls(rt), routes={})
+
+    return factory
 
 
 def _resolve_working_dir(working_dir: str | None):
@@ -128,3 +149,7 @@ def _build_subagents(settings) -> list[dict[str, Any]]:
             "tools": analyst_tools,
         },
     ]
+
+
+# Re-export for tests that imported SYSTEM_PROMPT via this module historically.
+__all__ = ["SYSTEM_PROMPT", "build_agent", "_build_subagents", "_resolve_working_dir"]

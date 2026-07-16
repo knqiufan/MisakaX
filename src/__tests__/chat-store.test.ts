@@ -24,12 +24,18 @@ describe("useChatStore", () => {
       activeSession: null,
       loading: false,
       showWorkspaceSelector: false,
+      workspaceSelectorIntent: null,
+      workspaceSelectorTargetSessionId: null,
+      thinkingEnabled: true,
       messages: [],
       isStreaming: false,
       streamingMessageId: null,
       isThinkingStreaming: false,
       selectedModel: null,
     });
+    try {
+      localStorage.removeItem("misakax:thinkingEnabled");
+    } catch { /* noop */ }
   });
 
   it("should have correct initial state", () => {
@@ -41,6 +47,94 @@ describe("useChatStore", () => {
     expect(state.isStreaming).toBe(false);
     expect(state.streamingMessageId).toBeNull();
     expect(state.selectedModel).toBeNull();
+    expect(state.thinkingEnabled).toBe(true);
+    expect(state.workspaceSelectorIntent).toBeNull();
+  });
+
+  describe("thinkingEnabled", () => {
+    it("should persist thinkingEnabled to localStorage", () => {
+      useChatStore.getState().setThinkingEnabled(false);
+      expect(useChatStore.getState().thinkingEnabled).toBe(false);
+      expect(localStorage.getItem("misakax:thinkingEnabled")).toBe("false");
+
+      useChatStore.getState().setThinkingEnabled(true);
+      expect(useChatStore.getState().thinkingEnabled).toBe(true);
+      expect(localStorage.getItem("misakax:thinkingEnabled")).toBe("true");
+    });
+  });
+
+  describe("workspace selector intent", () => {
+    it("should open with new-session intent", () => {
+      useChatStore.getState().openWorkspaceSelector("new-session");
+      const state = useChatStore.getState();
+      expect(state.showWorkspaceSelector).toBe(true);
+      expect(state.workspaceSelectorIntent).toBe("new-session");
+      expect(state.workspaceSelectorTargetSessionId).toBeNull();
+    });
+
+    it("should open with change-session intent and target id", () => {
+      useChatStore.getState().openWorkspaceSelector("change-session", "sess-1");
+      const state = useChatStore.getState();
+      expect(state.showWorkspaceSelector).toBe(true);
+      expect(state.workspaceSelectorIntent).toBe("change-session");
+      expect(state.workspaceSelectorTargetSessionId).toBe("sess-1");
+    });
+
+    it("should clear intent on closeWorkspaceSelector", () => {
+      useChatStore.getState().openWorkspaceSelector("change-session", "sess-1");
+      useChatStore.getState().closeWorkspaceSelector();
+      const state = useChatStore.getState();
+      expect(state.showWorkspaceSelector).toBe(false);
+      expect(state.workspaceSelectorIntent).toBeNull();
+      expect(state.workspaceSelectorTargetSessionId).toBeNull();
+    });
+  });
+
+  describe("upsertSession", () => {
+    it("should prepend a new session and activate it", () => {
+      useChatStore.getState().setSessions([
+        {
+          id: "old",
+          title: "Old",
+          model: null,
+          system_prompt: null,
+          working_directory: null,
+          project_name: null,
+          workspace_kind: "default",
+          status: "active",
+          mode: "agent",
+          total_input_tokens: 0,
+          total_output_tokens: 0,
+          last_message_at: null,
+          pinned: false,
+          group_name: null,
+          created_at: "",
+          updated_at: "",
+        },
+      ]);
+      useChatStore.getState().upsertSession({
+        id: "new",
+        title: "New",
+        model: null,
+        system_prompt: null,
+        working_directory: "/ws",
+        project_name: "ws",
+        workspace_kind: "custom",
+        status: "active",
+        mode: "agent",
+        total_input_tokens: 0,
+        total_output_tokens: 0,
+        last_message_at: null,
+        pinned: false,
+        group_name: null,
+        created_at: "",
+        updated_at: "",
+      });
+      const state = useChatStore.getState();
+      expect(state.activeSessionId).toBe("new");
+      expect(state.sessions[0].id).toBe("new");
+      expect(state.sessions).toHaveLength(2);
+    });
   });
 
   it("should set active session", () => {
@@ -63,6 +157,7 @@ describe("useChatStore", () => {
         system_prompt: null,
         working_directory: null,
         project_name: null,
+        workspace_kind: "default",
         status: "active",
         mode: "agent",
         total_input_tokens: 0,
@@ -80,6 +175,7 @@ describe("useChatStore", () => {
         system_prompt: "You are helpful",
         working_directory: "/home/user",
         project_name: "my-project",
+        workspace_kind: "custom",
         status: "active",
         mode: "agent",
         total_input_tokens: 100,
@@ -107,6 +203,7 @@ describe("useChatStore", () => {
         system_prompt: null,
         working_directory: null,
         project_name: null,
+        workspace_kind: "default",
         status: "active",
         mode: "agent",
         total_input_tokens: 0,
@@ -244,6 +341,7 @@ describe("useChatStore", () => {
         system_prompt: null,
         working_directory: null,
         project_name: null,
+        workspace_kind: "default",
         status: "active",
         mode: "agent",
         total_input_tokens: 0,

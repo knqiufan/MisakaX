@@ -10,6 +10,14 @@ interface ToolLogsState {
 export const useToolLogsStore = create<ToolLogsState>((set) => ({
   toolCalls: [],
   addToolCall: (tc) =>
-    set((s) => ({ toolCalls: [...s.toolCalls, tc] })),
+    set((s) => {
+      const idx = s.toolCalls.findIndex((item) => item.id === tc.id);
+      if (idx >= 0) {
+        const next = s.toolCalls.slice();
+        next[idx] = { ...next[idx], ...tc };
+        return { toolCalls: next };
+      }
+      return { toolCalls: [...s.toolCalls, tc] };
+    }),
   clearToolCalls: () => set({ toolCalls: [] }),
 }));

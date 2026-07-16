@@ -5,13 +5,14 @@ use crate::db::models::Session;
 
 pub struct SessionRepo;
 
+const SESSION_COLUMNS: &str = "id, title, model, system_prompt, working_directory, project_name,
+                    workspace_kind, status, mode, total_input_tokens, total_output_tokens,
+                    last_message_at, pinned, group_name, created_at, updated_at";
+
 impl SessionRepo {
     pub fn find_by_id(conn: &Connection, session_id: &str) -> Result<Session> {
         conn.query_row(
-            "SELECT id, title, model, system_prompt, working_directory, project_name,
-                    status, mode, total_input_tokens, total_output_tokens,
-                    last_message_at, pinned, group_name, created_at, updated_at
-             FROM sessions WHERE id = ?1",
+            &format!("SELECT {SESSION_COLUMNS} FROM sessions WHERE id = ?1"),
             [session_id],
             Self::map_row,
         )
@@ -25,12 +26,31 @@ impl SessionRepo {
         model: Option<&str>,
         working_directory: Option<&str>,
     ) -> Result<Session> {
+        Self::create_with_workspace(conn, id, title, model, working_directory, "custom")
+    }
+
+    pub fn create_with_workspace(
+        conn: &Connection,
+        id: &str,
+        title: Option<&str>,
+        model: Option<&str>,
+        working_directory: Option<&str>,
+        workspace_kind: &str,
+    ) -> Result<Session> {
         let project_name = working_directory.map(extract_project_name);
 
         conn.execute(
-            "INSERT INTO sessions (id, title, model, working_directory, project_name, status, mode)
-             VALUES (?1, ?2, ?3, ?4, ?5, 'active', 'agent')",
-            rusqlite::params![id, title, model, working_directory, project_name],
+            "INSERT INTO sessions (id, title, model, working_directory, project_name,
+             workspace_kind, status, mode)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'active', 'agent')",
+            rusqlite::params![
+                id,
+                title,
+                model,
+                working_directory,
+                project_name,
+                workspace_kind
+            ],
         )?;
 
         Self::find_by_id(conn, id)
@@ -40,9 +60,9 @@ impl SessionRepo {
     pub fn import(conn: &Connection, s: &Session) -> Result<()> {
         conn.execute(
             "INSERT INTO sessions (id, title, model, system_prompt, working_directory, project_name,
-                status, mode, total_input_tokens, total_output_tokens,
+                workspace_kind, status, mode, total_input_tokens, total_output_tokens,
                 last_message_at, pinned, group_name, created_at, updated_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
             rusqlite::params![
                 s.id,
                 s.title,
@@ -50,6 +70,7 @@ impl SessionRepo {
                 s.system_prompt,
                 s.working_directory,
                 s.project_name,
+                s.workspace_kind,
                 s.status,
                 s.mode,
                 s.total_input_tokens,
@@ -67,14 +88,12 @@ impl SessionRepo {
     pub fn list(conn: &Connection, status: Option<&str>) -> Result<Vec<Session>> {
         let status_filter = status.unwrap_or("active");
 
-        let mut stmt = conn.prepare(
-            "SELECT id, title, model, system_prompt, working_directory, project_name,
-                    status, mode, total_input_tokens, total_output_tokens,
-                    last_message_at, pinned, group_name, created_at, updated_at
+        let mut stmt = conn.prepare(&format!(
+            "SELECT {SESSION_COLUMNS}
              FROM sessions
              WHERE status = ?1
-             ORDER BY pinned DESC, COALESCE(last_message_at, updated_at) DESC",
-        )?;
+             ORDER BY pinned DESC, COALESCE(last_message_at, updated_at) DESC"
+        ))?;
 
         let rows = stmt.query_map([status_filter], Self::map_row)?;
         Ok(rows.filter_map(|r| r.ok()).collect())
@@ -143,16 +162,14 @@ impl SessionRepo {
 
     pub fn search(conn: &Connection, query: &str) -> Result<Vec<Session>> {
         let pattern = format!("%{query}%");
-        let mut stmt = conn.prepare(
-            "SELECT id, title, model, system_prompt, working_directory, project_name,
-                    status, mode, total_input_tokens, total_output_tokens,
-                    last_message_at, pinned, group_name, created_at, updated_at
+        let mut stmt = conn.prepare(&format!(
+            "SELECT {SESSION_COLUMNS}
              FROM sessions
-             WHERE (title LIKE ?1 OR project_name LIKE ?1)
+             WHERE (title LIKE ?1 OR project_name LIKE ?1 OR working_directory LIKE ?1)
                AND status = 'active'
              ORDER BY COALESCE(last_message_at, updated_at) DESC
-             LIMIT 50",
-        )?;
+             LIMIT 50"
+        ))?;
 
         let rows = stmt.query_map([&pattern], Self::map_row)?;
         Ok(rows.filter_map(|r| r.ok()).collect())
@@ -163,17 +180,45 @@ impl SessionRepo {
         session_id: &str,
         working_directory: Option<&str>,
     ) -> Result<()> {
+        Self::update_working_directory_with_kind(conn, session_id, working_directory, "custom")
+    }
+
+    pub fn update_working_directory_with_kind(
+        conn: &Connection,
+        session_id: &str,
+        working_directory: Option<&str>,
+        workspace_kind: &str,
+    ) -> Result<()> {
         let project_name = working_directory.map(extract_project_name);
 
         conn.execute(
             "UPDATE sessions
              SET working_directory = ?1,
                  project_name = ?2,
+                 workspace_kind = ?3,
                  updated_at = CURRENT_TIMESTAMP
-             WHERE id = ?3",
-            rusqlite::params![working_directory, project_name, session_id],
+             WHERE id = ?4",
+            rusqlite::params![working_directory, project_name, workspace_kind, session_id],
         )?;
         Ok(())
+    }
+
+    /// Backfill NULL working directories to the app default workspace (idempotent).
+    pub fn backfill_null_workspaces(
+        conn: &Connection,
+        default_dir: &str,
+    ) -> Result<usize> {
+        let project_name = extract_project_name(default_dir);
+        let affected = conn.execute(
+            "UPDATE sessions
+             SET working_directory = ?1,
+                 project_name = ?2,
+                 workspace_kind = 'default',
+                 updated_at = updated_at
+             WHERE working_directory IS NULL OR TRIM(working_directory) = ''",
+            rusqlite::params![default_dir, project_name],
+        )?;
+        Ok(affected)
     }
 
     pub fn update_stats(
@@ -247,13 +292,11 @@ impl SessionRepo {
     }
 
     pub fn list_all_for_export(conn: &Connection) -> Result<Vec<Session>> {
-        let mut stmt = conn.prepare(
-            "SELECT id, title, model, system_prompt, working_directory, project_name,
-                    status, mode, total_input_tokens, total_output_tokens,
-                    last_message_at, pinned, group_name, created_at, updated_at
+        let mut stmt = conn.prepare(&format!(
+            "SELECT {SESSION_COLUMNS}
              FROM sessions
-             ORDER BY created_at ASC",
-        )?;
+             ORDER BY created_at ASC"
+        ))?;
         let rows = stmt.query_map([], Self::map_row)?;
         Ok(rows.filter_map(|r| r.ok()).collect())
     }
@@ -266,15 +309,18 @@ impl SessionRepo {
             system_prompt: row.get(3)?,
             working_directory: row.get(4)?,
             project_name: row.get(5)?,
-            status: row.get(6)?,
-            mode: row.get(7)?,
-            total_input_tokens: row.get::<_, Option<i64>>(8)?.unwrap_or(0),
-            total_output_tokens: row.get::<_, Option<i64>>(9)?.unwrap_or(0),
-            last_message_at: row.get(10)?,
-            pinned: row.get::<_, Option<i32>>(11)?.unwrap_or(0) != 0,
-            group_name: row.get(12)?,
-            created_at: row.get(13)?,
-            updated_at: row.get(14)?,
+            workspace_kind: row
+                .get::<_, Option<String>>(6)?
+                .unwrap_or_else(|| "custom".to_string()),
+            status: row.get(7)?,
+            mode: row.get(8)?,
+            total_input_tokens: row.get::<_, Option<i64>>(9)?.unwrap_or(0),
+            total_output_tokens: row.get::<_, Option<i64>>(10)?.unwrap_or(0),
+            last_message_at: row.get(11)?,
+            pinned: row.get::<_, Option<i32>>(12)?.unwrap_or(0) != 0,
+            group_name: row.get(13)?,
+            created_at: row.get(14)?,
+            updated_at: row.get(15)?,
         })
     }
 }
@@ -287,4 +333,15 @@ fn extract_project_name(path: &str) -> String {
         .find(|s| !s.is_empty())
         .unwrap_or(path)
         .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::extract_project_name;
+
+    #[test]
+    fn extract_project_name_handles_windows_and_unix() {
+        assert_eq!(extract_project_name(r"D:\code\Misaka-Tauri"), "Misaka-Tauri");
+        assert_eq!(extract_project_name("/home/user/project"), "project");
+    }
 }

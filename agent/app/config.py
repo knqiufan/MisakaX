@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     agent_model: str = "claude-sonnet-4-20250514"
     temperature: float = 0.7
     max_tokens: int | None = None
+    # LangGraph defaults to 25 graph steps, which is too low for tool-heavy
+    # DeepAgent turns and subagent delegation. Keep a finite upper bound.
+    agent_recursion_limit: int = Field(default=100, ge=25, le=500)
 
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None

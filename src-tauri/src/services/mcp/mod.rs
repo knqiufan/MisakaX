@@ -11,5 +11,6 @@ pub use approval::{
 pub use config::McpConfigLoader;
 pub use health::start_health_loop;
 pub use manager::McpManager;
-pub use tool_loop::{McpToolLoop, ToolCallRecord, ToolLoopOutcome, MAX_TOOL_ROUNDS};
+pub use tool_loop::{McpToolLoop, ToolLoopOutcome, MAX_TOOL_ROUNDS};
 pub use types::{McpServerConfig, McpServerInfo, McpServerStatus, McpToolInfo, McpTransport};
+pub use crate::services::ToolCallRecord;

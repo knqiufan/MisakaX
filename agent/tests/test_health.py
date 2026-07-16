@@ -25,6 +25,8 @@ async def test_health_check_has_enhanced_fields(client):
     assert "health" in data["capabilities"]
     assert "info" in data["capabilities"]
     assert "agent_ready" in data
+    if data["agent_ready"]:
+        assert "agent_stream" in data["capabilities"]
 
 
 @pytest.mark.asyncio

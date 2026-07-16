@@ -3,8 +3,8 @@ mod tests {
     use misaka_x_lib::sidecar::{
         build_sidecar_api_key_env, find_sidecar_executable_in, health_check_url,
         is_current_watchdog_generation, resolve_sidecar_executable, should_attempt_runtime_restart,
-        sidecar_executable_name, SidecarApiKeySource, SidecarStatus, SidecarStatusEvent,
-        SIDECAR_BINARY_STEM,
+        should_use_packaged_sidecar, sidecar_executable_name, SidecarApiKeySource, SidecarStatus,
+        SidecarStatusEvent, SIDECAR_BINARY_STEM,
     };
     use serde_json::json;
     use std::path::PathBuf;
@@ -123,6 +123,11 @@ mod tests {
         } else {
             assert_eq!(name, "misaka-agent");
         }
+    }
+
+    #[test]
+    fn test_debug_build_uses_python_sidecar_source() {
+        assert!(!should_use_packaged_sidecar());
     }
 
     #[test]

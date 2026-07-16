@@ -31,19 +31,32 @@ export function ThinkingBlock({ content, isStreaming }: ThinkingBlockProps) {
         startedAtRef.current = Date.now();
       }
       autoClosedRef.current = false;
+      // Streaming always re-opens unless the user explicitly collapsed mid-stream.
       if (!userClosedRef.current) {
         setOpen(true);
       }
       return;
     }
 
+    let hadLiveStream = false;
     if (startedAtRef.current !== null) {
+      hadLiveStream = true;
       const elapsed = Math.ceil((Date.now() - startedAtRef.current) / 1000);
       setDurationSec(Math.max(elapsed, 1));
       startedAtRef.current = null;
     }
 
+    // History mounts with isStreaming=false — keep collapsed, no timer.
+    if (!hadLiveStream) {
+      autoClosedRef.current = true;
+      return;
+    }
+
     if (autoClosedRef.current) return;
+    if (userClosedRef.current) {
+      autoClosedRef.current = true;
+      return;
+    }
 
     const timer = window.setTimeout(() => {
       setOpen(false);

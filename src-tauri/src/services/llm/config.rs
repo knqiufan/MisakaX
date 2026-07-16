@@ -29,10 +29,18 @@ pub struct LlmConfig {
     /// 停止序列
     #[serde(default)]
     pub stop_sequences: Option<Vec<String>>,
+
+    /// Composer thinking preference snapshot for this turn (default true).
+    #[serde(default = "default_thinking_enabled")]
+    pub thinking_enabled: bool,
 }
 
 fn default_temperature() -> f64 {
     0.7
+}
+
+fn default_thinking_enabled() -> bool {
+    true
 }
 
 impl Default for LlmConfig {
@@ -44,6 +52,7 @@ impl Default for LlmConfig {
             frequency_penalty: None,
             presence_penalty: None,
             stop_sequences: None,
+            thinking_enabled: true,
         }
     }
 }

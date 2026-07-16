@@ -124,6 +124,9 @@ export function ChatView({
           content,
           attachments,
           model_override: modelOverride,
+          llm_config: {
+            thinking_enabled: useChatStore.getState().thinkingEnabled,
+          },
         });
         if (isFirstMessage) {
           requestAutoTitle(session.id, content);
@@ -205,7 +208,9 @@ export function ChatView({
       setStreaming(true, assistantId);
 
       try {
-        await chatIpc.regenerateMessage(session.id, messageId);
+        await chatIpc.regenerateMessage(session.id, messageId, {
+          thinking_enabled: useChatStore.getState().thinkingEnabled,
+        });
       } catch (err) {
         console.error("Failed to regenerate:", err);
         const detail =
@@ -240,6 +245,7 @@ export function ChatView({
     <div className="flex h-full flex-col">
       <WorkspaceBar
         workingDir={session.working_directory}
+        workspaceKind={session.workspace_kind}
         onChangeDir={onChangeDir}
         onToggleExplorer={onToggleExplorer}
         explorerOpen={explorerOpen}

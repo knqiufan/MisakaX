@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use futures::StreamExt;
 use serde_json::{json, Value};
@@ -10,8 +11,10 @@ use tauri::{AppHandle, Emitter};
 
 use crate::services::llm::{
     emit_tool_call, emit_tool_result, StreamCompletePayload, StreamErrorPayload, StreamResult,
-    StreamTokenPayload, StreamToolCallPayload, StreamToolResultPayload, TokenUsageInfo,
+    StreamThinkingPayload, StreamTokenPayload, StreamToolCallPayload, StreamToolResultPayload,
+    TokenUsageInfo,
 };
+use crate::services::ToolCallRecord;
 
 const SIDECAR_SERVER_ID: &str = "sidecar";
 const SIDECAR_SERVER_NAME: &str = "Sidecar";
@@ -25,9 +28,17 @@ pub struct SseFrame {
 #[derive(Debug)]
 pub enum MappedSidecarEvent {
     Token { delta: String },
+    Thinking { delta: String },
     ToolCall(StreamToolCallPayload),
     ToolResult(StreamToolResultPayload),
     Done,
+}
+
+/// Outcome of a Sidecar SSE stream, including persistable tool records.
+#[derive(Debug)]
+pub struct SidecarStreamOutcome {
+    pub result: StreamResult,
+    pub tool_calls: Vec<ToolCallRecord>,
 }
 
 #[derive(Debug, Default)]
@@ -35,8 +46,9 @@ pub struct SidecarStreamAccumulator {
     content: String,
     thinking: String,
     usage: Option<TokenUsageInfo>,
-    /// Stack of open tool_call_ids keyed by tool name (LIFO for same-name tools).
-    open_tools: HashMap<String, Vec<String>>,
+    /// Open tool records keyed by stable SSE tool id (LangChain run_id).
+    open_tools: HashMap<String, usize>,
+    tool_calls: Vec<ToolCallRecord>,
 }
 
 impl SidecarStreamAccumulator {
@@ -44,36 +56,166 @@ impl SidecarStreamAccumulator {
         self.content.push_str(delta);
     }
 
-    pub fn into_stream_result(self, was_aborted: bool) -> StreamResult {
-        StreamResult {
-            content: self.content,
-            thinking: self.thinking,
-            usage: self.usage,
-            was_aborted,
-        }
+    pub fn push_thinking(&mut self, delta: &str) {
+        self.thinking.push_str(delta);
     }
 
-    fn register_tool_start(&mut self, name: &str) -> String {
-        let tool_call_id = uuid::Uuid::new_v4().to_string();
-        self.open_tools
-            .entry(name.to_string())
-            .or_default()
-            .push(tool_call_id.clone());
-        tool_call_id
+    pub fn thinking_so_far(&self) -> &str {
+        &self.thinking
     }
 
-    fn resolve_tool_end(&mut self, name: &str) -> String {
-        if let Some(stack) = self.open_tools.get_mut(name) {
-            if let Some(id) = stack.pop() {
-                if stack.is_empty() {
-                    self.open_tools.remove(name);
+    pub fn into_outcome(self, was_aborted: bool) -> SidecarStreamOutcome {
+        let mut tool_calls = self.tool_calls;
+        let now = now_millis();
+        for record in &mut tool_calls {
+            if record.status == "running" {
+                record.status = if was_aborted {
+                    "aborted".to_string()
+                } else {
+                    "error".to_string()
+                };
+                if record.error.is_none() {
+                    record.error = Some(if was_aborted {
+                        "Stream aborted before tool completed".to_string()
+                    } else {
+                        "Tool ended without a matching tool_end event".to_string()
+                    });
                 }
-                return id;
+                record.completed_at = Some(now);
             }
         }
-        tracing::warn!(tool = %name, "tool_end without matching tool_start; generating fallback id");
-        uuid::Uuid::new_v4().to_string()
+
+        SidecarStreamOutcome {
+            result: StreamResult {
+                content: self.content,
+                thinking: self.thinking,
+                usage: self.usage,
+                was_aborted,
+            },
+            tool_calls,
+        }
     }
+
+    fn register_tool_start(
+        &mut self,
+        tool_id: &str,
+        server_id: &str,
+        server_name: &str,
+        tool_name: &str,
+        arguments: Value,
+    ) -> String {
+        let id = if tool_id.is_empty() {
+            uuid::Uuid::new_v4().to_string()
+        } else {
+            tool_id.to_string()
+        };
+
+        // Idempotent: duplicate tool_start with the same id must not create a
+        // second UI/DB row (nested LangGraph echoes / Strict Mode double emit).
+        if let Some(&index) = self.open_tools.get(&id) {
+            let record = &mut self.tool_calls[index];
+            record.server_id = server_id.to_string();
+            record.server_name = server_name.to_string();
+            record.tool_name = tool_name.to_string();
+            record.arguments = arguments;
+            record.status = "running".to_string();
+            record.error = None;
+            record.completed_at = None;
+            return id;
+        }
+        if let Some(index) = self.tool_calls.iter().position(|r| r.id == id) {
+            let record = &mut self.tool_calls[index];
+            record.server_id = server_id.to_string();
+            record.server_name = server_name.to_string();
+            record.tool_name = tool_name.to_string();
+            record.arguments = arguments;
+            record.status = "running".to_string();
+            record.error = None;
+            record.completed_at = None;
+            self.open_tools.insert(id.clone(), index);
+            return id;
+        }
+
+        let record = ToolCallRecord {
+            id: id.clone(),
+            server_id: server_id.to_string(),
+            server_name: server_name.to_string(),
+            tool_name: tool_name.to_string(),
+            arguments,
+            result: None,
+            status: "running".to_string(),
+            error: None,
+            started_at: Some(now_millis()),
+            completed_at: None,
+        };
+        let index = self.tool_calls.len();
+        self.tool_calls.push(record);
+        self.open_tools.insert(id.clone(), index);
+        id
+    }
+
+    fn resolve_tool_end(
+        &mut self,
+        tool_id: &str,
+        tool_name: &str,
+        result: Option<Value>,
+        error: Option<String>,
+        status: &str,
+    ) -> String {
+        let index = self
+            .open_tools
+            .remove(tool_id)
+            .or_else(|| self.find_open_by_name(tool_name));
+
+        if let Some(idx) = index {
+            let record = &mut self.tool_calls[idx];
+            record.result = result;
+            record.error = error;
+            record.status = status.to_string();
+            record.completed_at = Some(now_millis());
+            return record.id.clone();
+        }
+
+        let id = if tool_id.is_empty() {
+            uuid::Uuid::new_v4().to_string()
+        } else {
+            tool_id.to_string()
+        };
+        tracing::warn!(
+            tool = %tool_name,
+            id = %id,
+            "tool_end without matching tool_start; recording fallback"
+        );
+        self.tool_calls.push(ToolCallRecord {
+            id: id.clone(),
+            server_id: SIDECAR_SERVER_ID.to_string(),
+            server_name: SIDECAR_SERVER_NAME.to_string(),
+            tool_name: tool_name.to_string(),
+            arguments: json!({}),
+            result,
+            status: status.to_string(),
+            error,
+            started_at: Some(now_millis()),
+            completed_at: Some(now_millis()),
+        });
+        id
+    }
+
+    fn find_open_by_name(&self, tool_name: &str) -> Option<usize> {
+        self.tool_calls
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, r)| r.status == "running" && r.tool_name == tool_name)
+            .map(|(i, _)| i)
+    }
+}
+
+fn now_millis() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
 }
 
 /// Parse a complete SSE document (or buffer containing complete frames).
@@ -137,53 +279,23 @@ pub fn map_sidecar_event(
             acc.push_content(&delta);
             Ok(Some(MappedSidecarEvent::Token { delta }))
         }
-        "tool_start" => {
-            let name = data
-                .get("name")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown")
-                .to_string();
-            let arguments = data.get("input").cloned().unwrap_or_else(|| json!({}));
-            let tool_call_id = acc.register_tool_start(&name);
-            Ok(Some(MappedSidecarEvent::ToolCall(StreamToolCallPayload {
-                session_id: session_id.to_string(),
-                message_id: message_id.to_string(),
-                tool_call_id,
-                server_id: SIDECAR_SERVER_ID.to_string(),
-                server_name: SIDECAR_SERVER_NAME.to_string(),
-                tool_name: name,
-                arguments,
-                status: "running".to_string(),
-            })))
+        "thinking" => {
+            let delta = extract_token_content(data)?;
+            if delta.is_empty() {
+                return Ok(None);
+            }
+            // Providers sometimes re-send cumulative reasoning; only append
+            // the new suffix so stream_thinking and persisted thinking stay
+            // free of duplicated paragraphs.
+            let suffix = thinking_suffix_delta(acc.thinking_so_far(), &delta);
+            if suffix.is_empty() {
+                return Ok(None);
+            }
+            acc.push_thinking(&suffix);
+            Ok(Some(MappedSidecarEvent::Thinking { delta: suffix }))
         }
-        "tool_end" => {
-            let name = data
-                .get("name")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown")
-                .to_string();
-            let output = data
-                .get("output")
-                .map(|v| {
-                    if let Some(s) = v.as_str() {
-                        s.to_string()
-                    } else {
-                        v.to_string()
-                    }
-                })
-                .unwrap_or_default();
-            let tool_call_id = acc.resolve_tool_end(&name);
-            Ok(Some(MappedSidecarEvent::ToolResult(
-                StreamToolResultPayload {
-                    session_id: session_id.to_string(),
-                    message_id: message_id.to_string(),
-                    tool_call_id,
-                    result: Some(json!({ "content": output })),
-                    error: None,
-                    status: "complete".to_string(),
-                },
-            )))
-        }
+        "tool_start" => Ok(Some(map_tool_start(data, session_id, message_id, acc))),
+        "tool_end" => Ok(Some(map_tool_end(data, session_id, message_id, acc))),
         "done" => Ok(Some(MappedSidecarEvent::Done)),
         "error" => {
             let message = data
@@ -196,6 +308,92 @@ pub fn map_sidecar_event(
         "thinking_start" => Ok(None),
         _ => Ok(None),
     }
+}
+
+fn map_tool_start(
+    data: &Value,
+    session_id: &str,
+    message_id: &str,
+    acc: &mut SidecarStreamAccumulator,
+) -> MappedSidecarEvent {
+    let name = data
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown")
+        .to_string();
+    let tool_id = data
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let server_id = data
+        .get("server_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or(SIDECAR_SERVER_ID)
+        .to_string();
+    let server_name = if server_id == SIDECAR_SERVER_ID {
+        SIDECAR_SERVER_NAME.to_string()
+    } else {
+        server_id.clone()
+    };
+    let arguments = data.get("input").cloned().unwrap_or_else(|| json!({}));
+    let tool_call_id =
+        acc.register_tool_start(&tool_id, &server_id, &server_name, &name, arguments.clone());
+
+    MappedSidecarEvent::ToolCall(StreamToolCallPayload {
+        session_id: session_id.to_string(),
+        message_id: message_id.to_string(),
+        tool_call_id,
+        server_id,
+        server_name,
+        tool_name: name,
+        arguments,
+        status: "running".to_string(),
+    })
+}
+
+fn map_tool_end(
+    data: &Value,
+    session_id: &str,
+    message_id: &str,
+    acc: &mut SidecarStreamAccumulator,
+) -> MappedSidecarEvent {
+    let name = data
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown")
+        .to_string();
+    let tool_id = data
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let error = data
+        .get("error")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let status = data
+        .get("status")
+        .and_then(|v| v.as_str())
+        .unwrap_or(if error.is_some() { "error" } else { "complete" })
+        .to_string();
+    let output = data.get("output").map(|v| {
+        if let Some(s) = v.as_str() {
+            json!({ "content": s })
+        } else {
+            json!({ "content": v })
+        }
+    });
+    let tool_call_id = acc.resolve_tool_end(&tool_id, &name, output.clone(), error.clone(), &status);
+
+    MappedSidecarEvent::ToolResult(StreamToolResultPayload {
+        session_id: session_id.to_string(),
+        message_id: message_id.to_string(),
+        tool_call_id,
+        result: output,
+        error,
+        status,
+    })
 }
 
 fn extract_token_content(data: &Value) -> Result<String, String> {
@@ -217,6 +415,24 @@ fn extract_token_content(data: &Value) -> Result<String, String> {
     }
 }
 
+/// When `incoming` is a cumulative re-send of `previous`, return only the
+/// newly appended suffix. Identical payloads yield an empty string.
+fn thinking_suffix_delta(previous: &str, incoming: &str) -> String {
+    if incoming.is_empty() {
+        return String::new();
+    }
+    if previous.is_empty() {
+        return incoming.to_string();
+    }
+    if incoming == previous {
+        return String::new();
+    }
+    if let Some(suffix) = incoming.strip_prefix(previous) {
+        return suffix.to_string();
+    }
+    incoming.to_string()
+}
+
 /// Consume a Sidecar HTTP SSE response body and emit Tauri stream events.
 pub async fn consume_sidecar_stream(
     app: &AppHandle,
@@ -224,7 +440,7 @@ pub async fn consume_sidecar_stream(
     session_id: &str,
     message_id: &str,
     abort_flag: Arc<AtomicBool>,
-) -> Result<StreamResult, String> {
+) -> Result<SidecarStreamOutcome, String> {
     let mut acc = SidecarStreamAccumulator::default();
     let mut leftover = Vec::new();
     let mut stream = response.bytes_stream();
@@ -240,6 +456,9 @@ pub async fn consume_sidecar_stream(
             match map_sidecar_event(&frame.event, &frame.data, session_id, message_id, &mut acc) {
                 Ok(Some(MappedSidecarEvent::Token { delta })) => {
                     emit_token(app, session_id, message_id, &delta);
+                }
+                Ok(Some(MappedSidecarEvent::Thinking { delta })) => {
+                    emit_thinking(app, session_id, message_id, &delta);
                 }
                 Ok(Some(MappedSidecarEvent::ToolCall(payload))) => {
                     emit_tool_call(app, &payload);
@@ -290,21 +509,21 @@ fn finalize_stream(
     message_id: &str,
     acc: SidecarStreamAccumulator,
     abort_flag: &Arc<AtomicBool>,
-) -> Result<StreamResult, String> {
+) -> Result<SidecarStreamOutcome, String> {
     let was_aborted = abort_flag.load(Ordering::Relaxed);
-    let result = acc.into_stream_result(was_aborted);
+    let outcome = acc.into_outcome(was_aborted);
     let payload = StreamCompletePayload {
         session_id: session_id.to_string(),
         message_id: message_id.to_string(),
-        full_content: result.content.clone(),
-        full_thinking: result.thinking.clone(),
-        usage: result.usage.clone(),
+        full_content: outcome.result.content.clone(),
+        full_thinking: outcome.result.thinking.clone(),
+        usage: outcome.result.usage.clone(),
         was_aborted,
     };
     if let Err(e) = app.emit("stream_complete", &payload) {
         tracing::warn!(error = %e, "Failed to emit stream_complete");
     }
-    Ok(result)
+    Ok(outcome)
 }
 
 fn emit_token(app: &AppHandle, session_id: &str, message_id: &str, delta: &str) {
@@ -315,6 +534,17 @@ fn emit_token(app: &AppHandle, session_id: &str, message_id: &str, delta: &str) 
     };
     if let Err(e) = app.emit("stream_token", &payload) {
         tracing::warn!(error = %e, "Failed to emit stream_token");
+    }
+}
+
+fn emit_thinking(app: &AppHandle, session_id: &str, message_id: &str, delta: &str) {
+    let payload = StreamThinkingPayload {
+        session_id: session_id.to_string(),
+        message_id: message_id.to_string(),
+        thinking_delta: delta.to_string(),
+    };
+    if let Err(e) = app.emit("stream_thinking", &payload) {
+        tracing::warn!(error = %e, "Failed to emit stream_thinking");
     }
 }
 

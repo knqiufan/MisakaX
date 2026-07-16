@@ -1,5 +1,6 @@
 import { invoke } from "./invoke";
 import type {
+  LlmConfigPayload,
   Message,
   SendMessageRequest,
   SendMessageResult,
@@ -43,8 +44,16 @@ export const chatIpc = {
   stopGeneration: (sessionId: string) =>
     invoke<boolean>("stop_generation", { sessionId }),
 
-  regenerateMessage: (sessionId: string, messageId: string) =>
-    invoke<SendMessageResult>("regenerate_message", { sessionId, messageId }),
+  regenerateMessage: (
+    sessionId: string,
+    messageId: string,
+    llmConfig?: LlmConfigPayload
+  ) =>
+    invoke<SendMessageResult>("regenerate_message", {
+      sessionId,
+      messageId,
+      llmConfig,
+    }),
 
   getMessages: (sessionId: string, limit?: number, beforeId?: string) =>
     invoke<RawMessage[]>("get_messages", { sessionId, limit, beforeId }).then(

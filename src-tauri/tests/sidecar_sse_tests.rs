@@ -132,10 +132,158 @@ fn map_done_event_returns_complete() {
         MappedSidecarEvent::Done => {}
         other => panic!("unexpected: {other:?}"),
     }
-    let result = acc.into_stream_result(abort.load(Ordering::Relaxed));
-    assert_eq!(result.content, "Hello");
-    assert!(!result.was_aborted);
-    assert!(result.usage.is_none());
+    let outcome = acc.into_outcome(abort.load(Ordering::Relaxed));
+    assert_eq!(outcome.result.content, "Hello");
+    assert!(!outcome.result.was_aborted);
+    assert!(outcome.result.usage.is_none());
+    assert!(outcome.tool_calls.is_empty());
+}
+
+#[test]
+fn map_thinking_event_accumulates() {
+    let mut acc = SidecarStreamAccumulator::default();
+    let mapped = map_sidecar_event(
+        "thinking",
+        &json!({"content": "step1"}),
+        "s",
+        "m",
+        &mut acc,
+    )
+    .unwrap()
+    .expect("thinking mapped");
+    match mapped {
+        MappedSidecarEvent::Thinking { delta } => assert_eq!(delta, "step1"),
+        other => panic!("unexpected: {other:?}"),
+    }
+    let outcome = acc.into_outcome(false);
+    assert_eq!(outcome.result.thinking, "step1");
+}
+
+#[test]
+fn map_thinking_dedupes_cumulative_resends() {
+    let mut acc = SidecarStreamAccumulator::default();
+    map_sidecar_event(
+        "thinking",
+        &json!({"content": "hello"}),
+        "s",
+        "m",
+        &mut acc,
+    )
+    .unwrap();
+    let second = map_sidecar_event(
+        "thinking",
+        &json!({"content": "hello world"}),
+        "s",
+        "m",
+        &mut acc,
+    )
+    .unwrap()
+    .expect("suffix thinking");
+    match second {
+        MappedSidecarEvent::Thinking { delta } => assert_eq!(delta, " world"),
+        other => panic!("unexpected: {other:?}"),
+    }
+    let duplicate = map_sidecar_event(
+        "thinking",
+        &json!({"content": "hello world"}),
+        "s",
+        "m",
+        &mut acc,
+    )
+    .unwrap();
+    assert!(duplicate.is_none());
+    assert_eq!(acc.thinking_so_far(), "hello world");
+}
+
+#[test]
+fn map_duplicate_tool_start_same_id_is_idempotent() {
+    let mut acc = SidecarStreamAccumulator::default();
+    let first = map_sidecar_event(
+        "tool_start",
+        &json!({"id": "run-1", "name": "ls", "input": {"path": "/"}}),
+        "s",
+        "m",
+        &mut acc,
+    )
+    .unwrap()
+    .expect("first");
+    let second = map_sidecar_event(
+        "tool_start",
+        &json!({"id": "run-1", "name": "ls", "input": {"path": "/"}}),
+        "s",
+        "m",
+        &mut acc,
+    )
+    .unwrap()
+    .expect("second upsert");
+    let id1 = match first {
+        MappedSidecarEvent::ToolCall(p) => p.tool_call_id,
+        other => panic!("{other:?}"),
+    };
+    let id2 = match second {
+        MappedSidecarEvent::ToolCall(p) => p.tool_call_id,
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(id1, id2);
+    let outcome = acc.into_outcome(false);
+    assert_eq!(outcome.tool_calls.len(), 1);
+}
+
+#[test]
+fn map_tool_events_by_run_id_and_persist_records() {
+    let mut acc = SidecarStreamAccumulator::default();
+    let start_a = map_sidecar_event(
+        "tool_start",
+        &json!({"id": "run-a", "name": "search", "input": {"q": "1"}}),
+        "s",
+        "m",
+        &mut acc,
+    )
+    .unwrap()
+    .expect("start a");
+    let start_b = map_sidecar_event(
+        "tool_start",
+        &json!({"id": "run-b", "name": "search", "input": {"q": "2"}}),
+        "s",
+        "m",
+        &mut acc,
+    )
+    .unwrap()
+    .expect("start b");
+    let id_a = match start_a {
+        MappedSidecarEvent::ToolCall(p) => p.tool_call_id,
+        other => panic!("{other:?}"),
+    };
+    let id_b = match start_b {
+        MappedSidecarEvent::ToolCall(p) => p.tool_call_id,
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(id_a, "run-a");
+    assert_eq!(id_b, "run-b");
+
+    map_sidecar_event(
+        "tool_end",
+        &json!({"id": "run-b", "name": "search", "output": "second", "status": "complete"}),
+        "s",
+        "m",
+        &mut acc,
+    )
+    .unwrap();
+    map_sidecar_event(
+        "tool_end",
+        &json!({"id": "run-a", "name": "search", "output": "first", "status": "complete"}),
+        "s",
+        "m",
+        &mut acc,
+    )
+    .unwrap();
+
+    let outcome = acc.into_outcome(false);
+    assert_eq!(outcome.tool_calls.len(), 2);
+    assert_eq!(outcome.tool_calls[0].id, "run-a");
+    assert_eq!(outcome.tool_calls[0].result.as_ref().unwrap()["content"], "first");
+    assert_eq!(outcome.tool_calls[1].id, "run-b");
+    assert_eq!(outcome.tool_calls[1].result.as_ref().unwrap()["content"], "second");
 }
 
 #[test]

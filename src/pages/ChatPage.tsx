@@ -17,55 +17,89 @@ import { useWorkspaceExplorerStore } from "@/stores/workspace-explorer-store";
 import { sessionsIpc } from "@/lib/ipc";
 
 export function ChatPage() {
-  const {
-    activeSession,
-    showWorkspaceSelector,
-    setShowWorkspaceSelector,
-    setActiveSessionData,
-    updateActiveSessionWorkingDir,
-  } = useChatStore();
+  const activeSession = useChatStore((s) => s.activeSession);
+  const showWorkspaceSelector = useChatStore((s) => s.showWorkspaceSelector);
+  const workspaceSelectorIntent = useChatStore((s) => s.workspaceSelectorIntent);
+  const workspaceSelectorTargetSessionId = useChatStore(
+    (s) => s.workspaceSelectorTargetSessionId
+  );
+  const openWorkspaceSelector = useChatStore((s) => s.openWorkspaceSelector);
+  const closeWorkspaceSelector = useChatStore((s) => s.closeWorkspaceSelector);
+  const upsertSession = useChatStore((s) => s.upsertSession);
+  const updateActiveSessionWorkingDir = useChatStore(
+    (s) => s.updateActiveSessionWorkingDir
+  );
   const { open: explorerOpen, setOpen: setExplorerOpen } =
     useWorkspaceExplorerStore();
 
-  const handleWorkspaceSelected = useCallback(
+  const handleNewSessionWorkspace = useCallback(
     async (path: string | null) => {
       try {
         const session = await sessionsIpc.create({
           workingDirectory: path ?? undefined,
         });
-        setActiveSessionData(session);
+        upsertSession(session);
+        closeWorkspaceSelector();
       } catch (err) {
         console.error("Failed to create session:", err);
       }
     },
-    [setActiveSessionData]
+    [upsertSession, closeWorkspaceSelector]
   );
 
   const handleChangeWorkingDir = useCallback(() => {
-    setShowWorkspaceSelector(true);
-  }, [setShowWorkspaceSelector]);
+    if (!activeSession) return;
+    openWorkspaceSelector("change-session", activeSession.id);
+  }, [activeSession, openWorkspaceSelector]);
 
   const handleWorkspaceSwitched = useCallback(
     async (path: string | null) => {
-      if (!activeSession) return;
+      const targetId = workspaceSelectorTargetSessionId;
+      if (!targetId) return;
       try {
         await sessionsIpc.updateWorkingDir({
-          sessionId: activeSession.id,
+          sessionId: targetId,
           workingDirectory: path ?? undefined,
         });
-        updateActiveSessionWorkingDir(path);
+        const updated = await sessionsIpc.get(targetId);
+        if (useChatStore.getState().activeSessionId === targetId) {
+          updateActiveSessionWorkingDir(
+            updated.working_directory,
+            updated.workspace_kind
+          );
+        }
+        closeWorkspaceSelector();
       } catch (err) {
         console.error("Failed to update working directory:", err);
       }
     },
-    [activeSession, updateActiveSessionWorkingDir]
+    [
+      workspaceSelectorTargetSessionId,
+      updateActiveSessionWorkingDir,
+      closeWorkspaceSelector,
+    ]
   );
+
+  const handleSelectorOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) closeWorkspaceSelector();
+    },
+    [closeWorkspaceSelector]
+  );
+
+  const isChangeIntent = workspaceSelectorIntent === "change-session";
+  const selectorOnSelect = isChangeIntent
+    ? handleWorkspaceSwitched
+    : handleNewSessionWorkspace;
+  const selectorInitialPath = isChangeIntent
+    ? activeSession?.working_directory
+    : null;
 
   return (
     <div className="flex h-full min-w-0 flex-col">
       {!activeSession ? (
         <NewChatWelcome
-          onSelectWorkspace={() => setShowWorkspaceSelector(true)}
+          onSelectWorkspace={() => openWorkspaceSelector("new-session")}
         />
       ) : (
         <div className="flex h-full min-w-0 flex-col">
@@ -93,9 +127,9 @@ export function ChatPage() {
       )}
       <WorkspaceSelector
         open={showWorkspaceSelector}
-        onOpenChange={setShowWorkspaceSelector}
-        onSelect={activeSession ? handleWorkspaceSwitched : handleWorkspaceSelected}
-        initialPath={activeSession?.working_directory}
+        onOpenChange={handleSelectorOpenChange}
+        onSelect={selectorOnSelect}
+        initialPath={selectorInitialPath}
       />
     </div>
   );

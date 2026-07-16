@@ -53,15 +53,15 @@ async def health_check(request: Request) -> HealthResponse:
     startup_time: float = getattr(request.app.state, "startup_time", 0.0)
     uptime = time.time() - startup_time if startup_time > 0 else 0.0
 
-    capabilities: list[str] = ["health", "info"]
-    if _langgraph_available() or _deepagents_available() or _agent_module_ready():
-        capabilities.append("agent")
-    if _powermem_available():
-        capabilities.append("memory")
-
     agent_ready = _agent_module_ready() and (
         _deepagents_available() or _langgraph_available()
     )
+    capabilities: list[str] = ["health", "info"]
+    if agent_ready:
+        capabilities.append("agent")
+        capabilities.append("agent_stream")
+    if _powermem_available():
+        capabilities.append("memory")
 
     return HealthResponse(
         status="ok",

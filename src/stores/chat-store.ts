@@ -3,8 +3,11 @@ import type { Message, MessageAttachment, Session, ToolCall } from "@/lib/ipc";
 import { chatIpc, sessionsIpc } from "@/lib/ipc";
 
 const SELECTED_MODEL_KEY = "misakax:selectedModel";
+const THINKING_ENABLED_KEY = "misakax:thinkingEnabled";
 const MESSAGE_INITIAL_LIMIT = 50;
 const MESSAGE_EARLIER_LIMIT = 100;
+
+export type WorkspaceSelectorIntent = "new-session" | "change-session";
 
 export interface PendingOutbound {
   content: string;
@@ -30,12 +33,31 @@ function writeCachedModel(model: string | null) {
   } catch { /* noop */ }
 }
 
+function readThinkingEnabled(): boolean {
+  try {
+    const raw = localStorage.getItem(THINKING_ENABLED_KEY);
+    if (raw === null) return true;
+    return raw === "true";
+  } catch {
+    return true;
+  }
+}
+
+function writeThinkingEnabled(enabled: boolean) {
+  try {
+    localStorage.setItem(THINKING_ENABLED_KEY, String(enabled));
+  } catch { /* noop */ }
+}
+
 interface ChatState {
   sessions: Session[];
   activeSessionId: string | null;
   activeSession: Session | null;
   loading: boolean;
   showWorkspaceSelector: boolean;
+  workspaceSelectorIntent: WorkspaceSelectorIntent | null;
+  workspaceSelectorTargetSessionId: string | null;
+  thinkingEnabled: boolean;
 
   messages: Message[];
   isStreaming: boolean;
@@ -51,12 +73,22 @@ interface ChatState {
 
   setActiveSession: (id: string | null) => void;
   setActiveSessionData: (session: Session | null) => void;
+  upsertSession: (session: Session) => void;
   setPendingOutbound: (pending: PendingOutbound | null) => void;
   consumePendingOutbound: () => PendingOutbound | null;
   setSessions: (sessions: Session[]) => void;
   setLoading: (loading: boolean) => void;
   setShowWorkspaceSelector: (show: boolean) => void;
-  updateActiveSessionWorkingDir: (dir: string | null) => void;
+  openWorkspaceSelector: (
+    intent: WorkspaceSelectorIntent,
+    targetSessionId?: string | null
+  ) => void;
+  closeWorkspaceSelector: () => void;
+  setThinkingEnabled: (enabled: boolean) => void;
+  updateActiveSessionWorkingDir: (
+    dir: string | null,
+    workspaceKind?: string
+  ) => void;
   refreshSessions: () => Promise<void>;
   bumpSessionsReload: () => void;
   requestAutoTitle: (sessionId: string, firstMessage: string) => void;
@@ -86,6 +118,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   activeSession: null,
   loading: false,
   showWorkspaceSelector: false,
+  workspaceSelectorIntent: null,
+  workspaceSelectorTargetSessionId: null,
+  thinkingEnabled: readThinkingEnabled(),
 
   messages: [],
   isStreaming: false,
@@ -114,6 +149,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
     get().refreshSessions();
   },
+  upsertSession: (session) => {
+    set((state) => {
+      const idx = state.sessions.findIndex((s) => s.id === session.id);
+      const sessions =
+        idx >= 0
+          ? state.sessions.map((s, i) => (i === idx ? session : s))
+          : [session, ...state.sessions];
+      const sameId = state.activeSessionId === session.id;
+      return {
+        sessions,
+        activeSession: session,
+        activeSessionId: session.id,
+        ...(sameId
+          ? {}
+          : {
+              messages: [],
+              isStreaming: false,
+              streamingMessageId: null,
+              isThinkingStreaming: false,
+              hasMoreEarlier: false,
+              loadingEarlier: false,
+              scrollToMessageId: null,
+            }),
+      };
+    });
+  },
   setPendingOutbound: (pending) => set({ pendingOutbound: pending }),
   consumePendingOutbound: () => {
     const pending = get().pendingOutbound;
@@ -122,12 +183,54 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   setSessions: (sessions) => set({ sessions }),
   setLoading: (loading) => set({ loading }),
-  setShowWorkspaceSelector: (show) => set({ showWorkspaceSelector: show }),
-  updateActiveSessionWorkingDir: (dir) =>
+  setShowWorkspaceSelector: (show) =>
+    set(
+      show
+        ? { showWorkspaceSelector: true }
+        : {
+            showWorkspaceSelector: false,
+            workspaceSelectorIntent: null,
+            workspaceSelectorTargetSessionId: null,
+          }
+    ),
+  openWorkspaceSelector: (intent, targetSessionId = null) =>
+    set({
+      showWorkspaceSelector: true,
+      workspaceSelectorIntent: intent,
+      workspaceSelectorTargetSessionId: targetSessionId ?? null,
+    }),
+  closeWorkspaceSelector: () =>
+    set({
+      showWorkspaceSelector: false,
+      workspaceSelectorIntent: null,
+      workspaceSelectorTargetSessionId: null,
+    }),
+  setThinkingEnabled: (enabled) => {
+    writeThinkingEnabled(enabled);
+    set({ thinkingEnabled: enabled });
+  },
+  updateActiveSessionWorkingDir: (dir, workspaceKind) =>
     set((state) => ({
       activeSession: state.activeSession
-        ? { ...state.activeSession, working_directory: dir }
+        ? {
+            ...state.activeSession,
+            working_directory: dir,
+            ...(workspaceKind !== undefined
+              ? { workspace_kind: workspaceKind }
+              : {}),
+          }
         : null,
+      sessions: state.sessions.map((s) =>
+        s.id === state.activeSessionId
+          ? {
+              ...s,
+              working_directory: dir,
+              ...(workspaceKind !== undefined
+                ? { workspace_kind: workspaceKind }
+                : {}),
+            }
+          : s
+      ),
     })),
 
   refreshSessions: async () => {
@@ -272,11 +375,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   addToolCall: (messageId, toolCall) =>
     set((state) => ({
-      messages: state.messages.map((m) =>
-        m.id === messageId
-          ? { ...m, tool_calls: [...(m.tool_calls ?? []), toolCall] }
-          : m
-      ),
+      messages: state.messages.map((m) => {
+        if (m.id !== messageId) return m;
+        const existing = m.tool_calls ?? [];
+        const idx = existing.findIndex((tc) => tc.id === toolCall.id);
+        if (idx >= 0) {
+          const next = existing.slice();
+          next[idx] = { ...next[idx], ...toolCall };
+          return { ...m, tool_calls: next };
+        }
+        return { ...m, tool_calls: [...existing, toolCall] };
+      }),
     })),
 
   updateToolCall: (messageId, toolCallId, patch) =>

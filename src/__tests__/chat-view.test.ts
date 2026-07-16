@@ -141,6 +141,7 @@ describe("ChatView store integration", () => {
         system_prompt: null,
         working_directory: null,
         project_name: null,
+        workspace_kind: "default",
         status: "active",
         mode: "agent",
         total_input_tokens: 0,

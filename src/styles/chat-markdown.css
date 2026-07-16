@@ -4,6 +4,26 @@
   line-height: 1.7;
 }
 
+/* Smooth continuous stream growth — no per-character typewriter animation.
+   Content updates are coalesced on animation frames in useStreamListener. */
+.misaka-chat-md--streaming {
+  content-visibility: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .misaka-chat-md--streaming {
+    content-visibility: visible;
+  }
+
+  .misaka-shimmer {
+    animation: none;
+    color: var(--muted-foreground);
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+  }
+}
+
 .search-highlight-flash {
   animation: search-highlight-flash 2s ease-out;
   border-radius: 2px;

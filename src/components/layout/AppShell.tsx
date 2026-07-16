@@ -24,9 +24,7 @@ export function AppShell() {
   const initializeTheme = useThemeStore((s) => s.initialize);
   const cleanupTheme = useThemeStore((s) => s.cleanup);
   const reducedTransparency = useThemeStore((s) => s.reducedTransparency);
-  const setShowWorkspaceSelector = useChatStore(
-    (s) => s.setShowWorkspaceSelector
-  );
+  const openWorkspaceSelector = useChatStore((s) => s.openWorkspaceSelector);
   const [isWindows, setIsWindows] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? LG_BREAKPOINT : window.innerWidth
@@ -59,8 +57,8 @@ export function AppShell() {
   }, []);
 
   const handleNewSession = useCallback(() => {
-    setShowWorkspaceSelector(true);
-  }, [setShowWorkspaceSelector]);
+    openWorkspaceSelector("new-session");
+  }, [openWorkspaceSelector]);
 
   const displayWidth = resolveLeftColumnWidth(sessionListWidth, viewportWidth);
 

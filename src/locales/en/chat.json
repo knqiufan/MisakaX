@@ -37,7 +37,9 @@
     "mcp": "MCP tools",
     "mcpEmpty": "No MCP servers connected",
     "skill": "Skill",
-    "skillComingSoon": "Skill module is under development"
+    "skillComingSoon": "Skill module is under development",
+    "thinkingOn": "Thinking: on (click to turn off)",
+    "thinkingOff": "Thinking: off (click to turn on)"
   },
   "thinkingStreaming": "Thinking…",
   "thinkingDone": "Thought process",

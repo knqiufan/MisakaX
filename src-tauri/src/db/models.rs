@@ -8,6 +8,9 @@ pub struct Session {
     pub system_prompt: Option<String>,
     pub working_directory: Option<String>,
     pub project_name: Option<String>,
+    /// `default` = app-managed ~/.misakax/workspace; `custom` = user-picked path.
+    #[serde(default = "default_workspace_kind")]
+    pub workspace_kind: String,
     pub status: String,
     pub mode: String,
     #[serde(default)]
@@ -20,6 +23,10 @@ pub struct Session {
     pub group_name: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+fn default_workspace_kind() -> String {
+    "custom".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,6 +127,9 @@ pub struct CustomModel {
     pub enabled: bool,
     #[serde(default)]
     pub sort_order: i32,
+    /// Same-provider non-thinking model_id used when thinking is toggled off.
+    #[serde(default)]
+    pub thinking_off_model_id: Option<String>,
     pub created_at: String,
 }
 
@@ -138,10 +148,28 @@ pub struct CreateCustomModel {
     pub enabled: bool,
     #[serde(default)]
     pub sort_order: i32,
+    #[serde(default)]
+    pub thinking_off_model_id: Option<String>,
 }
 
 fn default_custom_model_enabled() -> bool {
     true
+}
+
+impl Default for CreateCustomModel {
+    fn default() -> Self {
+        Self {
+            model_id: String::new(),
+            display_name: String::new(),
+            supports_vision: false,
+            supports_thinking: false,
+            max_tokens: None,
+            context_window: None,
+            enabled: true,
+            sort_order: 0,
+            thinking_off_model_id: None,
+        }
+    }
 }
 
 /// FTS5 全文搜索结果

@@ -90,6 +90,12 @@ pub fn logs_dir() -> Result<PathBuf> {
     Ok(config_dir()?.join("logs"))
 }
 
+/// App-managed default workspace (~/.misakax/workspace).
+/// Isolated from config data; not the process CWD.
+pub fn default_workspace_dir() -> Result<PathBuf> {
+    Ok(config_dir()?.join("workspace"))
+}
+
 /// Get the config file path (~/.misakax/config.yaml)
 pub fn config_file_path() -> Result<PathBuf> {
     Ok(config_dir()?.join("config.yaml"))
@@ -106,6 +112,7 @@ pub fn ensure_directories() -> Result<()> {
         root.join("plugins"),
         root.join("models"),
         root.join("logs"),
+        root.join("workspace"),
     ];
 
     for dir in &dirs {

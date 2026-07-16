@@ -378,7 +378,12 @@ function SkipOption({
       onClick={onSkip}
       className="w-full rounded-md px-2.5 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
     >
-      {t("skipNoDir")}
+      <span className="block font-medium text-foreground/80">
+        {t("useDefaultWorkspace")}
+      </span>
+      <span className="mt-0.5 block text-xs text-muted-foreground">
+        {t("useDefaultWorkspaceDescription")}
+      </span>
     </button>
   );
 }

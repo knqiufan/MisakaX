@@ -56,6 +56,17 @@ pub async fn send_message(
     let user_msg_id = uuid::Uuid::new_v4().to_string();
     let assistant_msg_id = uuid::Uuid::new_v4().to_string();
 
+    let (session, history) = chat::load_session_context(&state, &request.session_id)?;
+    let selected =
+        chat::resolve_model_spec(request.model_override.as_deref(), session.model.as_deref())?;
+    let thinking_enabled = request
+        .llm_config
+        .as_ref()
+        .map(|c| c.thinking_enabled)
+        .unwrap_or(true);
+    let use_sidecar = chat::read_use_sidecar(&state);
+    let turn = chat::resolve_turn_model(&state, &selected, thinking_enabled, use_sidecar)?;
+
     chat::save_user_message(
         &state,
         &user_msg_id,
@@ -63,27 +74,22 @@ pub async fn send_message(
         &request.content,
         request.attachments.as_deref(),
     )?;
-    let (session, history) = chat::load_session_context(&state, &request.session_id)?;
-    let model_spec =
-        chat::resolve_model_spec(request.model_override.as_deref(), session.model.as_deref())?;
-    chat::ensure_model_enabled(&state, &model_spec)?;
     chat::create_assistant_placeholder(
         &state,
         &assistant_msg_id,
         &request.session_id,
-        &model_spec,
+        &turn.effective,
     )?;
 
     let abort_flag = state.stream_registry.register(&request.session_id);
-    let use_sidecar = chat::read_use_sidecar(&state);
-    let turn = if use_sidecar {
+    let turn_result = if use_sidecar {
         chat::send_via_sidecar(
             &app,
             &state,
             &session,
             &history,
             &request.content,
-            &model_spec,
+            &turn,
             request.llm_config.clone(),
             abort_flag,
             &assistant_msg_id,
@@ -97,7 +103,7 @@ pub async fn send_message(
             history,
             request.content.clone(),
             request.attachments.clone(),
-            &model_spec,
+            &turn,
             request.llm_config,
             abort_flag,
             &assistant_msg_id,
@@ -106,7 +112,7 @@ pub async fn send_message(
     };
     state.stream_registry.unregister(&request.session_id);
 
-    let (result, tool_calls_json) = turn?;
+    let (result, tool_calls_json) = turn_result?;
     chat::update_assistant_message(
         &state,
         &assistant_msg_id,
@@ -143,6 +149,7 @@ pub async fn regenerate_message(
     state: State<'_, AppState>,
     session_id: String,
     message_id: String,
+    llm_config: Option<LlmConfig>,
 ) -> Result<SendMessageResult, String> {
     let regen_ctx = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -151,8 +158,13 @@ pub async fn regenerate_message(
     };
 
     let (session, _) = chat::load_session_context(&state, &session_id)?;
-    let model_spec = chat::resolve_model_spec(None, session.model.as_deref())?;
-    chat::ensure_model_enabled(&state, &model_spec)?;
+    let selected = chat::resolve_model_spec(None, session.model.as_deref())?;
+    let thinking_enabled = llm_config
+        .as_ref()
+        .map(|c| c.thinking_enabled)
+        .unwrap_or(true);
+    let use_sidecar = chat::read_use_sidecar(&state);
+    let turn = chat::resolve_turn_model(&state, &selected, thinking_enabled, use_sidecar)?;
 
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -160,20 +172,19 @@ pub async fn regenerate_message(
     }
 
     let assistant_msg_id = uuid::Uuid::new_v4().to_string();
-    chat::create_assistant_placeholder(&state, &assistant_msg_id, &session_id, &model_spec)?;
+    chat::create_assistant_placeholder(&state, &assistant_msg_id, &session_id, &turn.effective)?;
 
     let abort_flag = state.stream_registry.register(&session_id);
     let attachments = chat::parse_attachments_json(regen_ctx.user_attachments.as_deref());
-    let use_sidecar = chat::read_use_sidecar(&state);
-    let turn = if use_sidecar {
+    let turn_result = if use_sidecar {
         chat::send_via_sidecar(
             &app,
             &state,
             &session,
             &regen_ctx.messages_before,
             &regen_ctx.user_content,
-            &model_spec,
-            None,
+            &turn,
+            llm_config.clone(),
             abort_flag,
             &assistant_msg_id,
         )
@@ -186,8 +197,8 @@ pub async fn regenerate_message(
             regen_ctx.messages_before,
             regen_ctx.user_content.clone(),
             attachments,
-            &model_spec,
-            None,
+            &turn,
+            llm_config,
             abort_flag,
             &assistant_msg_id,
         )
@@ -195,7 +206,7 @@ pub async fn regenerate_message(
     };
     state.stream_registry.unregister(&session_id);
 
-    let (result, tool_calls_json) = turn?;
+    let (result, tool_calls_json) = turn_result?;
     chat::update_assistant_message(
         &state,
         &assistant_msg_id,

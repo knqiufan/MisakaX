@@ -11,7 +11,6 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::Connection;
-use serde::Serialize;
 use serde_json::Value;
 use tauri::{AppHandle, Emitter};
 
@@ -22,6 +21,7 @@ use crate::services::llm::{
     StreamToolCallPayload, StreamToolResultPayload, TokenUsageInfo,
 };
 use crate::services::mcp_bridge::McpToolBridge;
+use crate::services::ToolCallRecord;
 
 use super::approval::ensure_tool_allowed;
 use super::manager::McpManager;
@@ -34,21 +34,6 @@ pub const MAX_TOOL_ROUNDS: usize = 5;
 pub struct ParsedToolCall {
     pub name: String,
     pub arguments: Value,
-}
-
-/// 工具调用记录（序列化字段与前端 `ToolCall` 完全对齐，用于持久化 `messages.tool_calls`）
-#[derive(Debug, Clone, Serialize)]
-pub struct ToolCallRecord {
-    pub id: String,
-    pub server_id: String,
-    pub server_name: String,
-    pub tool_name: String,
-    pub arguments: Value,
-    pub result: Option<Value>,
-    pub status: String,
-    pub error: Option<String>,
-    pub started_at: Option<i64>,
-    pub completed_at: Option<i64>,
 }
 
 /// 工具循环的最终产出

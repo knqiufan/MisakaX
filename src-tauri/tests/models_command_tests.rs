@@ -44,6 +44,7 @@ fn test_insert_custom_model() {
         context_window: Some(128000),
         enabled: true,
         sort_order: 0,
+            thinking_off_model_id: None,
     };
 
     CustomModelRepo::insert(&conn, "cm-1", "rc-1", &model).unwrap();
@@ -73,6 +74,7 @@ fn test_insert_custom_model_minimal() {
         context_window: None,
         enabled: true,
         sort_order: 0,
+            thinking_off_model_id: None,
     };
 
     CustomModelRepo::insert(&conn, "cm-1", "rc-1", &model).unwrap();
@@ -98,6 +100,7 @@ fn test_delete_custom_model() {
         context_window: None,
         enabled: true,
         sort_order: 0,
+            thinking_off_model_id: None,
     };
 
     CustomModelRepo::insert(&conn, "cm-del", "rc-1", &model).unwrap();
@@ -129,6 +132,7 @@ fn test_custom_models_unique_constraint() {
         context_window: None,
         enabled: true,
         sort_order: 0,
+            thinking_off_model_id: None,
     };
 
     CustomModelRepo::insert(&conn, "cm-1", "rc-1", &model).unwrap();
@@ -142,6 +146,7 @@ fn test_custom_models_unique_constraint() {
         context_window: None,
         enabled: true,
         sort_order: 0,
+            thinking_off_model_id: None,
     };
 
     let result = CustomModelRepo::insert(&conn, "cm-2", "rc-1", &model2);
@@ -158,16 +163,17 @@ fn test_multiple_custom_models_per_provider() {
 
     for i in 0..5 {
         let model = CreateCustomModel {
-            model_id: format!("model-{}", i),
-            display_name: format!("Model {}", i),
+            model_id: format!("model-{i}"),
+            display_name: format!("Model {i}"),
             supports_vision: false,
             supports_thinking: false,
             max_tokens: None,
             context_window: None,
             enabled: true,
             sort_order: i,
+            thinking_off_model_id: None,
         };
-        CustomModelRepo::insert(&conn, &format!("cm-{}", i), "rc-1", &model).unwrap();
+        CustomModelRepo::insert(&conn, &format!("cm-{i}"), "rc-1", &model).unwrap();
     }
 
     let models = ModelRegistry::available_models(&conn, "rc-1", "openai").unwrap();
@@ -189,6 +195,7 @@ fn test_available_models_only_returns_enabled_custom_models() {
         context_window: None,
         enabled: true,
         sort_order: 2,
+            thinking_off_model_id: None,
     };
     let disabled = CreateCustomModel {
         model_id: "disabled-model".to_string(),
@@ -199,6 +206,7 @@ fn test_available_models_only_returns_enabled_custom_models() {
         context_window: None,
         enabled: false,
         sort_order: 1,
+            thinking_off_model_id: None,
     };
 
     CustomModelRepo::insert(&conn, "cm-enabled", "rc-1", &enabled).unwrap();
@@ -225,7 +233,8 @@ fn test_list_and_replace_custom_models() {
             context_window: None,
             enabled: true,
             sort_order: 2,
-        },
+                thinking_off_model_id: None,
+    },
         CreateCustomModel {
             model_id: "model-a".to_string(),
             display_name: "Model A".to_string(),
@@ -235,7 +244,8 @@ fn test_list_and_replace_custom_models() {
             context_window: Some(8192),
             enabled: false,
             sort_order: 1,
-        },
+                thinking_off_model_id: None,
+    },
     ];
 
     CustomModelRepo::replace_all(&mut conn, "rc-1", &models).unwrap();

@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口混合壳结构、会话侧栏、对话页顶栏、设置页与工作区布局语义。 |
 | **受众** | 负责 `AppShell`、`UnifiedTopBar`、`SessionPanel`、`SettingsSidebar`、`ChatPage`、`WorkspaceBar`、`SettingsPage` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-07-14（v16） |
+| **最后审阅** | 2026-07-16（v18） |
 
 ## 相关文档
 
@@ -92,6 +92,23 @@ Sidecar 状态**不**放在底栏（见 §1 / 关于页）。
 
 - `text-[13px] font-semibold text-sidebar-foreground/55`；可折叠分组 caret 12px。
 
+### 2.5 工作目录优先分组（新增）
+
+- **一级键**必须是规范化后的 `working_directory`（完整路径），**禁止**仅按 `project_name` 合并——同名不同路径的项目不得混在一组。
+- 分组头显示项目名 / 默认工作区本地化名；完整路径放 Tooltip；旁注 session 数量。
+- 手工 `group_name` 作为该工作区内的**二级**可折叠分组；无手工组的会话直接列在该工作区下。
+- **置顶**只影响同工作区内排序，不得把 session 抽离出其工作目录分组。
+- 搜索结果与归档视图使用同一分组规则。
+- collapse key 须带工作区命名空间（如 `workspaceKey::groupName`），避免相同手工组名跨目录联动折叠。
+
+### 2.6 新建 / 修改工作区选择器 intent（新增）
+
+- `chat-store` 使用显式 `workspaceSelectorIntent`：`new-session` | `change-session`（外加目标 session id）。
+- **禁止**用「当前是否已有 activeSession」推断选择器意图——否则在已有会话时点「新建」会误改当前目录。
+- `new-session`：确认后创建新 session 并 `upsertSession` 激活；创建失败时当前会话不变。选择器打开期间不提前清空当前会话。
+- `change-session`：只更新捕获的目标 session id；打开期间切换会话不得把目录写到另一个 session。
+- 「跳过 / 使用默认工作区」绑定应用管理目录 `~/.misakax/workspace`，`workspace_kind=default`；显式选目录为 `custom`。
+
 ---
 
 ## 3. 对话页顶栏 — 工作目录（Workspace bar）
@@ -102,6 +119,7 @@ Sidecar 状态**不**放在底栏（见 §1 / 关于页）。
 
 - **未设置目录**：标题（`text-sm font-medium`）+ 短说明（`text-xs muted`）+ 主 CTA「选择目录」。
 - **已设置目录**：文件夹显示名作标题；完整路径 `font-mono text-[10px] text-muted-foreground/60` 单行截断 + Tooltip。
+- **`workspace_kind === "default"`**：标题使用本地化「默认工作区」名称，Tooltip / 副标题仍展示受控路径 `~/.misakax/workspace`（平台实际 home）。
 
 ### 3.2 布局与令牌
 
@@ -199,14 +217,24 @@ Provider 目录网格仅 `md:grid-cols-2`。Appearance 主题分段：`rounded-m
 
 ### 6.4 思考
 
-- 流式：自动展开 + Shimmer 文案
+- 流式：自动展开 + Shimmer 文案（用户中途手动折叠则尊重）
 - 结束：1s 后自动折叠一次；显示「Thought for N seconds」
-- 正文：走 `MessageResponse`（可 Markdown）
+- 历史回放：默认收起
+- 正文：走 `MessageResponse`（可 Markdown）；仅展示供应商真实 reasoning，不伪造
+- 累积型 reasoning 字段须做后缀差分，避免同一段思考重复拼接
 
 ### 6.5 工具
 
 - 主路径：`ToolActionsGroup` — 左色线 + 紧凑行 + 状态绿/红/转圈
-- Tool Logs 复用同一组件；MCP 审批仍走 `ToolApprovalDialog`
+- **运行中自动展开；全部完成后约 1s 默认收起**；历史默认收起；用户手动切换后不再自动覆盖
+- 实时与历史以相同 `tool_call_id` 集合为准（前端 upsert + 后端幂等登记）
+- Tool Logs 复用同一组件（可 `defaultOpen`）；MCP 审批仍走 `ToolApprovalDialog`
+
+### 6.5.1 流式正文
+
+- 禁止 Streamdown 逐字 `isAnimating` 打字机效果
+- Token 按动画帧合并提交；内容连续增长，完成后用权威全文校正
+- CSS 类：`misaka-chat-md--streaming`；遵守 `prefers-reduced-motion`
 
 ### 6.6 历史
 

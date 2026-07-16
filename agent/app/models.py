@@ -63,9 +63,12 @@ class ChatConfig(BaseModel):
     max_tokens: int | None = None
     stream: bool = False
     provider: str | None = None
+    vendor: str | None = None
     api_compat: str | None = None
     base_url: str | None = None
     api_key: str | None = None
+    thinking_enabled: bool | None = None
+    thinking_mode: str | None = None
 
     model_config = {"frozen": False, "extra": "ignore"}
 

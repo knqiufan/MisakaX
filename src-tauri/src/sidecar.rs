@@ -51,6 +51,14 @@ pub fn is_current_watchdog_generation(observed: u64, current: u64) -> bool {
     observed == current
 }
 
+/// Use the packaged binary only for release builds.
+///
+/// A stale `agent/dist/misaka-agent` must not shadow Python source changes
+/// while `tauri dev` is running.
+pub fn should_use_packaged_sidecar() -> bool {
+    !cfg!(debug_assertions)
+}
+
 // --------------------------------------------------------------------------- //
 //  Agent directory resolution
 // --------------------------------------------------------------------------- //
@@ -340,9 +348,7 @@ impl SidecarManager {
         self.set_status(SidecarStatus::Starting, None, app);
 
         if Self::is_healthy(self.port).await {
-            tracing::info!("Python Sidecar already running on port {}", self.port);
-            self.set_status(SidecarStatus::Ready, None, app);
-            self.spawn_watchdog_once(app.clone());
+            self.handle_existing_sidecar(app).await;
             return;
         }
 
@@ -431,16 +437,69 @@ impl SidecarManager {
         }
     }
 
+    async fn handle_existing_sidecar(self: &Arc<Self>, app: &AppHandle) {
+        if !should_use_packaged_sidecar() {
+            let msg = format!(
+                "A Sidecar already listens on port {}. Stop it before running tauri dev so the \
+                 current Python source is used.",
+                self.port
+            );
+            tracing::error!("{}", msg);
+            self.set_status(SidecarStatus::Error, Some(msg), app);
+            return;
+        }
+
+        if Self::supports_agent_stream(self.port).await {
+            tracing::info!(
+                "Compatible Python Sidecar already running on port {}",
+                self.port
+            );
+            self.set_status(SidecarStatus::Ready, None, app);
+            self.spawn_watchdog_once(app.clone());
+            return;
+        }
+
+        let msg = format!(
+            "The Sidecar on port {} does not support agent streaming. Restart it with the \
+             current MisakaX version.",
+            self.port
+        );
+        tracing::error!("{}", msg);
+        self.set_status(SidecarStatus::Error, Some(msg), app);
+    }
+
+    async fn supports_agent_stream(port: u16) -> bool {
+        let url = health_check_url(port);
+        let client = reqwest::Client::builder()
+            .timeout(HEALTH_CHECK_TIMEOUT)
+            .build();
+        let Ok(client) = client else {
+            return false;
+        };
+        let response = client.get(url).send().await;
+        let Ok(response) = response else {
+            return false;
+        };
+        let body = response.json::<serde_json::Value>().await;
+        body.ok()
+            .and_then(|data| data.get("capabilities").cloned())
+            .and_then(|caps| caps.as_array().cloned())
+            .is_some_and(|caps| caps.iter().any(|item| item == "agent_stream"))
+    }
+
     /// Spawn the sidecar process.
     ///
     /// Prefers a packaged Nuitka binary (`misaka-agent`) when present, passing
     /// the port via `MISAKA_PORT` since `run.py` has no CLI flags. Falls back to
     /// `python -m uvicorn` in dev when only Python sources exist.
     fn spawn_child(&self) -> std::io::Result<Child> {
-        match resolve_sidecar_executable(&self.agent_dir) {
-            Some(binary) => self.spawn_packaged_binary(&binary),
-            None => self.spawn_python_uvicorn(),
+        if should_use_packaged_sidecar() {
+            return match resolve_sidecar_executable(&self.agent_dir) {
+                Some(binary) => self.spawn_packaged_binary(&binary),
+                None => self.spawn_python_uvicorn(),
+            };
         }
+        self.spawn_python_uvicorn()
     }
 
     fn spawn_packaged_binary(&self, binary: &Path) -> std::io::Result<Child> {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   CheckCircle2,
@@ -17,18 +17,62 @@ import {
 import type { ToolCall } from "@/lib/ipc";
 import { CodeBlock } from "./CodeBlock";
 
+const AUTO_CLOSE_DELAY_MS = 1000;
+
 interface ToolActionsGroupProps {
   toolCalls: ToolCall[];
+  /** Force open (e.g. Tool Logs drawer). Otherwise auto: open while running, close when done. */
   defaultOpen?: boolean;
 }
 
 /** Compact left-rail tool list (docs/ui/06 §7.2). */
 export function ToolActionsGroup({
   toolCalls,
-  defaultOpen = true,
+  defaultOpen,
 }: ToolActionsGroupProps) {
   const { t } = useTranslation("chat");
-  const [open, setOpen] = useState(defaultOpen);
+  const hasRunning = useMemo(
+    () =>
+      toolCalls.some(
+        (tc) => tc.status === "running" || tc.status === "pending"
+      ),
+    [toolCalls]
+  );
+
+  const [open, setOpen] = useState(
+    defaultOpen !== undefined ? defaultOpen : hasRunning
+  );
+  const userToggledRef = useRef(false);
+  const autoClosedRef = useRef(false);
+
+  useEffect(() => {
+    if (defaultOpen !== undefined) {
+      setOpen(defaultOpen);
+      return;
+    }
+    if (userToggledRef.current) return;
+
+    if (hasRunning) {
+      autoClosedRef.current = false;
+      setOpen(true);
+      return;
+    }
+
+    if (autoClosedRef.current || toolCalls.length === 0) return;
+
+    // History / already-complete groups mount collapsed — no delayed close needed.
+    if (!open) {
+      autoClosedRef.current = true;
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setOpen(false);
+      autoClosedRef.current = true;
+    }, AUTO_CLOSE_DELAY_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [hasRunning, defaultOpen, toolCalls.length, open]);
 
   const summary = useMemo(() => {
     const running = toolCalls.filter(
@@ -47,10 +91,14 @@ export function ToolActionsGroup({
   if (toolCalls.length === 0) return null;
 
   return (
-    <div
-      className="mb-2 ml-1.5 max-w-[min(100%,48rem)] border-l-2 border-border/50 pl-2"
-    >
-      <Collapsible open={open} onOpenChange={setOpen}>
+    <div className="mb-2 ml-1.5 max-w-[min(100%,48rem)] border-l-2 border-border/50 pl-2">
+      <Collapsible
+        open={open}
+        onOpenChange={(next) => {
+          userToggledRef.current = true;
+          setOpen(next);
+        }}
+      >
         <CollapsibleTrigger
           className={cn(
             "flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs",
@@ -173,7 +221,9 @@ function StatusIcon({ status }: { status: ToolCall["status"] }) {
         />
       );
     case "running":
-      return <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />;
+      return (
+        <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+      );
     case "complete":
       return <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />;
     case "error":

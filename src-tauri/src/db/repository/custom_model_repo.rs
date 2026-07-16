@@ -1,5 +1,6 @@
 use anyhow::Result;
 use rusqlite::Connection;
+use std::collections::{HashMap, HashSet};
 
 use crate::db::models::{CreateCustomModel, CustomModel};
 
@@ -10,7 +11,7 @@ impl CustomModelRepo {
         let mut stmt = conn.prepare(
             "SELECT id, router_config_id, model_id, display_name, supports_vision,
                     supports_thinking, max_tokens, context_window, enabled, sort_order,
-                    created_at
+                    thinking_off_model_id, created_at
              FROM custom_models
              WHERE router_config_id = ?1
              ORDER BY sort_order ASC, created_at ASC",
@@ -21,6 +22,24 @@ impl CustomModelRepo {
             .collect::<std::result::Result<Vec<_>, _>>()?;
 
         Ok(models)
+    }
+
+    /// Find an enabled model by provider model_id within a router config.
+    pub fn find_enabled(
+        conn: &Connection,
+        router_config_id: &str,
+        model_id: &str,
+    ) -> Result<Option<CustomModel>> {
+        let mut stmt = conn.prepare(
+            "SELECT id, router_config_id, model_id, display_name, supports_vision,
+                    supports_thinking, max_tokens, context_window, enabled, sort_order,
+                    thinking_off_model_id, created_at
+             FROM custom_models
+             WHERE router_config_id = ?1 AND model_id = ?2 AND enabled = 1
+             LIMIT 1",
+        )?;
+        let mut rows = stmt.query_map(rusqlite::params![router_config_id, model_id], map_custom_model)?;
+        Ok(rows.next().transpose()?)
     }
 
     /// Whether a given model is enabled for a router config.
@@ -44,8 +63,9 @@ impl CustomModelRepo {
     ) -> Result<()> {
         conn.execute(
             "INSERT INTO custom_models (id, router_config_id, model_id, display_name,
-             supports_vision, supports_thinking, max_tokens, context_window, enabled, sort_order)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+             supports_vision, supports_thinking, max_tokens, context_window, enabled,
+             sort_order, thinking_off_model_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             rusqlite::params![
                 id,
                 router_config_id,
@@ -57,6 +77,7 @@ impl CustomModelRepo {
                 model.context_window,
                 model.enabled as i32,
                 model.sort_order,
+                model.thinking_off_model_id,
             ],
         )?;
         Ok(())
@@ -67,6 +88,8 @@ impl CustomModelRepo {
         router_config_id: &str,
         models: &[CreateCustomModel],
     ) -> Result<()> {
+        validate_thinking_off_mappings(models)?;
+
         let tx = conn.transaction()?;
         tx.execute(
             "DELETE FROM custom_models WHERE router_config_id = ?1",
@@ -92,6 +115,62 @@ impl CustomModelRepo {
     }
 }
 
+/// Validate thinking_off_model_id references against the incoming list before
+/// replace_all deletes existing rows. Failures leave the prior config intact.
+pub fn validate_thinking_off_mappings(models: &[CreateCustomModel]) -> Result<()> {
+    let by_id: HashMap<&str, &CreateCustomModel> = models
+        .iter()
+        .map(|m| (m.model_id.as_str(), m))
+        .collect();
+
+    if by_id.len() != models.len() {
+        anyhow::bail!("Duplicate model_id in custom model list");
+    }
+
+    let mut seen_targets = HashSet::new();
+    for model in models {
+        let Some(ref target_id) = model.thinking_off_model_id else {
+            continue;
+        };
+        if target_id.is_empty() {
+            anyhow::bail!(
+                "thinking_off_model_id for '{}' must not be empty",
+                model.model_id
+            );
+        }
+        if target_id == &model.model_id {
+            anyhow::bail!(
+                "thinking_off_model_id for '{}' cannot reference itself",
+                model.model_id
+            );
+        }
+        let Some(target) = by_id.get(target_id.as_str()) else {
+            anyhow::bail!(
+                "thinking_off_model_id '{}' for '{}' is not in the same provider list",
+                target_id,
+                model.model_id
+            );
+        };
+        if !target.enabled {
+            anyhow::bail!(
+                "thinking_off_model_id '{}' for '{}' must be enabled",
+                target_id,
+                model.model_id
+            );
+        }
+        if target.supports_thinking {
+            anyhow::bail!(
+                "thinking_off_model_id '{}' for '{}' must be a non-thinking model",
+                target_id,
+                model.model_id
+            );
+        }
+        seen_targets.insert(target_id.as_str());
+    }
+    let _ = seen_targets;
+    Ok(())
+}
+
 fn map_custom_model(row: &rusqlite::Row) -> rusqlite::Result<CustomModel> {
     Ok(CustomModel {
         id: row.get(0)?,
@@ -104,6 +183,7 @@ fn map_custom_model(row: &rusqlite::Row) -> rusqlite::Result<CustomModel> {
         context_window: row.get(7)?,
         enabled: row.get::<_, i32>(8)? != 0,
         sort_order: row.get(9)?,
-        created_at: row.get(10)?,
+        thinking_off_model_id: row.get(10)?,
+        created_at: row.get(11)?,
     })
 }

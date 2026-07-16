@@ -19,6 +19,27 @@ SYSTEM_PROMPT = """You are MisakaX, a desktop AI agent assistant.
 - Prefer safe operations; treat destructive actions carefully.
 """
 
+
+def build_system_prompt(working_dir: str | None = None) -> str:
+    """Assemble the system prompt, including working-directory path rules."""
+    if not working_dir:
+        return SYSTEM_PROMPT
+
+    workspace_rules = f"""
+
+## Working directory
+- The bound project directory is: `{working_dir}`
+- Filesystem tools (`ls`, `read_file`, `write_file`, `edit_file`, `glob`, `grep`)
+  treat `/` as this directory. Prefer virtual paths like `/`, `/src`, `/README.md`.
+- Shell `execute` also starts with this directory as its cwd.
+- Do NOT invent a `/workspace` prefix and do NOT concatenate `/workspace` with
+  Windows absolute paths (e.g. `/workspaceD:\\...` is wrong).
+- Prefer relative or virtual paths over host absolute paths unless the user
+  explicitly asks for a path outside the project.
+"""
+    return SYSTEM_PROMPT + workspace_rules
+
+
 RESEARCHER_PROMPT = """You are a research specialist for MisakaX.
 
 ## Focus

@@ -31,6 +31,7 @@ export type {
   TokenUsage,
   MessageAttachment,
   ImageAttachment,
+  LlmConfigPayload,
   SendMessageRequest,
   SendMessageResult,
   StreamTokenPayload,

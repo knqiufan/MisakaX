@@ -78,7 +78,10 @@
       "test": "测试模型",
       "testFailed": "模型测试失败",
       "vision": "视觉",
-      "thinking": "思考"
+      "thinking": "思考",
+      "thinkingOffModel": "关闭思考时使用的模型",
+      "thinkingOffNone": "不映射（保持当前模型）",
+      "thinkingOffEmpty": "没有可用的非思考模型可作为回退目标。"
     },
     "advanced": {
       "title": "高级配置",

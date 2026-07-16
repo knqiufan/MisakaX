@@ -65,7 +65,22 @@ pub(crate) async fn fetch_models(
         .json::<serde_json::Value>()
         .await
         .map_err(|e| e.to_string())?;
-    Ok((parse_models_response(api, &body), None))
+    let models = enrich_models_with_thinking(vendor, parse_models_response(api, &body));
+    Ok((models, None))
+}
+
+fn enrich_models_with_thinking(vendor: &str, models: Vec<ModelInfo>) -> Vec<ModelInfo> {
+    use crate::services::thinking_capabilities::lookup_thinking_capability;
+    models
+        .into_iter()
+        .map(|mut m| {
+            let cap = lookup_thinking_capability(vendor, &m.model_id);
+            if cap.supports_thinking {
+                m.supports_thinking = true;
+            }
+            m
+        })
+        .collect()
 }
 
 /// Probe a single model endpoint; returns a human-readable status message.

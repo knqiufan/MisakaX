@@ -4,8 +4,17 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { CreateCustomModel } from "@/lib/ipc";
 import { manualModelToCreate } from "./model-utils";
+
+const CLEAR_THINKING_OFF = "__none__";
 
 interface ProviderModelSectionProps {
   fetching: boolean;
@@ -35,6 +44,16 @@ export function ProviderModelSection(props: ProviderModelSectionProps) {
   function removeModel(modelId: string) {
     props.onModelsChange(
       props.models.filter((model) => model.model_id !== modelId),
+    );
+  }
+
+  function setThinkingOffModel(modelId: string, thinkingOffId: string | null) {
+    props.onModelsChange(
+      props.models.map((model) =>
+        model.model_id === modelId
+          ? { ...model, thinking_off_model_id: thinkingOffId }
+          : model,
+      ),
     );
   }
 
@@ -85,13 +104,20 @@ export function ProviderModelSection(props: ProviderModelSectionProps) {
             <ModelRow
               key={model.model_id}
               model={model}
+              allModels={props.models}
               testing={props.testingModelId === model.model_id}
               thinkingLabel={t("providers.models.thinking")}
+              thinkingOffLabel={t("providers.models.thinkingOffModel")}
+              thinkingOffNoneLabel={t("providers.models.thinkingOffNone")}
+              thinkingOffEmptyHint={t("providers.models.thinkingOffEmpty")}
               removeLabel={t("providers.models.remove", "Remove model")}
               testLabel={t("providers.models.test", "Test model")}
               visionLabel={t("providers.models.vision")}
               onRemove={() => removeModel(model.model_id)}
               onTest={() => props.onTestModel(model.model_id)}
+              onThinkingOffChange={(id) =>
+                setThinkingOffModel(model.model_id, id)
+              }
             />
           ))}
         </div>
@@ -100,52 +126,115 @@ export function ProviderModelSection(props: ProviderModelSectionProps) {
   );
 }
 
+function nonThinkingTargets(
+  models: CreateCustomModel[],
+  excludeModelId: string,
+): CreateCustomModel[] {
+  return models.filter(
+    (m) =>
+      m.model_id !== excludeModelId &&
+      !m.supports_thinking &&
+      m.enabled !== false,
+  );
+}
+
 function ModelRow({
   model,
+  allModels,
   removeLabel,
   testLabel,
   thinkingLabel,
+  thinkingOffLabel,
+  thinkingOffNoneLabel,
+  thinkingOffEmptyHint,
   testing,
   visionLabel,
   onRemove,
   onTest,
+  onThinkingOffChange,
 }: {
   model: CreateCustomModel;
+  allModels: CreateCustomModel[];
   removeLabel: string;
   testLabel: string;
   thinkingLabel: string;
+  thinkingOffLabel: string;
+  thinkingOffNoneLabel: string;
+  thinkingOffEmptyHint: string;
   testing: boolean;
   visionLabel: string;
   onRemove: () => void;
   onTest: () => void;
+  onThinkingOffChange: (id: string | null) => void;
 }) {
+  const targets = nonThinkingTargets(allModels, model.model_id);
+  const selectedOff = model.thinking_off_model_id ?? CLEAR_THINKING_OFF;
+
   return (
-    <div className="flex items-center gap-2 rounded-[var(--radius-ui-md)] border border-[color:var(--border-subtle)] bg-background/35 px-3 py-2">
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{model.display_name}</div>
-        <div className="truncate font-mono text-xs text-muted-foreground">
-          {model.model_id}
+    <div className="space-y-2 rounded-[var(--radius-ui-md)] border border-[color:var(--border-subtle)] bg-background/35 px-3 py-2">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium">{model.display_name}</div>
+          <div className="truncate font-mono text-xs text-muted-foreground">
+            {model.model_id}
+          </div>
         </div>
+        {model.supports_vision && <Badge variant="secondary">{visionLabel}</Badge>}
+        {model.supports_thinking && (
+          <Badge variant="secondary">{thinkingLabel}</Badge>
+        )}
+        <Button
+          aria-label={testLabel}
+          disabled={testing}
+          onClick={onTest}
+          size="icon"
+          variant="ghost"
+        >
+          <Wifi className={testing ? "size-4 animate-pulse" : "size-4"} />
+        </Button>
+        <Button
+          aria-label={removeLabel}
+          onClick={onRemove}
+          size="icon"
+          variant="ghost"
+        >
+          <Trash2 className="size-4 text-destructive" />
+        </Button>
       </div>
-      {model.supports_vision && <Badge variant="secondary">{visionLabel}</Badge>}
-      {model.supports_thinking && <Badge variant="secondary">{thinkingLabel}</Badge>}
-      <Button
-        aria-label={testLabel}
-        disabled={testing}
-        onClick={onTest}
-        size="icon"
-        variant="ghost"
-      >
-        <Wifi className={testing ? "size-4 animate-pulse" : "size-4"} />
-      </Button>
-      <Button
-        aria-label={removeLabel}
-        onClick={onRemove}
-        size="icon"
-        variant="ghost"
-      >
-        <Trash2 className="size-4 text-destructive" />
-      </Button>
+
+      {model.supports_thinking ? (
+        <div className="space-y-1 pl-0.5">
+          <p className="text-[11px] text-muted-foreground">{thinkingOffLabel}</p>
+          {targets.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground/80">
+              {thinkingOffEmptyHint}
+            </p>
+          ) : (
+            <Select
+              value={selectedOff}
+              onValueChange={(value) => {
+                onThinkingOffChange(
+                  value === CLEAR_THINKING_OFF ? null : value,
+                );
+              }}
+            >
+              <SelectTrigger size="sm" className="w-full max-w-full">
+                <SelectValue placeholder={thinkingOffNoneLabel} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={CLEAR_THINKING_OFF}>
+                  {thinkingOffNoneLabel}
+                </SelectItem>
+                {targets.map((target) => (
+                  <SelectItem key={target.model_id} value={target.model_id}>
+                    {target.display_name || target.model_id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

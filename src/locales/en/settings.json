@@ -78,7 +78,10 @@
       "test": "Test model",
       "testFailed": "Model test failed",
       "vision": "Vision",
-      "thinking": "Thinking"
+      "thinking": "Thinking",
+      "thinkingOffModel": "Fallback model when thinking is off",
+      "thinkingOffNone": "No mapping (keep current model)",
+      "thinkingOffEmpty": "No non-thinking models available as a fallback target."
     },
     "advanced": {
       "title": "Advanced configuration",

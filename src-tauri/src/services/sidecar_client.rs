@@ -29,6 +29,9 @@ pub struct AgentChatConfig {
     /// Router provider id (`openai` / `anthropic` / custom name).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provider: Option<String>,
+    /// Product vendor id (e.g. deepseek) used for thinking param catalogs.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vendor: Option<String>,
     /// Compatibility mode for custom providers (`openai` / `anthropic`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub api_compat: Option<String>,
@@ -37,6 +40,11 @@ pub struct AgentChatConfig {
     /// Decrypted key for this turn (localhost Sidecar only; never logged).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking_enabled: Option<bool>,
+    /// Resolved thinking mode: `enabled` | `disabled` when native control applies.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking_mode: Option<String>,
 }
 
 fn default_temperature() -> f64 {
@@ -51,9 +59,12 @@ impl Default for AgentChatConfig {
             max_tokens: None,
             stream: false,
             provider: None,
+            vendor: None,
             api_compat: None,
             base_url: None,
             api_key: None,
+            thinking_enabled: None,
+            thinking_mode: None,
         }
     }
 }

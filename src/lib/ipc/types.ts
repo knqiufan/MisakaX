@@ -75,6 +75,8 @@ export interface CreateCustomModel {
   context_window?: number | null;
   enabled?: boolean;
   sort_order?: number;
+  /** Same-provider non-thinking model_id used when thinking is toggled off. */
+  thinking_off_model_id?: string | null;
 }
 
 export interface CreateRouterConfigWithModels {
@@ -106,6 +108,7 @@ export interface CustomModel {
   context_window: number | null;
   enabled: boolean;
   sort_order: number;
+  thinking_off_model_id?: string | null;
   created_at: string;
 }
 
@@ -158,6 +161,8 @@ export interface Session {
   system_prompt: string | null;
   working_directory: string | null;
   project_name: string | null;
+  /** `default` = app-managed ~/.misakax/workspace; `custom` = user-picked path. */
+  workspace_kind: "default" | "custom" | string;
   status: string;
   mode: string;
   total_input_tokens: number;
@@ -211,13 +216,19 @@ export type MessageAttachment =
 
 export type ImageAttachment = MessageAttachment;
 
+export interface LlmConfigPayload {
+  thinking_enabled?: boolean;
+  temperature?: number;
+  max_tokens?: number;
+}
+
 export interface SendMessageRequest {
   session_id: string;
   content: string;
   attachments?: MessageAttachment[];
   images?: MessageAttachment[];
   model_override?: string;
-  llm_config?: Record<string, unknown>;
+  llm_config?: LlmConfigPayload;
 }
 
 export interface SendMessageResult {

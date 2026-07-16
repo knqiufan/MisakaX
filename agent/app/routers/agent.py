@@ -15,6 +15,12 @@ from app.config import get_settings
 from app.dependencies import get_checkpointer, get_store
 from app.llm import resolve_chat_model
 from app.models import ChatMessage, ChatRequest, ChatResponse, MessageRole, TokenUsage, ToolCall
+from app.stream_content import (
+    expand_tool_payload,
+    extract_stream_deltas,
+    should_emit_langgraph_event,
+    thinking_delta_from_cumulative,
+)
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 logger = logging.getLogger(__name__)
@@ -39,7 +45,7 @@ async def agent_chat(request: ChatRequest) -> ChatResponse:
 
 @router.post("/stream")
 async def agent_stream(request: ChatRequest):
-    """Streaming agent chat — SSE token/tool/done/error events."""
+    """Streaming agent chat — SSE token/thinking/tool/done/error events."""
     return StreamingResponse(
         _stream_agent(request),
         media_type="text/event-stream",
@@ -54,13 +60,25 @@ async def agent_stream(request: ChatRequest):
 async def _stream_agent(request: ChatRequest) -> AsyncGenerator[str, None]:
     try:
         agent = _build_request_agent(request)
+        thinking_acc = ""
+        emitted_tool_ids: set[str] = set()
         async for event in agent.astream_events(
             {"messages": _request_to_agent_messages(request)},
             config=_thread_config(request),
             version="v2",
         ):
-            sse_data = _format_sse_event(event)
-            if sse_data:
+            if not should_emit_langgraph_event(event):
+                continue
+            for sse_data in _format_sse_events(
+                event,
+                thinking_acc=thinking_acc,
+                emitted_tool_ids=emitted_tool_ids,
+            ):
+                # Keep cumulative thinking for suffix-delta extraction.
+                if sse_data.startswith("event: thinking\n"):
+                    data_line = sse_data.split("\n", 2)[1]
+                    payload = json.loads(data_line.removeprefix("data: "))
+                    thinking_acc += str(payload.get("content") or "")
                 yield sse_data
         yield _sse("done", {"finished": True})
     except Exception as exc:
@@ -85,48 +103,87 @@ def _request_to_agent_messages(request: ChatRequest) -> list[dict[str, str]]:
 
 
 def _thread_config(request: ChatRequest) -> dict[str, Any]:
+    settings = get_settings()
     config: dict[str, Any] = {
         "configurable": {"thread_id": request.session_id or "default"},
+        "recursion_limit": settings.agent_recursion_limit,
     }
     if request.config.model:
         config["configurable"]["model"] = request.config.model
     return config
 
 
-def _format_sse_event(event: dict[str, Any]) -> str | None:
-    """Convert a LangGraph/deepagents event into an SSE payload."""
+def _format_sse_events(
+    event: dict[str, Any],
+    *,
+    thinking_acc: str = "",
+    emitted_tool_ids: set[str] | None = None,
+) -> list[str]:
+    """Convert a LangGraph event into zero or more SSE payloads."""
     kind = event.get("event")
+    run_id = event.get("run_id") or event.get("id")
+    tool_ids = emitted_tool_ids if emitted_tool_ids is not None else set()
 
     if kind == "on_chat_model_stream":
         chunk = event.get("data", {}).get("chunk")
-        content = getattr(chunk, "content", None) if chunk is not None else None
-        if content:
-            return _sse("token", {"content": content})
-        return None
+        token, thinking = extract_stream_deltas(chunk)
+        thinking = thinking_delta_from_cumulative(thinking_acc, thinking)
+        frames: list[str] = []
+        if thinking:
+            frames.append(_sse("thinking", {"content": thinking}))
+        if token:
+            frames.append(_sse("token", {"content": token}))
+        return frames
 
     if kind == "on_tool_start":
-        return _sse(
-            "tool_start",
-            {
-                "name": event.get("name", ""),
-                "input": event.get("data", {}).get("input", {}),
-            },
+        payload = expand_tool_payload(
+            name=str(event.get("name") or ""),
+            raw_input=event.get("data", {}).get("input", {}),
+            run_id=str(run_id) if run_id else None,
         )
+        tool_id = str(payload.get("id") or "")
+        if tool_id and tool_id in tool_ids:
+            return []
+        if tool_id:
+            tool_ids.add(tool_id)
+        return [_sse("tool_start", payload)]
 
     if kind == "on_tool_end":
-        output = event.get("data", {}).get("output", "")
-        return _sse(
-            "tool_end",
-            {
-                "name": event.get("name", ""),
-                "output": str(output)[:2000],
-            },
-        )
+        return [_format_tool_end(event, run_id, error=None)]
 
-    if kind == "on_chat_model_start":
-        return _sse("thinking_start", {})
+    if kind == "on_tool_error":
+        err = event.get("data", {}).get("error") or event.get("data", {}).get("message")
+        return [_format_tool_end(event, run_id, error=str(err or "tool error"))]
 
-    return None
+    return []
+
+
+def _format_tool_end(event: dict[str, Any], run_id: Any, error: str | None) -> str:
+    name = str(event.get("name") or "")
+    output = event.get("data", {}).get("output", "")
+    payload: dict[str, Any] = {
+        "id": str(run_id) if run_id else "",
+        "name": name,
+        "output": str(output)[:2000] if output is not None else "",
+        "status": "error" if error else "complete",
+    }
+    if name == "mcp_bridge":
+        # Prefer the expanded tool name from inputs when available.
+        raw_input = event.get("data", {}).get("input")
+        if isinstance(raw_input, dict):
+            payload["name"] = str(
+                raw_input.get("tool_name") or raw_input.get("name") or name
+            )
+            payload["server_id"] = str(raw_input.get("server_id") or "mcp")
+    if error:
+        payload["error"] = error
+    return _sse("tool_end", payload)
+
+
+def _format_sse_event(event: dict[str, Any]) -> str | None:
+    """Backward-compatible single-frame helper for existing unit tests."""
+    frames = _format_sse_events(event)
+    return frames[0] if frames else None
 
 
 def _sse(event: str, data: dict[str, Any]) -> str:

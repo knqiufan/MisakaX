@@ -4,6 +4,8 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from app.models import ChatRequest
+from app.routers.agent import _thread_config
 
 
 @pytest.mark.asyncio
@@ -93,6 +95,15 @@ async def test_agent_chat_returns_500_on_failure(client):
 
     assert response.status_code == 500
     assert "boom" in response.json()["detail"]
+
+
+def test_thread_config_raises_langgraph_recursion_limit():
+    request = ChatRequest(messages=[{"role": "user", "content": "hello"}], session_id="sess-1")
+
+    config = _thread_config(request)
+
+    assert config["configurable"]["thread_id"] == "sess-1"
+    assert config["recursion_limit"] == 100
 
 
 @pytest.mark.asyncio

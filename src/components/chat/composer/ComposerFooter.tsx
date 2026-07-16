@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { Brain, ChevronDown } from "lucide-react";
 import { modelsIpc } from "@/lib/ipc";
 import type { ProviderModels } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ModelSelector, type FlatModel } from "../model-selector/ModelSelector";
 import {
   isSelectedModelValid,
@@ -18,7 +24,13 @@ interface ComposerFooterProps {
 }
 
 export function ComposerFooter({ t }: ComposerFooterProps) {
-  const { modelsVersion, selectedModel, setSelectedModel } = useChatStore();
+  const {
+    modelsVersion,
+    selectedModel,
+    setSelectedModel,
+    thinkingEnabled,
+    setThinkingEnabled,
+  } = useChatStore();
   const [providerModels, setProviderModels] = useState<ProviderModels[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [modelListOpen, setModelListOpen] = useState(false);
@@ -57,6 +69,10 @@ export function ComposerFooter({ t }: ComposerFooterProps) {
     [selectedModel, flatModels, t]
   );
 
+  const thinkingLabel = thinkingEnabled
+    ? t("composer.thinkingOn")
+    : t("composer.thinkingOff");
+
   return (
     <div className="mt-2 flex items-center gap-2 pl-10">
       <ModelSelector
@@ -81,6 +97,28 @@ export function ComposerFooter({ t }: ComposerFooterProps) {
           </button>
         }
       />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant={thinkingEnabled ? "secondary" : "ghost"}
+            size="icon-sm"
+            aria-label={thinkingLabel}
+            aria-pressed={thinkingEnabled}
+            onClick={() => setThinkingEnabled(!thinkingEnabled)}
+            className={cn(
+              "shrink-0 rounded-full",
+              thinkingEnabled &&
+                "bg-primary/15 text-primary hover:bg-primary/20 hover:text-primary"
+            )}
+          >
+            <Brain className="size-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {thinkingLabel}
+        </TooltipContent>
+      </Tooltip>
       <McpStatusPopover
         label={t("composer.mcp")}
         emptyLabel={t("composer.mcpEmpty")}

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Plus,
@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   Archive,
+  FolderOpen,
 } from "lucide-react";
 import { save as dialogSave } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
@@ -15,9 +16,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { SessionItem } from "./SessionItem";
 import { SessionPanelFooter } from "./SessionPanelFooter";
 import { MessageSearchResults } from "../message/MessageSearchResults";
+import {
+  collapseKeyForGroup,
+  groupSessionsByWorkspace,
+  type WorkspaceSessionGroup,
+} from "./groupSessionsByWorkspace";
 import { sessionsIpc } from "@/lib/ipc";
 import type { Session, MessageSearchResult } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
+import { extractDirName } from "@/components/chat/workspace/WorkspaceBar";
 
 interface SessionPanelProps {
   onNewSession: () => void;
@@ -211,36 +218,25 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
     [handleSelect]
   );
 
-  const toggleGroupCollapse = useCallback((group: string) => {
+  const toggleGroupCollapse = useCallback((key: string) => {
     setCollapsedGroups((prev) => {
       const next = new Set(prev);
-      if (next.has(group)) next.delete(group);
-      else next.add(group);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }, []);
 
   const isSearching = !!searchQuery.trim();
-
-  const { pinnedSessions, groupedSessions, ungroupedSessions } = useMemo(() => {
-    const display = searchResults ?? sessions;
-    const pinned = display.filter((s) => s.pinned);
-    const grouped = new Map<string, Session[]>();
-    const ungrouped: Session[] = [];
-
-    for (const s of display) {
-      if (s.pinned) continue;
-      if (s.group_name) {
-        const list = grouped.get(s.group_name) ?? [];
-        list.push(s);
-        grouped.set(s.group_name, list);
-      } else {
-        ungrouped.push(s);
-      }
-    }
-
-    return { pinnedSessions: pinned, groupedSessions: grouped, ungroupedSessions: ungrouped };
-  }, [searchResults, sessions]);
+  const displaySessions = searchResults ?? sessions;
+  const grouped = useMemo(
+    () => groupSessionsByWorkspace(displaySessions),
+    [displaySessions]
+  );
+  const archivedGrouped = useMemo(
+    () => groupSessionsByWorkspace(archivedSessions),
+    [archivedSessions]
+  );
 
   const renderSessionItem = (session: Session) => (
     <SessionItem
@@ -258,10 +254,7 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
     />
   );
 
-  const totalDisplay =
-    pinnedSessions.length +
-    Array.from(groupedSessions.values()).reduce((acc, g) => acc + g.length, 0) +
-    ungroupedSessions.length;
+  const totalDisplay = displaySessions.length;
 
   return (
     <div className="flex h-full min-w-0 w-full flex-col bg-sidebar">
@@ -282,29 +275,13 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
           )}
 
           {totalDisplay > 0 ? (
-            <>
-              {pinnedSessions.length > 0 && (
-                <SectionHeader label={t("chat:session.pinned")} />
-              )}
-              {pinnedSessions.map(renderSessionItem)}
-
-              {Array.from(groupedSessions.entries()).map(([groupName, items]) => (
-                <div key={groupName}>
-                  <GroupHeader
-                    label={groupName}
-                    count={items.length}
-                    collapsed={collapsedGroups.has(groupName)}
-                    onToggle={() => toggleGroupCollapse(groupName)}
-                  />
-                  {!collapsedGroups.has(groupName) && items.map(renderSessionItem)}
-                </div>
-              ))}
-
-              {ungroupedSessions.length > 0 && groupedSessions.size > 0 && (
-                <SectionHeader label={t("chat:session.ungrouped")} />
-              )}
-              {ungroupedSessions.map(renderSessionItem)}
-            </>
+            <WorkspaceGroupedList
+              workspaces={grouped.workspaces}
+              collapsedGroups={collapsedGroups}
+              onToggleCollapse={toggleGroupCollapse}
+              renderSessionItem={renderSessionItem}
+              defaultWorkspaceLabel={t("workspace:defaultWorkspaceName")}
+            />
           ) : (
             <EmptySessionList hasSearch={isSearching} />
           )}
@@ -318,11 +295,109 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
             />
           )}
 
-          {showArchived && archivedSessions.map(renderSessionItem)}
+          {showArchived && archivedGrouped.workspaces.length > 0 && (
+            <WorkspaceGroupedList
+              workspaces={archivedGrouped.workspaces}
+              collapsedGroups={collapsedGroups}
+              onToggleCollapse={toggleGroupCollapse}
+              renderSessionItem={renderSessionItem}
+              defaultWorkspaceLabel={t("workspace:defaultWorkspaceName")}
+            />
+          )}
         </div>
       </ScrollArea>
 
       <SessionPanelFooter />
+    </div>
+  );
+}
+
+function WorkspaceGroupedList({
+  workspaces,
+  collapsedGroups,
+  onToggleCollapse,
+  renderSessionItem,
+  defaultWorkspaceLabel,
+}: {
+  workspaces: WorkspaceSessionGroup[];
+  collapsedGroups: Set<string>;
+  onToggleCollapse: (key: string) => void;
+  renderSessionItem: (session: Session) => ReactNode;
+  defaultWorkspaceLabel: string;
+}) {
+  return (
+    <>
+      {workspaces.map((workspace) => (
+        <WorkspaceBlock
+          key={workspace.key}
+          workspace={workspace}
+          collapsedGroups={collapsedGroups}
+          onToggleCollapse={onToggleCollapse}
+          renderSessionItem={renderSessionItem}
+          defaultWorkspaceLabel={defaultWorkspaceLabel}
+        />
+      ))}
+    </>
+  );
+}
+
+function workspaceDisplayName(
+  workspace: WorkspaceSessionGroup,
+  defaultWorkspaceLabel: string
+): string {
+  if (workspace.workspaceKind === "default") return defaultWorkspaceLabel;
+  if (workspace.projectName) return workspace.projectName;
+  if (workspace.path) return extractDirName(workspace.path);
+  return defaultWorkspaceLabel;
+}
+
+function WorkspaceBlock({
+  workspace,
+  collapsedGroups,
+  onToggleCollapse,
+  renderSessionItem,
+  defaultWorkspaceLabel,
+}: {
+  workspace: WorkspaceSessionGroup;
+  collapsedGroups: Set<string>;
+  onToggleCollapse: (key: string) => void;
+  renderSessionItem: (session: Session) => ReactNode;
+  defaultWorkspaceLabel: string;
+}) {
+  const workspaceCollapseKey = `ws::${workspace.key}`;
+  const workspaceCollapsed = collapsedGroups.has(workspaceCollapseKey);
+  const label = workspaceDisplayName(workspace, defaultWorkspaceLabel);
+
+  return (
+    <div className="mb-1">
+      <GroupHeader
+        label={label}
+        count={workspace.sessions.length}
+        collapsed={workspaceCollapsed}
+        onToggle={() => onToggleCollapse(workspaceCollapseKey)}
+        icon={<FolderOpen className="size-3 text-muted-foreground/80" />}
+      />
+      {!workspaceCollapsed && (
+        <>
+          {workspace.ungrouped.map(renderSessionItem)}
+          {Array.from(workspace.manualGroups.entries()).map(
+            ([groupName, items]) => {
+              const key = collapseKeyForGroup(workspace.key, groupName);
+              return (
+                <div key={key}>
+                  <GroupHeader
+                    label={groupName}
+                    count={items.length}
+                    collapsed={collapsedGroups.has(key)}
+                    onToggle={() => onToggleCollapse(key)}
+                  />
+                  {!collapsedGroups.has(key) && items.map(renderSessionItem)}
+                </div>
+              );
+            }
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -363,24 +438,18 @@ function SessionPanelHeader({
   );
 }
 
-function SectionHeader({ label }: { label: string }) {
-  return (
-    <div className="px-3 pb-1 pt-2 text-[13px] font-semibold text-sidebar-foreground/55">
-      {label}
-    </div>
-  );
-}
-
 function GroupHeader({
   label,
   count,
   collapsed,
   onToggle,
+  icon,
 }: {
   label: string;
   count: number;
   collapsed: boolean;
   onToggle: () => void;
+  icon?: ReactNode;
 }) {
   return (
     <button
@@ -393,6 +462,7 @@ function GroupHeader({
       ) : (
         <ChevronDown className="size-3 text-muted-foreground/80" />
       )}
+      {icon}
       <span className="truncate">{label}</span>
       <span className="ml-auto text-[11px] tabular-nums text-muted-foreground/50">
         {count}

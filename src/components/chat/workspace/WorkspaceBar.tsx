@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 interface WorkspaceBarProps {
   workingDir: string | null;
+  workspaceKind?: string | null;
   onChangeDir: () => void;
   onToggleExplorer?: () => void;
   explorerOpen?: boolean;
@@ -24,6 +25,7 @@ const barShellClass = cn(
 
 export function WorkspaceBar({
   workingDir,
+  workspaceKind,
   onChangeDir,
   onToggleExplorer,
   explorerOpen = false,
@@ -40,6 +42,7 @@ export function WorkspaceBar({
     <WorkspaceBarSet
       t={t}
       workingDir={workingDir}
+      workspaceKind={workspaceKind}
       onChangeDir={onChangeDir}
       onToggleExplorer={onToggleExplorer}
       explorerOpen={explorerOpen}
@@ -85,6 +88,7 @@ function WorkspaceBarUnset({
 function WorkspaceBarSet({
   t,
   workingDir,
+  workspaceKind,
   onChangeDir,
   onToggleExplorer,
   explorerOpen,
@@ -93,13 +97,17 @@ function WorkspaceBarSet({
 }: {
   t: (k: string) => string;
   workingDir: string;
+  workspaceKind?: string | null;
   onChangeDir: () => void;
   onToggleExplorer?: () => void;
   explorerOpen: boolean;
   onToggleToolLogs?: () => void;
   toolLogsOpen?: boolean;
 }) {
-  const dirName = extractDirName(workingDir);
+  const isDefault = workspaceKind === "default";
+  const displayName = isDefault
+    ? t("defaultWorkspaceName")
+    : extractDirName(workingDir);
 
   return (
     <div className={barShellClass}>
@@ -109,7 +117,7 @@ function WorkspaceBarSet({
       />
       <div className="min-w-0 flex-1 space-y-0">
         <p className="truncate text-sm font-medium leading-tight text-foreground">
-          {dirName}
+          {displayName}
         </p>
         <Tooltip>
           <TooltipTrigger asChild>

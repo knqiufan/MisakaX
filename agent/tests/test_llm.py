@@ -73,3 +73,55 @@ def test_resolve_chat_model_requires_api_key_when_provider_set():
     cfg = ChatConfig(model="gpt-4o", provider="openai")
     with pytest.raises(RuntimeError, match="No API key"):
         resolve_chat_model(cfg)
+
+
+def test_deepseek_thinking_disabled_extra_body():
+    cfg = ChatConfig(
+        model="deepseek-reasoner",
+        provider="custom",
+        vendor="deepseek",
+        api_compat="openai",
+        api_key="sk-test",
+        thinking_mode="disabled",
+    )
+    with patch("langchain_openai.ChatOpenAI") as chat_cls:
+        chat_cls.return_value = MagicMock()
+        resolve_chat_model(cfg)
+    assert chat_cls.call_args.kwargs["extra_body"] == {
+        "thinking": {"type": "disabled"}
+    }
+
+
+def test_unknown_vendor_does_not_invent_thinking_fields():
+    cfg = ChatConfig(
+        model="gpt-4o",
+        provider="openai",
+        vendor="openai",
+        api_key="sk-test",
+        thinking_mode="disabled",
+    )
+    with patch("langchain_openai.ChatOpenAI") as chat_cls:
+        chat_cls.return_value = MagicMock()
+        resolve_chat_model(cfg)
+    assert "extra_body" not in chat_cls.call_args.kwargs
+    assert "thinking" not in chat_cls.call_args.kwargs
+
+
+def test_gemini_flash_thinking_budget_zero():
+    cfg = ChatConfig(
+        model="gemini-2.5-flash",
+        provider="google",
+        api_key="sk-g",
+        thinking_mode="disabled",
+    )
+    with patch("langchain_google_genai.ChatGoogleGenerativeAI") as chat_cls:
+        chat_cls.return_value = MagicMock()
+        resolve_chat_model(cfg)
+    assert chat_cls.call_args.kwargs["thinking_budget"] == 0
+
+
+def test_chat_config_defaults_thinking_fields():
+    cfg = ChatConfig()
+    assert cfg.thinking_enabled is None
+    assert cfg.thinking_mode is None
+    assert cfg.vendor is None

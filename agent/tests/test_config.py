@@ -14,6 +14,7 @@ def test_default_settings():
     assert settings.agent_model == "claude-sonnet-4-20250514"
     assert settings.temperature == 0.7
     assert settings.max_tokens is None
+    assert settings.agent_recursion_limit == 100
     assert settings.powermem_enabled is True
     assert settings.mcp_bridge_url == "http://127.0.0.1:9528"
 
@@ -39,11 +40,13 @@ def test_settings_env_prefix(monkeypatch):
     monkeypatch.setenv("MISAKA_PORT", "8080")
     monkeypatch.setenv("MISAKA_LOG_LEVEL", "debug")
     monkeypatch.setenv("MISAKA_AGENT_MODEL", "gpt-4o")
+    monkeypatch.setenv("MISAKA_AGENT_RECURSION_LIMIT", "150")
     monkeypatch.setenv("MISAKA_MCP_BRIDGE_URL", "http://127.0.0.1:9999")
     settings = Settings()
     assert settings.port == 8080
     assert settings.log_level == "debug"
     assert settings.agent_model == "gpt-4o"
+    assert settings.agent_recursion_limit == 150
     assert settings.mcp_bridge_url == "http://127.0.0.1:9999"
 
 

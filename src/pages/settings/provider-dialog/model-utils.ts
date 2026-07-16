@@ -11,6 +11,7 @@ export function customModelToCreate(model: CustomModel): CreateCustomModel {
     context_window: model.context_window,
     enabled: model.enabled,
     sort_order: model.sort_order,
+    thinking_off_model_id: model.thinking_off_model_id ?? null,
   };
 }
 

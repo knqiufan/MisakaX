@@ -12,6 +12,7 @@ mod sidecar;
 pub mod sidecar;
 
 use config::AppConfig;
+use db::repository::SessionRepo;
 use services::llm::StreamRegistry;
 use services::mcp::McpManager;
 use services::sidecar_client::SidecarClient;
@@ -149,6 +150,7 @@ pub fn run() {
             commands::session::search_messages,
             commands::session::export_sessions,
             commands::session::import_sessions,
+            commands::session::backfill_session_workspaces,
             commands::sidecar::get_sidecar_status,
             commands::sidecar::restart_sidecar,
             commands::mcp::mcp_list_servers,
@@ -166,6 +168,26 @@ pub fn run() {
         ])
         .setup(move |app| {
             tracing::info!("MisakaX initialized successfully");
+
+            // Backfill sessions that still lack a working directory.
+            {
+                let state = app.state::<AppState>();
+                if let Ok(default_dir) = crate::config::default_workspace_dir() {
+                    let path = default_dir.to_string_lossy().to_string();
+                    let _ = std::fs::create_dir_all(&default_dir);
+                    if let Ok(conn) = state.db.lock() {
+                        match SessionRepo::backfill_null_workspaces(&conn, &path) {
+                            Ok(n) if n > 0 => {
+                                tracing::info!(count = n, "Backfilled session workspaces");
+                            }
+                            Err(e) => {
+                                tracing::warn!(error = %e, "Session workspace backfill failed")
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
 
             if auto_start {
                 let app_handle = app.handle().clone();

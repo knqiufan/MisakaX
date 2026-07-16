@@ -92,6 +92,20 @@ describe("useStreamListener tool events", () => {
     expect(tc?.completed_at).toBeNull();
   });
 
+  it("upserts duplicate stream:tool_call with the same tool_call_id", async () => {
+    await mountListener();
+
+    dispatch("stream:tool_call", toolCallPayload);
+    dispatch("stream:tool_call", {
+      ...toolCallPayload,
+      arguments: { path: "updated.json" },
+    });
+
+    const msg = useChatStore.getState().messages.find((m) => m.id === MESSAGE_ID);
+    expect(msg?.tool_calls).toHaveLength(1);
+    expect(msg?.tool_calls?.[0].arguments).toEqual({ path: "updated.json" });
+  });
+
   it("updates the matching tool call on stream:tool_result", async () => {
     await mountListener();
 

@@ -42,6 +42,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         migrate_v6(conn)?;
     }
 
+    if current_version < 7 {
+        migrate_v7(conn)?;
+    }
+
     Ok(())
 }
 
@@ -274,6 +278,20 @@ fn migrate_v6(conn: &Connection) -> Result<()> {
     tx.commit()?;
 
     tracing::info!("Database migrated to version 6");
+    Ok(())
+}
+
+fn migrate_v7(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "
+        ALTER TABLE custom_models ADD COLUMN thinking_off_model_id TEXT;
+        ALTER TABLE sessions ADD COLUMN workspace_kind TEXT NOT NULL DEFAULT 'custom';
+
+        INSERT INTO _schema_version (version) VALUES (7);
+        ",
+    )?;
+
+    tracing::info!("Database migrated to version 7");
     Ok(())
 }
 

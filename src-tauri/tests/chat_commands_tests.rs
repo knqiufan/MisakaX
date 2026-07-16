@@ -92,6 +92,7 @@ mod agent_message_builders {
             system_prompt: Some("Be helpful".to_string()),
             working_directory: Some("D:/code".to_string()),
             project_name: None,
+            workspace_kind: "custom".to_string(),
             status: "active".to_string(),
             mode: "agent".to_string(),
             total_input_tokens: 0,
@@ -177,6 +178,7 @@ mod agent_message_builders {
         );
         assert_eq!(req.config.api_key.as_deref(), Some("sk-test"));
         assert!(req.config.stream);
+        assert_eq!(req.config.thinking_enabled, Some(true));
         assert_eq!(
             req.messages
                 .last()

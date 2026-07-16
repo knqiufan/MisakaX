@@ -19,6 +19,7 @@ use crate::services::mcp::{McpToolLoop, MAX_TOOL_ROUNDS};
 use crate::services::mcp_bridge::McpToolBridge;
 use crate::services::sidecar_client::{AgentChatConfig, AgentChatMessage, AgentChatRequest};
 use crate::services::sidecar_sse::consume_sidecar_stream;
+use crate::services::thinking_capabilities::lookup_thinking_capability;
 use crate::AppState;
 
 /// 将附件 JSON 字符串反序列化为 MessageAttachment 列表
@@ -30,10 +31,24 @@ pub(crate) fn parse_attachments_json(json: Option<&str>) -> Option<Vec<MessageAt
 // ─── 模型标识解析 ───────────────────────────────────────────────────────
 
 /// 模型标识解析结果
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ModelSpec {
     pub config_id: String,
     pub model_id: String,
+}
+
+/// Resolved model + thinking strategy for a single turn.
+#[derive(Debug, Clone)]
+pub struct TurnModel {
+    /// User-selected model (session default is not overwritten).
+    pub selected: ModelSpec,
+    /// Model actually invoked for this turn.
+    pub effective: ModelSpec,
+    pub thinking_enabled: bool,
+    pub uses_native_control: bool,
+    pub vendor: Option<String>,
+    /// `enabled` | `disabled` when native control applies; otherwise None.
+    pub thinking_mode: Option<String>,
 }
 
 /// 解析模型标识 — 格式为 "config_id:model_id"
@@ -58,6 +73,100 @@ pub fn resolve_model_spec(
     }
 }
 
+/// Resolve which model to call and how thinking is controlled for this turn.
+///
+/// Must run before persisting user/assistant placeholders so a missing
+/// fallback does not leave orphan messages.
+pub fn resolve_turn_model(
+    state: &AppState,
+    selected: &ModelSpec,
+    thinking_enabled: bool,
+    use_sidecar: bool,
+) -> Result<TurnModel, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let router = RouterConfigRepo::find_by_id(&db, &selected.config_id)
+        .map_err(|e| e.to_string())?;
+    let custom = CustomModelRepo::find_enabled(&db, &selected.config_id, &selected.model_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| {
+            format!(
+                "Model is not enabled for this provider: {}",
+                selected.model_id
+            )
+        })?;
+
+    let vendor = router
+        .vendor
+        .clone()
+        .unwrap_or_else(|| router.provider.clone());
+    let catalog = lookup_thinking_capability(&vendor, &selected.model_id);
+    let supports_thinking = custom.supports_thinking || catalog.supports_thinking;
+
+    if thinking_enabled || !supports_thinking {
+        return Ok(TurnModel {
+            selected: selected.clone(),
+            effective: selected.clone(),
+            thinking_enabled,
+            uses_native_control: false,
+            vendor: Some(vendor),
+            thinking_mode: if thinking_enabled && catalog.native_control.is_some() {
+                Some("enabled".to_string())
+            } else {
+                None
+            },
+        });
+    }
+
+    // Thinking toggled OFF on a thinking-capable model.
+    if use_sidecar && catalog.native_control.is_some() {
+        return Ok(TurnModel {
+            selected: selected.clone(),
+            effective: selected.clone(),
+            thinking_enabled: false,
+            uses_native_control: true,
+            vendor: Some(vendor),
+            thinking_mode: Some("disabled".to_string()),
+        });
+    }
+
+    let Some(fallback_id) = custom.thinking_off_model_id.filter(|s| !s.is_empty()) else {
+        return Err(format!(
+            "Thinking is off, but model '{}' cannot natively disable thinking and no \
+             same-provider non-thinking alternate (thinking_off_model_id) is configured. \
+             Open Provider settings and pick a non-thinking fallback model.",
+            selected.model_id
+        ));
+    };
+
+    let fallback = CustomModelRepo::find_enabled(&db, &selected.config_id, &fallback_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| {
+            format!(
+                "Configured thinking-off model '{fallback_id}' is missing or disabled \
+                 for this provider."
+            )
+        })?;
+
+    if fallback.supports_thinking {
+        return Err(format!(
+            "Configured thinking-off model '{fallback_id}' still supports thinking. \
+             Choose a non-thinking alternate in Provider settings."
+        ));
+    }
+
+    Ok(TurnModel {
+        selected: selected.clone(),
+        effective: ModelSpec {
+            config_id: selected.config_id.clone(),
+            model_id: fallback.model_id,
+        },
+        thinking_enabled: false,
+        uses_native_control: false,
+        vendor: Some(vendor),
+        thinking_mode: None,
+    })
+}
+
 // ─── Sidecar / Rig 路由 ─────────────────────────────────────────────────
 
 pub(crate) fn read_use_sidecar(state: &AppState) -> bool {
@@ -72,17 +181,18 @@ pub(crate) async fn send_via_sidecar(
     session: &Session,
     history: &[Message],
     user_content: &str,
-    model_spec: &ModelSpec,
+    turn: &TurnModel,
     llm_config: Option<LlmConfig>,
     abort_flag: Arc<AtomicBool>,
     assistant_msg_id: &str,
 ) -> Result<(StreamResult, Option<String>), String> {
-    let (router_config, decrypted_key) = load_and_decrypt_config(state, &model_spec.config_id)?;
-    let request = build_agent_chat_request(
+    let (router_config, decrypted_key) =
+        load_and_decrypt_config(state, &turn.effective.config_id)?;
+    let request = build_agent_chat_request_for_turn(
         session,
         history,
         user_content,
-        &model_spec.model_id,
+        turn,
         llm_config,
         &router_config,
         &decrypted_key,
@@ -94,9 +204,17 @@ pub(crate) async fn send_via_sidecar(
         return Err(format!("Sidecar stream HTTP {status}: {body}"));
     }
 
-    let result =
+    let outcome =
         consume_sidecar_stream(app, response, &session.id, assistant_msg_id, abort_flag).await?;
-    Ok((result, None))
+    let tool_calls_json = if outcome.tool_calls.is_empty() {
+        None
+    } else {
+        Some(
+            serde_json::to_string(&outcome.tool_calls)
+                .map_err(|e| format!("Failed to serialize tool calls: {e}"))?,
+        )
+    };
+    Ok((outcome.result, tool_calls_json))
 }
 
 /// Rig fallback path — keeps MCP prompt injection and McpToolLoop.
@@ -108,7 +226,7 @@ pub(crate) async fn send_via_rig(
     history: Vec<Message>,
     user_content: String,
     attachments: Option<Vec<MessageAttachment>>,
-    model_spec: &ModelSpec,
+    turn: &TurnModel,
     llm_config: Option<LlmConfig>,
     abort_flag: Arc<AtomicBool>,
     assistant_msg_id: &str,
@@ -116,7 +234,8 @@ pub(crate) async fn send_via_rig(
     // Fallback path only: Sidecar agents call MCP through mcp_bridge_tool.
     inject_mcp_prompt(state, &mut session);
 
-    let (router_config, decrypted_key) = load_and_decrypt_config(state, &model_spec.config_id)?;
+    let (router_config, decrypted_key) =
+        load_and_decrypt_config(state, &turn.effective.config_id)?;
     let llm_config = llm_config.unwrap_or_default().sanitized();
     let backend = RigBackend::from_config(&router_config, &decrypted_key, llm_config)
         .map_err(|e| format!("Failed to create backend: {e}"))?;
@@ -129,7 +248,7 @@ pub(crate) async fn send_via_rig(
         history,
         user_content,
         attachments,
-        &model_spec.model_id,
+        &turn.effective.model_id,
         abort_flag,
         assistant_msg_id,
     )
@@ -167,13 +286,41 @@ pub fn build_agent_chat_request(
             max_tokens: llm_config.max_tokens,
             stream: true,
             provider: Some(router.provider.clone()),
+            vendor: router.vendor.clone(),
             api_compat: router.api_compat.clone(),
             base_url: router.base_url.clone(),
             api_key: Some(api_key.to_string()),
+            thinking_enabled: Some(llm_config.thinking_enabled),
+            thinking_mode: None,
         },
         session_id: Some(session.id.clone()),
         working_dir: session.working_directory.clone(),
     }
+}
+
+/// Build AgentChatRequest using a resolved [`TurnModel`].
+pub fn build_agent_chat_request_for_turn(
+    session: &Session,
+    history: &[Message],
+    user_content: &str,
+    turn: &TurnModel,
+    llm_config: Option<LlmConfig>,
+    router: &RouterConfig,
+    api_key: &str,
+) -> AgentChatRequest {
+    let mut request = build_agent_chat_request(
+        session,
+        history,
+        user_content,
+        &turn.effective.model_id,
+        llm_config,
+        router,
+        api_key,
+    );
+    request.config.vendor = turn.vendor.clone().or(router.vendor.clone());
+    request.config.thinking_enabled = Some(turn.thinking_enabled);
+    request.config.thinking_mode = turn.thinking_mode.clone();
+    request
 }
 
 /// Convert session system prompt + history into Sidecar chat messages.

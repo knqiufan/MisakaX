@@ -21,6 +21,7 @@ fn create_session_without_working_directory() {
     assert_eq!(session.title, Some("Test Chat".to_string()));
     assert_eq!(session.working_directory, None);
     assert_eq!(session.project_name, None);
+    assert_eq!(session.workspace_kind, "custom");
     assert_eq!(session.status, "active");
     assert_eq!(session.mode, "agent");
 }
@@ -422,3 +423,48 @@ fn list_all_for_export_includes_all_statuses() {
     let all = SessionRepo::list_all_for_export(&conn).unwrap();
     assert_eq!(all.len(), 2);
 }
+
+#[test]
+fn backfill_null_workspaces_sets_default_kind() {
+    let conn = create_test_db();
+    SessionRepo::create(&conn, "bf-1", None, None, None).unwrap();
+    SessionRepo::create(
+        &conn,
+        "bf-2",
+        None,
+        None,
+        Some("/already/set"),
+    )
+    .unwrap();
+
+    let n = SessionRepo::backfill_null_workspaces(&conn, "/default/workspace").unwrap();
+    assert_eq!(n, 1);
+
+    let s1 = SessionRepo::find_by_id(&conn, "bf-1").unwrap();
+    assert_eq!(s1.working_directory.as_deref(), Some("/default/workspace"));
+    assert_eq!(s1.workspace_kind, "default");
+
+    let s2 = SessionRepo::find_by_id(&conn, "bf-2").unwrap();
+    assert_eq!(s2.working_directory.as_deref(), Some("/already/set"));
+    assert_eq!(s2.workspace_kind, "custom");
+}
+
+#[test]
+fn create_with_workspace_sets_default_kind() {
+    let conn = create_test_db();
+    let session = SessionRepo::create_with_workspace(
+        &conn,
+        "bf-def",
+        None,
+        None,
+        Some("/home/.misakax/workspace"),
+        "default",
+    )
+    .unwrap();
+    assert_eq!(session.workspace_kind, "default");
+    assert_eq!(
+        session.working_directory.as_deref(),
+        Some("/home/.misakax/workspace")
+    );
+}
+
