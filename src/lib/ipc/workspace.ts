@@ -17,6 +17,12 @@ export interface RecentDirectory {
   use_count: number;
 }
 
+export interface WorkspacePreference {
+  workspace_key: string;
+  pinned: boolean;
+  hidden: boolean;
+}
+
 export const workspaceIpc = {
   browseDirectory: (startPath?: string) =>
     invoke<string | null>("browse_directory", { startPath }),
@@ -32,4 +38,17 @@ export const workspaceIpc = {
 
   removeRecentDirectory: (path: string) =>
     invoke<boolean>("remove_recent_directory", { path }),
+
+  listPreferences: () =>
+    invoke<WorkspacePreference[]>("list_workspace_preferences"),
+
+  updatePreference: (
+    workspaceKey: string,
+    preference: { pinned?: boolean; hidden?: boolean }
+  ) =>
+    invoke<void>("update_workspace_preference", {
+      workspaceKey,
+      pinned: preference.pinned,
+      hidden: preference.hidden,
+    }),
 };

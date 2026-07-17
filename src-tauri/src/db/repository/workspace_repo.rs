@@ -23,9 +23,74 @@ pub struct RecentDirectory {
     pub use_count: u32,
 }
 
+/// Per-workspace presentation state for the task sidebar.
+#[derive(Debug, Clone, Serialize)]
+pub struct WorkspacePreference {
+    pub workspace_key: String,
+    pub pinned: bool,
+    pub hidden: bool,
+}
+
 pub struct WorkspaceRepo;
 
 impl WorkspaceRepo {
+    /// Must stay aligned with the renderer's workspace grouping key.
+    pub fn normalize_workspace_key(path: &str) -> String {
+        path.replace('\\', "/")
+            .trim_end_matches('/')
+            .to_lowercase()
+    }
+
+    pub fn list_preferences(conn: &Connection) -> Result<Vec<WorkspacePreference>> {
+        let mut stmt = conn.prepare(
+            "SELECT workspace_key, pinned, hidden
+             FROM workspace_preferences
+             ORDER BY workspace_key",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(WorkspacePreference {
+                workspace_key: row.get(0)?,
+                pinned: row.get::<_, i64>(1)? != 0,
+                hidden: row.get::<_, i64>(2)? != 0,
+            })
+        })?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(Into::into)
+    }
+
+    pub fn update_preference(
+        conn: &Connection,
+        workspace_key: &str,
+        pinned: Option<bool>,
+        hidden: Option<bool>,
+    ) -> Result<()> {
+        conn.execute(
+            "INSERT INTO workspace_preferences (workspace_key, pinned, hidden, updated_at)
+             VALUES (?1, COALESCE(?2, 0), COALESCE(?3, 0), CURRENT_TIMESTAMP)
+             ON CONFLICT(workspace_key) DO UPDATE SET
+                pinned = COALESCE(?2, workspace_preferences.pinned),
+                hidden = COALESCE(?3, workspace_preferences.hidden),
+                updated_at = CURRENT_TIMESTAMP",
+            rusqlite::params![
+                workspace_key,
+                pinned.map(|value| value as i64),
+                hidden.map(|value| value as i64),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn restore_workspace(conn: &Connection, path: &str) -> Result<()> {
+        let workspace_key = Self::normalize_workspace_key(path);
+        conn.execute(
+            "UPDATE workspace_preferences
+             SET hidden = 0, updated_at = CURRENT_TIMESTAMP
+             WHERE workspace_key = ?1 AND hidden != 0",
+            [workspace_key],
+        )?;
+        Ok(())
+    }
+
     /// 查询最近使用的工作目录（按最后使用时间倒序）
     pub fn find_recent(conn: &Connection, limit: u32) -> Result<Vec<RecentDirectory>> {
         let mut stmt = conn.prepare(

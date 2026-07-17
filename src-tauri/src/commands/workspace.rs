@@ -4,7 +4,9 @@ use std::path::Path;
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 
-use crate::db::repository::workspace_repo::{DirectoryInfo, RecentDirectory, WorkspaceRepo};
+use crate::db::repository::workspace_repo::{
+    DirectoryInfo, RecentDirectory, WorkspacePreference, WorkspaceRepo,
+};
 use crate::AppState;
 
 // ─── browse_directory Command ─────────────────────────────────────────
@@ -94,6 +96,31 @@ pub fn record_directory_usage(
 pub fn remove_recent_directory(state: State<'_, AppState>, path: String) -> Result<bool, String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     WorkspaceRepo::delete_by_path(&conn, &path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_workspace_preferences(
+    state: State<'_, AppState>,
+) -> Result<Vec<WorkspacePreference>, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    WorkspaceRepo::list_preferences(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_workspace_preference(
+    state: State<'_, AppState>,
+    workspace_key: String,
+    pinned: Option<bool>,
+    hidden: Option<bool>,
+) -> Result<(), String> {
+    let workspace_key = WorkspaceRepo::normalize_workspace_key(workspace_key.trim());
+    if workspace_key.is_empty() {
+        return Err("Workspace key must not be empty".to_string());
+    }
+
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    WorkspaceRepo::update_preference(&conn, &workspace_key, pinned, hidden)
+        .map_err(|e| e.to_string())
 }
 
 // ─── 辅助函数 ─────────────────────────────────────────────────────────

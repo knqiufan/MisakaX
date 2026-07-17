@@ -60,7 +60,7 @@ export function SessionItem({
   const newGroupRef = useRef<HTMLInputElement>(null);
 
   const isArchived = session.status === "archived";
-  const displayTitle = session.title || "New Chat";
+  const displayTitle = session.title || t("session.newTask");
   const timeLabel = formatCompactTime(
     session.last_message_at ?? session.updated_at,
     i18n.language
@@ -151,21 +151,29 @@ export function SessionItem({
         )}
       </div>
 
-      <span className="w-[38px] shrink-0 text-right text-[11px] text-muted-foreground/40 group-hover:opacity-0">
-        {timeLabel}
-      </span>
-
-      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-        <DropdownMenuTrigger
-          onClick={(e) => e.stopPropagation()}
+      <div className="relative h-5 w-[38px] shrink-0">
+        <span
           className={cn(
-            "absolute right-2 flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition-opacity duration-150 hover:bg-muted hover:text-foreground",
-            "group-hover:opacity-100",
-            (menuOpen || isActive) && "opacity-100"
+            "absolute inset-0 flex items-center justify-end text-[11px] text-muted-foreground/40 transition-opacity duration-150",
+            menuOpen || isActive ? "opacity-0" : "group-hover:opacity-0"
           )}
         >
-          <MoreHorizontal className="size-3.5" />
-        </DropdownMenuTrigger>
+          {timeLabel}
+        </span>
+
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger
+            type="button"
+            aria-label={t("session.moreActions")}
+            onClick={(e) => e.stopPropagation()}
+            className={cn(
+              "absolute inset-y-0 right-0 flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition-opacity duration-150 hover:bg-muted hover:text-foreground",
+              "group-hover:opacity-100",
+              (menuOpen || isActive) && "opacity-100"
+            )}
+          >
+            <MoreHorizontal className="size-3.5" />
+          </DropdownMenuTrigger>
         <DropdownMenuContent align="end" sideOffset={4} className="min-w-[160px]">
           <DropdownMenuItem onClick={handleStartRename}>
             <Pencil className="mr-2 size-3.5" />
@@ -249,7 +257,8 @@ export function SessionItem({
             {t("session.delete")}
           </DropdownMenuItem>
         </DropdownMenuContent>
-      </DropdownMenu>
+        </DropdownMenu>
+      </div>
     </div>
   );
 }

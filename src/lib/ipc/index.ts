@@ -51,7 +51,7 @@ export type {
   ToolPermissionPolicy,
   ToolCallRequestEvent,
 } from "./types";
-export type { DirectoryInfo, RecentDirectory } from "./workspace";
+export type { DirectoryInfo, RecentDirectory, WorkspacePreference } from "./workspace";
 export type { CreateSessionParams, UpdateSessionWorkingDirParams } from "./sessions";
 export type { ModelInfo, ProviderModels } from "./models";
 export type { SidecarStatus, SidecarStatusEvent } from "./sidecar";

@@ -46,6 +46,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         migrate_v7(conn)?;
     }
 
+    if current_version < 8 {
+        migrate_v8(conn)?;
+    }
+
     Ok(())
 }
 
@@ -292,6 +296,24 @@ fn migrate_v7(conn: &Connection) -> Result<()> {
     )?;
 
     tracing::info!("Database migrated to version 7");
+    Ok(())
+}
+
+fn migrate_v8(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS workspace_preferences (
+            workspace_key TEXT PRIMARY KEY,
+            pinned INTEGER NOT NULL DEFAULT 0,
+            hidden INTEGER NOT NULL DEFAULT 0,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        INSERT INTO _schema_version (version) VALUES (8);
+        ",
+    )?;
+
+    tracing::info!("Database migrated to version 8");
     Ok(())
 }
 

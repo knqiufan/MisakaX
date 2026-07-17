@@ -1,6 +1,6 @@
 {
   "selectWorkingDir": "选择工作目录",
-  "description": "为本次对话选择一个本地项目目录，AI 可以读取和理解你的项目文件。",
+  "description": "为本次任务选择一个本地项目目录，AI 可以读取和理解你的项目文件。",
   "recentDirs": "最近使用",
   "browseLocal": "浏览本地目录...",
   "remoteConnect": "远程连接...",

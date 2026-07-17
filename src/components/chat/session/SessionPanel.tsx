@@ -7,12 +7,21 @@ import {
   ChevronRight,
   Archive,
   FolderOpen,
+  Pin,
+  Trash2,
 } from "lucide-react";
 import { save as dialogSave } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { SessionItem } from "./SessionItem";
 import { SessionPanelFooter } from "./SessionPanelFooter";
 import { MessageSearchResults } from "../message/MessageSearchResults";
@@ -21,8 +30,8 @@ import {
   groupSessionsByWorkspace,
   type WorkspaceSessionGroup,
 } from "./groupSessionsByWorkspace";
-import { sessionsIpc } from "@/lib/ipc";
-import type { Session, MessageSearchResult } from "@/lib/ipc";
+import { fsIpc, sessionsIpc, workspaceIpc } from "@/lib/ipc";
+import type { Session, MessageSearchResult, WorkspacePreference } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
 import { extractDirName } from "@/components/chat/workspace/WorkspaceBar";
 
@@ -49,18 +58,26 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
   const [showArchived, setShowArchived] = useState(false);
   const [archivedSessions, setArchivedSessions] = useState<Session[]>([]);
   const [archivedCount, setArchivedCount] = useState(0);
+  const [workspacePreferences, setWorkspacePreferences] = useState<WorkspacePreference[]>([]);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const loadSessions = useCallback(async () => {
     try {
-      const [list, groupList, archived] = await Promise.all([
+      const [list, groupList, archived, preferences] = await Promise.all([
         sessionsIpc.list(),
         sessionsIpc.listGroups(),
         sessionsIpc.list("archived"),
+        workspaceIpc.listPreferences(),
       ]);
       setSessions(list);
       setGroups(groupList);
-      setArchivedCount(archived.length);
+      setWorkspacePreferences(preferences);
+      setArchivedCount(
+        groupSessionsByWorkspace(archived, preferences).workspaces.reduce(
+          (count, workspace) => count + workspace.sessions.length,
+          0
+        )
+      );
       if (showArchived) setArchivedSessions(archived);
     } catch (err) {
       console.error("Failed to load sessions:", err);
@@ -71,11 +88,16 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
     try {
       const list = await sessionsIpc.list("archived");
       setArchivedSessions(list);
-      setArchivedCount(list.length);
+      setArchivedCount(
+        groupSessionsByWorkspace(list, workspacePreferences).workspaces.reduce(
+          (count, workspace) => count + workspace.sessions.length,
+          0
+        )
+      );
     } catch (err) {
       console.error("Failed to load archived sessions:", err);
     }
-  }, []);
+  }, [workspacePreferences]);
 
   useEffect(() => {
     loadSessions();
@@ -195,18 +217,60 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
   const handleExport = useCallback(async (id: string) => {
     try {
       const filePath = await dialogSave({
-        title: "导出会话",
-        defaultPath: "session-export.json",
+        title: t("chat:session.export"),
+        defaultPath: "task-export.json",
         filters: [{ name: "JSON", extensions: ["json"] }],
       });
       if (!filePath) return;
       await sessionsIpc.exportSessions([id], filePath);
-      toast.success("导出成功");
+      toast.success(t("common:success"));
     } catch (err) {
       console.error("Export failed:", err);
-      toast.error("导出失败");
+      toast.error(t("common:error"));
     }
-  }, []);
+  }, [t]);
+
+  const handleNewTaskForWorkspace = useCallback(
+    async (path: string) => {
+      try {
+        const session = await sessionsIpc.create({ workingDirectory: path });
+        setActiveSessionData(session);
+        await loadSessions();
+      } catch (err) {
+        console.error("Failed to create task for workspace:", err);
+        toast.error(t("session.projectActionFailed"));
+      }
+    },
+    [loadSessions, setActiveSessionData, t]
+  );
+
+  const handleUpdateWorkspacePreference = useCallback(
+    async (
+      workspaceKey: string,
+      preference: { pinned?: boolean; hidden?: boolean }
+    ) => {
+      try {
+        await workspaceIpc.updatePreference(workspaceKey, preference);
+        await loadSessions();
+      } catch (err) {
+        console.error("Failed to update workspace preference:", err);
+        toast.error(t("session.projectActionFailed"));
+      }
+    },
+    [loadSessions, t]
+  );
+
+  const handleRevealWorkspace = useCallback(
+    async (path: string) => {
+      try {
+        await fsIpc.revealInExplorer(path, path);
+      } catch (err) {
+        console.error("Failed to reveal workspace in explorer:", err);
+        toast.error(t("workspace:explorer.openInExplorerFailed"));
+      }
+    },
+    [t]
+  );
 
   const handleMessageResultClick = useCallback(
     (sessionId: string) => {
@@ -230,12 +294,12 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
   const isSearching = !!searchQuery.trim();
   const displaySessions = searchResults ?? sessions;
   const grouped = useMemo(
-    () => groupSessionsByWorkspace(displaySessions),
-    [displaySessions]
+    () => groupSessionsByWorkspace(displaySessions, workspacePreferences),
+    [displaySessions, workspacePreferences]
   );
   const archivedGrouped = useMemo(
-    () => groupSessionsByWorkspace(archivedSessions),
-    [archivedSessions]
+    () => groupSessionsByWorkspace(archivedSessions, workspacePreferences),
+    [archivedSessions, workspacePreferences]
   );
 
   const renderSessionItem = (session: Session) => (
@@ -254,7 +318,7 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
     />
   );
 
-  const totalDisplay = displaySessions.length;
+  const totalDisplay = grouped.workspaces.length;
 
   return (
     <div className="flex h-full min-w-0 w-full flex-col bg-sidebar">
@@ -281,6 +345,9 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
               onToggleCollapse={toggleGroupCollapse}
               renderSessionItem={renderSessionItem}
               defaultWorkspaceLabel={t("workspace:defaultWorkspaceName")}
+              onNewTask={handleNewTaskForWorkspace}
+              onUpdatePreference={handleUpdateWorkspacePreference}
+              onRevealWorkspace={handleRevealWorkspace}
             />
           ) : (
             <EmptySessionList hasSearch={isSearching} />
@@ -302,6 +369,9 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
               onToggleCollapse={toggleGroupCollapse}
               renderSessionItem={renderSessionItem}
               defaultWorkspaceLabel={t("workspace:defaultWorkspaceName")}
+              onNewTask={handleNewTaskForWorkspace}
+              onUpdatePreference={handleUpdateWorkspacePreference}
+              onRevealWorkspace={handleRevealWorkspace}
             />
           )}
         </div>
@@ -318,12 +388,21 @@ function WorkspaceGroupedList({
   onToggleCollapse,
   renderSessionItem,
   defaultWorkspaceLabel,
+  onNewTask,
+  onUpdatePreference,
+  onRevealWorkspace,
 }: {
   workspaces: WorkspaceSessionGroup[];
   collapsedGroups: Set<string>;
   onToggleCollapse: (key: string) => void;
   renderSessionItem: (session: Session) => ReactNode;
   defaultWorkspaceLabel: string;
+  onNewTask: (path: string) => void;
+  onUpdatePreference: (
+    workspaceKey: string,
+    preference: { pinned?: boolean; hidden?: boolean }
+  ) => void;
+  onRevealWorkspace: (path: string) => void;
 }) {
   return (
     <>
@@ -335,6 +414,9 @@ function WorkspaceGroupedList({
           onToggleCollapse={onToggleCollapse}
           renderSessionItem={renderSessionItem}
           defaultWorkspaceLabel={defaultWorkspaceLabel}
+          onNewTask={onNewTask}
+          onUpdatePreference={onUpdatePreference}
+          onRevealWorkspace={onRevealWorkspace}
         />
       ))}
     </>
@@ -357,16 +439,27 @@ function WorkspaceBlock({
   onToggleCollapse,
   renderSessionItem,
   defaultWorkspaceLabel,
+  onNewTask,
+  onUpdatePreference,
+  onRevealWorkspace,
 }: {
   workspace: WorkspaceSessionGroup;
   collapsedGroups: Set<string>;
   onToggleCollapse: (key: string) => void;
   renderSessionItem: (session: Session) => ReactNode;
   defaultWorkspaceLabel: string;
+  onNewTask: (path: string) => void;
+  onUpdatePreference: (
+    workspaceKey: string,
+    preference: { pinned?: boolean; hidden?: boolean }
+  ) => void;
+  onRevealWorkspace: (path: string) => void;
 }) {
   const workspaceCollapseKey = `ws::${workspace.key}`;
   const workspaceCollapsed = collapsedGroups.has(workspaceCollapseKey);
   const label = workspaceDisplayName(workspace, defaultWorkspaceLabel);
+  const { t } = useTranslation("chat");
+  const { t: workspaceT } = useTranslation("workspace");
 
   return (
     <div className="mb-1">
@@ -376,6 +469,40 @@ function WorkspaceBlock({
         collapsed={workspaceCollapsed}
         onToggle={() => onToggleCollapse(workspaceCollapseKey)}
         icon={<FolderOpen className="size-3 text-muted-foreground/80" />}
+        contextMenu={
+          <ContextMenuContent>
+            <ContextMenuItem
+              onSelect={() =>
+                onUpdatePreference(workspace.key, { pinned: !workspace.pinned })
+              }
+            >
+              <Pin />
+              {workspace.pinned ? t("session.unpinProject") : t("session.pinProject")}
+            </ContextMenuItem>
+            <ContextMenuItem
+              disabled={!workspace.path}
+              onSelect={() => workspace.path && onNewTask(workspace.path)}
+            >
+              <Plus />
+              {t("session.newTask")}
+            </ContextMenuItem>
+            <ContextMenuItem
+              disabled={!workspace.path}
+              onSelect={() => workspace.path && onRevealWorkspace(workspace.path)}
+            >
+              <FolderOpen />
+              {workspaceT("explorer.openInExplorer")}
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              variant="destructive"
+              onSelect={() => onUpdatePreference(workspace.key, { hidden: true })}
+            >
+              <Trash2 />
+              {t("session.removeProject")}
+            </ContextMenuItem>
+          </ContextMenuContent>
+        }
       />
       {!workspaceCollapsed && (
         <>
@@ -444,14 +571,16 @@ function GroupHeader({
   collapsed,
   onToggle,
   icon,
+  contextMenu,
 }: {
   label: string;
   count: number;
   collapsed: boolean;
   onToggle: () => void;
   icon?: ReactNode;
+  contextMenu?: ReactNode;
 }) {
-  return (
+  const button = (
     <button
       type="button"
       onClick={onToggle}
@@ -468,6 +597,15 @@ function GroupHeader({
         {count}
       </span>
     </button>
+  );
+
+  if (!contextMenu) return button;
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{button}</ContextMenuTrigger>
+      {contextMenu}
+    </ContextMenu>
   );
 }
 

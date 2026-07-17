@@ -140,6 +140,8 @@ pub fn run() {
             commands::workspace::get_recent_directories,
             commands::workspace::record_directory_usage,
             commands::workspace::remove_recent_directory,
+            commands::workspace::list_workspace_preferences,
+            commands::workspace::update_workspace_preference,
             commands::session::create_session,
             commands::session::list_sessions,
             commands::session::update_session,

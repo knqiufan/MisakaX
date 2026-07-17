@@ -162,7 +162,30 @@ fn test_migration_idempotent() {
             row.get(0)
         })
         .unwrap();
-    assert_eq!(version, 6);
+    assert_eq!(version, 8);
+}
+
+#[test]
+fn test_migration_v8_creates_workspace_preferences() {
+    let conn = create_test_db();
+    run_migrations(&conn).unwrap();
+
+    conn.execute(
+        "INSERT INTO workspace_preferences (workspace_key, pinned, hidden)
+         VALUES ('d:/code/misaka-tauri', 1, 1)",
+        [],
+    )
+    .unwrap();
+
+    let (pinned, hidden): (i64, i64) = conn
+        .query_row(
+            "SELECT pinned, hidden FROM workspace_preferences
+             WHERE workspace_key = 'd:/code/misaka-tauri'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!((pinned, hidden), (1, 1));
 }
 
 #[test]
@@ -280,7 +303,15 @@ fn test_migration_v6_injects_builtin_models_for_existing_router_configs() {
 
 fn run_migrations_to_v5(conn: &Connection) {
     run_migrations(conn).unwrap();
-    conn.execute("DELETE FROM _schema_version WHERE version = 6", [])
+    conn.execute("DELETE FROM _schema_version WHERE version >= 6", [])
+        .unwrap();
+    conn.execute("DROP TABLE workspace_preferences", []).unwrap();
+    conn.execute(
+        "ALTER TABLE custom_models DROP COLUMN thinking_off_model_id",
+        [],
+    )
+    .unwrap();
+    conn.execute("ALTER TABLE sessions DROP COLUMN workspace_kind", [])
         .unwrap();
     conn.execute("ALTER TABLE router_configs DROP COLUMN vendor", [])
         .unwrap();

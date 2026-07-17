@@ -5,6 +5,8 @@ import {
   Sparkles,
   BookOpen,
   LayoutDashboard,
+  Bell,
+  Settings,
 } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -45,6 +47,18 @@ export function UserMenu() {
           <User className="mr-2 h-4 w-4" />
           {t("userMenu.profile")}
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate({ page: "notifications" })}>
+          <Bell className="mr-2 h-4 w-4" />
+          {t("notifications")}
+          <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] text-destructive-foreground">
+            3
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate({ page: "settings" })}>
+          <Settings className="mr-2 h-4 w-4" />
+          {t("settings")}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => navigate({ page: "skills" })}>
           <Sparkles className="mr-2 h-4 w-4" />
           {t("skills")}

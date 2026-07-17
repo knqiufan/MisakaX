@@ -89,7 +89,7 @@ export function NewChatWelcome({ onSelectWorkspace }: NewChatWelcomeProps) {
           <p className="max-w-md text-xs text-muted-foreground">
             {t("welcome.workspaceHint", {
               defaultValue:
-                "可选工作目录后开始 Agent 任务，或直接输入消息创建会话。",
+                "可选工作目录后开始 Agent 任务，或直接输入消息创建任务。",
             })}
           </p>
           <Button

@@ -1,6 +1,6 @@
 {
   "selectWorkingDir": "Select Working Directory",
-  "description": "Choose a local project directory for this session. The AI can read and understand your project files.",
+  "description": "Choose a local project directory for this task. The AI can read and understand your project files.",
   "recentDirs": "Recent Directories",
   "browseLocal": "Browse local directory...",
   "remoteConnect": "Remote connection...",

@@ -15,4 +15,4 @@ pub use router_config_repo::RouterConfigRepo;
 pub use session_repo::SessionRepo;
 pub use settings_repo::SettingsRepo;
 pub use tool_permission_repo::{ToolPermission, ToolPermissionRepo};
-pub use workspace_repo::{DirectoryInfo, RecentDirectory, WorkspaceRepo};
+pub use workspace_repo::{DirectoryInfo, RecentDirectory, WorkspacePreference, WorkspaceRepo};

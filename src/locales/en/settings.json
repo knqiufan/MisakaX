@@ -149,9 +149,9 @@
     "github": "GitHub Repository",
     "openSource": "Open Source",
     "dataManagement": "Data Management",
-    "dataManagementDesc": "Export or import session data in JSON format.",
-    "exportAllSessions": "Export All Sessions",
-    "importSessions": "Import Sessions",
+    "dataManagementDesc": "Export or import task data in JSON format.",
+    "exportAllSessions": "Export All Tasks",
+    "importSessions": "Import Tasks",
     "exporting": "Exporting...",
     "importing": "Importing...",
     "exportSuccess": "Export successful",
@@ -161,6 +161,6 @@
     "importFailed": "Import failed",
     "imported": "imported",
     "skipped": "skipped",
-    "noSessionsToExport": "No sessions to export"
+    "noSessionsToExport": "No tasks to export"
   }
 }

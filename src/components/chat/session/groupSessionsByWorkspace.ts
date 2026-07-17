@@ -1,4 +1,5 @@
 import type { Session } from "@/lib/ipc";
+import type { WorkspacePreference } from "@/lib/ipc/workspace";
 
 export interface WorkspaceSessionGroup {
   key: string;
@@ -8,6 +9,7 @@ export interface WorkspaceSessionGroup {
   sessions: Session[];
   manualGroups: Map<string, Session[]>;
   ungrouped: Session[];
+  pinned: boolean;
 }
 
 export interface GroupedSessionsByWorkspace {
@@ -79,13 +81,18 @@ function workspaceLabel(session: Session): {
  * Manual group_name becomes a secondary collapsible subgroup.
  */
 export function groupSessionsByWorkspace(
-  sessions: Session[]
+  sessions: Session[],
+  preferences: readonly WorkspacePreference[] = []
 ): GroupedSessionsByWorkspace {
+  const preferencesByKey = new Map(
+    preferences.map((preference) => [preference.workspace_key, preference])
+  );
   const buckets = new Map<string, Session[]>();
   const meta = new Map<string, ReturnType<typeof workspaceLabel>>();
 
   for (const session of sessions) {
     const key = normalizeWorkingDirectory(session.working_directory);
+    if (preferencesByKey.get(key)?.hidden) continue;
     const list = buckets.get(key) ?? [];
     list.push(session);
     buckets.set(key, list);
@@ -108,10 +115,12 @@ export function groupSessionsByWorkspace(
       sessions: sessionsSorted,
       manualGroups,
       ungrouped,
+      pinned: preferencesByKey.get(key)?.pinned ?? false,
     });
   }
 
   workspaces.sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
     const aLabel = a.projectName || a.path || a.key;
     const bLabel = b.projectName || b.path || b.key;
     return aLabel.localeCompare(bLabel);

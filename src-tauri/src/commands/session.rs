@@ -90,6 +90,9 @@ pub fn create_session(
     )
     .map_err(|e| e.to_string())?;
 
+    WorkspaceRepo::restore_workspace(&conn, &workspace.path)
+        .map_err(|e| e.to_string())?;
+
     record_directory_usage_internal(&conn, &workspace.path);
 
     Ok(session)

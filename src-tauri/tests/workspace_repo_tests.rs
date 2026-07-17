@@ -184,3 +184,31 @@ fn exists_returns_false_for_missing_path() {
     let conn = create_test_db();
     assert!(!WorkspaceRepo::exists(&conn, "/path/missing").unwrap());
 }
+
+#[test]
+fn workspace_preferences_persist_partial_updates() {
+    let conn = create_test_db();
+    let key = WorkspaceRepo::normalize_workspace_key("D:\\Code\\Misaka-Tauri\\");
+
+    WorkspaceRepo::update_preference(&conn, &key, Some(true), Some(true)).unwrap();
+    WorkspaceRepo::update_preference(&conn, &key, None, Some(false)).unwrap();
+
+    let preferences = WorkspaceRepo::list_preferences(&conn).unwrap();
+    assert_eq!(preferences.len(), 1);
+    assert_eq!(preferences[0].workspace_key, "d:/code/misaka-tauri");
+    assert!(preferences[0].pinned);
+    assert!(!preferences[0].hidden);
+}
+
+#[test]
+fn restore_workspace_unhides_without_changing_pin() {
+    let conn = create_test_db();
+    let key = WorkspaceRepo::normalize_workspace_key("D:\\Code\\Misaka-Tauri");
+    WorkspaceRepo::update_preference(&conn, &key, Some(true), Some(true)).unwrap();
+
+    WorkspaceRepo::restore_workspace(&conn, "d:/code/misaka-tauri/").unwrap();
+
+    let preference = WorkspaceRepo::list_preferences(&conn).unwrap().pop().unwrap();
+    assert!(preference.pinned);
+    assert!(!preference.hidden);
+}

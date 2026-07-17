@@ -2,9 +2,9 @@
 
 | 属性 | 说明 |
 |------|------|
-| **用途** | 定义主窗口混合壳结构、会话侧栏、对话页顶栏、设置页与工作区布局语义。 |
+| **用途** | 定义主窗口混合壳结构、任务侧栏、对话页顶栏、设置页与工作区布局语义。 |
 | **受众** | 负责 `AppShell`、`UnifiedTopBar`、`SessionPanel`、`SettingsSidebar`、`ChatPage`、`WorkspaceBar`、`SettingsPage` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-07-16（v18） |
+| **最后审阅** | 2026-07-17（v19） |
 
 ## 相关文档
 
@@ -35,11 +35,11 @@ AppShell (flex-col h-screen)
 
 1. **顶栏 `UnifiedTopBar`**：**仅非 chat** 渲染（返回 → chat + 页面标题）；chat 页不渲染，对话 chrome 由 WorkspaceBar / Hero 承担。
 2. **左栏（单列）**：
-   - `chat`：会话列表 + Quick actions + 底栏（通知 / 用户菜单 / Settings）。
+   - `chat`：任务列表 + Quick actions + 仅含用户菜单的底栏。
    - `settings`：整列换成 `SettingsSidebar`（五分区导航）。
    - `skills` / `knowledge` / `dashboard` / `notifications`：**无左栏**，仅 TopBar + 主内容。
-3. **主内容区**：当前页面；无会话时为居中 hero（见 §6）。
-4. **Sidecar / Agent 状态**：不在会话底栏展示；放在设置 → 关于 → 系统信息（`SidecarStatusBadge`，异常时可点重启）。
+3. **主内容区**：当前页面；无任务时为居中 hero（见 §6）。
+4. **Sidecar / Agent 状态**：不在任务底栏展示；放在设置 → 关于 → 系统信息（`SidecarStatusBadge`，异常时可点重启）。
 
 ### 1.1 左栏显隐与窄屏（必须遵守）
 
@@ -57,7 +57,7 @@ AppShell (flex-col h-screen)
 | 分隔 | `ResizeGutter` 宽 8px；默认线不可见，hover/drag 显线；双击重置 240 |
 
 - Gutter 必须是左栏的**兄弟节点**，禁止放进 SessionPanel / SettingsSidebar 内部。
-- Chat 页内仅保留「消息 ↔ Explorer」的 `react-resizable-panels`；**不再**用百分比 Panel 承载会话列表。
+- Chat 页内仅保留「消息 ↔ Explorer」的 `react-resizable-panels`；**不再**用百分比 Panel 承载任务列表。
 - Chat ↔ Explorer 分隔：命中区约 8px（`w-2`），默认细线不可见，hover/drag 显线。
 
 ### 1.3 视觉连续性
@@ -66,26 +66,25 @@ Session / Settings 左栏 / Main 使用 `--sidebar`、`--border`、`--background
 
 ---
 
-## 2. 会话列表（SessionPanel）
+## 2. 任务列表（SessionPanel）
 
 ### 2.1 Quick actions
 
-- 自上而下：`新建会话` 全宽 ghost 行（`h-9`、`rounded-xl`、`text-[13px]`）+ 搜索输入（同高、同圆角）。
+- 自上而下：`新建任务` 全宽 ghost 行（`h-9`、`rounded-xl`、`text-[13px]`）+ 搜索输入（同高、同圆角）。
 
 ### 2.2 底栏（SessionPanelFooter，必须遵守）
 
-固定在会话列表底部（`shrink-0`），行形与 Quick actions 一致（`h-9 rounded-xl text-[13px]`）：
+固定在任务列表底部（`shrink-0`），仅保留一个 `UserMenu` 触发器，行形与 Quick actions 一致（`h-9 rounded-xl text-[13px]`）。
 
-1. **通知** → `{ page: "notifications" }`
-2. **用户菜单** → 技能 / 知识库 / 仪表盘（进现有页）；个人中心 / 退出保持 disabled；**不**在菜单内重复 Settings
-3. **Settings** 全宽行 → `{ page: "settings" }`
+- 用户菜单顺序：禁用的个人中心 → 通知（保留未读徽标）→ Settings → 分隔线 → 技能 / 知识库 / 仪表盘 → 分隔线 → 禁用的退出。
+- 通知与 Settings **不得**作为底栏独立行重复出现。
 
 Sidecar 状态**不**放在底栏（见 §1 / 关于页）。
 
-### 2.3 会话行（SessionItem）
+### 2.3 任务行（SessionItem）
 
 - 行高 `h-8`、`rounded-xl`、`px-3`、标题 `text-[13px]` 单行截断。
-- 右侧时间固定宽约 `38px`、`text-[11px] text-muted-foreground/40`；hover 时让位给 ⋯ 菜单。
+- 右侧时间与 ⋯ 菜单共用固定宽约 `38px` 的尾部容器；hover、选中或菜单打开时仅显示菜单按钮，其他状态仅显示时间，二者不得重叠。
 - 激活：`bg-sidebar-accent`；过渡 `duration-150`。
 
 ### 2.4 分区标题
@@ -95,18 +94,24 @@ Sidecar 状态**不**放在底栏（见 §1 / 关于页）。
 ### 2.5 工作目录优先分组（新增）
 
 - **一级键**必须是规范化后的 `working_directory`（完整路径），**禁止**仅按 `project_name` 合并——同名不同路径的项目不得混在一组。
-- 分组头显示项目名 / 默认工作区本地化名；完整路径放 Tooltip；旁注 session 数量。
-- 手工 `group_name` 作为该工作区内的**二级**可折叠分组；无手工组的会话直接列在该工作区下。
-- **置顶**只影响同工作区内排序，不得把 session 抽离出其工作目录分组。
+- 分组头显示项目名 / 默认工作区本地化名；完整路径放 Tooltip；旁注任务数量。
+- 手工 `group_name` 作为该工作区内的**二级**可折叠分组；无手工组的任务直接列在该工作区下。
+- **置顶任务**只影响同工作区内排序，不得把 session 抽离出其工作目录分组。
 - 搜索结果与归档视图使用同一分组规则。
 - collapse key 须带工作区命名空间（如 `workspaceKey::groupName`），避免相同手工组名跨目录联动折叠。
+
+### 2.5.1 项目右键菜单与持久化偏好
+
+- 每个工作目录分组（包括默认工作区）的标题均可通过 `ContextMenu` 打开右键菜单；菜单项目按「置顶项目／取消置顶项目 → 新建任务 → 在文件资源管理器中打开 → 分隔线 → 移除项目」排序，并为每项使用 `size-4` Lucide 图标。
+- 置顶与移除状态使用本机 SQLite 的 `workspace_preferences` 保存，键必须与规范化 `working_directory` 分组键一致；置顶项目在其他项目之前排序，任务自身置顶规则不变。
+- 「移除项目」仅隐藏该项目，不删除任务或消息；在同一目录新建任务时必须自动恢复显示。资源管理器打开失败时使用现有 `workspace.explorer.openInExplorerFailed` toast。
 
 ### 2.6 新建 / 修改工作区选择器 intent（新增）
 
 - `chat-store` 使用显式 `workspaceSelectorIntent`：`new-session` | `change-session`（外加目标 session id）。
-- **禁止**用「当前是否已有 activeSession」推断选择器意图——否则在已有会话时点「新建」会误改当前目录。
-- `new-session`：确认后创建新 session 并 `upsertSession` 激活；创建失败时当前会话不变。选择器打开期间不提前清空当前会话。
-- `change-session`：只更新捕获的目标 session id；打开期间切换会话不得把目录写到另一个 session。
+- **禁止**用「当前是否已有 activeSession」推断选择器意图——否则在已有任务时点「新建」会误改当前目录。
+- `new-session`：确认后创建新 session 并 `upsertSession` 激活；创建失败时当前任务不变。选择器打开期间不提前清空当前任务。
+- `change-session`：只更新捕获的目标 session id；打开期间切换任务不得把目录写到另一个 session。
 - 「跳过 / 使用默认工作区」绑定应用管理目录 `~/.misakax/workspace`，`workspace_kind=default`；显式选目录为 `custom`。
 
 ---
@@ -137,8 +142,8 @@ Sidecar 状态**不**放在底栏（见 §1 / 关于页）。
 
 ### 4.1 导航壳
 
-- 进入 settings 时，**壳层左栏整列**换成 `SettingsSidebar`（与会话列表共用 `sessionListWidth` / gutter）。
-- 项形：`h-9 px-3 rounded-xl text-[13px]`（与会话 Quick actions 同形）。
+- 进入 settings 时，**壳层左栏整列**换成 `SettingsSidebar`（与任务列表共用 `sessionListWidth` / gutter）。
+- 项形：`h-9 px-3 rounded-xl text-[13px]`（与任务 Quick actions 同形）。
 - `SettingsPage` **只渲染内容槽**；不再内嵌桌面左导航或窄屏横条 pill（避免双导航）。
 - Back 在 `UnifiedTopBar`（ghost sm、`h-7`、ArrowLeft）；**所有非 chat 页**（含 settings 与技能/知识库/仪表盘/通知）均提供返回 chat。
 
@@ -168,7 +173,7 @@ Provider 目录网格仅 `md:grid-cols-2`。Appearance 主题分段：`rounded-m
 
 参考视觉：[`docs/ui/03-workspace.md`](../ui/03-workspace.md)（**仅 chrome**；Misaka **不**复刻其多轨 / 480px 像素宽模型）。**产品模型**仍为 Chat 内单一 Explorer（文件树 + Monaco），不做 Git/Widget/Assistant 多轨。
 
-宽度：Chat↔Explorer 用 `react-resizable-panels` **百分比**（默认约 70/30，Explorer `min 18%` / `max 55%`）；**不以** CodePilot `SIDEBAR_DEFAULT_WIDTH=480` 为 Misaka 目标。分隔命中区 `w-2`，默认细线不可见，hover/drag 显线（与会话栏 gutter 气质一致；类名集中在 `panelResizeHandle.ts`）。
+宽度：Chat↔Explorer 用 `react-resizable-panels` **百分比**（默认约 70/30，Explorer `min 18%` / `max 55%`）；**不以** CodePilot `SIDEBAR_DEFAULT_WIDTH=480` 为 Misaka 目标。分隔命中区 `w-2`，默认细线不可见，hover/drag 显线（与任务栏 gutter 气质一致；类名集中在 `panelResizeHandle.ts`）。
 
 ### 5.1 表面与头
 
@@ -245,16 +250,16 @@ Provider 目录网格仅 `md:grid-cols-2`。Appearance 主题分段：`rounded-m
 | 虚拟列表 | `@tanstack/react-virtual`；estimate 220；overscan 6 |
 | Prepend | 保位 `scrollToIndex(align:'start')`；仅尾追加才自动置底 |
 
-Composer 外壳：`rounded-2xl` 输入组 + `shadow-[var(--shadow-diffuse)]`（**会话页与 Hero 共用同一阴影**，禁止 Hero 外包再套一层 diffuse）。单行输入行高约 **32px 文本域**（`leading-8` + `py-0`，与发送 `size-8` 对齐）+ 外壳 `py-1.5`；输入行 **`items-center`**。发送 / 附件外置钮均为 `size-8`（`icon-sm`）`rounded-full`，图标约 `size-3.5`；可发送态**不得**用 ghost（避免 hover 图标变黑）。附件与发送 Tooltip：`delayDuration={2000}` + fade 约 150ms。底部 Model/MCP/Skill 行 `mt-2` + `pl-10`。附件预览胶囊：`rounded-full border-border/40 bg-muted`。行内文件引用 chip（`InlineMentionChip`）：`rounded-md border-primary/25 bg-primary/8`，与附件胶囊可区分。不引入 CodePilot Hood vibrancy / ActionBar 产品控件。
+Composer 外壳：`rounded-2xl` 输入组 + `shadow-[var(--shadow-diffuse)]`（**任务页与 Hero 共用同一阴影**，禁止 Hero 外包再套一层 diffuse）。单行输入行高约 **32px 文本域**（`leading-8` + `py-0`，与发送 `size-8` 对齐）+ 外壳 `py-1.5`；输入行 **`items-center`**。发送 / 附件外置钮均为 `size-8`（`icon-sm`）`rounded-full`，图标约 `size-3.5`；可发送态**不得**用 ghost（避免 hover 图标变黑）。附件与发送 Tooltip：`delayDuration={2000}` + fade 约 150ms。底部 Model/MCP/Skill 行 `mt-2` + `pl-10`。附件预览胶囊：`rounded-full border-border/40 bg-muted`。行内文件引用 chip（`InlineMentionChip`）：`rounded-md border-primary/25 bg-primary/8`，与附件胶囊可区分。不引入 CodePilot Hood vibrancy / ActionBar 产品控件。
 
 ---
 
-## 7. 首页 Hero（无会话）
+## 7. 首页 Hero（无任务）
 
 - 组件：`NewChatWelcome`（`ChatPage` 在无 `activeSession` 时渲染）。
 - 布局：垂直居中，`max-w-3xl`，`px-4 py-8`。
 - 品牌：`MisakaLogo` `h-9 w-9`（浅色圆体 + 双闪电）+ 时段问候 `text-3xl font-medium` + 短提示。
-- Composer：复用 `MessageInput`；首发经 `pendingOutbound` 创建会话后由 `ChatView` 发送。
+- Composer：复用 `MessageInput`；首发经 `pendingOutbound` 创建任务后由 `ChatView` 发送。
 - 下方引导：可选「选择工作目录」。
 
 ---

@@ -126,4 +126,23 @@ describe("groupSessionsByWorkspace", () => {
       "d:/code/app::Feature"
     );
   });
+
+  it("hides removed workspaces and sorts pinned workspaces first", () => {
+    const sessions = [
+      makeSession({ id: "hidden", working_directory: "/hidden", project_name: "Hidden" }),
+      makeSession({ id: "regular", working_directory: "/regular", project_name: "Regular" }),
+      makeSession({ id: "pinned", working_directory: "/pinned", project_name: "Pinned" }),
+    ];
+
+    const { workspaces } = groupSessionsByWorkspace(sessions, [
+      { workspace_key: "/hidden", pinned: false, hidden: true },
+      { workspace_key: "/pinned", pinned: true, hidden: false },
+    ]);
+
+    expect(workspaces.map((workspace) => workspace.key)).toEqual([
+      "/pinned",
+      "/regular",
+    ]);
+    expect(workspaces[0].pinned).toBe(true);
+  });
 });

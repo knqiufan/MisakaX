@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { MessageSearchResult } from "@/lib/ipc";
@@ -12,6 +13,7 @@ export function MessageSearchResults({
   results,
   onResultClick,
 }: MessageSearchResultsProps) {
+  const { t } = useTranslation("chat");
   const grouped = useMemo(() => {
     const map = new Map<string, { title: string | null; items: MessageSearchResult[] }>();
     for (const r of results) {
@@ -34,7 +36,7 @@ export function MessageSearchResults({
         {Array.from(grouped.entries()).map(([sessionId, { title, items }]) => (
           <div key={sessionId}>
             <div className="px-3 pt-2 pb-0.5 text-[0.625rem] font-medium text-muted-foreground/55 truncate">
-              {title || "New Chat"}
+              {title || t("session.newTask")}
             </div>
             {items.map((item) => (
               <SearchResultItem
