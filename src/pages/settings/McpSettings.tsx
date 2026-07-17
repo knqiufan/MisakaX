@@ -309,6 +309,10 @@ function AddServerDialog({ onAdded }: { onAdded: () => void }) {
   const [command, setCommand] = useState("");
   const [args, setArgs] = useState("");
   const [url, setUrl] = useState("");
+  const [headers, setHeaders] = useState("{}");
+  const [configMode, setConfigMode] = useState<"form" | "json">("form");
+  const [jsonConfig, setJsonConfig] = useState("");
+  const [configError, setConfigError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const reset = () => {
@@ -317,32 +321,25 @@ function AddServerDialog({ onAdded }: { onAdded: () => void }) {
     setCommand("");
     setArgs("");
     setUrl("");
+    setHeaders("{}");
+    setConfigMode("form");
+    setJsonConfig("");
+    setConfigError(null);
   };
 
   const handleSubmit = async () => {
-    if (!name.trim()) return;
-    setSubmitting(true);
-
-    let transport: McpTransportInput;
-    if (transportType === "stdio") {
-      if (!command.trim()) return;
-      transport = {
-        type: "stdio",
-        command: command.trim(),
-        args: args.split(/\s+/).filter(Boolean),
-      };
-    } else {
-      if (!url.trim()) return;
-      transport = { type: transportType, url: url.trim() };
+    let config: { id: string; name: string; transport: McpTransportInput; auto_connect: boolean; env: Record<string, string> };
+    try {
+      config = configMode === "json"
+        ? parseJsonServerConfig(jsonConfig)
+        : createFormServerConfig({ name, transportType, command, args, url, headers });
+      setConfigError(null);
+    } catch (error) {
+      setConfigError(String(error));
+      return;
     }
 
-    const config = {
-      id: crypto.randomUUID(),
-      name: name.trim(),
-      transport,
-      auto_connect: true,
-      env: {},
-    };
+    setSubmitting(true);
 
     try {
       await mcpIpc.addServerConfig(config);
@@ -373,6 +370,44 @@ function AddServerDialog({ onAdded }: { onAdded: () => void }) {
 
         <div className="space-y-4">
           <div className="space-y-2">
+            <Label>{t("mcp.configMode")}</Label>
+            <div className="inline-flex rounded-md bg-muted p-0.5">
+              {(["form", "json"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    setConfigMode(mode);
+                    setConfigError(null);
+                  }}
+                  className={cn(
+                    "cursor-pointer rounded-sm px-2.5 py-1 text-xs transition-colors duration-[var(--ds-dur-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
+                    configMode === mode
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                  aria-pressed={configMode === mode}
+                >
+                  {t(mode === "form" ? "mcp.formMode" : "mcp.jsonMode")}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {configMode === "json" ? (
+            <div className="space-y-2">
+              <Label>{t("mcp.jsonConfig")}</Label>
+              <textarea
+                value={jsonConfig}
+                onChange={(event) => setJsonConfig(event.target.value)}
+                placeholder={t("mcp.jsonConfigPlaceholder")}
+                spellCheck={false}
+                className="min-h-56 w-full rounded-[var(--radius-ui-md)] border border-[color:var(--border-strong)] bg-[color:var(--surface-item)] px-3 py-2 font-mono text-xs outline-none transition-[color,box-shadow] duration-[var(--ds-dur-fast)] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/45"
+              />
+            </div>
+          ) : (
+            <>
+          <div className="space-y-2">
             <Label>{t("mcp.serverName")}</Label>
             <Input
               value={name}
@@ -390,11 +425,12 @@ function AddServerDialog({ onAdded }: { onAdded: () => void }) {
                   type="button"
                   onClick={() => setTransportType(tt)}
                   className={cn(
-                    "rounded-sm px-2.5 py-1 text-xs transition-colors duration-[var(--ds-dur-fast)]",
+                    "cursor-pointer rounded-sm px-2.5 py-1 text-xs transition-colors duration-[var(--ds-dur-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
                     transportType === tt
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
                   )}
+                  aria-pressed={transportType === tt}
                 >
                   {tt.toUpperCase()}
                 </button>
@@ -424,16 +460,35 @@ function AddServerDialog({ onAdded }: { onAdded: () => void }) {
               </div>
             </>
           ) : (
-            <div className="space-y-2">
-              <Label>{t("mcp.url")}</Label>
-              <Input
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="http://localhost:3000/mcp"
-                className="font-mono text-xs"
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label>{t("mcp.url")}</Label>
+                <Input
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="http://localhost:3000/mcp"
+                  className="font-mono text-xs"
+                />
+              </div>
+              {transportType === "http" ? (
+                <div className="space-y-2">
+                  <Label>{t("mcp.headers")}</Label>
+                  <textarea
+                    value={headers}
+                    onChange={(event) => setHeaders(event.target.value)}
+                    placeholder={t("mcp.headersPlaceholder")}
+                    spellCheck={false}
+                    className="min-h-24 w-full rounded-[var(--radius-ui-md)] border border-[color:var(--border-strong)] bg-[color:var(--surface-item)] px-3 py-2 font-mono text-xs outline-none transition-[color,box-shadow] duration-[var(--ds-dur-fast)] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/45"
+                  />
+                </div>
+              ) : null}
+            </>
           )}
+            </>
+          )}
+          {configError ? (
+            <p className="text-xs text-destructive">{configError}</p>
+          ) : null}
         </div>
 
         <DialogFooter>
@@ -443,7 +498,7 @@ function AddServerDialog({ onAdded }: { onAdded: () => void }) {
           <Button
             size="sm"
             onClick={handleSubmit}
-            disabled={submitting || !name.trim()}
+            disabled={submitting || (configMode === "form" && !name.trim())}
           >
             {submitting ? t("mcp.adding") : t("mcp.add")}
           </Button>
@@ -451,6 +506,95 @@ function AddServerDialog({ onAdded }: { onAdded: () => void }) {
       </DialogContent>
     </Dialog>
   );
+}
+
+type ServerDraft = {
+  name: string;
+  transportType: "stdio" | "http" | "sse";
+  command: string;
+  args: string;
+  url: string;
+  headers: string;
+};
+
+function createFormServerConfig(draft: ServerDraft) {
+  if (!draft.name.trim()) throw new Error("Server name is required.");
+  let transport: McpTransportInput;
+  if (draft.transportType === "stdio") {
+    if (!draft.command.trim()) throw new Error("Command is required.");
+    transport = {
+      type: "stdio",
+      command: draft.command.trim(),
+      args: draft.args.split(/\s+/).filter(Boolean),
+    };
+  } else {
+    if (!draft.url.trim()) throw new Error("URL is required.");
+    transport = {
+      type: draft.transportType,
+      url: draft.url.trim(),
+      ...(draft.transportType === "http" ? { headers: parseStringRecord(draft.headers) } : {}),
+    };
+  }
+  return { id: crypto.randomUUID(), name: draft.name.trim(), transport, auto_connect: true, env: {} };
+}
+
+function parseJsonServerConfig(value: string) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error("Invalid JSON configuration.");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Invalid JSON configuration.");
+  }
+  const root = parsed as Record<string, unknown>;
+  const servers = isRecord(root.mcpServers) ? root.mcpServers : root;
+  const entries = typeof root.command === "string" || typeof root.url === "string"
+    ? [[typeof root.name === "string" ? root.name : "MCP Server", root] as const]
+    : Object.entries(servers);
+  if (entries.length !== 1) throw new Error("JSON configuration must contain exactly one MCP server.");
+  const [fallbackName, rawConfig] = entries[0];
+  if (!isRecord(rawConfig)) throw new Error("Invalid JSON configuration.");
+  const source = isRecord(rawConfig.transport) ? rawConfig.transport : rawConfig;
+  const name = typeof rawConfig.name === "string" ? rawConfig.name : fallbackName;
+  const env = parseStringRecord(rawConfig.env);
+  if (typeof source.command === "string") {
+    return {
+      id: typeof rawConfig.id === "string" ? rawConfig.id : crypto.randomUUID(),
+      name,
+      transport: {
+        type: "stdio" as const,
+        command: source.command,
+        args: Array.isArray(source.args) ? source.args.filter((arg): arg is string => typeof arg === "string") : [],
+      },
+      auto_connect: rawConfig.auto_connect !== false,
+      env,
+    };
+  }
+  if (typeof source.url === "string") {
+    const type: "http" | "sse" = source.type === "sse" ? "sse" : "http";
+    return {
+      id: typeof rawConfig.id === "string" ? rawConfig.id : crypto.randomUUID(),
+      name,
+      transport: { type, url: source.url, headers: parseStringRecord(source.headers) },
+      auto_connect: rawConfig.auto_connect !== false,
+      env,
+    };
+  }
+  throw new Error("JSON configuration needs either command or url.");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function parseStringRecord(value: unknown): Record<string, string> {
+  const parsed = typeof value === "string" ? JSON.parse(value) : value ?? {};
+  if (!isRecord(parsed) || Object.values(parsed).some((item) => typeof item !== "string")) {
+    throw new Error("Headers and environment values must be a JSON object of strings.");
+  }
+  return parsed as Record<string, string>;
 }
 
 function PermissionsList({

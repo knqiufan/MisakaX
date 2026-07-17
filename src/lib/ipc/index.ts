@@ -22,6 +22,7 @@ export type {
   FetchProviderModelsRequest,
   TestModelRequest,
   ModelTestResult,
+  ModelType,
   ConnectionTestResult,
   SystemInfo,
   Session,

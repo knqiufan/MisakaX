@@ -50,6 +50,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         migrate_v8(conn)?;
     }
 
+    if current_version < 9 {
+        migrate_v9(conn)?;
+    }
+
     Ok(())
 }
 
@@ -314,6 +318,19 @@ fn migrate_v8(conn: &Connection) -> Result<()> {
     )?;
 
     tracing::info!("Database migrated to version 8");
+    Ok(())
+}
+
+fn migrate_v9(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "
+        ALTER TABLE custom_models ADD COLUMN model_types_json TEXT NOT NULL DEFAULT '[]';
+
+        INSERT INTO _schema_version (version) VALUES (9);
+        ",
+    )?;
+
+    tracing::info!("Database migrated to version 9");
     Ok(())
 }
 

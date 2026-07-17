@@ -12,6 +12,8 @@ pub struct ModelInfo {
     pub display_name: String,
     pub supports_vision: bool,
     pub supports_thinking: bool,
+    #[serde(default)]
+    pub model_types: Vec<String>,
     pub is_custom: bool,
     pub max_tokens: Option<i32>,
     pub context_window: Option<i32>,
@@ -24,6 +26,7 @@ impl ModelInfo {
             display_name: display_name.to_string(),
             supports_vision: vision,
             supports_thinking: thinking,
+            model_types: infer_model_types(model_id, vision),
             is_custom: false,
             max_tokens: None,
             context_window: None,
@@ -32,16 +35,58 @@ impl ModelInfo {
 
     /// 从持久化的自定义模型构造（标记 `is_custom = true`）。
     pub fn from_custom(cm: CustomModel) -> Self {
+        let model_types = if cm.model_types.is_empty() {
+            infer_model_types(&cm.model_id, cm.supports_vision)
+        } else {
+            cm.model_types.clone()
+        };
         Self {
             model_id: cm.model_id,
             display_name: cm.display_name,
             supports_vision: cm.supports_vision,
             supports_thinking: cm.supports_thinking,
+            model_types,
             is_custom: true,
             max_tokens: cm.max_tokens,
             context_window: cm.context_window,
         }
     }
+}
+
+/// Consistent fallback for OpenAI-compatible lists, which generally expose no
+/// machine-readable capability metadata. Provider-specific metadata overrides
+/// this classification whenever it is available.
+pub fn infer_model_types(model_id: &str, supports_vision: bool) -> Vec<String> {
+    let id = model_id.to_ascii_lowercase();
+    if id.contains("embed") {
+        return vec!["embedding".to_string()];
+    }
+    if id.contains("rerank") {
+        return vec!["rerank".to_string()];
+    }
+    if id.contains("tts")
+        || id.contains("speech")
+        || id.contains("transcribe")
+        || id.contains("whisper")
+    {
+        return vec!["speech".to_string()];
+    }
+    if id.contains("image") || id.contains("dall-e") || id.contains("sora") {
+        return vec!["image".to_string()];
+    }
+    if supports_vision
+        || id.contains("vision")
+        || id.contains("vl")
+        || id.contains("omni")
+        || id.starts_with("gpt-4o")
+        || id.starts_with("gpt-4.1")
+        || id.starts_with("gpt-5")
+        || id.starts_with("claude")
+        || id.starts_with("gemini")
+    {
+        return vec!["multimodal".to_string()];
+    }
+    vec!["text".to_string()]
 }
 
 /// 模型注册表 — 内置模型作为候选兜底；会话只使用用户显式启用的模型

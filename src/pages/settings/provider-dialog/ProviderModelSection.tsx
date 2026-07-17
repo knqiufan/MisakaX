@@ -11,8 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { CreateCustomModel } from "@/lib/ipc";
+import type { CreateCustomModel, ModelType } from "@/lib/ipc";
 import { manualModelToCreate } from "./model-utils";
+import { MODEL_TYPES, ModelTypeBadges } from "./model-types";
 
 const CLEAR_THINKING_OFF = "__none__";
 
@@ -52,6 +53,20 @@ export function ProviderModelSection(props: ProviderModelSectionProps) {
       props.models.map((model) =>
         model.model_id === modelId
           ? { ...model, thinking_off_model_id: thinkingOffId }
+          : model,
+      ),
+    );
+  }
+
+  function setModelType(modelId: string, modelType: ModelType) {
+    props.onModelsChange(
+      props.models.map((model) =>
+        model.model_id === modelId
+          ? {
+              ...model,
+              model_types: [modelType],
+              supports_vision: modelType === "multimodal",
+            }
           : model,
       ),
     );
@@ -113,11 +128,14 @@ export function ProviderModelSection(props: ProviderModelSectionProps) {
               removeLabel={t("providers.models.remove", "Remove model")}
               testLabel={t("providers.models.test", "Test model")}
               visionLabel={t("providers.models.vision")}
+              modelTypeLabel={t("providers.models.type", "Model type")}
+              modelTypes={model.model_types}
               onRemove={() => removeModel(model.model_id)}
               onTest={() => props.onTestModel(model.model_id)}
               onThinkingOffChange={(id) =>
                 setThinkingOffModel(model.model_id, id)
               }
+              onModelTypeChange={(modelType) => setModelType(model.model_id, modelType)}
             />
           ))}
         </div>
@@ -149,9 +167,12 @@ function ModelRow({
   thinkingOffEmptyHint,
   testing,
   visionLabel,
+  modelTypeLabel,
+  modelTypes,
   onRemove,
   onTest,
   onThinkingOffChange,
+  onModelTypeChange,
 }: {
   model: CreateCustomModel;
   allModels: CreateCustomModel[];
@@ -163,10 +184,14 @@ function ModelRow({
   thinkingOffEmptyHint: string;
   testing: boolean;
   visionLabel: string;
+  modelTypeLabel: string;
+  modelTypes?: ModelType[];
   onRemove: () => void;
   onTest: () => void;
   onThinkingOffChange: (id: string | null) => void;
+  onModelTypeChange: (type: ModelType) => void;
 }) {
+  const { t } = useTranslation("settings");
   const targets = nonThinkingTargets(allModels, model.model_id);
   const selectedOff = model.thinking_off_model_id ?? CLEAR_THINKING_OFF;
 
@@ -179,6 +204,7 @@ function ModelRow({
             {model.model_id}
           </div>
         </div>
+        <ModelTypeBadges types={modelTypes} />
         {model.supports_vision && <Badge variant="secondary">{visionLabel}</Badge>}
         {model.supports_thinking && (
           <Badge variant="secondary">{thinkingLabel}</Badge>
@@ -235,6 +261,26 @@ function ModelRow({
           )}
         </div>
       ) : null}
+      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        <span>{modelTypeLabel}</span>
+        <Select
+          value={modelTypes?.[0] ?? "text"}
+          onValueChange={(value) =>
+            onModelTypeChange(value as ModelType)
+          }
+        >
+          <SelectTrigger className="h-7 min-w-32 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MODEL_TYPES.map((type) => (
+              <SelectItem key={type} value={type}>
+                {t(`providers.models.types.${type}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 }

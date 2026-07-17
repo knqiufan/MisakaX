@@ -121,6 +121,9 @@ pub struct CustomModel {
     pub display_name: String,
     pub supports_vision: bool,
     pub supports_thinking: bool,
+    /// Capability categories selected by the user or inferred while fetching.
+    #[serde(default)]
+    pub model_types: Vec<String>,
     pub max_tokens: Option<i32>,
     pub context_window: Option<i32>,
     #[serde(default = "default_custom_model_enabled")]
@@ -142,6 +145,8 @@ pub struct CreateCustomModel {
     pub supports_vision: bool,
     #[serde(default)]
     pub supports_thinking: bool,
+    #[serde(default)]
+    pub model_types: Vec<String>,
     pub max_tokens: Option<i32>,
     pub context_window: Option<i32>,
     #[serde(default = "default_custom_model_enabled")]
@@ -163,6 +168,7 @@ impl Default for CreateCustomModel {
             display_name: String::new(),
             supports_vision: false,
             supports_thinking: false,
+            model_types: vec!["text".to_string()],
             max_tokens: None,
             context_window: None,
             enabled: true,

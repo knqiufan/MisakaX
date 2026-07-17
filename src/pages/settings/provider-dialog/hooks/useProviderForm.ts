@@ -34,7 +34,7 @@ interface UseProviderFormOptions {
 
 const DEFAULT_ADVANCED: AdvancedConfig = {
   temperature: 0.7,
-  max_tokens: null,
+  max_tokens: 220_000,
   proxy: null,
 };
 

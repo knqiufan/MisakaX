@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { CreateCustomModel, FetchModelsResult } from "@/lib/ipc";
 import { modelInfoToCreate } from "./model-utils";
+import { ModelTypeBadges } from "./model-types";
 
 interface FetchModelsDialogProps {
   open: boolean;
@@ -111,6 +112,7 @@ export function FetchModelsDialog(props: FetchModelsDialogProps) {
                     {model.model_id}
                   </span>
                 </span>
+                <ModelTypeBadges types={model.model_types} />
               </label>
             ))}
           </div>

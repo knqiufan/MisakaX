@@ -7,6 +7,7 @@ import type {
   ModelTestResult,
   RouterConfigView,
   TestModelRequest,
+  ModelType,
 } from "./types";
 
 /** Mirrors `crate::services::llm::registry::ModelInfo` (serde snake_case). */
@@ -15,6 +16,7 @@ export interface ModelInfo {
   display_name: string;
   supports_vision: boolean;
   supports_thinking: boolean;
+  model_types: ModelType[];
   is_custom: boolean;
   max_tokens: number | null;
   context_window: number | null;

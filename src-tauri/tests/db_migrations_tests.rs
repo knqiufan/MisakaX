@@ -162,7 +162,7 @@ fn test_migration_idempotent() {
             row.get(0)
         })
         .unwrap();
-    assert_eq!(version, 8);
+    assert_eq!(version, 9);
 }
 
 #[test]
@@ -186,6 +186,32 @@ fn test_migration_v8_creates_workspace_preferences() {
         )
         .unwrap();
     assert_eq!((pinned, hidden), (1, 1));
+}
+
+#[test]
+fn test_migration_v9_adds_model_types() {
+    let conn = create_test_db();
+    run_migrations(&conn).unwrap();
+
+    conn.execute(
+        "INSERT INTO router_configs (id, name, provider) VALUES ('rc-v9', 'OpenAI', 'openai')",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO custom_models (id, router_config_id, model_id, display_name, model_types_json)
+         VALUES ('cm-v9', 'rc-v9', 'text-embedding-3-small', 'Embedding', '[\"embedding\"]')",
+        [],
+    )
+    .unwrap();
+    let model_types: String = conn
+        .query_row(
+            "SELECT model_types_json FROM custom_models WHERE id = 'cm-v9'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(model_types, "[\"embedding\"]");
 }
 
 #[test]
@@ -305,7 +331,10 @@ fn run_migrations_to_v5(conn: &Connection) {
     run_migrations(conn).unwrap();
     conn.execute("DELETE FROM _schema_version WHERE version >= 6", [])
         .unwrap();
-    conn.execute("DROP TABLE workspace_preferences", []).unwrap();
+    conn.execute("DROP TABLE workspace_preferences", [])
+        .unwrap();
+    conn.execute("ALTER TABLE custom_models DROP COLUMN model_types_json", [])
+        .unwrap();
     conn.execute(
         "ALTER TABLE custom_models DROP COLUMN thinking_off_model_id",
         [],

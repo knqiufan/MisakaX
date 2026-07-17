@@ -5,7 +5,7 @@
 //! [`ModelProbeParams`].
 
 use crate::services::llm::catalog::{chat_url, google_generate_url, models_url, ProviderApi};
-use crate::services::llm::registry::{ModelInfo, ModelRegistry};
+use crate::services::llm::registry::{infer_model_types, ModelInfo, ModelRegistry};
 
 /// Parameters for a single model connection probe (vendor-agnostic).
 #[derive(Debug, Clone)]
@@ -194,13 +194,60 @@ fn parse_google_models(body: &serde_json::Value) -> Vec<ModelInfo> {
             let raw_id = item["name"].as_str()?;
             let model_id = raw_id.trim_start_matches("models/");
             let display = item["displayName"].as_str().unwrap_or(model_id);
-            Some(ModelInfo::builtin(model_id, display, true, false))
+            let methods = item["supportedGenerationMethods"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|method| method.as_str())
+                .collect::<Vec<_>>();
+            let mut types = infer_google_model_types(model_id, &methods);
+            if types.is_empty() {
+                types = infer_model_types(model_id, true);
+            }
+            Some(ModelInfo {
+                model_id: model_id.to_string(),
+                display_name: display.to_string(),
+                supports_vision: types.iter().any(|kind| kind == "multimodal"),
+                supports_thinking: false,
+                model_types: types,
+                is_custom: false,
+                max_tokens: item["outputTokenLimit"]
+                    .as_i64()
+                    .and_then(|value| value.try_into().ok()),
+                context_window: item["inputTokenLimit"]
+                    .as_i64()
+                    .and_then(|value| value.try_into().ok()),
+            })
         })
         .collect()
 }
 
 fn model_info_from_id(model_id: &str) -> ModelInfo {
-    ModelInfo::builtin(model_id, model_id, false, false)
+    let types = infer_model_types(model_id, false);
+    ModelInfo {
+        model_id: model_id.to_string(),
+        display_name: model_id.to_string(),
+        supports_vision: types.iter().any(|kind| kind == "multimodal"),
+        supports_thinking: false,
+        model_types: types,
+        is_custom: false,
+        max_tokens: None,
+        context_window: None,
+    }
+}
+
+fn infer_google_model_types(model_id: &str, methods: &[&str]) -> Vec<String> {
+    let id = model_id.to_ascii_lowercase();
+    if methods.iter().any(|method| *method == "embedContent") || id.contains("embedding") {
+        return vec!["embedding".to_string()];
+    }
+    if id.contains("tts") || id.contains("live") || id.contains("audio") {
+        return vec!["speech".to_string()];
+    }
+    if methods.iter().any(|method| *method == "generateContent") {
+        return vec!["multimodal".to_string()];
+    }
+    Vec::new()
 }
 
 /// OpenAI and Anthropic share the same minimal ping body shape.
@@ -291,6 +338,7 @@ mod tests {
 
         assert_eq!(models.len(), 2);
         assert_eq!(models[0].model_id, "gpt-4o");
+        assert_eq!(models[0].model_types, vec!["multimodal"]);
     }
 
     #[test]
@@ -304,6 +352,7 @@ mod tests {
         assert_eq!(models.len(), 1);
         assert_eq!(models[0].model_id, "gemini-2.5-flash");
         assert_eq!(models[0].display_name, "Gemini Flash");
+        assert_eq!(models[0].model_types, vec!["multimodal"]);
     }
 
     #[test]

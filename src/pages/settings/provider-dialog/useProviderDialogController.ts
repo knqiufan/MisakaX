@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { modelsIpc, type FetchModelsResult, type RouterConfigView } from "@/lib/ipc";
-import { getEndpoint, type ProviderApi, type VendorId } from "@/lib/providers/catalog";
+import { getEndpoint, VENDOR_CATALOG, type ProviderApi, type VendorId } from "@/lib/providers/catalog";
+import { VENDOR_FALLBACK_LABELS } from "./catalog-ui";
 import { useSettingsStore } from "@/stores/settings-store";
 import { customModelToCreate } from "./model-utils";
 import {
@@ -84,6 +85,7 @@ export function useProviderDialogController({
 
   function onUpdateVendor(vendor: VendorId) {
     form.update("vendor", vendor);
+    form.update("name", t(VENDOR_CATALOG[vendor].labelKey, VENDOR_FALLBACK_LABELS[vendor]));
     setBaseUrlDirty(false);
   }
 

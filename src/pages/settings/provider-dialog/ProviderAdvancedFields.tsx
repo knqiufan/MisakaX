@@ -7,6 +7,13 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import {
   Tooltip,
@@ -21,6 +28,15 @@ import { FormField } from "./FormField";
 interface ProviderAdvancedFieldsProps {
   value: AdvancedConfig;
   onChange: (value: AdvancedConfig) => void;
+}
+
+const MAX_TOKEN_PRESETS = [200_000, 220_000, 273_000, 300_000, 1_000_000] as const;
+
+function maxTokensMode(value: number | null): string {
+  if (value === null || !MAX_TOKEN_PRESETS.includes(value as (typeof MAX_TOKEN_PRESETS)[number])) {
+    return "custom";
+  }
+  return String(value);
 }
 
 export function ProviderAdvancedFields({
@@ -75,24 +91,55 @@ export function ProviderAdvancedFields({
               <FieldHint text={t("providers.advanced.maxTokensHint", "Optional")} />
             }
           >
-            <Input
-              min={1}
-              type="number"
-              value={value.max_tokens ?? ""}
-              onChange={(event) =>
-                onChange({
-                  ...value,
-                  max_tokens: event.target.value ? Number(event.target.value) : null,
-                })
-              }
-              placeholder="4096"
-            />
+            <div className="space-y-2">
+              <Select
+                value={maxTokensMode(value.max_tokens)}
+                onValueChange={(mode) =>
+                  onChange({
+                    ...value,
+                    max_tokens: mode === "custom" ? null : Number(mode),
+                  })
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MAX_TOKEN_PRESETS.map((preset) => (
+                    <SelectItem key={preset} value={String(preset)}>
+                      {formatTokenPreset(preset)}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="custom">
+                    {t("providers.advanced.maxTokensCustom", "Custom")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {maxTokensMode(value.max_tokens) === "custom" ? (
+                <Input
+                  min={1}
+                  type="number"
+                  value={value.max_tokens ?? ""}
+                  onChange={(event) =>
+                    onChange({
+                      ...value,
+                      max_tokens: event.target.value ? Number(event.target.value) : null,
+                    })
+                  }
+                  placeholder="4096"
+                />
+              ) : null}
+            </div>
           </FormField>
           </div>
         </TooltipProvider>
       </CollapsibleContent>
     </Collapsible>
   );
+}
+
+function formatTokenPreset(value: number): string {
+  return value === 1_000_000 ? "1M" : `${value / 1_000}K`;
 }
 
 function FieldHint({ text }: { text: string }) {

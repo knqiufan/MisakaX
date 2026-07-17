@@ -467,4 +467,3 @@ fn create_with_workspace_sets_default_kind() {
         Some("/home/.misakax/workspace")
     );
 }
-

@@ -13,12 +13,12 @@
   },
   "models": {
     "title": "模型",
-    "addProvider": "添加 Provider",
-    "editProvider": "编辑 Provider",
-    "deleteProvider": "删除 Provider",
-    "deleteConfirm": "确定要删除此 Provider 吗？",
-    "providerName": "Provider 名称",
-    "providerType": "Provider 类型",
+    "addProvider": "添加模型",
+    "editProvider": "编辑模型",
+    "deleteProvider": "删除供应商",
+    "deleteConfirm": "确定要删除此供应商吗？",
+    "providerName": "供应商名称",
+    "providerType": "供应商接口类型",
     "apiKey": "API Key",
     "apiKeyPlaceholder": "请输入 API Key",
     "baseUrl": "接口地址",
@@ -31,9 +31,9 @@
     "testing": "测试中...",
     "connectionSuccess": "连接成功",
     "connectionFailed": "连接失败",
-    "modelSaveFailed": "Provider 已保存，但模型清单保存失败",
-    "noProviders": "尚未配置任何 Provider",
-    "noProvidersDesc": "添加 Provider 以开始使用 AI 模型",
+    "modelSaveFailed": "供应商已保存，但模型清单保存失败",
+    "noProviders": "尚未配置任何供应商",
+    "noProvidersDesc": "添加模型以开始使用 AI 模型",
     "providerNamePlaceholder": "我的 OpenAI"
   },
   "providers": {
@@ -82,13 +82,23 @@
       "thinkingOffModel": "关闭思考时使用的模型",
       "thinkingOffNone": "不映射（保持当前模型）",
       "thinkingOffEmpty": "没有可用的非思考模型可作为回退目标。"
+      ,"type": "模型类型",
+      "types": {
+        "text": "文本模型",
+        "multimodal": "多模态模型",
+        "speech": "语音模型",
+        "embedding": "嵌入模型",
+        "rerank": "重排模型",
+        "image": "图像模型"
+      }
     },
     "advanced": {
       "title": "高级配置",
       "temperature": "Temperature",
       "temperatureHint": "控制输出随机性，数值越高越发散。",
       "maxTokens": "Max tokens",
-      "maxTokensHint": "可选，限制单次回复可生成的最大 token 数。"
+    "maxTokensHint": "可选，限制单次回复可生成的最大 token 数。"
+      ,"maxTokensCustom": "自定义"
     }
   },
   "mcp": {
@@ -109,6 +119,15 @@
     "command": "命令",
     "arguments": "参数",
     "url": "URL 地址",
+    "headers": "请求头（JSON）",
+    "headersPlaceholder": "{\n  \"Authorization\": \"Bearer …\"\n}",
+    "jsonConfig": "JSON 配置",
+    "jsonConfigPlaceholder": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\"-y\", \"@modelcontextprotocol/server-filesystem\"]\n    }\n  }\n}",
+    "configMode": "配置方式",
+    "formMode": "表单填写",
+    "jsonMode": "JSON 输入",
+    "invalidJson": "JSON 配置无效，请检查格式。",
+    "jsonServerCount": "JSON 配置仅能包含一个 MCP 服务器。",
     "cancel": "取消",
     "add": "添加",
     "adding": "添加中...",

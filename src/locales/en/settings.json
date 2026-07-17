@@ -13,7 +13,7 @@
   },
   "models": {
     "title": "Models",
-    "addProvider": "Add Provider",
+    "addProvider": "Add Model",
     "editProvider": "Edit Provider",
     "deleteProvider": "Delete Provider",
     "deleteConfirm": "Are you sure you want to delete this provider?",
@@ -82,6 +82,15 @@
       "thinkingOffModel": "Fallback model when thinking is off",
       "thinkingOffNone": "No mapping (keep current model)",
       "thinkingOffEmpty": "No non-thinking models available as a fallback target."
+      ,"type": "Model type",
+      "types": {
+        "text": "Text model",
+        "multimodal": "Multimodal model",
+        "speech": "Speech model",
+        "embedding": "Embedding model",
+        "rerank": "Reranking model",
+        "image": "Image model"
+      }
     },
     "advanced": {
       "title": "Advanced configuration",
@@ -89,6 +98,7 @@
       "temperatureHint": "Controls response randomness. Higher values are more creative.",
       "maxTokens": "Max tokens",
       "maxTokensHint": "Optional limit for the maximum generated tokens in one response."
+      ,"maxTokensCustom": "Custom"
     }
   },
   "mcp": {
@@ -109,6 +119,15 @@
     "command": "Command",
     "arguments": "Arguments",
     "url": "URL",
+    "headers": "Request headers (JSON)",
+    "headersPlaceholder": "{\n  \"Authorization\": \"Bearer …\"\n}",
+    "jsonConfig": "JSON configuration",
+    "jsonConfigPlaceholder": "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"npx\",\n      \"args\": [\"-y\", \"@modelcontextprotocol/server-filesystem\"]\n    }\n  }\n}",
+    "configMode": "Configuration mode",
+    "formMode": "Form",
+    "jsonMode": "JSON",
+    "invalidJson": "Invalid JSON configuration. Please check the format.",
+    "jsonServerCount": "JSON configuration must contain exactly one MCP server.",
     "cancel": "Cancel",
     "add": "Add",
     "adding": "Adding...",

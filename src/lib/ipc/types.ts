@@ -71,6 +71,7 @@ export interface CreateCustomModel {
   display_name: string;
   supports_vision?: boolean;
   supports_thinking?: boolean;
+  model_types?: ModelType[];
   max_tokens?: number | null;
   context_window?: number | null;
   enabled?: boolean;
@@ -104,6 +105,7 @@ export interface CustomModel {
   display_name: string;
   supports_vision: boolean;
   supports_thinking: boolean;
+  model_types: ModelType[];
   max_tokens: number | null;
   context_window: number | null;
   enabled: boolean;
@@ -111,6 +113,14 @@ export interface CustomModel {
   thinking_off_model_id?: string | null;
   created_at: string;
 }
+
+export type ModelType =
+  | "text"
+  | "multimodal"
+  | "speech"
+  | "embedding"
+  | "rerank"
+  | "image";
 
 export interface FetchModelsResult {
   models: ModelInfo[];

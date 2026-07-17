@@ -1,5 +1,6 @@
 import type { CreateCustomModel, CustomModel } from "@/lib/ipc";
 import type { ModelInfo } from "@/lib/ipc/models";
+import { inferManualModelTypes } from "./model-types";
 
 export function customModelToCreate(model: CustomModel): CreateCustomModel {
   return {
@@ -7,6 +8,7 @@ export function customModelToCreate(model: CustomModel): CreateCustomModel {
     display_name: model.display_name,
     supports_vision: model.supports_vision,
     supports_thinking: model.supports_thinking,
+    model_types: model.model_types,
     max_tokens: model.max_tokens,
     context_window: model.context_window,
     enabled: model.enabled,
@@ -24,6 +26,7 @@ export function modelInfoToCreate(
     display_name: model.display_name,
     supports_vision: model.supports_vision,
     supports_thinking: model.supports_thinking,
+    model_types: model.model_types,
     max_tokens: model.max_tokens,
     context_window: model.context_window,
     enabled: true,
@@ -38,6 +41,7 @@ export function manualModelToCreate(
   return {
     model_id: modelId.trim(),
     display_name: modelId.trim(),
+    model_types: inferManualModelTypes(modelId),
     enabled: true,
     sort_order: sortOrder,
   };

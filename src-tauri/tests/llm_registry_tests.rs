@@ -25,10 +25,12 @@ fn setup_test_db() -> Connection {
             display_name TEXT NOT NULL,
             supports_vision INTEGER DEFAULT 0,
             supports_thinking INTEGER DEFAULT 0,
+            model_types_json TEXT NOT NULL DEFAULT '[]',
             max_tokens INTEGER,
             context_window INTEGER,
             enabled INTEGER DEFAULT 1,
             sort_order INTEGER DEFAULT 0,
+            thinking_off_model_id TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (router_config_id) REFERENCES router_configs(id) ON DELETE CASCADE,
             UNIQUE (router_config_id, model_id)
