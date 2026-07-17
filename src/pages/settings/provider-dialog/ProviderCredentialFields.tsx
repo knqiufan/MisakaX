@@ -70,37 +70,32 @@ export function ProviderCredentialFields(props: ProviderCredentialFieldsProps) {
                 : t("models.apiKeyPlaceholder")
             }
           />
-          <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1">
-            {props.isEditing && !props.apiKey && (
-              <Button
-                aria-label={t("providers.apiKey.reveal", "Reveal API key")}
-                disabled={props.revealing}
-                onClick={props.onReveal}
-                size="icon"
-                variant="ghost"
-                className="size-7"
-              >
-                {props.revealing ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  <Eye className="size-3.5" />
-                )}
-              </Button>
+          <Button
+            aria-label={
+              props.isEditing && !props.apiKey
+                ? t("providers.apiKey.reveal", "Reveal API key")
+                : t("providers.apiKey.toggleVisible", "Toggle API key visibility")
+            }
+            disabled={props.revealing}
+            onClick={() => {
+              if (props.isEditing && !props.apiKey) {
+                props.onReveal();
+              } else {
+                props.onShowKeyChange(!props.showKey);
+              }
+            }}
+            size="icon"
+            variant="ghost"
+            className="absolute right-1.5 top-1/2 size-7 -translate-y-1/2"
+          >
+            {props.revealing ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : props.showKey ? (
+              <EyeOff className="size-3.5" />
+            ) : (
+              <Eye className="size-3.5" />
             )}
-            <Button
-              aria-label={t("providers.apiKey.toggleVisible", "Toggle API key visibility")}
-              onClick={() => props.onShowKeyChange(!props.showKey)}
-              size="icon"
-              variant="ghost"
-              className="size-7"
-            >
-              {props.showKey ? (
-                <EyeOff className="size-3.5" />
-              ) : (
-                <Eye className="size-3.5" />
-              )}
-            </Button>
-          </div>
+          </Button>
         </div>
       </FormField>
     </section>

@@ -7,13 +7,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import {
   Tooltip,
@@ -92,29 +85,44 @@ export function ProviderAdvancedFields({
             }
           >
             <div className="space-y-2">
-              <Select
-                value={maxTokensMode(value.max_tokens)}
-                onValueChange={(mode) =>
-                  onChange({
-                    ...value,
-                    max_tokens: mode === "custom" ? null : Number(mode),
-                  })
-                }
+              <div
+                className="flex flex-wrap gap-1.5"
+                role="radiogroup"
+                aria-label={t("providers.advanced.maxTokens", "Max tokens")}
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MAX_TOKEN_PRESETS.map((preset) => (
-                    <SelectItem key={preset} value={String(preset)}>
-                      {formatTokenPreset(preset)}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="custom">
-                    {t("providers.advanced.maxTokensCustom", "Custom")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                {[...MAX_TOKEN_PRESETS.map(String), "custom"].map((mode) => {
+                  const checked = maxTokensMode(value.max_tokens) === mode;
+                  return (
+                    <label
+                      key={mode}
+                      className={cn(
+                        "cursor-pointer rounded-full border px-2.5 py-1 text-xs font-medium transition-colors duration-[var(--ds-dur-fast)]",
+                        "focus-within:outline-none focus-within:ring-2 focus-within:ring-ring/45",
+                        checked
+                          ? "border-primary/55 bg-primary/10 text-primary"
+                          : "border-[color:var(--border-subtle)] bg-muted/35 text-muted-foreground hover:bg-[color:var(--surface-hover)] hover:text-foreground",
+                      )}
+                    >
+                      <input
+                        className="sr-only"
+                        type="radio"
+                        name="max-tokens-mode"
+                        value={mode}
+                        checked={checked}
+                        onChange={() =>
+                          onChange({
+                            ...value,
+                            max_tokens: mode === "custom" ? null : Number(mode),
+                          })
+                        }
+                      />
+                      {mode === "custom"
+                        ? t("providers.advanced.maxTokensCustom", "Custom")
+                        : formatTokenPreset(Number(mode))}
+                    </label>
+                  );
+                })}
+              </div>
               {maxTokensMode(value.max_tokens) === "custom" ? (
                 <Input
                   min={1}
