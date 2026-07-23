@@ -84,6 +84,16 @@ pub struct AgentChatRequest {
     /// Explicitly selected installed Skills for this turn, validated by Rust.
     #[serde(default)]
     pub selected_skill_ids: Vec<String>,
+    /// Verified local Skill mounts. These let the Sidecar use compatible
+    /// Claude, Codex, and Cursor Skills without copying them into MisakaX.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub selected_skills: Vec<AgentSkillMount>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSkillMount {
+    pub slug: String,
+    pub path: String,
 }
 
 fn default_agent_mode() -> String {

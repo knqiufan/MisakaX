@@ -11,6 +11,7 @@ from app.agent import (
     resolve_selected_skills,
 )
 from app.config import get_settings
+from app.models import SelectedSkillMount
 from app.prompts import build_system_prompt
 from app.workspace_backend import MEMORY_FILE, SKILLS_PREFIX, WorkspacePathBackend
 
@@ -230,24 +231,33 @@ def test_selected_skills_are_validated_and_added_to_prompt(tmp_path: Path):
         encoding="utf-8",
     )
 
-    selected = resolve_selected_skills(["code-review"], tmp_path)
+    selected = resolve_selected_skills(
+        [SelectedSkillMount(slug="code-review", path=str(skill_dir))], tmp_path
+    )
     prompt = build_system_prompt(selected_skills=selected)
 
-    assert selected == [SelectedSkill("code-review", "Review changes safely")]
+    assert selected == [
+        SelectedSkill("code-review", "Review changes safely", skill_dir.resolve())
+    ]
     assert "/skills/<slug>/SKILL.md" in prompt
     assert "`code-review`: Review changes safely" in prompt
 
 
 def test_selected_skills_reject_missing_or_invalid_slugs(tmp_path: Path):
     try:
-        resolve_selected_skills(["../outside"], tmp_path)
+        resolve_selected_skills(
+            [SelectedSkillMount(slug="../outside", path=str(tmp_path))], tmp_path
+        )
     except ValueError as exc:
         assert "Invalid selected Skill" in str(exc)
     else:
         raise AssertionError("Expected invalid Skill slug to fail")
 
     try:
-        resolve_selected_skills(["missing-skill"], tmp_path)
+        resolve_selected_skills(
+            [SelectedSkillMount(slug="missing-skill", path=str(tmp_path / "missing"))],
+            tmp_path,
+        )
     except ValueError as exc:
         assert "not installed" in str(exc)
     else:

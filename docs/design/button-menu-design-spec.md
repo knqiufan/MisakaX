@@ -1,6 +1,6 @@
 # MisakaX 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-07-14（v8）
+**最后审阅 / Last reviewed:** 2026-07-23（v9）
 
 > 主色已切换为 **charcoal**（非冷蓝强调色）。文中若仍出现历史「蓝调」示例，以实现侧 CSS 变量与 [frontend-ui-guidelines.md](./frontend-ui-guidelines.md) 为准。
 >
@@ -1714,6 +1714,13 @@ Hover:    transform=none, shadow=none, brightness(1)  [150ms]
 | `--collab` | 78px |
 | `--effort` | 80px |
 | `--approval` | 90px |
+
+### 11.2.1 工具栏来源选择（Radix Select）
+
+- 设置、仓库等需要切换**内容来源**的工具栏控件必须使用项目的 `Select` 组件；禁止新增浏览器原生 `<select>`，以避免系统原生菜单的视觉割裂、不可控样式和缺失的开闭动画。
+- Trigger 使用紧凑胶囊（`size="sm"`、`h-8` 或 `h-9`、`rounded-full`），宽度按最长本地化文案预留；图标箭头由组件统一提供，不另绘 CSS 三角形。
+- `SelectContent` 使用 `position="popper"`，右侧工具栏对齐 `align="end"`；必须复用 `OVERLAY_MOTION` 与 `OVERLAY_SIDE_SLIDE`，即 150ms fade + 不超过 4px 的微位移，禁止缩放或原生菜单。
+- 每项保持单一来源名称和可见焦点，当前项由组件的勾选指示表达；来源切换后内容区应立即进入加载态，不保留已过期来源的结果。
 
 ### 11.3 Git 面板分支选择器 (`.git-panel-select-input`)
 

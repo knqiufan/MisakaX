@@ -60,9 +60,13 @@ function SkillsContent({
   installed: InstalledSkill[]; remote: RemoteSkill[]; loading: boolean; onSelectInstalled: (skill: InstalledSkill) => void;
   onSelectRemote: (skill: RemoteSkill) => void; onInstall: (skill: RemoteSkill) => void; onBack: () => void; actions: React.ReactNode;
 }) {
+  const { t } = useTranslation("skills");
   return (
     <div className="mt-6 grid min-h-[420px] flex-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(360px,1.1fr)]">
-      <section className="min-h-0"><SkillsList installed={installed} remote={remote} view={view} loading={loading} query={query} selectedKey={selectedKey} onSelectInstalled={onSelectInstalled} onSelectRemote={onSelectRemote} onInstall={onInstall} /></section>
+      <section className="min-h-0">
+        {view === "discover" && !query.trim() ? <p className="mb-2 text-xs text-muted-foreground">{t("popularSkills")}</p> : null}
+        <SkillsList installed={installed} remote={remote} view={view} loading={loading} query={query} selectedKey={selectedKey} onSelectInstalled={onSelectInstalled} onSelectRemote={onSelectRemote} onInstall={onInstall} />
+      </section>
       <aside className="min-h-[360px]"><SkillDetailPanel detail={detail} actions={actions} onBack={onBack} /></aside>
     </div>
   );
@@ -71,6 +75,7 @@ function SkillsContent({
 function DetailActions({ detail, onRefresh, onUninstall, onInstall }: { detail: SkillDetail | RemoteSkillDetail; onRefresh: () => Promise<void>; onUninstall: (skill: InstalledSkill) => void; onInstall: (skill: RemoteSkill) => void }) {
   const { t } = useTranslation("skills");
   if ("changelog" in detail) return <RemoteActions detail={detail} onInstall={onInstall} />;
+  if (detail.skill.is_external) return null;
   const setEnabled = async () => {
     try { await skillsIpc.setEnabled(detail.skill.slug, !detail.skill.enabled); await onRefresh(); } catch (error) { toast.error(String(error)); }
   };
@@ -91,7 +96,7 @@ function useRemoteSearch(view: SkillsView, source: string, query: string, setRem
 }
 
 async function searchNow(source: string, query: string, setRemote: (skills: RemoteSkill[]) => void, setLoading: (loading: boolean) => void) {
-  try { setLoading(true); setRemote((await skillsIpc.searchRemote(source, query, 30)).items); } catch (error) { toast.error(String(error)); } finally { setLoading(false); }
+  try { setLoading(true); setRemote([]); setRemote((await skillsIpc.searchRemote(source, query, 30)).items); } catch (error) { toast.error(String(error)); } finally { setLoading(false); }
 }
 
 async function loadInstalledDetail(skill: InstalledSkill, setSelection: (value: Selection) => void, setDetail: (detail: SkillDetail | RemoteSkillDetail | null) => void) {

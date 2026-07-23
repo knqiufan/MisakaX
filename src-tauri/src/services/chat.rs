@@ -19,6 +19,7 @@ use crate::services::llm::config::LlmConfig;
 use crate::services::llm::{RigBackend, StreamResult};
 use crate::services::mcp::{McpToolLoop, MAX_TOOL_ROUNDS};
 use crate::services::mcp_bridge::McpToolBridge;
+use crate::services::sidecar_client::AgentSkillMount;
 use crate::services::sidecar_client::{AgentChatConfig, AgentChatMessage, AgentChatRequest};
 use crate::services::sidecar_sse::consume_sidecar_stream;
 use crate::services::thinking_capabilities::lookup_thinking_capability;
@@ -33,11 +34,19 @@ pub(crate) fn parse_attachments_json(json: Option<&str>) -> Option<Vec<MessageAt
 pub(crate) fn resolve_selected_skill_ids(
     state: &AppState,
     requested: &[String],
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<AgentSkillMount>, String> {
     let unique = normalize_skill_ids(requested)?;
     let db = state.db.lock().map_err(|error| error.to_string())?;
     crate::services::skills::installer::installed_selection(&db, &unique)
-        .map(|records| records.into_iter().map(|record| record.slug).collect())
+        .map(|records| {
+            records
+                .into_iter()
+                .map(|record| AgentSkillMount {
+                    slug: record.slug,
+                    path: record.installed_path,
+                })
+                .collect()
+        })
         .map_err(|error| error.to_string())
 }
 
@@ -230,7 +239,7 @@ pub(crate) async fn send_via_sidecar(
     user_content: &str,
     turn: &TurnModel,
     llm_config: Option<LlmConfig>,
-    selected_skill_ids: Vec<String>,
+    selected_skills: Vec<AgentSkillMount>,
     abort_flag: Arc<AtomicBool>,
     assistant_msg_id: &str,
 ) -> Result<(StreamResult, Option<String>), String> {
@@ -247,7 +256,11 @@ pub(crate) async fn send_via_sidecar(
         &router_config,
         &decrypted_key,
     );
-    request.selected_skill_ids = selected_skill_ids;
+    request.selected_skill_ids = selected_skills
+        .iter()
+        .map(|skill| skill.slug.clone())
+        .collect();
+    request.selected_skills = selected_skills;
     let response = state.sidecar_client.stream(&request).await?;
     if !response.status().is_success() {
         let status = response.status();
@@ -347,6 +360,7 @@ pub fn build_agent_chat_request(
         working_dir: session.working_directory.clone(),
         agent_mode: llm_config.agent_mode.clone(),
         selected_skill_ids: Vec::new(),
+        selected_skills: Vec::new(),
     }
 }
 

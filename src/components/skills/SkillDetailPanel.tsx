@@ -37,6 +37,7 @@ export function SkillDetailPanel({ detail, actions, onBack }: SkillDetailPanelPr
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-5 p-4">
           <Metadata detail={detail} />
+          {!isRemote && detail.skill.is_external ? <p className="rounded-lg border border-border/60 bg-muted/35 p-3 text-xs text-muted-foreground">{t("externalReadOnly", { source: detail.skill.source_kind })}</p> : null}
           <RiskSummary risk={risk} />
           <SkillPreview markdown={detail.skill_markdown} />
           <FileTree files={detail.files} />

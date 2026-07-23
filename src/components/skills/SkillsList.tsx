@@ -78,6 +78,7 @@ function InstalledListItem({
       <SkillText name={skill.name} description={skill.description} />
       <div className="ml-auto flex shrink-0 flex-col items-end gap-1">
         <span className="text-[10px] text-muted-foreground">{skill.version ?? t("unknown")}</span>
+        {skill.is_external ? <span className="text-[10px] text-muted-foreground">{t("externalSource", { source: skill.source_kind })}</span> : null}
         <span className={cn("text-[10px]", skill.enabled && healthy ? "text-primary" : "text-muted-foreground")}>
           {skill.enabled ? t("enabled") : t("disabled")}
         </span>
@@ -144,8 +145,8 @@ function ListEmpty({ view, query }: { view: "installed" | "discover"; query: str
   return (
     <div className="rounded-xl border border-dashed border-border p-8 text-center">
       <PackageOpen className="mx-auto size-5 text-muted-foreground/70" />
-      <p className="mt-2 text-sm font-medium">{t(hasQuery ? "emptySearchTitle" : view === "installed" ? "emptyInstalledTitle" : "emptySearchTitle")}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{t(hasQuery ? "emptySearchDescription" : view === "installed" ? "emptyInstalledDescription" : "emptySearchDescription")}</p>
+      <p className="mt-2 text-sm font-medium">{t(hasQuery ? "emptySearchTitle" : view === "installed" ? "emptyInstalledTitle" : "popularUnavailableTitle")}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{t(hasQuery ? "emptySearchDescription" : view === "installed" ? "emptyInstalledDescription" : "popularUnavailableDescription")}</p>
     </div>
   );
 }

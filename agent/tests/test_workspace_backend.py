@@ -81,8 +81,10 @@ def test_workspace_backend_reads_via_workspace_prefix(tmp_path: Path):
 def test_factory_mounts_skills_and_memories(tmp_path: Path):
     project = tmp_path / "project"
     skills = tmp_path / "skills"
+    external_skill = tmp_path / "external" / "demo"
     memories = tmp_path / "memories"
     project.mkdir()
+    external_skill.mkdir(parents=True)
 
     class FakeLocal:
         def __init__(self, **kwargs):
@@ -104,16 +106,19 @@ def test_factory_mounts_skills_and_memories(tmp_path: Path):
         FakeComposite,
         filesystem_cls=FakeFs,
         skills_dir=skills,
+        selected_skill_dirs={"demo": external_skill},
         memories_dir=memories,
     )
     backend = factory(object())
     routes = backend._inner.routes
     assert f"{SKILLS_PREFIX}/" in routes
+    assert f"{SKILLS_PREFIX}/demo/" in routes
     assert f"{MEMORIES_PREFIX}/" in routes
     assert f"/workspace/" in routes
     assert skills.is_dir()
     assert memories.is_dir()
     assert Path(routes[f"{SKILLS_PREFIX}/"].kwargs["root_dir"]) == skills
+    assert Path(routes[f"{SKILLS_PREFIX}/demo/"].kwargs["root_dir"]) == external_skill
     assert routes[f"{SKILLS_PREFIX}/"].kwargs["virtual_mode"] is True
 
 
@@ -144,3 +149,30 @@ def test_skills_route_outside_workspace_root(tmp_path: Path):
     entries = listed.entries if hasattr(listed, "entries") else listed
     paths = {item.get("path") for item in (entries or [])}
     assert any(path and "demo" in path for path in paths)
+
+
+def test_selected_external_skill_route_reads_from_its_original_directory(tmp_path: Path):
+    """A selected compatibility Skill must mount ahead of the managed root."""
+    pytest.importorskip("deepagents")
+    from deepagents.backends import CompositeBackend, FilesystemBackend, LocalShellBackend
+
+    project = tmp_path / "project"
+    external_skill = tmp_path / "external" / "demo"
+    project.mkdir()
+    external_skill.mkdir(parents=True)
+    (external_skill / "SKILL.md").write_text("# external demo\n", encoding="utf-8")
+
+    factory = make_workspace_backend_factory(
+        project,
+        LocalShellBackend,
+        object,
+        CompositeBackend,
+        filesystem_cls=FilesystemBackend,
+        skills_dir=tmp_path / "managed-skills",
+        selected_skill_dirs={"demo": external_skill},
+        memories_dir=tmp_path / "memories",
+    )
+    backend = factory(object())
+    result = backend.read("/skills/demo/SKILL.md")
+    file_data = result.file_data if hasattr(result, "file_data") else result["file_data"]
+    assert file_data["content"] == "# external demo\n"

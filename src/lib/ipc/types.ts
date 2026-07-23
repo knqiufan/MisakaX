@@ -264,6 +264,8 @@ export interface InstalledSkill {
   installed_path: string;
   enabled: boolean;
   health: "healthy" | "missing" | string;
+  /** Discovered from a compatible Agent directory; MisakaX does not own it. */
+  is_external: boolean;
   risk: SkillRiskReport;
   installed_at: string;
   updated_at: string;

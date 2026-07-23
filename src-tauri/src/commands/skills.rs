@@ -219,14 +219,31 @@ fn temporary_archive_path() -> anyhow::Result<PathBuf> {
 async fn preview_remote_detail(provider: &str, slug: &str) -> anyhow::Result<RemoteSkillDetail> {
     let mut detail = catalog::remote_detail(provider, slug).await?;
     let archive = temporary_archive_path()?;
-    catalog::download_registry_archive(provider, slug, detail.skill.version.as_deref(), &archive)
-        .await?;
     let preview = config::skills_preview_cache_dir()?.join(uuid::Uuid::new_v4().to_string());
-    let inspection = extract_archive(&archive, &preview)?;
-    detail.manifest = Some(inspection.manifest);
-    detail.files = inspection.files;
-    detail.skill_markdown = Some(fs::read_to_string(preview.join("SKILL.md"))?);
-    detail.risk = merge_preview_risk(detail.risk, inspection.risk);
+    let preview_result = async {
+        catalog::download_registry_archive(
+            provider,
+            slug,
+            detail.skill.version.as_deref(),
+            &archive,
+        )
+        .await?;
+        let inspection = extract_archive(&archive, &preview)?;
+        let markdown = fs::read_to_string(preview.join("SKILL.md"))?;
+        Ok::<_, anyhow::Error>((inspection, markdown))
+    }
+    .await;
+    match preview_result {
+        Ok((inspection, markdown)) => {
+            detail.manifest = Some(inspection.manifest);
+            detail.files = inspection.files;
+            detail.skill_markdown = Some(markdown);
+            detail.risk = merge_preview_risk(detail.risk, inspection.risk);
+        }
+        Err(error) => detail.risk.notes.push(format!(
+            "Remote metadata is available, but this package could not be previewed: {error}"
+        )),
+    }
     let _ = fs::remove_file(archive);
     let _ = fs::remove_dir_all(preview);
     Ok(detail)

@@ -22,6 +22,7 @@ from app.workspace_backend import (
     SKILLS_PREFIX,
     make_workspace_backend_factory,
 )
+from app.models import SelectedSkillMount
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ _PROVIDER_PROFILE_KEYS = (
 class SelectedSkill:
     slug: str
     description: str
+    directory: Path
 
 
 def build_agent(
@@ -107,6 +109,7 @@ def build_agent(
         CompositeBackend,
         filesystem_cls=FilesystemBackend,
         skills_dir=settings.skills_dir,
+        selected_skill_dirs={skill.slug: skill.directory for skill in selected_skills or []},
         memories_dir=settings.memories_dir,
     )
 
@@ -161,28 +164,32 @@ def _resolve_working_dir(working_dir: str | None):
 
 
 def resolve_selected_skills(
-    selected_skill_ids: list[str],
+    selected_skill_mounts: list[SelectedSkillMount],
     skills_dir: Path,
 ) -> list[SelectedSkill]:
-    """Validate per-turn Skill selections against the mounted local inventory."""
-    if len(selected_skill_ids) > 20:
+    """Validate Rust-provided mounts before exposing them to the Agent."""
+    if len(selected_skill_mounts) > 20:
         raise ValueError("At most 20 Skills can be selected for one request")
     resolved: list[SelectedSkill] = []
     seen: set[str] = set()
-    root = skills_dir.resolve()
-    for slug in selected_skill_ids:
+    allowed_roots = _allowed_skill_roots(skills_dir)
+    for mount in selected_skill_mounts:
+        slug = mount.slug
         if slug in seen:
             continue
         seen.add(slug)
         _validate_skill_slug(slug)
-        markdown = _read_selected_skill_markdown(root, slug)
+        directory = _validate_selected_skill_directory(mount.path, allowed_roots)
+        markdown = _read_selected_skill_markdown(directory)
         name = _frontmatter_value(markdown, "name")
         if name != slug:
             raise ValueError(f"Selected Skill '{slug}' has an invalid manifest")
         description = _frontmatter_value(markdown, "description")
         if not description:
             raise ValueError(f"Selected Skill '{slug}' has no description")
-        resolved.append(SelectedSkill(slug=slug, description=description))
+        resolved.append(
+            SelectedSkill(slug=slug, description=description, directory=directory)
+        )
     return resolved
 
 
@@ -191,10 +198,32 @@ def _validate_skill_slug(slug: str) -> None:
         raise ValueError(f"Invalid selected Skill identifier: {slug!r}")
 
 
-def _read_selected_skill_markdown(root: Path, slug: str) -> str:
-    candidate = (root / slug / "SKILL.md").resolve()
-    if root not in candidate.parents or not candidate.is_file():
-        raise ValueError(f"Selected Skill '{slug}' is not installed")
+def _allowed_skill_roots(skills_dir: Path) -> tuple[Path, ...]:
+    home = Path.home()
+    return (
+        skills_dir.resolve(),
+        (home / ".codex" / "skills").resolve(),
+        (home / ".claude" / "skills").resolve(),
+        (home / ".cursor" / "skills").resolve(),
+    )
+
+
+def _validate_selected_skill_directory(raw: str, allowed_roots: tuple[Path, ...]) -> Path:
+    try:
+        directory = Path(raw).resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise ValueError("Selected Skill is not installed") from exc
+    if not directory.is_dir() or not any(
+        directory == root or root in directory.parents for root in allowed_roots
+    ):
+        raise ValueError("Selected Skill is outside an allowed Skills directory")
+    return directory
+
+
+def _read_selected_skill_markdown(directory: Path) -> str:
+    candidate = directory / "SKILL.md"
+    if not candidate.is_file():
+        raise ValueError("Selected Skill is not installed")
     return candidate.read_text(encoding="utf-8")
 
 

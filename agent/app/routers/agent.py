@@ -15,7 +15,15 @@ from app.agent import build_agent, resolve_selected_skills
 from app.config import get_settings
 from app.dependencies import get_checkpointer, get_store
 from app.llm import resolve_chat_model
-from app.models import ChatMessage, ChatRequest, ChatResponse, MessageRole, TokenUsage, ToolCall
+from app.models import (
+    ChatMessage,
+    ChatRequest,
+    ChatResponse,
+    MessageRole,
+    SelectedSkillMount,
+    TokenUsage,
+    ToolCall,
+)
 from app.stream_content import (
     expand_tool_payload,
     extract_stream_deltas,
@@ -109,8 +117,14 @@ def _build_request_agent(request: ChatRequest):
     mode = "research" if request.agent_mode == "research" else "chat"
     settings = get_settings()
     try:
+        # Keep older desktop clients working while new clients provide a
+        # canonical, Rust-validated directory for each compatible Skill.
+        mounts = request.selected_skills or [
+            SelectedSkillMount(slug=slug, path=str(settings.skills_dir / slug))
+            for slug in request.selected_skill_ids
+        ]
         selected_skills = resolve_selected_skills(
-            request.selected_skill_ids,
+            mounts,
             settings.skills_dir,
         )
     except ValueError as exc:

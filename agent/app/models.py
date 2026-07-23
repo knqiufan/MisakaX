@@ -73,6 +73,15 @@ class ChatConfig(BaseModel):
     model_config = {"frozen": False, "extra": "ignore"}
 
 
+class SelectedSkillMount(BaseModel):
+    """A Rust-validated Skill directory mounted read-only for one turn."""
+
+    slug: str
+    path: str
+
+    model_config = {"frozen": False, "extra": "ignore"}
+
+
 class ChatRequest(BaseModel):
     """Request body for POST /agent/chat and /agent/stream."""
 
@@ -84,6 +93,8 @@ class ChatRequest(BaseModel):
     agent_mode: str = "chat"
     # Explicitly selected installed Skills for this turn.
     selected_skill_ids: list[str] = Field(default_factory=list)
+    # Rich, path-bearing selection added for compatible external Skill roots.
+    selected_skills: list[SelectedSkillMount] = Field(default_factory=list)
 
     model_config = {"frozen": False, "extra": "ignore"}
 

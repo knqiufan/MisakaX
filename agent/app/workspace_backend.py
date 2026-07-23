@@ -177,6 +177,7 @@ def _mount_system_routes(
     routes: dict[str, Any],
     filesystem_cls: Any | None,
     skills_dir: Path | None,
+    selected_skill_dirs: dict[str, Path] | None,
     memories_dir: Path | None,
 ) -> None:
     if filesystem_cls is None:
@@ -186,6 +187,11 @@ def _mount_system_routes(
         root.mkdir(parents=True, exist_ok=True)
         routes[f"{SKILLS_PREFIX}/"] = filesystem_cls(
             root_dir=str(root),
+            virtual_mode=True,
+        )
+    for slug, directory in (selected_skill_dirs or {}).items():
+        routes[f"{SKILLS_PREFIX}/{slug}/"] = filesystem_cls(
+            root_dir=str(directory),
             virtual_mode=True,
         )
     if memories_dir is not None:
@@ -205,13 +211,20 @@ def make_workspace_backend_factory(
     *,
     filesystem_cls=None,
     skills_dir: Path | None = None,
+    selected_skill_dirs: dict[str, Path] | None = None,
     memories_dir: Path | None = None,
 ):
     """Bind project dir under /workspace; mount global skills/memories separately."""
 
     def factory(rt):
         routes: dict[str, Any] = {}
-        _mount_system_routes(routes, filesystem_cls, skills_dir, memories_dir)
+        _mount_system_routes(
+            routes,
+            filesystem_cls,
+            skills_dir,
+            selected_skill_dirs,
+            memories_dir,
+        )
 
         if validated_root is not None:
             shell = local_shell_cls(

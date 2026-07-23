@@ -26,6 +26,10 @@ pub struct SkillRecord {
     pub installed_path: String,
     pub enabled: bool,
     pub health: String,
+    /// True when the Skill is discovered from another Agent's standard
+    /// directory instead of being owned by MisakaX's managed inventory.
+    #[serde(default)]
+    pub is_external: bool,
     pub risk: SkillRiskReport,
     pub installed_at: String,
     pub updated_at: String,

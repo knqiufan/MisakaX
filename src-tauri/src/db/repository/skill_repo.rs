@@ -141,6 +141,7 @@ impl SkillRepo {
             installed_path: row.get(8)?,
             enabled: row.get(9)?,
             health: row.get(10)?,
+            is_external: false,
             risk,
             installed_at: row.get(12)?,
             updated_at: row.get(13)?,

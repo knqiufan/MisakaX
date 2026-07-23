@@ -1,8 +1,10 @@
+use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use rusqlite::Connection;
+use sha2::{Digest, Sha256};
 use walkdir::WalkDir;
 
 use crate::config;
@@ -38,15 +40,34 @@ pub fn install_local_archive(
 
 pub fn list_installed(conn: &Connection) -> Result<Vec<SkillRecord>> {
     let root = config::skills_dir()?;
-    SkillRepo::list(conn)?
+    let managed = SkillRepo::list(conn)?
         .into_iter()
         .map(|record| Ok(with_current_health(record, &root)))
-        .collect()
+        .collect::<Result<Vec<_>>>()?;
+    let managed_slugs = managed
+        .iter()
+        .map(|skill| skill.slug.clone())
+        .collect::<HashSet<_>>();
+    let mut skills = managed;
+    skills.extend(
+        discover_external_skills()?
+            .into_iter()
+            .filter(|skill| !managed_slugs.contains(&skill.slug)),
+    );
+    skills.sort_by(|left, right| {
+        left.is_external
+            .cmp(&right.is_external)
+            .then_with(|| left.name.to_lowercase().cmp(&right.name.to_lowercase()))
+    });
+    Ok(skills)
 }
 
 pub fn get_detail(conn: &Connection, slug: &str) -> Result<SkillDetail> {
-    let record = SkillRepo::find(conn, slug)?.context("Skill is not installed")?;
-    let skill_dir = checked_skill_dir(&record)?;
+    let record = match SkillRepo::find(conn, slug)? {
+        Some(record) => record,
+        None => find_external_skill(slug)?.context("Skill is not installed")?,
+    };
+    let skill_dir = skill_dir_for_record(&record)?;
     let markdown =
         fs::read_to_string(skill_dir.join("SKILL.md")).context("Cannot read SKILL.md")?;
     let manifest = parse_manifest(&markdown)?;
@@ -77,12 +98,18 @@ pub fn uninstall(conn: &Connection, slug: &str) -> Result<()> {
 }
 
 pub fn installed_selection(conn: &Connection, slugs: &[String]) -> Result<Vec<SkillRecord>> {
-    let records = SkillRepo::enabled_healthy(conn, slugs)?;
+    let mut records = Vec::with_capacity(slugs.len());
     let root = config::skills_dir()?;
-    for record in &records {
-        if health_for_record(record, &root) != "healthy" {
+    for slug in slugs {
+        let record = match SkillRepo::find(conn, slug)? {
+            Some(record) => record,
+            None => find_external_skill(slug)?
+                .context(format!("Selected skill '{slug}' is not installed"))?,
+        };
+        if !record.enabled || health_for_record(&record, &root) != "healthy" {
             bail!("Selected skill '{}' is missing or corrupted", record.slug)
         }
+        records.push(record);
     }
     Ok(records)
 }
@@ -170,6 +197,7 @@ fn build_record(
         installed_path: target.display().to_string(),
         enabled: true,
         health: "healthy".to_string(),
+        is_external: false,
         risk: merge_risk(&inspection.risk, &source.remote_risk),
         installed_at: String::new(),
         updated_at: String::new(),
@@ -197,18 +225,165 @@ fn checked_skill_dir(record: &SkillRecord) -> Result<PathBuf> {
     Ok(expected)
 }
 
+fn skill_dir_for_record(record: &SkillRecord) -> Result<PathBuf> {
+    if record.is_external {
+        return external_skill_dir(record);
+    }
+    checked_skill_dir(record)
+}
+
 fn with_current_health(mut record: SkillRecord, root: &Path) -> SkillRecord {
     record.health = health_for_record(&record, root);
     record
 }
 
 fn health_for_record(record: &SkillRecord, root: &Path) -> String {
+    if record.is_external {
+        return external_skill_dir(record)
+            .ok()
+            .filter(|path| path.join("SKILL.md").is_file())
+            .map(|_| "healthy".to_string())
+            .unwrap_or_else(|| "missing".to_string());
+    }
     let expected = root.join(&record.slug).join("SKILL.md");
     if expected.is_file() && Path::new(&record.installed_path) == root.join(&record.slug) {
         "healthy".to_string()
     } else {
         "missing".to_string()
     }
+}
+
+const EXTERNAL_SKILL_LIMIT: usize = 250;
+const EXTERNAL_SKILL_MAX_DEPTH: usize = 4;
+
+/// Discover Skills in the standard user-level directories of other Agents.
+///
+/// Only frontmatter and file metadata are read at inventory time. Full Skill
+/// instructions remain on disk until a user explicitly selects the Skill for a
+/// turn. A deterministic precedence order avoids duplicate names appearing in
+/// the UI: Codex, Claude, then Cursor.
+pub fn discover_external_skills() -> Result<Vec<SkillRecord>> {
+    let home = dirs::home_dir().context("Failed to resolve the home directory")?;
+    let roots = [
+        ("codex", home.join(".codex").join("skills")),
+        ("claude", home.join(".claude").join("skills")),
+        ("cursor", home.join(".cursor").join("skills")),
+    ];
+    let mut by_slug = BTreeMap::new();
+    for (source, root) in roots {
+        if by_slug.len() >= EXTERNAL_SKILL_LIMIT {
+            break;
+        }
+        for skill in discover_from_root(source, &root, EXTERNAL_SKILL_LIMIT - by_slug.len())? {
+            by_slug.entry(skill.slug.clone()).or_insert(skill);
+        }
+    }
+    Ok(by_slug.into_values().collect())
+}
+
+fn find_external_skill(slug: &str) -> Result<Option<SkillRecord>> {
+    Ok(discover_external_skills()?
+        .into_iter()
+        .find(|skill| skill.slug == slug))
+}
+
+fn discover_from_root(source: &str, root: &Path, remaining: usize) -> Result<Vec<SkillRecord>> {
+    if remaining == 0 || !root.is_dir() {
+        return Ok(Vec::new());
+    }
+    let canonical_root = fs::canonicalize(root)
+        .with_context(|| format!("Cannot resolve external Skill root {}", root.display()))?;
+    let mut found = Vec::new();
+    for entry in WalkDir::new(&canonical_root)
+        .follow_links(false)
+        .min_depth(2)
+        .max_depth(EXTERNAL_SKILL_MAX_DEPTH)
+    {
+        let entry = entry.context("Cannot enumerate external Skills")?;
+        if !entry.file_type().is_file() || entry.file_name() != "SKILL.md" {
+            continue;
+        }
+        let Some(directory) = entry.path().parent() else {
+            continue;
+        };
+        let canonical_dir = match fs::canonicalize(directory) {
+            Ok(path) if path.starts_with(&canonical_root) => path,
+            _ => continue,
+        };
+        let markdown = match fs::read_to_string(canonical_dir.join("SKILL.md")) {
+            Ok(markdown) => markdown,
+            Err(_) => continue,
+        };
+        let manifest = match parse_manifest(&markdown) {
+            Ok(manifest) => manifest,
+            Err(_) => continue,
+        };
+        let Some(directory_name) = canonical_dir.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if super::manifest::validate_skill_directory(directory_name, &manifest).is_err() {
+            continue;
+        }
+        found.push(external_record(source, &canonical_dir, manifest, &markdown));
+        if found.len() >= remaining {
+            break;
+        }
+    }
+    Ok(found)
+}
+
+fn external_record(
+    source: &str,
+    directory: &Path,
+    manifest: super::types::SkillManifest,
+    markdown: &str,
+) -> SkillRecord {
+    let mut hasher = Sha256::new();
+    hasher.update(markdown.as_bytes());
+    let checksum = format!("{:x}", hasher.finalize());
+    SkillRecord {
+        slug: manifest.name.clone(),
+        name: manifest.name,
+        description: manifest.description,
+        version: manifest
+            .metadata
+            .get("version")
+            .and_then(serde_yaml::Value::as_str)
+            .map(str::to_string),
+        source_kind: source.to_string(),
+        source_ref: Some("external".to_string()),
+        source_url: None,
+        checksum,
+        installed_path: directory.display().to_string(),
+        enabled: true,
+        health: "healthy".to_string(),
+        is_external: true,
+        risk: SkillRiskReport {
+            notes: vec!["Discovered from another Agent's local Skills directory.".to_string()],
+            ..SkillRiskReport::default()
+        },
+        installed_at: String::new(),
+        updated_at: String::new(),
+    }
+}
+
+fn external_skill_dir(record: &SkillRecord) -> Result<PathBuf> {
+    let path = PathBuf::from(&record.installed_path);
+    let canonical = fs::canonicalize(&path)
+        .with_context(|| format!("Cannot resolve external Skill directory {}", path.display()))?;
+    let home = dirs::home_dir().context("Failed to resolve the home directory")?;
+    let root = match record.source_kind.as_str() {
+        "codex" => home.join(".codex").join("skills"),
+        "claude" => home.join(".claude").join("skills"),
+        "cursor" => home.join(".cursor").join("skills"),
+        _ => bail!("Unknown external Skill source '{}'", record.source_kind),
+    };
+    let canonical_root = fs::canonicalize(&root)
+        .with_context(|| format!("Cannot resolve external Skill root {}", root.display()))?;
+    if !canonical.starts_with(canonical_root) || !canonical.join("SKILL.md").is_file() {
+        bail!("External Skill path is outside its allowed source directory")
+    }
+    Ok(canonical)
 }
 
 fn list_skill_files(root: &Path) -> Result<Vec<SkillFileNode>> {
@@ -245,4 +420,42 @@ fn to_file_node(root: &Path, path: &Path) -> Result<SkillFileNode> {
         kind,
         size_bytes: size,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::discover_from_root;
+
+    #[test]
+    fn discovers_only_valid_external_skill_directories() {
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().join("skills");
+        let valid = root.join("example-skill");
+        let invalid = root.join("different-directory");
+        fs::create_dir_all(&valid).unwrap();
+        fs::create_dir_all(&invalid).unwrap();
+        fs::write(
+            valid.join("SKILL.md"),
+            "---\nname: example-skill\ndescription: A valid external skill\n---\n",
+        )
+        .unwrap();
+        fs::write(
+            invalid.join("SKILL.md"),
+            "---\nname: another-skill\ndescription: This must not be indexed\n---\n",
+        )
+        .unwrap();
+
+        let found = discover_from_root("claude", &root, 10).unwrap();
+
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].slug, "example-skill");
+        assert!(found[0].is_external);
+        assert_eq!(found[0].source_kind, "claude");
+        assert_eq!(
+            found[0].installed_path,
+            fs::canonicalize(valid).unwrap().display().to_string()
+        );
+    }
 }

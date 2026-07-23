@@ -2,6 +2,13 @@ import { Search, Upload, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 export type SkillsView = "installed" | "discover";
@@ -110,15 +117,18 @@ function SourceTabs({ value, onChange }: { value: string; onChange: (source: str
     ["clawhub", t("sourceClawhub")],
   ];
   return (
-    <select
+    <Select
       value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="h-9 rounded-full border border-border bg-background px-3 text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
-      aria-label={t("source")}
+      onValueChange={onChange}
     >
-      {sources.map(([id, label]) => (
-        <option key={id} value={id}>{label}</option>
-      ))}
-    </select>
+      <SelectTrigger size="sm" className="min-w-36 rounded-full text-xs" aria-label={t("source")}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent position="popper" align="end">
+        {sources.map(([id, label]) => (
+          <SelectItem key={id} value={id} className="text-xs">{label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
