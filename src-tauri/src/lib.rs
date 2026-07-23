@@ -171,6 +171,18 @@ pub fn run() {
             commands::mcp::mcp_deny_tool_call,
             commands::mcp::mcp_list_permissions,
             commands::mcp::mcp_reset_permission,
+            commands::skills::skills_list_installed,
+            commands::skills::skills_get_detail,
+            commands::skills::skills_inspect_archive,
+            commands::skills::skills_install_archive,
+            commands::skills::skills_search_remote,
+            commands::skills::skills_get_remote_detail,
+            commands::skills::skills_install_remote,
+            commands::skills::skills_import_modelscope,
+            commands::skills::skills_export_installed,
+            commands::skills::skills_download_remote,
+            commands::skills::skills_set_enabled,
+            commands::skills::skills_uninstall,
         ])
         .setup(move |app| {
             tracing::info!("MisakaX initialized successfully");

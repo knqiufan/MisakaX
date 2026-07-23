@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
-import type { PendingFileMention } from "@/stores/composer-store";
+import type { PendingFileMention, PendingSkill } from "@/stores/composer-store";
 import { ChipStatusIcon, getFileTypeColorClass } from "./FileTypeIcon";
+import { Sparkles } from "lucide-react";
 
 interface MentionPillsProps {
   mentions: PendingFileMention[];
@@ -50,6 +51,26 @@ export function InlineMentionChip({ mention }: InlineMentionChipProps) {
         fileName={mention.name}
       />
       <span className={cn("truncate font-medium", colorClass)}>{mention.name}</span>
+    </span>
+  );
+}
+
+/**
+ * 行内 Skill chip 遵循文件引用的低彩 primary 语义；
+ * 键盘 Backspace / Delete 是唯一的删除操作。
+ */
+export function InlineSkillChip({ skill }: { skill: PendingSkill }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-6 max-w-[240px] items-center gap-1.5 rounded-md px-2 text-xs",
+        "border border-primary/25 bg-primary/8 text-primary",
+        "transition-colors duration-[var(--ds-dur-fast)]"
+      )}
+      title={skill.description}
+    >
+      <Sparkles className="size-3 shrink-0" />
+      <span className="truncate font-medium">{skill.name}</span>
     </span>
   );
 }

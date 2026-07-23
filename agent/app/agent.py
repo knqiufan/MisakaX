@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import logging
+import re
 import threading
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal
 
 from app.config import get_settings
@@ -23,6 +26,7 @@ from app.workspace_backend import (
 logger = logging.getLogger(__name__)
 
 AgentMode = Literal["chat", "research"]
+_SKILL_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 _HARNESS_LOCK = threading.Lock()
 _PROVIDER_PROFILE_KEYS = (
@@ -35,6 +39,12 @@ _PROVIDER_PROFILE_KEYS = (
 )
 
 
+@dataclass(frozen=True)
+class SelectedSkill:
+    slug: str
+    description: str
+
+
 def build_agent(
     session_id: str | None = None,
     working_dir: str | None = None,
@@ -44,6 +54,7 @@ def build_agent(
     include_subagents: bool | None = None,
     agent_mode: AgentMode = "chat",
     model: Any | None = None,
+    selected_skills: list[SelectedSkill] | None = None,
 ):
     """Create a DeepAgent graph for the given session context.
 
@@ -75,7 +86,10 @@ def build_agent(
     kwargs: dict[str, Any] = {
         "model": model if model is not None else settings.agent_model,
         "tools": agent_tools,
-        "system_prompt": build_system_prompt(has_workspace=validated is not None),
+        "system_prompt": build_system_prompt(
+            has_workspace=validated is not None,
+            selected_skills=selected_skills or [],
+        ),
         "subagents": subagents,
         "interrupt_on": settings.interrupt_config,
         "checkpointer": checkpointer,
@@ -146,6 +160,57 @@ def _resolve_working_dir(working_dir: str | None):
         return None
 
 
+def resolve_selected_skills(
+    selected_skill_ids: list[str],
+    skills_dir: Path,
+) -> list[SelectedSkill]:
+    """Validate per-turn Skill selections against the mounted local inventory."""
+    if len(selected_skill_ids) > 20:
+        raise ValueError("At most 20 Skills can be selected for one request")
+    resolved: list[SelectedSkill] = []
+    seen: set[str] = set()
+    root = skills_dir.resolve()
+    for slug in selected_skill_ids:
+        if slug in seen:
+            continue
+        seen.add(slug)
+        _validate_skill_slug(slug)
+        markdown = _read_selected_skill_markdown(root, slug)
+        name = _frontmatter_value(markdown, "name")
+        if name != slug:
+            raise ValueError(f"Selected Skill '{slug}' has an invalid manifest")
+        description = _frontmatter_value(markdown, "description")
+        if not description:
+            raise ValueError(f"Selected Skill '{slug}' has no description")
+        resolved.append(SelectedSkill(slug=slug, description=description))
+    return resolved
+
+
+def _validate_skill_slug(slug: str) -> None:
+    if not _SKILL_SLUG_RE.fullmatch(slug):
+        raise ValueError(f"Invalid selected Skill identifier: {slug!r}")
+
+
+def _read_selected_skill_markdown(root: Path, slug: str) -> str:
+    candidate = (root / slug / "SKILL.md").resolve()
+    if root not in candidate.parents or not candidate.is_file():
+        raise ValueError(f"Selected Skill '{slug}' is not installed")
+    return candidate.read_text(encoding="utf-8")
+
+
+def _frontmatter_value(markdown: str, key: str) -> str | None:
+    if not markdown.startswith("---"):
+        return None
+    end = markdown.find("\n---", 3)
+    if end < 0:
+        return None
+    for line in markdown[3:end].splitlines():
+        name, separator, value = line.partition(":")
+        if separator and name.strip() == key:
+            return value.strip().strip("\"'")
+    return None
+
+
 def _safe_get_tools() -> list[Any]:
     try:
         from app.tools import get_tools
@@ -197,6 +262,7 @@ def _build_subagents(settings) -> list[dict[str, Any]]:
 __all__ = [
     "SYSTEM_PROMPT",
     "build_agent",
+    "resolve_selected_skills",
     "_build_subagents",
     "_resolve_working_dir",
     "_apply_mode_harness_profile",

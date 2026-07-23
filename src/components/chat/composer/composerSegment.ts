@@ -1,8 +1,9 @@
-import type { PendingFileMention } from "@/stores/composer-store";
+import type { PendingFileMention, PendingSkill } from "@/stores/composer-store";
 
 export type ComposerSegment =
   | { type: "text"; id: string; value: string }
-  | { type: "mention"; mention: PendingFileMention };
+  | { type: "mention"; mention: PendingFileMention }
+  | { type: "skill"; skill: PendingSkill };
 
 export interface ComposerCursor {
   segmentId: string;
@@ -14,13 +15,24 @@ export function createEmptyDocument(): ComposerSegment[] {
 }
 
 export function getSegmentId(segment: ComposerSegment): string {
-  return segment.type === "text" ? segment.id : segment.mention.id;
+  if (segment.type === "text") return segment.id;
+  return segment.type === "mention" ? segment.mention.id : segment.skill.id;
 }
 
 export function collectMentions(segments: ComposerSegment[]): PendingFileMention[] {
   return segments
     .filter((s): s is Extract<ComposerSegment, { type: "mention" }> => s.type === "mention")
     .map((s) => s.mention);
+}
+
+export function collectSkills(segments: ComposerSegment[]): PendingSkill[] {
+  return segments
+    .filter((s): s is Extract<ComposerSegment, { type: "skill" }> => s.type === "skill")
+    .map((s) => s.skill);
+}
+
+export function selectedSkillIds(segments: ComposerSegment[]): string[] {
+  return collectSkills(segments).map((skill) => skill.slug);
 }
 
 export function getDocumentPlainText(segments: ComposerSegment[]): string {
@@ -45,7 +57,7 @@ export function buildOutgoingFromSegments(segments: ComposerSegment[]): string {
       parts.push(seg.value);
       continue;
     }
-    if (seg.mention.status !== "error") {
+    if (seg.type === "mention" && seg.mention.status !== "error") {
       parts.push(`@${seg.mention.relPath}`);
     }
   }
@@ -60,11 +72,30 @@ export function insertMentionAtCursor(
   if (hasMentionAbsPath(segments, mention.absPath)) {
     return { segments, cursor: cursor ?? defaultCursor(segments) };
   }
+  return insertReferenceAtCursor(segments, cursor, { type: "mention", mention }, mention.id);
+}
 
+export function insertSkillAtCursor(
+  segments: ComposerSegment[],
+  cursor: ComposerCursor | null,
+  skill: PendingSkill
+): { segments: ComposerSegment[]; cursor: ComposerCursor } {
+  if (collectSkills(segments).some((item) => item.slug === skill.slug)) {
+    return { segments, cursor: cursor ?? defaultCursor(segments) };
+  }
+  return insertReferenceAtCursor(segments, cursor, { type: "skill", skill }, skill.id);
+}
+
+function insertReferenceAtCursor(
+  segments: ComposerSegment[],
+  cursor: ComposerCursor | null,
+  reference: Exclude<ComposerSegment, { type: "text" }>,
+  referenceId: string
+): { segments: ComposerSegment[]; cursor: ComposerCursor } {
   const { index, offset } = resolveInsertPosition(segments, cursor);
   const target = segments[index];
   if (target.type !== "text") {
-    return insertAtEnd(segments, mention);
+    return insertAtEnd(segments, reference, referenceId);
   }
 
   const before = target.value.slice(0, offset);
@@ -72,13 +103,13 @@ export function insertMentionAtCursor(
   const next: ComposerSegment[] = [
     ...segments.slice(0, index),
     { type: "text", id: target.id, value: before },
-    { type: "mention", mention },
+    reference,
     { type: "text", id: crypto.randomUUID(), value: after },
     ...segments.slice(index + 1),
   ];
 
   const merged = normalizeSegments(next);
-  const afterTextId = findTextSegmentAfterMention(merged, mention.id);
+  const afterTextId = findTextSegmentAfterReference(merged, referenceId);
   return {
     segments: merged,
     cursor: { segmentId: afterTextId, offset: 0 },
@@ -100,8 +131,8 @@ export function handleSegmentBackspace(
   if (index === 0) return { segments, cursor, handled: false };
 
   const previous = segments[index - 1];
-  if (previous.type === "mention") {
-    return removeMentionAndMerge(segments, index - 1, index);
+  if (isReference(previous)) {
+    return removeReferenceAndMerge(segments, index - 1, index);
   }
 
   if (previous.type === "text") {
@@ -134,11 +165,11 @@ export function handleSegmentDelete(
   }
 
   const nextSeg = segments[index + 1];
-  if (!nextSeg || nextSeg.type !== "mention") {
+  if (!nextSeg || !isReference(nextSeg)) {
     return { segments, cursor, handled: false };
   }
 
-  return removeMentionAndMerge(segments, index + 1, index);
+  return removeReferenceAndMerge(segments, index + 1, index);
 }
 
 export function removeMentionById(
@@ -150,7 +181,16 @@ export function removeMentionById(
   );
   if (mentionIndex < 0) return segments;
   const textIndex = findAdjacentTextIndex(segments, mentionIndex);
-  return removeMentionAndMerge(segments, mentionIndex, textIndex).segments;
+  return removeReferenceAndMerge(segments, mentionIndex, textIndex).segments;
+}
+
+export function removeSkillById(segments: ComposerSegment[], skillId: string): ComposerSegment[] {
+  const skillIndex = segments.findIndex(
+    (s) => s.type === "skill" && s.skill.id === skillId
+  );
+  if (skillIndex < 0) return segments;
+  const textIndex = findAdjacentTextIndex(segments, skillIndex);
+  return removeReferenceAndMerge(segments, skillIndex, textIndex).segments;
 }
 
 export function updateMentionInSegments(
@@ -197,14 +237,15 @@ function resolveInsertPosition(
 
 function insertAtEnd(
   segments: ComposerSegment[],
-  mention: PendingFileMention
+  reference: Exclude<ComposerSegment, { type: "text" }>,
+  referenceId: string
 ): { segments: ComposerSegment[]; cursor: ComposerCursor } {
   const index = findLastTextIndex(segments);
   const target = segments[index];
   if (target.type !== "text") {
     const next: ComposerSegment[] = [
       ...segments,
-      { type: "mention", mention },
+      reference,
       { type: "text", id: crypto.randomUUID(), value: "" },
     ];
     const merged = normalizeSegments(next);
@@ -214,14 +255,15 @@ function insertAtEnd(
     };
   }
 
-  return insertMentionAtCursor(
+  return insertReferenceAtCursor(
     segments,
     { segmentId: target.id, offset: target.value.length },
-    mention
+    reference,
+    referenceId
   );
 }
 
-function removeMentionAndMerge(
+function removeReferenceAndMerge(
   segments: ComposerSegment[],
   mentionIndex: number,
   textIndex: number
@@ -322,18 +364,66 @@ function findLastTextSegmentId(segments: ComposerSegment[]): string {
   return first.type === "text" ? first.id : "";
 }
 
-function findTextSegmentAfterMention(
+function findTextSegmentAfterReference(
   segments: ComposerSegment[],
-  mentionId: string
+  referenceId: string
 ): string {
   const index = segments.findIndex(
-    (s) => s.type === "mention" && s.mention.id === mentionId
+    (s) => getSegmentId(s) === referenceId
   );
   if (index >= 0 && index + 1 < segments.length) {
     const next = segments[index + 1];
     if (next.type === "text") return next.id;
   }
   return findLastTextSegmentId(segments);
+}
+
+export interface SlashSkillQuery {
+  segmentId: string;
+  start: number;
+  end: number;
+  query: string;
+}
+
+export function getSlashSkillQuery(
+  segments: ComposerSegment[],
+  cursor: ComposerCursor | null
+): SlashSkillQuery | null {
+  if (!cursor) return null;
+  const segment = segments.find(
+    (item) => item.type === "text" && item.id === cursor.segmentId
+  );
+  if (!segment || segment.type !== "text") return null;
+  const beforeCursor = segment.value.slice(0, cursor.offset);
+  const match = /(^|\s)\/([a-z0-9-]*)$/i.exec(beforeCursor);
+  if (!match) return null;
+  return {
+    segmentId: segment.id,
+    start: beforeCursor.length - match[2].length - 1,
+    end: cursor.offset,
+    query: match[2],
+  };
+}
+
+export function replaceSlashQueryWithSkill(
+  segments: ComposerSegment[],
+  slash: SlashSkillQuery,
+  skill: PendingSkill
+): { segments: ComposerSegment[]; cursor: ComposerCursor } {
+  const next = segments.map((segment) => {
+    if (segment.type !== "text" || segment.id !== slash.segmentId) return segment;
+    return {
+      ...segment,
+      value: segment.value.slice(0, slash.start) + segment.value.slice(slash.end),
+    };
+  });
+  return insertSkillAtCursor(next, { segmentId: slash.segmentId, offset: slash.start }, skill);
+}
+
+function isReference(
+  segment: ComposerSegment
+): segment is Exclude<ComposerSegment, { type: "text" }> {
+  return segment.type === "mention" || segment.type === "skill";
 }
 
 function defaultCursor(segments: ComposerSegment[]): ComposerCursor {

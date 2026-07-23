@@ -31,6 +31,8 @@ pub struct SendMessageRequest {
     pub attachments: Option<Vec<MessageAttachment>>,
     pub model_override: Option<String>,
     pub llm_config: Option<LlmConfig>,
+    #[serde(default)]
+    pub selected_skill_ids: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -66,6 +68,7 @@ pub async fn send_message(
         .unwrap_or(true);
     let use_sidecar = chat::read_use_sidecar(&state);
     let turn = chat::resolve_turn_model(&state, &selected, thinking_enabled, use_sidecar)?;
+    let selected_skill_ids = chat::resolve_selected_skill_ids(&state, &request.selected_skill_ids)?;
 
     chat::save_user_message(
         &state,
@@ -74,6 +77,7 @@ pub async fn send_message(
         &request.content,
         request.attachments.as_deref(),
     )?;
+    chat::save_message_skill_selection(&state, &user_msg_id, &selected_skill_ids)?;
     chat::create_assistant_placeholder(
         &state,
         &assistant_msg_id,
@@ -91,6 +95,7 @@ pub async fn send_message(
             &request.content,
             &turn,
             request.llm_config.clone(),
+            selected_skill_ids,
             abort_flag,
             &assistant_msg_id,
         )
@@ -165,6 +170,8 @@ pub async fn regenerate_message(
         .unwrap_or(true);
     let use_sidecar = chat::read_use_sidecar(&state);
     let turn = chat::resolve_turn_model(&state, &selected, thinking_enabled, use_sidecar)?;
+    let selected_skill_ids = chat::load_message_skill_selection(&state, &regen_ctx.user_msg_id)?;
+    let selected_skill_ids = chat::resolve_selected_skill_ids(&state, &selected_skill_ids)?;
 
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -185,6 +192,7 @@ pub async fn regenerate_message(
             &regen_ctx.user_content,
             &turn,
             llm_config.clone(),
+            selected_skill_ids,
             abort_flag,
             &assistant_msg_id,
         )

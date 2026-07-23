@@ -81,7 +81,8 @@ export function ChatView({
     async (
       content: string,
       modelOverride?: string,
-      attachments?: MessageAttachment[]
+      attachments?: MessageAttachment[],
+      selectedSkillIds?: string[]
     ) => {
       const attachmentsJson =
         attachments && attachments.length > 0 ? JSON.stringify(attachments) : null;
@@ -130,6 +131,7 @@ export function ChatView({
               ? "research"
               : "chat",
           },
+          selected_skill_ids: selectedSkillIds,
         });
         if (isFirstMessage) {
           requestAutoTitle(session.id, content);
@@ -169,7 +171,8 @@ export function ChatView({
           await handleSendRef.current(
             pending.content,
             pending.modelOverride,
-            pending.attachments
+            pending.attachments,
+            pending.selectedSkillIds
           );
         }
         return;

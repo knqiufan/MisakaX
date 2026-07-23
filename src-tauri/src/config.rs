@@ -85,6 +85,21 @@ pub fn managed_skills_dir() -> Result<PathBuf> {
     Ok(config_dir()?.join("managed").join("skills"))
 }
 
+/// Private temporary storage used while validating skills archives.
+pub fn skills_staging_dir() -> Result<PathBuf> {
+    Ok(config_dir()?.join("managed").join("skills-staging"))
+}
+
+/// Cached remote archives used only for non-executing detail previews.
+pub fn skills_preview_cache_dir() -> Result<PathBuf> {
+    Ok(config_dir()?.join("managed").join("skills-preview-cache"))
+}
+
+/// Temporary location for exports before the user chooses a destination.
+pub fn skills_export_dir() -> Result<PathBuf> {
+    Ok(config_dir()?.join("managed").join("skills-export"))
+}
+
 /// Get the logs directory path (~/.misakax/logs/)
 pub fn logs_dir() -> Result<PathBuf> {
     Ok(config_dir()?.join("logs"))
@@ -109,6 +124,9 @@ pub fn ensure_directories() -> Result<()> {
         root.join("data"),
         root.join("skills"),
         root.join("managed").join("skills"),
+        root.join("managed").join("skills-staging"),
+        root.join("managed").join("skills-preview-cache"),
+        root.join("managed").join("skills-export"),
         root.join("plugins"),
         root.join("models"),
         root.join("logs"),

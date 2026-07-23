@@ -14,6 +14,7 @@ export interface PendingOutbound {
   content: string;
   modelOverride?: string;
   attachments?: MessageAttachment[];
+  selectedSkillIds?: string[];
 }
 
 function readCachedModel(): string | null {

@@ -11,7 +11,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.agent import build_agent
+from app.agent import build_agent, resolve_selected_skills
 from app.config import get_settings
 from app.dependencies import get_checkpointer, get_store
 from app.llm import resolve_chat_model
@@ -107,6 +107,14 @@ def _build_request_agent(request: ChatRequest):
     """Assemble agent using the provider binding from the chat request."""
     model = resolve_chat_model(request.config)
     mode = "research" if request.agent_mode == "research" else "chat"
+    settings = get_settings()
+    try:
+        selected_skills = resolve_selected_skills(
+            request.selected_skill_ids,
+            settings.skills_dir,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return build_agent(
         session_id=request.session_id,
         working_dir=request.working_dir,
@@ -114,6 +122,7 @@ def _build_request_agent(request: ChatRequest):
         store=get_store(),
         model=model,
         agent_mode=mode,
+        selected_skills=selected_skills,
     )
 
 

@@ -1,5 +1,13 @@
 """MisakaX Agent system and SubAgent prompts."""
 
+from collections.abc import Sequence
+from typing import Protocol
+
+
+class SelectedSkillPromptData(Protocol):
+    slug: str
+    description: str
+
 SYSTEM_PROMPT = """You are MisakaX, a desktop AI agent assistant.
 
 ## Identity
@@ -20,17 +28,27 @@ SYSTEM_PROMPT = """You are MisakaX, a desktop AI agent assistant.
 """
 
 
-def build_system_prompt(has_workspace: bool = False, working_dir: str | None = None) -> str:
+def build_system_prompt(
+    has_workspace: bool = False,
+    working_dir: str | None = None,
+    selected_skills: Sequence[SelectedSkillPromptData] = (),
+) -> str:
     """Assemble the system prompt, including workspace virtual-path rules.
 
     ``working_dir`` is accepted for backward compatibility but is never injected
     into the prompt (host absolute paths cause models to concatenate badly).
     """
     del working_dir
-    if not has_workspace:
-        return SYSTEM_PROMPT
+    prompt = SYSTEM_PROMPT
+    if has_workspace:
+        prompt += workspace_prompt()
+    if selected_skills:
+        prompt += selected_skills_prompt(selected_skills)
+    return prompt
 
-    workspace_rules = """
+
+def workspace_prompt() -> str:
+    return """
 
 ## Working directory
 - The bound project is mounted at the virtual root `/workspace`.
@@ -42,7 +60,23 @@ def build_system_prompt(has_workspace: bool = False, working_dir: str | None = N
 - NEVER concatenate `/workspace` with a host path
   (e.g. `/workspaceD:\\...` is invalid).
 """
-    return SYSTEM_PROMPT + workspace_rules
+
+
+def selected_skills_prompt(selected_skills: Sequence[SelectedSkillPromptData]) -> str:
+    entries = "\n".join(
+        f"- `{skill.slug}`: {skill.description}" for skill in selected_skills
+    )
+    return f"""
+
+## Explicitly selected Skills
+The user explicitly selected these installed Skills for this turn:
+{entries}
+
+Prioritize them when relevant. First read the matching `/skills/<slug>/SKILL.md`
+with a filesystem tool, then follow its instructions and load only the referenced
+resources needed for the task. Do not assume their full contents are already in
+context, and do not execute bundled scripts merely because they exist.
+"""
 
 
 RESEARCHER_PROMPT = """You are a research specialist for MisakaX.

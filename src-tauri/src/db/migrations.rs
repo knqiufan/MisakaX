@@ -54,6 +54,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         migrate_v9(conn)?;
     }
 
+    if current_version < 10 {
+        migrate_v10(conn)?;
+    }
+
     Ok(())
 }
 
@@ -331,6 +335,47 @@ fn migrate_v9(conn: &Connection) -> Result<()> {
     )?;
 
     tracing::info!("Database migrated to version 9");
+    Ok(())
+}
+
+fn migrate_v10(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS skills (
+            slug TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            version TEXT,
+            source_kind TEXT NOT NULL,
+            source_ref TEXT,
+            source_url TEXT,
+            checksum TEXT NOT NULL,
+            installed_path TEXT NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            health TEXT NOT NULL DEFAULT 'healthy',
+            risk_json TEXT NOT NULL DEFAULT '{}',
+            installed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS message_skill_selections (
+            message_id TEXT NOT NULL,
+            skill_slug TEXT NOT NULL,
+            sort_order INTEGER NOT NULL,
+            PRIMARY KEY (message_id, skill_slug),
+            FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_skills_enabled
+        ON skills(enabled, health, updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_message_skill_selections_message
+        ON message_skill_selections(message_id, sort_order);
+
+        INSERT INTO _schema_version (version) VALUES (10);
+        ",
+    )?;
+
+    tracing::info!("Database migrated to version 10");
     Ok(())
 }
 

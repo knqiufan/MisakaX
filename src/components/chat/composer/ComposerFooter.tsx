@@ -122,7 +122,6 @@ export function ComposerFooter({ t }: ComposerFooterProps) {
       />
       <SkillSelectorPopover
         label={t("composer.skill")}
-        comingSoonLabel={t("composer.skillComingSoon")}
       />
     </div>
   );

@@ -8,6 +8,7 @@ export { modelsIpc } from "./models";
 export { sidecarIpc } from "./sidecar";
 export { mcpIpc } from "./mcp";
 export { fsIpc } from "./fs";
+export { skillsIpc } from "./skills";
 export type {
   AppConfig,
   RouterConfig,
@@ -51,6 +52,16 @@ export type {
   ToolPermission,
   ToolPermissionPolicy,
   ToolCallRequestEvent,
+  SkillRiskReport,
+  InstalledSkill,
+  SkillManifest,
+  SkillFileNode,
+  SkillDetail,
+  RemoteSkill,
+  RemoteSkillDetail,
+  RemoteSearchPage,
+  SkillArchiveInspection,
+  SkillInstallResult,
 } from "./types";
 export type { DirectoryInfo, RecentDirectory, WorkspacePreference } from "./workspace";
 export type { CreateSessionParams, UpdateSessionWorkingDirParams } from "./sessions";

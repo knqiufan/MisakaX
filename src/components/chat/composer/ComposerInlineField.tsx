@@ -9,7 +9,7 @@ import {
   type ComposerCursor,
   type ComposerSegment,
 } from "./composerSegment";
-import { InlineMentionChip } from "./MentionPill";
+import { InlineMentionChip, InlineSkillChip } from "./MentionPill";
 import { SegmentTextarea } from "./SegmentTextarea";
 import { useComposerTextSelection } from "./useComposerTextSelection";
 
@@ -21,7 +21,9 @@ interface ComposerInlineFieldProps {
   onCursorChange: (cursor: ComposerCursor) => void;
   onSegmentsChange: (segments: ComposerSegment[], cursor: ComposerCursor) => void;
   onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
+  onSlashKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => boolean;
   onPaste: (e: ClipboardEvent<HTMLTextAreaElement>) => void;
+  onCompositionChange?: (composing: boolean) => void;
   placeholder: string;
   disabled: boolean;
 }
@@ -38,12 +40,14 @@ function ComposerInlineFieldInner({
   onCursorChange,
   onSegmentsChange,
   onKeyDown,
+  onSlashKeyDown,
   onPaste,
+  onCompositionChange,
   placeholder,
   disabled,
 }: ComposerInlineFieldProps) {
   const lastTextIndex = findLastTextSegmentIndex(segments);
-  const hasMentions = segments.some((s) => s.type === "mention");
+  const hasReferences = segments.some((s) => s.type === "mention" || s.type === "skill");
 
   const {
     registerRef,
@@ -113,6 +117,7 @@ function ComposerInlineFieldInner({
           return;
         }
       }
+      if (onSlashKeyDown?.(e)) return;
       onKeyDown(e);
     },
     [
@@ -123,6 +128,7 @@ function ComposerInlineFieldInner({
       onSegmentsChange,
       focusSegment,
       clearSelection,
+      onSlashKeyDown,
       onKeyDown,
     ]
   );
@@ -136,8 +142,11 @@ function ComposerInlineFieldInner({
         if (segment.type === "mention") {
           return <InlineMentionChip key={getSegmentId(segment)} mention={segment.mention} />;
         }
+        if (segment.type === "skill") {
+          return <InlineSkillChip key={getSegmentId(segment)} skill={segment.skill} />;
+        }
         const isLastText = index === lastTextIndex;
-        const showPlaceholder = isLastText && !hasMentions && segment.value.length === 0;
+        const showPlaceholder = isLastText && !hasReferences && segment.value.length === 0;
         return (
           <SegmentTextarea
             key={segment.id}
@@ -154,6 +163,7 @@ function ComposerInlineFieldInner({
             }}
             onKeyDown={(e) => handleTextKeyDown(segment.id, e)}
             onPaste={onPaste}
+            onCompositionChange={onCompositionChange}
             onSelectReport={(el) => handleSelectReport(segment.id, el)}
             registerRef={registerRef}
           />

@@ -8,7 +8,7 @@
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-07-16（v20）
+**最后审阅 / Last reviewed:** 2026-07-23（v21）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -113,18 +113,25 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 ### 4.3.x Composer 行内文件引用 Chip
 
 - Composer 顶层 `<div>` 必须使用 **`flex items-center gap-2`**；输入行内 `ComposerInlineField` 必须带 **`flex-1 min-w-0`**，发送按钮 `shrink-0` 贴右，禁止仅按内容宽度收缩导致按钮悬空中部。
-- 数据模型为 **`ComposerSegment[]`**（`text` 与 `mention` 交错），引用插入当前 `composerCursor` 位置（`insertMentionAtCursor`），而非固定堆在输入框最前。`normalizeSegments` 会 **prune 掉 mention 之间的空 text 段**，避免空 `textarea` 默认宽度把 chip 撑开；仅保留末尾 text 段作为输入区。
-- `ComposerInlineField` 按 segment 渲染多个 `SegmentTextarea` 与 `InlineMentionChip` 交错；**仅最后一个 text segment** 使用 `flex-1 min-w-[2rem]` 撑满剩余宽度，前面的 text segment 用 **`scrollWidth` 动态测宽**（`shrink-0`、`whitespace-nowrap`、`wrap="off"`），**禁止** `cols={1}` 或 `Nch` 固定宽度（中文会竖排）。
+- 数据模型为 **`ComposerSegment[]`**（`text`、文件 `mention` 与 `skill` 交错）；两类引用均插入当前 `composerCursor` 位置，而非固定堆在输入框最前。`normalizeSegments` 会 **prune 掉引用之间的空 text 段**，避免空 `textarea` 默认宽度把 chip 撑开；仅保留末尾 text 段作为输入区。
+- `ComposerInlineField` 按 segment 渲染多个 `SegmentTextarea`、`InlineMentionChip` 与 `InlineSkillChip` 交错；**仅最后一个 text segment** 使用 `flex-1 min-w-[2rem]` 撑满剩余宽度，前面的 text segment 用 **`scrollWidth` 动态测宽**（`shrink-0`、`whitespace-nowrap`、`wrap="off"`），**禁止** `cols={1}` 或 `Nch` 固定宽度（中文会竖排）。
 - `InlineMentionChip` 视觉（中性 / primary 低彩，对齐 charcoal 体系）：
   - ready：`h-6`、`rounded-md`、`border border-primary/25`、`bg-primary/8`，`FileTypeIcon` + 文件名同色族；
   - loading：`opacity-60` + `Loader2`；
   - error：`bg-destructive/8` + `AlertTriangle` + `text-destructive`；
-  - **禁止**显示删除 `X` 按钮；删除通过 **Backspace**（光标在 text 段 offset=0 时删前一个 mention）或 **Delete**（光标在 text 段末尾时删后一个 mention）完成。
+- `InlineSkillChip` 沿用相同 `h-6`、`rounded-md`、`border-primary/25`、`bg-primary/8` 的低彩 primary 语义，使用 `Sparkles` 作为稳定图标；**禁止**使用高饱和独立品牌色。
+- **禁止**显示删除 `X` 按钮；删除通过 **Backspace**（光标在 text 段 offset=0 时删前一个引用）或 **Delete**（光标在 text 段末尾时删后一个引用）完成。
 - 引用触发后通过 `focusRequestId` + `composerCursor` 自动 focus 到插入点后的 text segment；**不**弹出「已引用」成功 toast（失败仍 `toast.error`）。
 - **跨段全选**：多 `textarea` 无法原生跨 chip 选区；`Ctrl/Cmd+A` 由 `useComposerTextSelection` 选中全部 text segment（chip 不参与），各段 `bg-primary/15` 高亮；`Ctrl+C` 复制纯文本；`Backspace/Delete` 清空全部文本但保留 chip。
-- 发送：`ready` mentions 走 `mentionsToWorkspaceAttachments(segments)`；展示正文用 `buildOutgoingFromSegments` 按 segment 顺序交错 `@relPath` 与文本；发送成功后 `clearMentions()` 重置为 `createEmptyDocument()`。
+- 发送：`ready` mentions 走 `mentionsToWorkspaceAttachments(segments)`；Skill segment 只生成 `selected_skill_ids` 回合快照，**不得**把完整 `SKILL.md` 拼入用户正文；展示正文用 `buildOutgoingFromSegments` 按 segment 顺序交错 `@relPath` 与文本；发送成功后重置整个引用文档。
 - `canSendComposerMessage` 使用 `getDocumentPlainText(segments)` 作为 `content`，`countSendableFromSegments` + `attachments.length` 作为 `attachmentCount`。
 - `AttachmentPreview` 仍在 segment 行**之上**，与 workspace 引用语义分离。
+
+### 4.3.x.1 Composer Skill 选择与 Slash 菜单
+
+- 底栏 Skill 多选器只展示 **已安装、已启用且健康** 的条目；选择与取消必须直接增删同一份行内 `skill` segment，禁止维护第二套选择状态。
+- `/` 仅在空文本段或空白边界触发；过滤范围为最后一个 `/` 后的片段。IME 合成期间不触发或截获键盘操作。
+- Slash 浮层使用 `usePresence` 和 fade + `slide-in-from-bottom-1`，不得直接条件卸载或缩放；`↑/↓` 移动、`Enter/Tab` 插入、`Esc` 关闭，列表项提供 `role="option"` 与可见焦点。
 
 ### 4.3.y Composer 附件下拉菜单（新增）
 

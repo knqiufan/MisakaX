@@ -11,7 +11,9 @@ use tauri::AppHandle;
 
 use crate::crypto;
 use crate::db::models::{Message, RouterConfig, Session};
-use crate::db::repository::{CustomModelRepo, MessageRepo, RouterConfigRepo, SessionRepo};
+use crate::db::repository::{
+    CustomModelRepo, MessageRepo, RouterConfigRepo, SessionRepo, SkillRepo,
+};
 use crate::services::llm::backend::MessageAttachment;
 use crate::services::llm::config::LlmConfig;
 use crate::services::llm::{RigBackend, StreamResult};
@@ -26,6 +28,51 @@ use crate::AppState;
 pub(crate) fn parse_attachments_json(json: Option<&str>) -> Option<Vec<MessageAttachment>> {
     json.and_then(|s| serde_json::from_str::<Vec<MessageAttachment>>(s).ok())
         .filter(|attachments| !attachments.is_empty())
+}
+
+pub(crate) fn resolve_selected_skill_ids(
+    state: &AppState,
+    requested: &[String],
+) -> Result<Vec<String>, String> {
+    let unique = normalize_skill_ids(requested)?;
+    let db = state.db.lock().map_err(|error| error.to_string())?;
+    crate::services::skills::installer::installed_selection(&db, &unique)
+        .map(|records| records.into_iter().map(|record| record.slug).collect())
+        .map_err(|error| error.to_string())
+}
+
+pub(crate) fn save_message_skill_selection(
+    state: &AppState,
+    message_id: &str,
+    skill_ids: &[String],
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|error| error.to_string())?;
+    SkillRepo::replace_message_selection(&db, message_id, skill_ids)
+        .map_err(|error| error.to_string())
+}
+
+pub(crate) fn load_message_skill_selection(
+    state: &AppState,
+    message_id: &str,
+) -> Result<Vec<String>, String> {
+    let db = state.db.lock().map_err(|error| error.to_string())?;
+    SkillRepo::message_selection(&db, message_id).map_err(|error| error.to_string())
+}
+
+fn normalize_skill_ids(requested: &[String]) -> Result<Vec<String>, String> {
+    if requested.len() > 20 {
+        return Err("At most 20 Skills can be selected for one message".to_string());
+    }
+    let mut unique = Vec::new();
+    for raw in requested {
+        let slug = raw.trim();
+        crate::services::skills::manifest::validate_slug(slug)
+            .map_err(|error| error.to_string())?;
+        if !unique.iter().any(|item| item == slug) {
+            unique.push(slug.to_string());
+        }
+    }
+    Ok(unique)
 }
 
 // ─── 模型标识解析 ───────────────────────────────────────────────────────
@@ -84,8 +131,8 @@ pub fn resolve_turn_model(
     use_sidecar: bool,
 ) -> Result<TurnModel, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    let router = RouterConfigRepo::find_by_id(&db, &selected.config_id)
-        .map_err(|e| e.to_string())?;
+    let router =
+        RouterConfigRepo::find_by_id(&db, &selected.config_id).map_err(|e| e.to_string())?;
     let custom = CustomModelRepo::find_enabled(&db, &selected.config_id, &selected.model_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| {
@@ -183,15 +230,15 @@ pub(crate) async fn send_via_sidecar(
     user_content: &str,
     turn: &TurnModel,
     llm_config: Option<LlmConfig>,
+    selected_skill_ids: Vec<String>,
     abort_flag: Arc<AtomicBool>,
     assistant_msg_id: &str,
 ) -> Result<(StreamResult, Option<String>), String> {
     if !state.sidecar.is_ready_for_chat() {
         return Err(state.sidecar.not_ready_message());
     }
-    let (router_config, decrypted_key) =
-        load_and_decrypt_config(state, &turn.effective.config_id)?;
-    let request = build_agent_chat_request_for_turn(
+    let (router_config, decrypted_key) = load_and_decrypt_config(state, &turn.effective.config_id)?;
+    let mut request = build_agent_chat_request_for_turn(
         session,
         history,
         user_content,
@@ -200,6 +247,7 @@ pub(crate) async fn send_via_sidecar(
         &router_config,
         &decrypted_key,
     );
+    request.selected_skill_ids = selected_skill_ids;
     let response = state.sidecar_client.stream(&request).await?;
     if !response.status().is_success() {
         let status = response.status();
@@ -237,8 +285,7 @@ pub(crate) async fn send_via_rig(
     // Fallback path only: Sidecar agents call MCP through mcp_bridge_tool.
     inject_mcp_prompt(state, &mut session);
 
-    let (router_config, decrypted_key) =
-        load_and_decrypt_config(state, &turn.effective.config_id)?;
+    let (router_config, decrypted_key) = load_and_decrypt_config(state, &turn.effective.config_id)?;
     let llm_config = llm_config.unwrap_or_default().sanitized();
     let backend = RigBackend::from_config(&router_config, &decrypted_key, llm_config)
         .map_err(|e| format!("Failed to create backend: {e}"))?;
@@ -299,6 +346,7 @@ pub fn build_agent_chat_request(
         session_id: Some(session.id.clone()),
         working_dir: session.working_directory.clone(),
         agent_mode: llm_config.agent_mode.clone(),
+        selected_skill_ids: Vec::new(),
     }
 }
 

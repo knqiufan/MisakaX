@@ -54,6 +54,7 @@ walkdir = "2"
 glob = "0.3"
 notify = "7"
 dirs = "6"
+zip = { version = "2.4", default-features = false, features = ["deflate"] }
 
 # --- Concurrency ---
 dashmap = "6"

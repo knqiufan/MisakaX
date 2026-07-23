@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useRef,
   useState,
   type ChangeEvent,
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { MessageAttachment } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
+import { useSkillsInventory } from "@/components/skills/useSkillsInventory";
 import {
   useComposerStore,
   type PendingAttachment,
@@ -27,7 +29,13 @@ import { AttachmentMenu } from "./AttachmentMenu";
 import { AttachmentPreview } from "./AttachmentPreview";
 import { ComposerFooter } from "./ComposerFooter";
 import { ComposerInlineField } from "./ComposerInlineField";
-import { getDocumentPlainText } from "./composerSegment";
+import {
+  getDocumentPlainText,
+  getSlashSkillQuery,
+  replaceSlashQueryWithSkill,
+  selectedSkillIds,
+} from "./composerSegment";
+import { SlashSkillMenu } from "./SlashSkillMenu";
 import {
   buildOutgoingContent,
   countSendableMentions,
@@ -47,7 +55,8 @@ interface MessageInputProps {
   onSend: (
     content: string,
     modelOverride?: string,
-    attachments?: MessageAttachment[]
+    attachments?: MessageAttachment[],
+    selectedSkillIds?: string[]
   ) => void;
   onStop: () => void;
   disabled?: boolean;
@@ -75,11 +84,33 @@ export function MessageInput({
     clearMentions,
     focusRequestId,
   } = useComposerStore();
+  const { skills: installedSkills } = useSkillsInventory();
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isComposing, setIsComposing] = useState(false);
+  const [slashIndex, setSlashIndex] = useState(0);
+  const [slashDismissed, setSlashDismissed] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
 
   const plainText = getDocumentPlainText(segments);
+  const slashQuery = isComposing ? null : getSlashSkillQuery(segments, composerCursor);
+  const slashSkills = installedSkills.filter((skill) =>
+    skill.enabled &&
+    skill.health === "healthy" &&
+    [skill.name, skill.slug, skill.description]
+      .join(" ")
+      .toLocaleLowerCase()
+      .includes(slashQuery?.query.toLocaleLowerCase() ?? "")
+  );
+  const slashSignature = slashQuery
+    ? `${slashQuery.segmentId}:${slashQuery.start}:${slashQuery.query}`
+    : "";
+  const slashOpen = Boolean(slashQuery && slashSkills.length > 0 && !slashDismissed);
+
+  useEffect(() => {
+    setSlashIndex(0);
+    setSlashDismissed(false);
+  }, [slashSignature]);
 
   const canSend = canSendComposerMessage({
     content: plainText,
@@ -101,7 +132,12 @@ export function MessageInput({
     const finalContent = buildOutgoingContent(segments);
     const workspaceAttachments = mentionsToWorkspaceAttachments(segments);
     const allAttachments = [...workspaceAttachments, ...attachments];
-    onSend(finalContent, selectedModel ?? undefined, toMessageAttachments(allAttachments));
+    onSend(
+      finalContent,
+      selectedModel ?? undefined,
+      toMessageAttachments(allAttachments),
+      selectedSkillIds(segments)
+    );
     clearAttachments();
     clearMentions();
   }, [
@@ -122,6 +158,47 @@ export function MessageInput({
       }
     },
     [handleSend]
+  );
+
+  const selectSlashSkill = useCallback(
+    (skill: (typeof installedSkills)[number]) => {
+      if (!slashQuery) return;
+      const result = replaceSlashQueryWithSkill(segments, slashQuery, {
+        id: crypto.randomUUID(),
+        slug: skill.slug,
+        name: skill.name,
+        description: skill.description,
+      });
+      setSegments(result.segments);
+      setComposerCursor(result.cursor);
+      setSlashDismissed(true);
+    },
+    [segments, setComposerCursor, setSegments, slashQuery]
+  );
+
+  const handleSlashKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLTextAreaElement>) => {
+      if (!slashOpen || event.nativeEvent.isComposing) return false;
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const delta = event.key === "ArrowDown" ? 1 : -1;
+        setSlashIndex((index) => (index + delta + slashSkills.length) % slashSkills.length);
+        return true;
+      }
+      if (event.key === "Enter" || event.key === "Tab") {
+        event.preventDefault();
+        const skill = slashSkills[slashIndex] ?? slashSkills[0];
+        if (skill) selectSlashSkill(skill);
+        return true;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setSlashDismissed(true);
+        return true;
+      }
+      return false;
+    },
+    [selectSlashSkill, slashIndex, slashOpen, slashSkills]
   );
 
   const processFiles = useCallback(
@@ -181,7 +258,7 @@ export function MessageInput({
 
   return (
     <div className="shrink-0 bg-background pb-2 pt-2">
-      <div className="flex items-center gap-2">
+      <div className="relative flex items-center gap-2">
         <AttachmentMenu
           trigger={
             <AttachButton
@@ -225,7 +302,9 @@ export function MessageInput({
               onCursorChange={setComposerCursor}
               onSegmentsChange={handleSegmentsChange}
               onKeyDown={handleKeyDown}
+              onSlashKeyDown={handleSlashKeyDown}
               onPaste={handlePaste}
+              onCompositionChange={setIsComposing}
               placeholder={t("inputPlaceholder")}
               disabled={disabled}
             />
@@ -238,6 +317,15 @@ export function MessageInput({
             />
           </div>
         </div>
+        <SlashSkillMenu
+          open={slashOpen}
+          query={slashQuery?.query ?? ""}
+          skills={slashSkills}
+          activeIndex={slashIndex}
+          onActiveIndexChange={setSlashIndex}
+          onSelect={selectSlashSkill}
+          label={t("composer.skill")}
+        />
       </div>
       <input
         ref={imageInputRef}

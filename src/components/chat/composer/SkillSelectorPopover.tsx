@@ -1,6 +1,10 @@
-import { ChevronDown, Sparkles } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronDown, Search, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useComposerStore } from "@/stores/composer-store";
+import { collectSkills } from "./composerSegment";
+import { useSkillsInventory } from "@/components/skills/useSkillsInventory";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -10,28 +14,37 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const PLACEHOLDER_SKILLS = [
-  { id: "review", name: "Code Review" },
-  { id: "debug", name: "Debugging" },
-  { id: "docs", name: "Docs Writer" },
-];
-
 interface SkillSelectorPopoverProps {
   label: string;
-  comingSoonLabel: string;
 }
 
 export function SkillSelectorPopover({
   label,
-  comingSoonLabel,
 }: SkillSelectorPopoverProps) {
-  const { selectedSkillIds, setSelectedSkills } = useComposerStore();
+  const { skills } = useSkillsInventory();
+  const { segments, insertInlineSkill, removeSkill } = useComposerStore();
+  const [query, setQuery] = useState("");
+  const selected = collectSkills(segments);
+  const enabledSkills = useMemo(
+    () => skills.filter((skill) => skill.enabled && skill.health === "healthy"),
+    [skills]
+  );
+  const matches = enabledSkills.filter((skill) =>
+    [skill.name, skill.slug, skill.description]
+      .join(" ")
+      .toLocaleLowerCase()
+      .includes(query.trim().toLocaleLowerCase())
+  );
 
-  const toggleSkill = (id: string, checked: boolean) => {
-    const next = checked
-      ? [...selectedSkillIds, id]
-      : selectedSkillIds.filter((skillId) => skillId !== id);
-    setSelectedSkills(next);
+  const toggleSkill = (slug: string, checked: boolean) => {
+    const current = selected.find((skill) => skill.slug === slug);
+    if (checked && !current) {
+      const skill = enabledSkills.find((item) => item.slug === slug);
+      if (skill) insertInlineSkill({ id: crypto.randomUUID(), slug, name: skill.name, description: skill.description });
+    }
+    if (!checked && current) {
+      removeSkill(current.id);
+    }
   };
 
   return (
@@ -50,25 +63,32 @@ export function SkillSelectorPopover({
           <ChevronDown className="size-3 opacity-70" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" side="top" className="w-64">
+      <DropdownMenuContent align="start" side="top" className="w-72">
         <DropdownMenuLabel className="flex items-center gap-2 text-xs text-muted-foreground">
           <Sparkles className="size-3.5" />
           {label}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <div className="px-2 py-2 text-xs text-muted-foreground">
-          {comingSoonLabel}
+        <div className="relative px-1 pb-1">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-3 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={label}
+            className="h-8 pl-8 text-xs"
+          />
         </div>
-        {PLACEHOLDER_SKILLS.map((skill) => (
+        <div className="max-h-56 overflow-y-auto">
+        {matches.map((skill) => (
           <DropdownMenuCheckboxItem
-            key={skill.id}
-            checked={selectedSkillIds.includes(skill.id)}
-            disabled
-            onCheckedChange={(checked) => toggleSkill(skill.id, checked === true)}
+            key={skill.slug}
+            checked={selected.some((item) => item.slug === skill.slug)}
+            onCheckedChange={(checked) => toggleSkill(skill.slug, checked === true)}
           >
-            {skill.name}
+            <span className="min-w-0"><span className="block truncate">{skill.name}</span><span className="block truncate text-[10px] text-muted-foreground">{skill.description}</span></span>
           </DropdownMenuCheckboxItem>
         ))}
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

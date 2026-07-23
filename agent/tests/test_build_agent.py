@@ -3,7 +3,13 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from app.agent import _apply_mode_harness_profile, _build_subagents, build_agent
+from app.agent import (
+    SelectedSkill,
+    _apply_mode_harness_profile,
+    _build_subagents,
+    build_agent,
+    resolve_selected_skills,
+)
 from app.config import get_settings
 from app.prompts import build_system_prompt
 from app.workspace_backend import MEMORY_FILE, SKILLS_PREFIX, WorkspacePathBackend
@@ -214,3 +220,35 @@ def test_apply_mode_harness_profile_registers_providers():
 
     assert "openai" in registered
     assert "anthropic" in registered
+
+
+def test_selected_skills_are_validated_and_added_to_prompt(tmp_path: Path):
+    skill_dir = tmp_path / "code-review"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text(
+        "---\nname: code-review\ndescription: Review changes safely\n---\n",
+        encoding="utf-8",
+    )
+
+    selected = resolve_selected_skills(["code-review"], tmp_path)
+    prompt = build_system_prompt(selected_skills=selected)
+
+    assert selected == [SelectedSkill("code-review", "Review changes safely")]
+    assert "/skills/<slug>/SKILL.md" in prompt
+    assert "`code-review`: Review changes safely" in prompt
+
+
+def test_selected_skills_reject_missing_or_invalid_slugs(tmp_path: Path):
+    try:
+        resolve_selected_skills(["../outside"], tmp_path)
+    except ValueError as exc:
+        assert "Invalid selected Skill" in str(exc)
+    else:
+        raise AssertionError("Expected invalid Skill slug to fail")
+
+    try:
+        resolve_selected_skills(["missing-skill"], tmp_path)
+    except ValueError as exc:
+        assert "not installed" in str(exc)
+    else:
+        raise AssertionError("Expected missing Skill to fail")

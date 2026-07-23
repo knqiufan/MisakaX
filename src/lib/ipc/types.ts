@@ -241,6 +241,96 @@ export interface SendMessageRequest {
   images?: MessageAttachment[];
   model_override?: string;
   llm_config?: LlmConfigPayload;
+  selected_skill_ids?: string[];
+}
+
+export interface SkillRiskReport {
+  has_scripts: boolean;
+  has_binary_files: boolean;
+  has_allowed_tools: boolean;
+  remote_scan_status: string | null;
+  notes: string[];
+}
+
+export interface InstalledSkill {
+  slug: string;
+  name: string;
+  description: string;
+  version: string | null;
+  source_kind: string;
+  source_ref: string | null;
+  source_url: string | null;
+  checksum: string;
+  installed_path: string;
+  enabled: boolean;
+  health: "healthy" | "missing" | string;
+  risk: SkillRiskReport;
+  installed_at: string;
+  updated_at: string;
+}
+
+export interface SkillManifest {
+  name: string;
+  description: string;
+  license: string | null;
+  compatibility: string | null;
+  allowed_tools: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface SkillFileNode {
+  path: string;
+  kind: string;
+  size_bytes: number;
+}
+
+export interface SkillDetail {
+  skill: InstalledSkill;
+  manifest: SkillManifest;
+  files: SkillFileNode[];
+  skill_markdown: string;
+}
+
+export interface RemoteSkill {
+  provider: "skillhub" | "clawhub" | "modelscope" | string;
+  slug: string;
+  display_name: string;
+  summary: string;
+  version: string | null;
+  owner: string | null;
+  source_url: string;
+  topics: string[];
+  suspicious: boolean;
+}
+
+export interface RemoteSkillDetail {
+  skill: RemoteSkill;
+  changelog: string | null;
+  license: string | null;
+  compatibility: string | null;
+  risk: SkillRiskReport;
+  manifest: SkillManifest | null;
+  files: SkillFileNode[];
+  skill_markdown: string | null;
+}
+
+export interface RemoteSearchPage {
+  items: RemoteSkill[];
+  next_cursor: string | null;
+}
+
+export interface SkillArchiveInspection {
+  manifest: SkillManifest;
+  files: SkillFileNode[];
+  risk: SkillRiskReport;
+  checksum: string;
+  compressed_size_bytes: number;
+  uncompressed_size_bytes: number;
+}
+
+export interface SkillInstallResult {
+  skill: InstalledSkill;
+  replaced_existing: boolean;
 }
 
 export interface SendMessageResult {

@@ -46,12 +46,13 @@ export function NewChatWelcome({ onSelectWorkspace }: NewChatWelcomeProps) {
     async (
       content: string,
       modelOverride?: string,
-      attachments?: MessageAttachment[]
+      attachments?: MessageAttachment[],
+      selectedSkillIds?: string[]
     ) => {
       if (creating) return;
       setCreating(true);
       try {
-        setPendingOutbound({ content, modelOverride, attachments });
+        setPendingOutbound({ content, modelOverride, attachments, selectedSkillIds });
         const session = await sessionsIpc.create({});
         setActiveSessionData(session);
       } catch (err) {

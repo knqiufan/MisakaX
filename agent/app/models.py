@@ -82,6 +82,8 @@ class ChatRequest(BaseModel):
     working_dir: str | None = None
     # chat = direct tools only; research = DeepAgents task/subagents
     agent_mode: str = "chat"
+    # Explicitly selected installed Skills for this turn.
+    selected_skill_ids: list[str] = Field(default_factory=list)
 
     model_config = {"frozen": False, "extra": "ignore"}
 

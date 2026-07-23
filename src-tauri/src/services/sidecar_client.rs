@@ -81,6 +81,9 @@ pub struct AgentChatRequest {
     /// `chat` (default) or `research` — controls DeepAgents task/subagents.
     #[serde(default = "default_agent_mode")]
     pub agent_mode: String,
+    /// Explicitly selected installed Skills for this turn, validated by Rust.
+    #[serde(default)]
+    pub selected_skill_ids: Vec<String>,
 }
 
 fn default_agent_mode() -> String {

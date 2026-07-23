@@ -17,6 +17,7 @@ interface SegmentTextareaProps {
   onChange: (value: string) => void;
   onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
   onPaste: (e: ClipboardEvent<HTMLTextAreaElement>) => void;
+  onCompositionChange?: (composing: boolean) => void;
   onSelectReport: (el: HTMLTextAreaElement) => void;
   registerRef: (id: string, el: HTMLTextAreaElement | null) => void;
 }
@@ -32,6 +33,7 @@ export function SegmentTextarea({
   onChange,
   onKeyDown,
   onPaste,
+  onCompositionChange,
   onSelectReport,
   registerRef,
 }: SegmentTextareaProps) {
@@ -86,6 +88,8 @@ export function SegmentTextarea({
       onSelect={(e) => onSelectReport(e.currentTarget)}
       onFocus={(e) => onSelectReport(e.currentTarget)}
       onPaste={onPaste}
+      onCompositionStart={() => onCompositionChange?.(true)}
+      onCompositionEnd={() => onCompositionChange?.(false)}
       placeholder={showPlaceholder ? placeholder : ""}
       disabled={disabled}
       rows={1}

@@ -2,7 +2,9 @@ import { create } from "zustand";
 import {
   createEmptyDocument,
   insertMentionAtCursor,
+  insertSkillAtCursor,
   removeMentionById,
+  removeSkillById,
   updateMentionInSegments,
   type ComposerCursor,
   type ComposerSegment,
@@ -37,6 +39,13 @@ export interface PendingFileMention {
   mime?: string;
 }
 
+export interface PendingSkill {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+}
+
 interface MentionHydration {
   extractedText: string;
   size: number;
@@ -47,7 +56,6 @@ interface ComposerState {
   attachments: PendingAttachment[];
   segments: ComposerSegment[];
   composerCursor: ComposerCursor | null;
-  selectedSkillIds: string[];
   focusRequestId: number;
   addAttachment: (attachment: PendingAttachment) => void;
   removeAttachment: (id: string) => void;
@@ -56,18 +64,18 @@ interface ComposerState {
   updateTextSegment: (id: string, value: string) => void;
   setComposerCursor: (cursor: ComposerCursor | null) => void;
   insertInlineMention: (mention: PendingFileMention) => void;
+  insertInlineSkill: (skill: PendingSkill) => void;
   hydrateMentionContent: (id: string, meta: MentionHydration) => void;
   markMentionError: (id: string) => void;
   removeMention: (id: string) => void;
+  removeSkill: (id: string) => void;
   clearMentions: () => void;
-  setSelectedSkills: (ids: string[]) => void;
 }
 
 export const useComposerStore = create<ComposerState>((set) => ({
   attachments: [],
   segments: createEmptyDocument(),
   composerCursor: null,
-  selectedSkillIds: [],
   focusRequestId: 0,
   addAttachment: (attachment) =>
     set((state) => ({ attachments: [...state.attachments, attachment] })),
@@ -97,6 +105,19 @@ export const useComposerStore = create<ComposerState>((set) => ({
         focusRequestId: state.focusRequestId + 1,
       };
     }),
+  insertInlineSkill: (skill) =>
+    set((state) => {
+      const result = insertSkillAtCursor(
+        state.segments,
+        state.composerCursor,
+        skill
+      );
+      return {
+        segments: result.segments,
+        composerCursor: result.cursor,
+        focusRequestId: state.focusRequestId + 1,
+      };
+    }),
   hydrateMentionContent: (id, meta) =>
     set((state) => ({
       segments: updateMentionInSegments(state.segments, id, (m) => ({
@@ -118,10 +139,13 @@ export const useComposerStore = create<ComposerState>((set) => ({
     set((state) => ({
       segments: removeMentionById(state.segments, id),
     })),
+  removeSkill: (id) =>
+    set((state) => ({
+      segments: removeSkillById(state.segments, id),
+    })),
   clearMentions: () =>
     set({
       segments: createEmptyDocument(),
       composerCursor: null,
     }),
-  setSelectedSkills: (ids) => set({ selectedSkillIds: ids }),
 }));
