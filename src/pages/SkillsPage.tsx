@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { save as dialogSave } from "@tauri-apps/plugin-dialog";
 import { Download, Power, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -31,24 +31,40 @@ export function SkillsPage() {
   const [modelScopeOpen, setModelScopeOpen] = useState(false);
   const [uninstallTarget, setUninstallTarget] = useState<InstalledSkill | null>(null);
   const [remoteInstallTarget, setRemoteInstallTarget] = useState<RemoteSkill | null>(null);
+  const detailRequestId = useRef(0);
 
   useRemoteSearch(view, source, query, setRemote, setRemoteLoading);
   const selectedKey = selection ? selection.type === "installed" ? installedKey(selection.skill) : remoteKey(selection.skill) : null;
   const listLoading = view === "installed" ? inventory.loading : remoteLoading;
   const refresh = () => view === "installed" ? void inventory.refresh() : void searchNow(source, query, setRemote, setRemoteLoading);
-  const selectInstalled = (skill: InstalledSkill) => void loadInstalledDetail(skill, setSelection, setDetail);
-  const selectRemote = (skill: RemoteSkill) => void loadRemoteDetail(skill, setSelection, setDetail);
+  const clearDetail = useCallback(() => {
+    detailRequestId.current += 1;
+    setSelection(null);
+    setDetail(null);
+  }, []);
+  const handleViewChange = useCallback((nextView: SkillsView) => {
+    if (nextView === view) return;
+    clearDetail();
+    setView(nextView);
+  }, [clearDetail, view]);
+  const handleSourceChange = useCallback((nextSource: string) => {
+    if (nextSource === source) return;
+    clearDetail();
+    setSource(nextSource);
+  }, [clearDetail, source]);
+  const selectInstalled = (skill: InstalledSkill) => void loadInstalledDetail(skill, detailRequestId, setSelection, setDetail);
+  const selectRemote = (skill: RemoteSkill) => void loadRemoteDetail(skill, detailRequestId, setSelection, setDetail);
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <div className="mx-auto flex w-full max-w-6xl min-h-0 flex-1 flex-col p-6 lg:p-10">
-        <SkillsToolbar view={view} query={query} source={source} busy={listLoading} onViewChange={setView} onQueryChange={setQuery} onSourceChange={setSource} onUpload={() => setUploadOpen(true)} onModelScope={() => setModelScopeOpen(true)} onRefresh={refresh} />
-        <SkillsContent view={view} query={query} selectedKey={selectedKey} detail={detail} installed={inventory.skills} remote={remote} loading={listLoading} onSelectInstalled={selectInstalled} onSelectRemote={selectRemote} onInstall={setRemoteInstallTarget} onBack={() => { setSelection(null); setDetail(null); }} actions={detail ? <DetailActions detail={detail} onRefresh={inventory.refresh} onUninstall={setUninstallTarget} onInstall={setRemoteInstallTarget} /> : null} />
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto lg:overflow-hidden">
+      <div className="mx-auto flex w-full min-h-0 min-w-0 max-w-6xl flex-1 flex-col p-6 lg:p-10">
+        <SkillsToolbar view={view} query={query} source={source} busy={listLoading} onViewChange={handleViewChange} onQueryChange={setQuery} onSourceChange={handleSourceChange} onUpload={() => setUploadOpen(true)} onModelScope={() => setModelScopeOpen(true)} onRefresh={refresh} />
+        <SkillsContent view={view} query={query} selectedKey={selectedKey} detail={detail} installed={inventory.skills} remote={remote} loading={listLoading} onSelectInstalled={selectInstalled} onSelectRemote={selectRemote} onInstall={setRemoteInstallTarget} onBack={clearDetail} actions={detail ? <DetailActions detail={detail} onRefresh={inventory.refresh} onUninstall={setUninstallTarget} onInstall={setRemoteInstallTarget} /> : null} />
         {inventory.error ? <p role="alert" className="mt-3 text-xs text-destructive">{t("loadFailed")}: {inventory.error}</p> : null}
       </div>
       <UploadSkillDialog open={uploadOpen} onOpenChange={setUploadOpen} onComplete={() => void inventory.refresh()} />
       <ModelScopeImportDialog open={modelScopeOpen} onOpenChange={setModelScopeOpen} onComplete={() => void inventory.refresh()} />
-      <RemoteInstallDialog skill={remoteInstallTarget} open={Boolean(remoteInstallTarget)} onOpenChange={(open) => !open && setRemoteInstallTarget(null)} onComplete={() => { setView("installed"); void inventory.refresh(); }} />
-      <UninstallSkillDialog skill={uninstallTarget} open={Boolean(uninstallTarget)} onOpenChange={(open) => !open && setUninstallTarget(null)} onComplete={() => { setSelection(null); setDetail(null); void inventory.refresh(); }} />
+      <RemoteInstallDialog skill={remoteInstallTarget} open={Boolean(remoteInstallTarget)} onOpenChange={(open) => !open && setRemoteInstallTarget(null)} onComplete={() => { clearDetail(); setView("installed"); void inventory.refresh(); }} />
+      <UninstallSkillDialog skill={uninstallTarget} open={Boolean(uninstallTarget)} onOpenChange={(open) => !open && setUninstallTarget(null)} onComplete={() => { clearDetail(); void inventory.refresh(); }} />
     </div>
   );
 }
@@ -58,16 +74,16 @@ function SkillsContent({
 }: {
   view: SkillsView; query: string; selectedKey: string | null; detail: SkillDetail | RemoteSkillDetail | null;
   installed: InstalledSkill[]; remote: RemoteSkill[]; loading: boolean; onSelectInstalled: (skill: InstalledSkill) => void;
-  onSelectRemote: (skill: RemoteSkill) => void; onInstall: (skill: RemoteSkill) => void; onBack: () => void; actions: React.ReactNode;
+  onSelectRemote: (skill: RemoteSkill) => void; onInstall: (skill: RemoteSkill) => void; onBack: () => void; actions: ReactNode;
 }) {
-  const { t } = useTranslation("skills");
   return (
-    <div className="mt-6 grid min-h-[420px] flex-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(360px,1.1fr)]">
-      <section className="min-h-0">
-        {view === "discover" && !query.trim() ? <p className="mb-2 text-xs text-muted-foreground">{t("popularSkills")}</p> : null}
+    <div className="mt-5 grid min-h-0 min-w-0 flex-1 gap-4 lg:grid-cols-[minmax(18rem,0.85fr)_minmax(0,1.15fr)]">
+      <section className="min-h-[280px] min-w-0 lg:h-full lg:min-h-0">
         <SkillsList installed={installed} remote={remote} view={view} loading={loading} query={query} selectedKey={selectedKey} onSelectInstalled={onSelectInstalled} onSelectRemote={onSelectRemote} onInstall={onInstall} />
       </section>
-      <aside className="min-h-[360px]"><SkillDetailPanel detail={detail} actions={actions} onBack={onBack} /></aside>
+      <aside className="min-h-[280px] min-w-0 lg:h-full lg:min-h-0">
+        <SkillDetailPanel detail={detail} actions={actions} onBack={onBack} />
+      </aside>
     </div>
   );
 }
@@ -99,14 +115,26 @@ async function searchNow(source: string, query: string, setRemote: (skills: Remo
   try { setLoading(true); setRemote([]); setRemote((await skillsIpc.searchRemote(source, query, 30)).items); } catch (error) { toast.error(String(error)); } finally { setLoading(false); }
 }
 
-async function loadInstalledDetail(skill: InstalledSkill, setSelection: (value: Selection) => void, setDetail: (detail: SkillDetail | RemoteSkillDetail | null) => void) {
+async function loadInstalledDetail(skill: InstalledSkill, requestIdRef: { current: number }, setSelection: (value: Selection) => void, setDetail: (detail: SkillDetail | RemoteSkillDetail | null) => void) {
+  const requestId = ++requestIdRef.current;
   setSelection({ type: "installed", skill }); setDetail(null);
-  try { setDetail(await skillsIpc.getDetail(skill.slug)); } catch (error) { toast.error(String(error)); }
+  try {
+    const loaded = await skillsIpc.getDetail(skill.slug);
+    if (requestId === requestIdRef.current) setDetail(loaded);
+  } catch (error) {
+    if (requestId === requestIdRef.current) toast.error(String(error));
+  }
 }
 
-async function loadRemoteDetail(skill: RemoteSkill, setSelection: (value: Selection) => void, setDetail: (detail: SkillDetail | RemoteSkillDetail | null) => void) {
+async function loadRemoteDetail(skill: RemoteSkill, requestIdRef: { current: number }, setSelection: (value: Selection) => void, setDetail: (detail: SkillDetail | RemoteSkillDetail | null) => void) {
+  const requestId = ++requestIdRef.current;
   setSelection({ type: "remote", skill }); setDetail(null);
-  try { setDetail(await skillsIpc.getRemoteDetail(skill.provider, skill.slug)); } catch (error) { toast.error(String(error)); }
+  try {
+    const loaded = await skillsIpc.getRemoteDetail(skill.provider, skill.slug);
+    if (requestId === requestIdRef.current) setDetail(loaded);
+  } catch (error) {
+    if (requestId === requestIdRef.current) toast.error(String(error));
+  }
 }
 
 async function exportInstalled(skill: InstalledSkill, t: (key: string) => string) {

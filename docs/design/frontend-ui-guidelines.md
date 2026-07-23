@@ -8,7 +8,7 @@
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-07-23（v21）
+**最后审阅 / Last reviewed:** 2026-07-23（v22）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -138,6 +138,11 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - `AttachmentMenu` 仅渲染**实际可用**的入口；禁止保留「即将支持」「Coming soon」之类的临时占位项，避免给用户希望落空。
 - 菜单内**不得**出现 `DropdownMenuLabel`（分组标题）；菜单内容只承载选项 item，统一 `图标 size-4 + 8px gap + 文案` 排版。
 - 图片入口（`onPickImages`）的 `<input type="file">` 必须使用 `ACCEPTED_IMAGE_TYPES`（仅 IMAGE MIME）；Markdown / 文本入口必须使用 `ACCEPTED_TEXT_TYPES`（.md/.markdown/.txt + 对应 MIME），**不得**把 PDF/Office 等当前不支持的扩展名也加入 accept，否则用户能选中却又被前端拒绝。
+
+### 4.3.z ScrollArea（纵向面板）
+
+- 共享 `ScrollArea`（`src/components/ui/scroll-area.tsx`）的 Viewport 必须把 Radix 默认内容包装层约束为 **`block` + `min-w-0` + `w-full`**，避免 `display: table` 被长行撑开后被根节点 `overflow: hidden` 横向裁切。
+- 放进 flex / grid 双栏的滚动面板，链路本身也要带 `min-w-0`；长文本预览用换行（`break-words` / `overflow-wrap: anywhere`），不要依赖嵌套横向裁切。
 
 ### 4.4 空页面与占位符 (Empty States)
 - 空页面设计应具有**引导性**。
