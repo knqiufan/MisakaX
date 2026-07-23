@@ -41,6 +41,7 @@ const mockConfig = {
   auto_start_sidecar: false,
   use_sidecar: true,
   mcp_bridge_port: 9528,
+  close_behavior: "ask" as const,
 };
 
 const mockProvider: RouterConfigView = {
@@ -104,6 +105,20 @@ describe("useSettingsStore", () => {
 
       const state = useSettingsStore.getState();
       expect(state.config?.theme).toBe("dark");
+    });
+
+    it("should save the close behavior selection", async () => {
+      useSettingsStore.setState({ config: mockConfig });
+      mockSettingsIpc.updateAppConfig.mockResolvedValue(undefined);
+
+      await useSettingsStore
+        .getState()
+        .updateConfig({ close_behavior: "minimize_to_tray" });
+
+      expect(stateConfig().close_behavior).toBe("minimize_to_tray");
+      expect(mockSettingsIpc.updateAppConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ close_behavior: "minimize_to_tray" })
+      );
     });
 
     it("should rollback on update failure", async () => {
@@ -189,3 +204,7 @@ describe("useSettingsStore", () => {
     });
   });
 });
+
+function stateConfig() {
+  return useSettingsStore.getState().config!;
+}

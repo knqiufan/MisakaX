@@ -31,6 +31,7 @@ vi.mock("@/lib/ipc", () => ({
       auto_start_sidecar: false,
       use_sidecar: true,
       mcp_bridge_port: 9528,
+      close_behavior: "ask",
     }),
     updateAppConfig: vi.fn().mockResolvedValue(undefined),
   },

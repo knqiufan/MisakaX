@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::config::AppConfig;
 use crate::db::repository::SettingsRepo;
@@ -14,6 +14,7 @@ pub fn get_settings(state: State<'_, AppState>) -> Result<String, String> {
 
 #[tauri::command]
 pub fn update_setting(
+    app: AppHandle,
     state: State<'_, AppState>,
     key: String,
     value: serde_json::Value,
@@ -35,6 +36,9 @@ pub fn update_setting(
     }
 
     crate::config::save_config(&config).map_err(|e| e.to_string())?;
+    let updated_config = config.clone();
+    drop(config);
+    crate::tray::refresh_labels(&app, &updated_config);
     Ok(())
 }
 
@@ -45,10 +49,17 @@ pub fn get_app_config(state: State<'_, AppState>) -> Result<AppConfig, String> {
 }
 
 #[tauri::command]
-pub fn update_app_config(state: State<'_, AppState>, config: AppConfig) -> Result<(), String> {
+pub fn update_app_config(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    config: AppConfig,
+) -> Result<(), String> {
     let mut current = state.config.lock().map_err(|e| e.to_string())?;
     *current = config;
     crate::config::save_config(&current).map_err(|e| e.to_string())?;
+    let updated_config = current.clone();
+    drop(current);
+    crate::tray::refresh_labels(&app, &updated_config);
     Ok(())
 }
 

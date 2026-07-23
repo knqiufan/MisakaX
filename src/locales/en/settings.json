@@ -1,6 +1,11 @@
 {
   "title": "Settings",
   "general": {
+    "closeBehavior": "When the close button is clicked",
+    "closeBehaviorDesc": "Choose whether MisakaX asks, minimizes to the system tray, or exits.",
+    "closeBehaviorAsk": "Ask every time",
+    "closeBehaviorMinimize": "Always minimize to tray",
+    "closeBehaviorQuit": "Always quit the app",
     "title": "General",
     "language": "Language",
     "languageDesc": "Choose your preferred language",

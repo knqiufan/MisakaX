@@ -1,6 +1,11 @@
 {
   "title": "设置",
   "general": {
+    "closeBehavior": "点击关闭按钮时",
+    "closeBehaviorDesc": "选择每次询问、最小化到系统托盘，或直接退出应用。",
+    "closeBehaviorAsk": "每次询问",
+    "closeBehaviorMinimize": "始终最小化到系统托盘",
+    "closeBehaviorQuit": "始终退出应用",
     "title": "通用",
     "language": "语言",
     "languageDesc": "选择界面显示语言",

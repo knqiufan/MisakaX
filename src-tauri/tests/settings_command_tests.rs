@@ -1,4 +1,4 @@
-use misaka_x_lib::config::AppConfig;
+use misaka_x_lib::config::{AppConfig, CloseBehavior};
 use misaka_x_lib::db::repository::SettingsRepo;
 use rusqlite::Connection;
 
@@ -81,6 +81,7 @@ fn test_app_config_default_values() {
     assert!(config.auto_start_sidecar);
     assert!(config.use_sidecar);
     assert_eq!(config.mcp_bridge_port, 9528);
+    assert_eq!(config.close_behavior, CloseBehavior::Ask);
 }
 
 #[test]
@@ -97,6 +98,7 @@ fn test_app_config_yaml_roundtrip() {
         auto_start_sidecar: false,
         use_sidecar: false,
         mcp_bridge_port: 9530,
+        close_behavior: CloseBehavior::Quit,
     };
 
     let yaml = serde_yaml::to_string(&config).unwrap();
@@ -113,6 +115,7 @@ fn test_app_config_yaml_roundtrip() {
     assert!(!loaded.auto_start_sidecar);
     assert!(!loaded.use_sidecar);
     assert_eq!(loaded.mcp_bridge_port, 9530);
+    assert_eq!(loaded.close_behavior, CloseBehavior::Quit);
 }
 
 #[test]
@@ -124,4 +127,5 @@ fn test_app_config_missing_fields_use_defaults() {
     assert!(config.auto_start_sidecar);
     assert!(config.use_sidecar);
     assert_eq!(config.mcp_bridge_port, 9528);
+    assert_eq!(config.close_behavior, CloseBehavior::Ask);
 }

@@ -9,8 +9,10 @@ export { sidecarIpc } from "./sidecar";
 export { mcpIpc } from "./mcp";
 export { fsIpc } from "./fs";
 export { skillsIpc } from "./skills";
+export { trayIpc } from "./tray";
 export type {
   AppConfig,
+  CloseBehavior,
   RouterConfig,
   RouterConfigView,
   CreateRouterConfig,
@@ -69,3 +71,4 @@ export type { ModelInfo, ProviderModels } from "./models";
 export type { SidecarStatus, SidecarStatusEvent } from "./sidecar";
 export type { McpServerConfigInput, McpTransportInput } from "./mcp";
 export type { FsEntry } from "./fs";
+export type { CloseRequestAction, TrayContext } from "./tray";

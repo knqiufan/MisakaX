@@ -1,0 +1,10 @@
+{
+  "closeTitle": "Close MisakaX?",
+  "closeDescription": "Keep MisakaX running in the system tray, or exit it completely.",
+  "rememberChoice": "Remember my choice and don't ask again",
+  "cancel": "Cancel",
+  "minimize": "Minimize to tray",
+  "quit": "Quit MisakaX",
+  "newTaskFailed": "Couldn't create a new task",
+  "openProjectFailed": "Couldn't open the current project folder"
+}

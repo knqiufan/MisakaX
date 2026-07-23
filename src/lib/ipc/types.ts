@@ -1,6 +1,8 @@
 import type { ProviderApi, VendorId } from "@/lib/providers/catalog";
 import type { ModelInfo } from "./models";
 
+export type CloseBehavior = "ask" | "minimize_to_tray" | "quit";
+
 export interface AppConfig {
   language: string;
   theme: "light" | "dark" | "system";
@@ -15,6 +17,7 @@ export interface AppConfig {
   /** Prefer Python Sidecar for chat; false uses Rig fallback */
   use_sidecar: boolean;
   mcp_bridge_port: number;
+  close_behavior: CloseBehavior;
 }
 
 export interface RouterConfig {

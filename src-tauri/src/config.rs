@@ -6,6 +6,20 @@ pub fn default_ui_font_size() -> u8 {
     14
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CloseBehavior {
+    Ask,
+    MinimizeToTray,
+    Quit,
+}
+
+impl Default for CloseBehavior {
+    fn default() -> Self {
+        Self::Ask
+    }
+}
+
 /// Application configuration, persisted to ~/.misakax/config.yaml
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -36,6 +50,9 @@ pub struct AppConfig {
     /// Local MCP HTTP bridge port (Python Sidecar → Rust MCP)
     #[serde(default = "default_mcp_bridge_port")]
     pub mcp_bridge_port: u16,
+    /// Behavior for the primary window close button.
+    #[serde(default)]
+    pub close_behavior: CloseBehavior,
 }
 
 fn default_mcp_bridge_port() -> u16 {
@@ -60,6 +77,7 @@ impl Default for AppConfig {
             auto_start_sidecar: true,
             use_sidecar: true,
             mcp_bridge_port: 9528,
+            close_behavior: CloseBehavior::Ask,
         }
     }
 }

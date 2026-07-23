@@ -1,0 +1,10 @@
+{
+  "closeTitle": "要关闭 MisakaX 吗？",
+  "closeDescription": "你可以将 MisakaX 最小化到系统托盘，或完全退出应用。",
+  "rememberChoice": "记住我的选择，不再询问",
+  "cancel": "取消",
+  "minimize": "最小化到系统托盘",
+  "quit": "退出 MisakaX",
+  "newTaskFailed": "无法新建任务",
+  "openProjectFailed": "无法打开当前项目文件夹"
+}

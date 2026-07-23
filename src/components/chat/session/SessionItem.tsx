@@ -151,10 +151,10 @@ export function SessionItem({
         )}
       </div>
 
-      <div className="relative h-5 w-[38px] shrink-0">
+      <div className="relative h-5 w-[52px] shrink-0">
         <span
           className={cn(
-            "absolute inset-0 flex items-center justify-end text-[11px] text-muted-foreground/40 transition-opacity duration-150",
+            "absolute inset-0 flex items-center justify-end whitespace-nowrap text-[11px] leading-none text-muted-foreground/40 transition-opacity duration-150",
             menuOpen || isActive ? "opacity-0" : "group-hover:opacity-0"
           )}
         >

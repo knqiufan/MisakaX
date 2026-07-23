@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { SettingsCard, FieldRow, SettingsSectionHeader } from "@/components/settings";
 import { useSettingsStore } from "@/stores/settings-store";
+import type { CloseBehavior } from "@/lib/ipc";
 
 export function GeneralSettings() {
   const { t } = useTranslation("settings");
@@ -55,6 +56,34 @@ export function GeneralSettings() {
               <SelectContent>
                 <SelectItem value="en">English</SelectItem>
                 <SelectItem value="zh-CN">中文</SelectItem>
+              </SelectContent>
+            </Select>
+          </FieldRow>
+
+          <FieldRow
+            label={t("general.closeBehavior")}
+            description={t("general.closeBehaviorDesc")}
+            separator
+          >
+            <Select
+              value={config.close_behavior}
+              onValueChange={(value) =>
+                updateConfig({ close_behavior: value as CloseBehavior })
+              }
+            >
+              <SelectTrigger className="w-56">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ask">
+                  {t("general.closeBehaviorAsk")}
+                </SelectItem>
+                <SelectItem value="minimize_to_tray">
+                  {t("general.closeBehaviorMinimize")}
+                </SelectItem>
+                <SelectItem value="quit">
+                  {t("general.closeBehaviorQuit")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </FieldRow>

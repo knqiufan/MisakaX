@@ -14,6 +14,7 @@ pub mod sidecar;
 mod sidecar_ownership;
 #[cfg(feature = "test-private")]
 pub mod sidecar_ownership;
+pub mod tray;
 
 use config::AppConfig;
 use db::repository::SessionRepo;
@@ -103,6 +104,7 @@ pub fn run() {
             stream_registry: StreamRegistry::new(),
             mcp_manager: Arc::clone(&mcp_manager),
         })
+        .manage(tray::TrayState::default())
         .invoke_handler(tauri::generate_handler![
             commands::settings::get_settings,
             commands::settings::update_setting,
@@ -112,6 +114,8 @@ pub fn run() {
             commands::settings::set_setting,
             commands::settings::get_all_settings,
             commands::settings::get_system_info,
+            commands::tray::update_tray_context,
+            commands::tray::resolve_close_request,
             commands::router_configs::list_router_configs,
             commands::router_configs::create_router_config,
             commands::router_configs::create_router_config_with_models,
@@ -184,8 +188,11 @@ pub fn run() {
             commands::skills::skills_set_enabled,
             commands::skills::skills_uninstall,
         ])
+        .on_window_event(tray::handle_window_event)
         .setup(move |app| {
             tracing::info!("MisakaX initialized successfully");
+
+            tray::setup(app.handle())?;
 
             // Backfill sessions that still lack a working directory.
             {
