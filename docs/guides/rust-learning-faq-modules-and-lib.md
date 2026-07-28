@@ -322,7 +322,7 @@ Rust 把名字分成多种 **命名空间（namespace）**（类型的、值的�
 **`start` 在仓库里实际做了什么**（与 `CLAUDE.md` 里「Python Sidecar (:9527) + uvicorn」一致，实现见 `sidecar.rs`）：
 
 1. **健康检查**：对 **`http://127.0.0.1:{port}/health`** 发 GET；若已成功响应，认为 Sidecar 已在跑，**返回 `Ok(Self { child: None })`**（不再重复拉起进程）。
-2. **否则 spawn 子进程**：在当前机子上执行形如 **`python -m uvicorn app.main:app --host 127.0.0.1 --port <端口>`**，**工作目录**设为传入的 **`agent_dir`**（即仓库里的 **`agent/`** Python 工程，里面要有 `app.main:app`）。
+2. **否则 spawn 子进程**：在当前机子上执行形如 **`python <agent_dir>/run.py`**，并通过 `MISAKA_HOST=127.0.0.1` 与 `MISAKA_PORT=<port>` 传入监听地址；**工作目录**设为传入的 **`agent_dir`**（即仓库里的 **`agent/`** Python 工程）。
 3. **轮询等待**：最多约 **10 秒**，直到 **`/health`** 成功；成功则 **`Ok(Self { child: Some(child) })`**，把子进程放进管理器里。
 4. **超时**：杀掉子进程，**`Err(String)`** 说明健康检查超时。
 5. **`SidecarManager` 被 drop 时**（例如 `AppState` 释放：**`impl Drop`**）：若 **`child` 为 `Some`**，会 **kill + wait**，避免僵尸进程。

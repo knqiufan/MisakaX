@@ -6,7 +6,7 @@ Python Sidecar for MisakaX, providing LangGraph Agent orchestration and PowerMem
 
 ```bash
 pip install -r requirements.txt
-uvicorn app.main:app --host 127.0.0.1 --port 9527
+python run.py
 ```
 
 ## Health Check

@@ -13,8 +13,15 @@ const STARTUP_MAX_RETRIES: u32 = 3;
 const RUNTIME_MAX_RESTARTS: u32 = 3;
 const STARTUP_RETRY_DELAY: Duration = Duration::from_secs(2);
 const RESTART_DELAY: Duration = Duration::from_millis(500);
-const WATCHDOG_INTERVAL: Duration = Duration::from_secs(5);
+/// Poll the managed child frequently so a process exit is handled promptly.
+const WATCHDOG_CHILD_POLL_INTERVAL: Duration = Duration::from_secs(5);
+/// Probe the HTTP service less often; a healthy child process is the common case.
+const WATCHDOG_HTTP_LIVENESS_INTERVAL: Duration = Duration::from_secs(30);
+const WATCHDOG_HTTP_LIVENESS_POLL_COUNT: u64 =
+    WATCHDOG_HTTP_LIVENESS_INTERVAL.as_secs() / WATCHDOG_CHILD_POLL_INTERVAL.as_secs();
 const HEALTH_CHECK_TIMEOUT: Duration = Duration::from_secs(2);
+/// Keep the local HTTP connection alive across the 30-second liveness interval.
+const HEALTH_CLIENT_POOL_IDLE_TIMEOUT: Duration = Duration::from_secs(40);
 const STARTUP_HEALTH_CHECK_ATTEMPTS: u32 = 20;
 const STARTUP_HEALTH_CHECK_INTERVAL: Duration = Duration::from_millis(500);
 
@@ -51,6 +58,12 @@ pub fn is_current_watchdog_generation(observed: u64, current: u64) -> bool {
     observed == current
 }
 
+/// Return whether the current child-process poll should also perform an HTTP
+/// liveness probe. Poll counts start at one after the Sidecar becomes ready.
+pub fn is_runtime_health_check_due(child_poll_count: u64) -> bool {
+    child_poll_count > 0 && child_poll_count % WATCHDOG_HTTP_LIVENESS_POLL_COUNT == 0
+}
+
 /// Use the packaged binary only for release builds.
 ///
 /// A stale `agent/dist/misaka-agent` must not shadow Python source changes
@@ -63,7 +76,7 @@ pub fn should_use_packaged_sidecar() -> bool {
 //  Agent directory resolution
 // --------------------------------------------------------------------------- //
 
-/// Resolve the working directory for the Python sidecar (`uvicorn app.main:app`).
+/// Resolve the working directory for the Python sidecar (`python run.py`).
 ///
 /// Resolution order:
 /// 1. Repo layout: `agent/` next to `src-tauri/` (from compile-time `CARGO_MANIFEST_DIR`) — fixes
@@ -156,6 +169,8 @@ pub fn resolve_sidecar_executable(agent_dir: &Path) -> Option<PathBuf> {
 
 pub struct SidecarManager {
     port: u16,
+    /// Shared localhost client for startup and runtime health probes.
+    health_client: reqwest::Client,
     /// Local MCP HTTP bridge port exposed by Rust for Python tools.
     mcp_bridge_port: u16,
     agent_dir: PathBuf,
@@ -277,8 +292,16 @@ impl SidecarManager {
                 PathBuf::from(".").join("sidecar-runtime.json")
             });
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
+        let health_client = reqwest::Client::builder()
+            .connect_timeout(HEALTH_CHECK_TIMEOUT)
+            .timeout(HEALTH_CHECK_TIMEOUT)
+            .pool_idle_timeout(HEALTH_CLIENT_POOL_IDLE_TIMEOUT)
+            .pool_max_idle_per_host(1)
+            .build()
+            .expect("Failed to build Sidecar health-check HTTP client");
         Self {
             port,
+            health_client,
             mcp_bridge_port,
             agent_dir,
             runtime_record_path,
@@ -490,7 +513,7 @@ impl SidecarManager {
             unknown_occupant_message, PortOccupancy,
         };
 
-        let healthy = Self::is_healthy(self.port).await;
+        let healthy = self.is_healthy().await;
         let pids = listening_pids_on_port(self.port);
         let port_in_use = healthy || !pids.is_empty();
         let record = read_runtime_record(&self.runtime_record_path);
@@ -522,7 +545,7 @@ impl SidecarManager {
                 let _ = terminate_pid(rec.pid);
                 clear_runtime_record(&self.runtime_record_path);
                 for _ in 0..20 {
-                    if !Self::is_healthy(self.port).await
+                    if !self.is_healthy().await
                         && listening_pids_on_port(self.port).is_empty()
                     {
                         return Ok(());
@@ -569,34 +592,38 @@ impl SidecarManager {
                     return false;
                 }
             }
-            if Self::is_healthy(self.port).await {
+            if self.is_healthy().await {
                 return true;
             }
         }
         false
     }
 
-    async fn is_healthy(port: u16) -> bool {
-        let url = health_check_url(port);
-        let client = reqwest::Client::builder()
-            .timeout(HEALTH_CHECK_TIMEOUT)
-            .build();
-        match client {
-            Ok(c) => c
-                .get(&url)
-                .send()
-                .await
-                .map(|r| r.status().is_success())
-                .unwrap_or(false),
-            Err(_) => false,
+    async fn is_healthy(&self) -> bool {
+        let response = match self
+            .health_client
+            .get(health_check_url(self.port))
+            .send()
+            .await
+        {
+            Ok(response) => response,
+            Err(_) => return false,
+        };
+
+        if !response.status().is_success() {
+            return false;
         }
+
+        // Consume the small JSON response so reqwest can return this
+        // keep-alive connection to its pool for the next liveness probe.
+        response.bytes().await.is_ok()
     }
 
     /// Spawn the sidecar process.
     ///
     /// Prefers a packaged Nuitka binary (`misaka-agent`) when present, passing
     /// the port via `MISAKA_PORT` since `run.py` has no CLI flags. Falls back to
-    /// `python -m uvicorn` in dev when only Python sources exist.
+    /// `python run.py` in dev when only Python sources exist.
     fn spawn_child(&self) -> std::io::Result<Child> {
         if should_use_packaged_sidecar() {
             return match resolve_sidecar_executable(&self.agent_dir) {
@@ -615,17 +642,10 @@ impl SidecarManager {
     }
 
     fn spawn_python_uvicorn(&self) -> std::io::Result<Child> {
-        let port = self.port.to_string();
         let mut cmd = Command::new("python");
-        cmd.args([
-            "-m",
-            "uvicorn",
-            "app.main:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            port.as_str(),
-        ]);
+        // Keep the absolute script path in the process command line so the
+        // ownership guard can distinguish our Sidecar from another `run.py`.
+        cmd.arg(self.agent_dir.join("run.py"));
         self.apply_common_env(&mut cmd);
         cmd.current_dir(&self.agent_dir).spawn()
     }
@@ -643,9 +663,10 @@ impl SidecarManager {
         let mgr = Arc::downgrade(self);
         let generation = self.current_lifecycle_generation();
         tauri::async_runtime::spawn(async move {
+            let mut child_poll_count = 0_u64;
             loop {
                 tokio::select! {
-                    _ = tokio::time::sleep(WATCHDOG_INTERVAL) => {}
+                    _ = tokio::time::sleep(WATCHDOG_CHILD_POLL_INTERVAL) => {}
                     _ = shutdown_rx.changed() => {
                         break;
                     }
@@ -659,12 +680,23 @@ impl SidecarManager {
                     continue;
                 }
 
-                if let Some(reason) = manager.detect_runtime_failure().await {
+                child_poll_count = child_poll_count.saturating_add(1);
+                if let Some(reason) = manager.managed_child_exit_reason() {
                     manager.finish_watchdog();
                     manager
                         .handle_runtime_failure(&app, reason, generation)
                         .await;
                     return;
+                }
+
+                if is_runtime_health_check_due(child_poll_count) {
+                    if let Some(reason) = manager.detect_runtime_health_failure().await {
+                        manager.finish_watchdog();
+                        manager
+                            .handle_runtime_failure(&app, reason, generation)
+                            .await;
+                        return;
+                    }
                 }
             }
 
@@ -674,12 +706,8 @@ impl SidecarManager {
         });
     }
 
-    async fn detect_runtime_failure(&self) -> Option<String> {
-        if let Some(reason) = self.managed_child_exit_reason() {
-            return Some(reason);
-        }
-
-        if !Self::is_healthy(self.port).await {
+    async fn detect_runtime_health_failure(&self) -> Option<String> {
+        if !self.is_healthy().await {
             return Some(format!(
                 "Health check failed for {}",
                 health_check_url(self.port)

@@ -123,7 +123,7 @@ npm run dev
 
 # 独立 Sidecar（可选；Tauri 默认 auto_start_sidecar 会自动预热）
 cd agent
-python -m uvicorn app.main:app --host 127.0.0.1 --port 9527
+python run.py
 ```
 
 首次使用：在 **设置 → 模型** 中添加 Provider API Key，然后在 **Chat** 新建会话即可对话。

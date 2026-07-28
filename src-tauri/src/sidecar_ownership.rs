@@ -79,15 +79,18 @@ pub fn record_matches_process(
     let Some(cmd) = command_line else {
         return false;
     };
-    let cmd_lower = cmd.to_ascii_lowercase();
+    let cmd_lower = cmd.replace('\\', "/").to_ascii_lowercase();
     let agent_dir = record.agent_dir.replace('\\', "/").to_ascii_lowercase();
     let port_token = record.port.to_string();
-    let _ = agent_dir; // reserved for stricter cwd matching on platforms that expose it
     match record.kind {
         ManagedKind::PythonUvicorn => {
-            cmd_lower.contains("uvicorn")
+            let legacy_uvicorn = cmd_lower.contains("uvicorn")
                 && cmd_lower.contains("app.main:app")
-                && cmd_lower.contains(&port_token)
+                && cmd_lower.contains(&port_token);
+            let run_py = cmd_lower.contains("python")
+                && cmd_lower.contains("run.py")
+                && cmd_lower.contains(&agent_dir);
+            legacy_uvicorn || run_py
         }
         // Packaged binary receives port via env; command line may omit it.
         ManagedKind::PackagedBinary => cmd_lower.contains("misaka-agent"),
@@ -331,6 +334,22 @@ mod tests {
         let cmd = r#"python -m uvicorn app.main:app --host 127.0.0.1 --port 9527"#;
         let occ = classify_port_occupancy(true, &[4242], Some(&rec), true, Some(cmd));
         assert!(matches!(occ, PortOccupancy::Managed(_)));
+    }
+
+    #[test]
+    fn managed_when_python_run_py_matches_recorded_agent_directory() {
+        let rec = sample_record();
+        let cmd = r#"C:\Python\python.exe D:\code\Misaka-Tauri\agent\run.py"#;
+        let occ = classify_port_occupancy(true, &[4242], Some(&rec), true, Some(cmd));
+        assert!(matches!(occ, PortOccupancy::Managed(_)));
+    }
+
+    #[test]
+    fn run_py_outside_recorded_agent_directory_is_unknown() {
+        let rec = sample_record();
+        let cmd = r#"C:\Python\python.exe D:\other\run.py"#;
+        let occ = classify_port_occupancy(true, &[4242], Some(&rec), true, Some(cmd));
+        assert_eq!(occ, PortOccupancy::Unknown { pid: Some(4242) });
     }
 
     #[test]

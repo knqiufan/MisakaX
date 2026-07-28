@@ -2,9 +2,9 @@
 mod tests {
     use misaka_x_lib::sidecar::{
         build_sidecar_api_key_env, find_sidecar_executable_in, health_check_url,
-        is_current_watchdog_generation, resolve_sidecar_executable, should_attempt_runtime_restart,
-        should_use_packaged_sidecar, sidecar_executable_name, SidecarApiKeySource, SidecarStatus,
-        SidecarStatusEvent, SIDECAR_BINARY_STEM,
+        is_current_watchdog_generation, is_runtime_health_check_due, resolve_sidecar_executable,
+        should_attempt_runtime_restart, should_use_packaged_sidecar, sidecar_executable_name,
+        SidecarApiKeySource, SidecarStatus, SidecarStatusEvent, SIDECAR_BINARY_STEM,
     };
     use misaka_x_lib::sidecar_ownership::{
         classify_port_occupancy, clear_runtime_record, read_runtime_record, runtime_record_path,
@@ -105,6 +105,16 @@ mod tests {
     fn test_watchdog_generation_policy_rejects_stale_detection() {
         assert!(is_current_watchdog_generation(2, 2));
         assert!(!is_current_watchdog_generation(1, 2));
+    }
+
+    #[test]
+    fn runtime_health_check_runs_every_six_child_polls() {
+        for poll in 1..6 {
+            assert!(!is_runtime_health_check_due(poll));
+        }
+        assert!(is_runtime_health_check_due(6));
+        assert!(!is_runtime_health_check_due(7));
+        assert!(is_runtime_health_check_due(12));
     }
 
     #[test]
@@ -273,7 +283,7 @@ mod tests {
             kind: ManagedKind::PythonUvicorn,
             started_at_ms: 1,
         };
-        let cmd = "python -m uvicorn app.main:app --port 9527";
+        let cmd = r#"C:\Python\python.exe D:\code\agent\run.py"#;
         assert!(matches!(
             classify_port_occupancy(true, &[1001], Some(&rec), true, Some(cmd)),
             PortOccupancy::Managed(_)

@@ -108,7 +108,7 @@ Anaconda 的 `_ssl.pyd` 依赖 `libcrypto-3-x64.dll` / `libssl-3-x64.dll`。`bui
 1. `agent/dist/misaka-agent.exe`（Windows）或 `agent/dist/misaka-agent`
 2. 当前应用 exe 同级目录的 `misaka-agent(.exe)`
 
-找到二进制时，Rust 使用 `MISAKA_HOST=127.0.0.1` 与 `MISAKA_PORT=<configured port>` 启动它；未找到时回退到开发模式的 `python -m uvicorn app.main:app --host 127.0.0.1 --port <port>`。
+找到二进制时，Rust 使用 `MISAKA_HOST=127.0.0.1` 与 `MISAKA_PORT=<configured port>` 启动它；未找到时回退到开发模式的 `python <agent-dir>/run.py`，并通过相同环境变量传递 host 与 port。
 
 因此：
 

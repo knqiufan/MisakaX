@@ -1,11 +1,12 @@
 """Standalone entry point for Nuitka builds.
 
 When compiled with Nuitka (--standalone / --onefile), the app object must be
-passed directly to uvicorn.run() instead of using the "app.main:app" string
-form, because Nuitka cannot resolve module-string imports at runtime.
+passed directly to Uvicorn instead of using the "app.main:app" string form,
+because Nuitka cannot resolve module-string imports at runtime.
 """
 
 import multiprocessing
+import logging
 import os
 import sys
 import types
@@ -62,19 +63,59 @@ _install_click_winconsole_stub()
 
 import uvicorn  # noqa: E402  (import after DLL dir registration)
 
-from app.config import get_settings  # noqa: E402
+from app.config import Settings, get_settings  # noqa: E402
 from app.main import app  # noqa: E402
+
+
+SIDECAR_HTTP_KEEP_ALIVE_SECONDS = 35
+
+
+class SuccessfulHealthCheckAccessFilter(logging.Filter):
+    """Suppress only successful local health checks from Uvicorn access logs."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if not isinstance(args, tuple) or len(args) < 5:
+            return True
+
+        try:
+            method = str(args[1]).upper()
+            path = str(args[2]).split("?", maxsplit=1)[0]
+            status_code = int(args[4])
+        except (TypeError, ValueError):
+            return True
+
+        return not (method in {"GET", "HEAD"} and path == "/health" and 200 <= status_code < 300)
+
+
+def configure_access_log_filter() -> None:
+    """Attach the health-check filter once without disturbing other handlers."""
+    access_logger = logging.getLogger("uvicorn.access")
+    if not any(
+        isinstance(log_filter, SuccessfulHealthCheckAccessFilter)
+        for log_filter in access_logger.filters
+    ):
+        access_logger.addFilter(SuccessfulHealthCheckAccessFilter())
+
+
+def build_uvicorn_config(settings: Settings) -> uvicorn.Config:
+    """Build the common development and packaged Sidecar server configuration."""
+    return uvicorn.Config(
+        app,
+        host=settings.host,
+        port=settings.port,
+        log_level=settings.log_level,
+        timeout_keep_alive=SIDECAR_HTTP_KEEP_ALIVE_SECONDS,
+        access_log=True,
+    )
 
 
 def main() -> None:
     multiprocessing.freeze_support()
     settings = get_settings()
-    uvicorn.run(
-        app,
-        host=settings.host,
-        port=settings.port,
-        log_level=settings.log_level,
-    )
+    config = build_uvicorn_config(settings)
+    configure_access_log_filter()
+    uvicorn.Server(config).run()
 
 
 if __name__ == "__main__":
