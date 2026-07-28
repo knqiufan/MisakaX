@@ -204,10 +204,7 @@ impl SessionRepo {
     }
 
     /// Backfill NULL working directories to the app default workspace (idempotent).
-    pub fn backfill_null_workspaces(
-        conn: &Connection,
-        default_dir: &str,
-    ) -> Result<usize> {
+    pub fn backfill_null_workspaces(conn: &Connection, default_dir: &str) -> Result<usize> {
         let project_name = extract_project_name(default_dir);
         let affected = conn.execute(
             "UPDATE sessions
@@ -341,7 +338,10 @@ mod tests {
 
     #[test]
     fn extract_project_name_handles_windows_and_unix() {
-        assert_eq!(extract_project_name(r"D:\code\Misaka-Tauri"), "Misaka-Tauri");
+        assert_eq!(
+            extract_project_name(r"D:\code\Misaka-Tauri"),
+            "Misaka-Tauri"
+        );
         assert_eq!(extract_project_name("/home/user/project"), "project");
     }
 }

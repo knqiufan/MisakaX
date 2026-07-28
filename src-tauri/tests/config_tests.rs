@@ -54,8 +54,10 @@ fn test_close_behavior_missing_field_defaults_to_ask() {
 
 #[test]
 fn test_close_behavior_serializes_as_stable_snake_case() {
-    let mut config = AppConfig::default();
-    config.close_behavior = CloseBehavior::MinimizeToTray;
+    let config = AppConfig {
+        close_behavior: CloseBehavior::MinimizeToTray,
+        ..Default::default()
+    };
     let yaml = serde_yaml::to_string(&config).unwrap();
     assert!(yaml.contains("close_behavior: minimize_to_tray"));
 }

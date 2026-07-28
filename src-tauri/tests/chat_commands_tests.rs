@@ -159,13 +159,7 @@ mod agent_message_builders {
         let history = vec![sample_message("user", "prior")];
         let router = sample_router();
         let req = build_agent_chat_request(
-            &session,
-            &history,
-            "next",
-            "gpt-4o",
-            None,
-            &router,
-            "sk-test",
+            &session, &history, "next", "gpt-4o", None, &router, "sk-test",
         );
         assert_eq!(req.session_id.as_deref(), Some("s1"));
         assert_eq!(req.working_dir.as_deref(), Some("D:/code"));

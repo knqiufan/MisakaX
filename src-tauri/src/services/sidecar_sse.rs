@@ -399,7 +399,8 @@ fn map_tool_end(
             json!({ "content": v })
         }
     });
-    let tool_call_id = acc.resolve_tool_end(&tool_id, &name, output.clone(), error.clone(), &status);
+    let tool_call_id =
+        acc.resolve_tool_end(&tool_id, &name, output.clone(), error.clone(), &status);
 
     MappedSidecarEvent::ToolResult(StreamToolResultPayload {
         session_id: session_id.to_string(),

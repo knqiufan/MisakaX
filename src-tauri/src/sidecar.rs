@@ -61,7 +61,7 @@ pub fn is_current_watchdog_generation(observed: u64, current: u64) -> bool {
 /// Return whether the current child-process poll should also perform an HTTP
 /// liveness probe. Poll counts start at one after the Sidecar becomes ready.
 pub fn is_runtime_health_check_due(child_poll_count: u64) -> bool {
-    child_poll_count > 0 && child_poll_count % WATCHDOG_HTTP_LIVENESS_POLL_COUNT == 0
+    child_poll_count > 0 && child_poll_count.is_multiple_of(WATCHDOG_HTTP_LIVENESS_POLL_COUNT)
 }
 
 /// Use the packaged binary only for release builds.
@@ -288,9 +288,7 @@ impl SidecarManager {
     ) -> Self {
         let runtime_record_path = crate::config::config_dir()
             .map(|root| crate::sidecar_ownership::runtime_record_path(&root.join("data")))
-            .unwrap_or_else(|_| {
-                PathBuf::from(".").join("sidecar-runtime.json")
-            });
+            .unwrap_or_else(|_| PathBuf::from(".").join("sidecar-runtime.json"));
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
         let health_client = reqwest::Client::builder()
             .connect_timeout(HEALTH_CHECK_TIMEOUT)
@@ -457,11 +455,7 @@ impl SidecarManager {
                     self.persist_runtime_record(pid, kind);
 
                     if self.wait_for_healthy(app).await {
-                        tracing::info!(
-                            pid,
-                            port = self.port,
-                            "Python Sidecar ready"
-                        );
+                        tracing::info!(pid, port = self.port, "Python Sidecar ready");
                         self.set_status(SidecarStatus::Ready, None, app);
                         self.spawn_watchdog_once(app.clone());
                         return;
@@ -518,10 +512,7 @@ impl SidecarManager {
         let port_in_use = healthy || !pids.is_empty();
         let record = read_runtime_record(&self.runtime_record_path);
         let (pid_alive, cmdline) = match record.as_ref() {
-            Some(rec) => (
-                process_is_alive(rec.pid),
-                process_command_line(rec.pid),
-            ),
+            Some(rec) => (process_is_alive(rec.pid), process_command_line(rec.pid)),
             None => (false, None),
         };
 
@@ -545,9 +536,7 @@ impl SidecarManager {
                 let _ = terminate_pid(rec.pid);
                 clear_runtime_record(&self.runtime_record_path);
                 for _ in 0..20 {
-                    if !self.is_healthy().await
-                        && listening_pids_on_port(self.port).is_empty()
-                    {
+                    if !self.is_healthy().await && listening_pids_on_port(self.port).is_empty() {
                         return Ok(());
                     }
                     tokio::time::sleep(Duration::from_millis(100)).await;

@@ -25,7 +25,9 @@ export function SlashSkillMenu({
 }: SlashSkillMenuProps) {
   const { mounted, exiting, onExitComplete } = usePresence(open);
   const activeRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => activeRef.current?.scrollIntoView({ block: "nearest" }), [activeIndex]);
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
   if (!mounted) return null;
   return (
     <div

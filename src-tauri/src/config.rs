@@ -6,18 +6,13 @@ pub fn default_ui_font_size() -> u8 {
     14
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum CloseBehavior {
+    #[default]
     Ask,
     MinimizeToTray,
     Quit,
-}
-
-impl Default for CloseBehavior {
-    fn default() -> Self {
-        Self::Ask
-    }
 }
 
 /// Application configuration, persisted to ~/.misakax/config.yaml

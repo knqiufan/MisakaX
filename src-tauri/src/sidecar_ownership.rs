@@ -179,9 +179,7 @@ pub fn terminate_pid(pid: u32) -> Result<(), String> {
 #[cfg(windows)]
 fn listening_pids_on_port_windows(port: u16) -> Vec<u32> {
     use std::process::Command;
-    let output = Command::new("netstat")
-        .args(["-ano", "-p", "TCP"])
-        .output();
+    let output = Command::new("netstat").args(["-ano", "-p", "TCP"]).output();
     let Ok(output) = output else {
         return Vec::new();
     };
@@ -224,9 +222,7 @@ fn process_is_alive_windows(pid: u32) -> bool {
 #[cfg(windows)]
 fn process_command_line_windows(pid: u32) -> Option<String> {
     use std::process::Command;
-    let script = format!(
-        "(Get-CimInstance Win32_Process -Filter \"ProcessId={pid}\").CommandLine"
-    );
+    let script = format!("(Get-CimInstance Win32_Process -Filter \"ProcessId={pid}\").CommandLine");
     let output = Command::new("powershell")
         .args(["-NoProfile", "-Command", &script])
         .output()

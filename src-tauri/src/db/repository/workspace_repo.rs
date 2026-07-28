@@ -36,9 +36,7 @@ pub struct WorkspaceRepo;
 impl WorkspaceRepo {
     /// Must stay aligned with the renderer's workspace grouping key.
     pub fn normalize_workspace_key(path: &str) -> String {
-        path.replace('\\', "/")
-            .trim_end_matches('/')
-            .to_lowercase()
+        path.replace('\\', "/").trim_end_matches('/').to_lowercase()
     }
 
     pub fn list_preferences(conn: &Connection) -> Result<Vec<WorkspacePreference>> {

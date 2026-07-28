@@ -5,6 +5,7 @@ pub mod manager;
 pub mod tool_loop;
 pub mod types;
 
+pub use crate::services::ToolCallRecord;
 pub use approval::{
     decide_from_policy, ensure_tool_allowed, PolicyDecision, ToolCallRequestPayload,
 };
@@ -13,4 +14,3 @@ pub use health::start_health_loop;
 pub use manager::McpManager;
 pub use tool_loop::{McpToolLoop, ToolLoopOutcome, MAX_TOOL_ROUNDS};
 pub use types::{McpServerConfig, McpServerInfo, McpServerStatus, McpToolInfo, McpTransport};
-pub use crate::services::ToolCallRecord;

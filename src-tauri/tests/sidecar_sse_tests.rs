@@ -142,15 +142,9 @@ fn map_done_event_returns_complete() {
 #[test]
 fn map_thinking_event_accumulates() {
     let mut acc = SidecarStreamAccumulator::default();
-    let mapped = map_sidecar_event(
-        "thinking",
-        &json!({"content": "step1"}),
-        "s",
-        "m",
-        &mut acc,
-    )
-    .unwrap()
-    .expect("thinking mapped");
+    let mapped = map_sidecar_event("thinking", &json!({"content": "step1"}), "s", "m", &mut acc)
+        .unwrap()
+        .expect("thinking mapped");
     match mapped {
         MappedSidecarEvent::Thinking { delta } => assert_eq!(delta, "step1"),
         other => panic!("unexpected: {other:?}"),
@@ -162,14 +156,7 @@ fn map_thinking_event_accumulates() {
 #[test]
 fn map_thinking_dedupes_cumulative_resends() {
     let mut acc = SidecarStreamAccumulator::default();
-    map_sidecar_event(
-        "thinking",
-        &json!({"content": "hello"}),
-        "s",
-        "m",
-        &mut acc,
-    )
-    .unwrap();
+    map_sidecar_event("thinking", &json!({"content": "hello"}), "s", "m", &mut acc).unwrap();
     let second = map_sidecar_event(
         "thinking",
         &json!({"content": "hello world"}),
@@ -281,9 +268,15 @@ fn map_tool_events_by_run_id_and_persist_records() {
     let outcome = acc.into_outcome(false);
     assert_eq!(outcome.tool_calls.len(), 2);
     assert_eq!(outcome.tool_calls[0].id, "run-a");
-    assert_eq!(outcome.tool_calls[0].result.as_ref().unwrap()["content"], "first");
+    assert_eq!(
+        outcome.tool_calls[0].result.as_ref().unwrap()["content"],
+        "first"
+    );
     assert_eq!(outcome.tool_calls[1].id, "run-b");
-    assert_eq!(outcome.tool_calls[1].result.as_ref().unwrap()["content"], "second");
+    assert_eq!(
+        outcome.tool_calls[1].result.as_ref().unwrap()["content"],
+        "second"
+    );
 }
 
 #[test]

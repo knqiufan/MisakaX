@@ -10,9 +10,8 @@ use misaka_x_lib::db::migrations::run_migrations;
 use misaka_x_lib::db::repository::{MessageRepo, ToolPermissionRepo};
 use misaka_x_lib::services::llm::{StreamToolCallPayload, StreamToolResultPayload};
 use misaka_x_lib::services::mcp::approval::{decide_from_policy, PolicyDecision};
-use misaka_x_lib::services::mcp::tool_loop::{
-    parse_tool_call_from_content, strip_tool_call_json, ToolCallRecord,
-};
+use misaka_x_lib::services::mcp::tool_loop::{parse_tool_call_from_content, strip_tool_call_json};
+use misaka_x_lib::services::ToolCallRecord;
 use rusqlite::Connection;
 use serde_json::{json, Value};
 

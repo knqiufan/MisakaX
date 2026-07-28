@@ -238,13 +238,13 @@ fn model_info_from_id(model_id: &str) -> ModelInfo {
 
 fn infer_google_model_types(model_id: &str, methods: &[&str]) -> Vec<String> {
     let id = model_id.to_ascii_lowercase();
-    if methods.iter().any(|method| *method == "embedContent") || id.contains("embedding") {
+    if methods.contains(&"embedContent") || id.contains("embedding") {
         return vec!["embedding".to_string()];
     }
     if id.contains("tts") || id.contains("live") || id.contains("audio") {
         return vec!["speech".to_string()];
     }
-    if methods.iter().any(|method| *method == "generateContent") {
+    if methods.contains(&"generateContent") {
         return vec!["multimodal".to_string()];
     }
     Vec::new()

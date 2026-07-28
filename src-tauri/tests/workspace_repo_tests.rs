@@ -208,7 +208,10 @@ fn restore_workspace_unhides_without_changing_pin() {
 
     WorkspaceRepo::restore_workspace(&conn, "d:/code/misaka-tauri/").unwrap();
 
-    let preference = WorkspaceRepo::list_preferences(&conn).unwrap().pop().unwrap();
+    let preference = WorkspaceRepo::list_preferences(&conn)
+        .unwrap()
+        .pop()
+        .unwrap();
     assert!(preference.pinned);
     assert!(!preference.hidden);
 }

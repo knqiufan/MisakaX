@@ -90,8 +90,7 @@ pub fn create_session(
     )
     .map_err(|e| e.to_string())?;
 
-    WorkspaceRepo::restore_workspace(&conn, &workspace.path)
-        .map_err(|e| e.to_string())?;
+    WorkspaceRepo::restore_workspace(&conn, &workspace.path).map_err(|e| e.to_string())?;
 
     record_directory_usage_internal(&conn, &workspace.path);
 
@@ -341,7 +340,12 @@ pub fn backfill_session_workspaces(state: State<'_, AppState>) -> Result<usize, 
 
 fn import_single_session(conn: &rusqlite::Connection, es: &ExportSession) -> Result<(), String> {
     let mut session = es.session.clone();
-    if session.working_directory.as_deref().unwrap_or("").is_empty() {
+    if session
+        .working_directory
+        .as_deref()
+        .unwrap_or("")
+        .is_empty()
+    {
         let default_dir = ensure_default_workspace_path()?;
         session.working_directory = Some(default_dir.clone());
         session.workspace_kind = WORKSPACE_KIND_DEFAULT.to_string();

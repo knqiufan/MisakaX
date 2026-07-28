@@ -428,14 +428,7 @@ fn list_all_for_export_includes_all_statuses() {
 fn backfill_null_workspaces_sets_default_kind() {
     let conn = create_test_db();
     SessionRepo::create(&conn, "bf-1", None, None, None).unwrap();
-    SessionRepo::create(
-        &conn,
-        "bf-2",
-        None,
-        None,
-        Some("/already/set"),
-    )
-    .unwrap();
+    SessionRepo::create(&conn, "bf-2", None, None, Some("/already/set")).unwrap();
 
     let n = SessionRepo::backfill_null_workspaces(&conn, "/default/workspace").unwrap();
     assert_eq!(n, 1);

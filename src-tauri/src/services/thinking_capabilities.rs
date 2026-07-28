@@ -28,11 +28,9 @@ pub fn lookup_thinking_capability(vendor: &str, model_id: &str) -> ThinkingCapab
 
     if vendor == "deepseek" || model.contains("deepseek") {
         return ThinkingCapability {
-            supports_thinking: model.contains("reasoner")
-                || model.contains("r1")
-                || model.contains("v3")
-                || model.contains("v4")
-                || true,
+            // The DeepSeek API accepts its native thinking switch for every
+            // DeepSeek model, including model identifiers not in this catalog.
+            supports_thinking: true,
             native_control: Some(NativeThinkingControl::DeepseekThinkingType),
         };
     }
