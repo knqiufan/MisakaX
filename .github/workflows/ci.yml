@@ -89,9 +89,46 @@ jobs:
         working-directory: src-tauri
         run: cargo build
 
+  terminal-runtime-test:
+    name: Terminal Runtime (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            libgtk-3-dev \
+            libsoup-3.0-dev \
+            javascriptcoregtk-4.1-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Run real PTY integration tests
+        working-directory: src-tauri
+        env:
+          CARGO_BUILD_JOBS: 1
+          CARGO_PROFILE_TEST_DEBUG: 0
+        run: cargo test --all-features --test terminal_manager_tests -- --nocapture
+
   tauri-build:
     name: Tauri Build (${{ matrix.os }})
-    needs: [frontend-check, rust-check]
+    needs: [frontend-check, rust-check, terminal-runtime-test]
     strategy:
       fail-fast: false
       matrix:

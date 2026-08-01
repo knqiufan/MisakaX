@@ -219,6 +219,46 @@ fn conpty_round_trip_resize_unicode_owner_tamper_and_exit_code() {
     assert_eq!(manager.active_count(), 0);
 }
 
+#[cfg(unix)]
+#[test]
+fn unix_shell_profiles_round_trip_and_report_fallbacks() {
+    let cwd = tempfile::tempdir().unwrap();
+    let manager = Arc::new(TerminalManager::default());
+    let (events_tx, events_rx) = mpsc::channel();
+    manager.start(move |event| events_tx.send(event).unwrap(), |_| {});
+
+    for requested in ["auto", "zsh", "bash", "sh", "fish"] {
+        let chat = format!("unix-{requested}");
+        let state = spawn_profile(&manager, cwd.path(), &chat, requested);
+        assert!(matches!(
+            state.shell_name.as_str(),
+            "zsh" | "bash" | "sh" | "fish"
+        ));
+        if requested != "auto" && requested != state.shell_name {
+            assert!(state.fallback_reason.is_some());
+        }
+
+        let marker = format!("W6_UNIX_PROFILE_{}={}", requested, state.shell_name);
+        manager
+            .write(
+                &state.terminal_id,
+                &owner(&chat),
+                format!("printf '{marker}\\n'; exit 0\n").as_bytes(),
+            )
+            .unwrap();
+        let (output, exit) =
+            collect_until_exit(&events_rx, Instant::now() + Duration::from_secs(10));
+        assert_eq!(exit.exit_code, Some(0));
+        assert!(String::from_utf8_lossy(&output).contains(&marker));
+        println!(
+            "requested={requested}; resolved={}; fallback={:?}",
+            state.shell_name, state.fallback_reason
+        );
+    }
+
+    assert_eq!(manager.active_count(), 0);
+}
+
 #[cfg(windows)]
 #[test]
 fn windows_profiles_and_long_unicode_workspace_round_trip() {
