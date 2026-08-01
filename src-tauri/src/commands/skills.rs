@@ -4,13 +4,15 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::config;
-use crate::services::skills::archive::{extract_archive, inspect_archive};
+use crate::services::skills::archive::inspect_archive;
 use crate::services::skills::catalog;
 use crate::services::skills::exporter::export_skill_dir;
+use crate::services::skills::file_provider::{self, SkillFileProvider};
 use crate::services::skills::installer;
 use crate::services::skills::types::{
     InstallSource, RemoteSearchPage, RemoteSkill, RemoteSkillDetail, SkillActivationView,
-    SkillDetail, SkillInstallResult, SkillRecord, SkillRiskReport,
+    SkillDetail, SkillFilePage, SkillFilePreview, SkillInstallResult, SkillRecord, SkillRiskReport,
+    SkillScanSummary, SkillSummary,
 };
 use crate::AppState;
 
@@ -33,6 +35,60 @@ pub fn skills_get_activation_view(
 pub fn skills_get_detail(state: State<'_, AppState>, slug: String) -> Result<SkillDetail, String> {
     let conn = state.db.lock().map_err(|error| error.to_string())?;
     installer::get_detail(&conn, &slug).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn skills_get_summary(
+    state: State<'_, AppState>,
+    skill_id: String,
+) -> Result<SkillSummary, String> {
+    let conn = state.db.lock().map_err(|error| error.to_string())?;
+    file_provider::get_summary(&conn, &skill_id).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn skills_list_files(
+    state: State<'_, AppState>,
+    skill_id: String,
+    parent: Option<String>,
+    cursor: Option<String>,
+    limit: Option<u32>,
+) -> Result<SkillFilePage, String> {
+    let conn = state.db.lock().map_err(|error| error.to_string())?;
+    let (provider, _) =
+        SkillFileProvider::from_registered(&conn, &skill_id).map_err(|error| error.to_string())?;
+    let generation = crate::db::repository::SkillSourceRepo::generation(&conn)
+        .map_err(|error| error.to_string())?;
+    provider
+        .list_files(generation, parent.as_deref(), cursor.as_deref(), limit)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn skills_read_file(
+    state: State<'_, AppState>,
+    skill_id: String,
+    path: String,
+    offset: Option<u64>,
+    limit: Option<u32>,
+) -> Result<SkillFilePreview, String> {
+    let conn = state.db.lock().map_err(|error| error.to_string())?;
+    let (provider, _) =
+        SkillFileProvider::from_registered(&conn, &skill_id).map_err(|error| error.to_string())?;
+    let generation = crate::db::repository::SkillSourceRepo::generation(&conn)
+        .map_err(|error| error.to_string())?;
+    provider
+        .read_file(generation, &path, offset.unwrap_or_default(), limit)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn skills_get_scan_summary(
+    state: State<'_, AppState>,
+    skill_id: String,
+) -> Result<SkillScanSummary, String> {
+    let conn = state.db.lock().map_err(|error| error.to_string())?;
+    file_provider::get_scan_summary(&conn, &skill_id).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -73,7 +129,7 @@ pub async fn skills_get_remote_detail(
     provider: String,
     slug: String,
 ) -> Result<RemoteSkillDetail, String> {
-    preview_remote_detail(&provider, &slug)
+    catalog::remote_detail(&provider, &slug)
         .await
         .map_err(|error| error.to_string())
 }
@@ -247,47 +303,6 @@ fn temporary_archive_path() -> anyhow::Result<PathBuf> {
     let directory = config::skills_staging_dir()?.join("downloads");
     fs::create_dir_all(&directory)?;
     Ok(directory.join(format!("{}.zip", uuid::Uuid::new_v4())))
-}
-
-async fn preview_remote_detail(provider: &str, slug: &str) -> anyhow::Result<RemoteSkillDetail> {
-    let mut detail = catalog::remote_detail(provider, slug).await?;
-    let archive = temporary_archive_path()?;
-    let preview = config::skills_preview_cache_dir()?.join(uuid::Uuid::new_v4().to_string());
-    let preview_result = async {
-        catalog::download_registry_archive(
-            provider,
-            slug,
-            detail.skill.version.as_deref(),
-            &archive,
-        )
-        .await?;
-        let inspection = extract_archive(&archive, &preview)?;
-        let markdown = fs::read_to_string(preview.join("SKILL.md"))?;
-        Ok::<_, anyhow::Error>((inspection, markdown))
-    }
-    .await;
-    match preview_result {
-        Ok((inspection, markdown)) => {
-            detail.manifest = Some(inspection.manifest);
-            detail.files = inspection.files;
-            detail.skill_markdown = Some(markdown);
-            detail.risk = merge_preview_risk(detail.risk, inspection.risk);
-        }
-        Err(error) => detail.risk.notes.push(format!(
-            "Remote metadata is available, but this package could not be previewed: {error}"
-        )),
-    }
-    let _ = fs::remove_file(archive);
-    let _ = fs::remove_dir_all(preview);
-    Ok(detail)
-}
-
-fn merge_preview_risk(mut remote: SkillRiskReport, preview: SkillRiskReport) -> SkillRiskReport {
-    remote.has_scripts |= preview.has_scripts;
-    remote.has_binary_files |= preview.has_binary_files;
-    remote.has_allowed_tools |= preview.has_allowed_tools;
-    remote.notes.extend(preview.notes);
-    remote
 }
 
 fn emit_change(app: &AppHandle, action: &str, skill_id: &str, generation: Option<u64>) {

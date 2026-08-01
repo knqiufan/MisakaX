@@ -94,5 +94,29 @@
   "downloadSaved": "ZIP saved",
   "unknown": "Unknown",
   "files": "Files",
-  "riskStatus": "Scan status: {{status}}"
+  "riskStatus": "Scan status: {{status}}",
+  "enableSkill": "Enable {{name}}",
+  "detailTabs": "Skill detail sections",
+  "filesTab": "Files",
+  "securityTab": "Security",
+  "overviewTab": "Overview",
+  "filePreview": "File preview",
+  "selectFileToPreview": "Select a file on the left to view its contents.",
+  "loadingPreview": "Loading preview…",
+  "previewProgress": "Loaded {{loaded}} / {{total}}",
+  "loadMorePreview": "Load next segment",
+  "loadMoreFiles": "Load more files from {{parent}}",
+  "rootDirectory": "root",
+  "binaryPreviewUnavailable": "Binary files cannot be previewed inline.",
+  "encodingPreviewUnavailable": "This text encoding is not supported for inline preview.",
+  "fileSize": "File size",
+  "encoding": "Encoding",
+  "remoteFilesRequireInstall": "Package files are not downloaded for ordinary remote details. Install or explicitly scan the Skill to inspect its artifact.",
+  "securitySummary": "Security summary",
+  "scanPlaceholder": "The structured scan contract is ready. Full findings and rescanning arrive with the S3 scanner phase.",
+  "remoteSecurityMetadata": "Only registry safety metadata is shown. Ordinary detail viewing does not download the package.",
+  "health": "Health",
+  "scanState": {
+    "unscanned": "Not scanned yet"
+  }
 }

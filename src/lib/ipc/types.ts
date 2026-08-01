@@ -307,6 +307,57 @@ export interface SkillFileNode {
   size_bytes: number;
 }
 
+export interface SkillSummary {
+  generation: number;
+  skill: InstalledSkill;
+  manifest: SkillManifest;
+  body_bytes_transferred: 0;
+}
+
+export interface SkillFileEntry {
+  path: string;
+  name: string;
+  kind: string;
+  size_bytes: number;
+  is_directory: boolean;
+  is_text_candidate: boolean;
+  is_link: boolean;
+}
+
+export interface SkillFilePage {
+  skill_id: string;
+  generation: number;
+  parent: string | null;
+  items: SkillFileEntry[];
+  next_cursor: string | null;
+}
+
+export interface SkillFilePreview {
+  skill_id: string;
+  generation: number;
+  path: string;
+  kind: "text" | "binary" | "unsupported_encoding" | string;
+  encoding: string | null;
+  content: string | null;
+  offset: number;
+  next_offset: number | null;
+  total_size_bytes: number;
+  sha256: string | null;
+}
+
+export interface SkillScanSummary {
+  skill_id: string;
+  generation: number;
+  state: string;
+  decision: string | null;
+  max_severity: string | null;
+  finding_counts: Record<string, number>;
+  engine_version: string | null;
+  policy_version: string | null;
+  last_scanned_at: string | null;
+  placeholder: boolean;
+}
+
 export interface SkillDetail {
   skill: InstalledSkill;
   manifest: SkillManifest;

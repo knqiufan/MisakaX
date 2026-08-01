@@ -168,21 +168,21 @@ skills_list_findings(scan_id, filter, cursor)
 
 ### 6.4 TODO
 
-- [ ] 更新 app-store route union，加入 Settings `skills` tab 和旧 route redirect。
-- [ ] 更新 Settings nav 顺序、i18n、图标、选中态和 deep-link 测试。
-- [ ] 抽取 `SkillsSettingsFeature`，移除对顶层 `SkillsPage`/route 的硬依赖。
-- [ ] 实现 Settings tab 宽度 descriptor，不改变其他 tab 的阅读宽度。
-- [ ] 新增 summary/file tree/read file IPC DTO 和薄 commands。
-- [ ] 为本地、外部和缓存远端 source 实现统一 `SkillFileProvider` adapter。
-- [ ] 加入路径逃逸、junction/symlink、ADS、Unicode、大小、编码和读取竞态测试。
-- [ ] `SkillDetailPanel` 改为固定 header + `文件/安全/概览` tabs，默认 Files。
-- [ ] Files tab 实现文件树和独立预览 pane；没有选择时不请求任何正文。
-- [ ] 点击文件加载，切换时取消/丢弃旧 generation；大文件分段继续加载。
-- [ ] 二进制和不支持编码显示 metadata 空状态，不直接渲染。
-- [ ] 安全 tab 先接 scan summary 占位契约，随后接 findings。
-- [ ] 删除 UI 对 `skill_markdown` 的读取，统计新详情首屏 payload/IPC 次数。
-- [ ] 补键盘 tree、tabs、switch、窄窗口、独立滚动、长文件和 500 文件性能测试。
-- [ ] 更新三份现有 UI 规范的相关章节和 Last reviewed。
+- [x] 更新 app-store route union，加入 Settings `skills` tab 和旧 route redirect。
+- [x] 更新 Settings nav 顺序、i18n、图标、选中态和 deep-link 测试。
+- [x] 抽取 `SkillsSettingsFeature`，移除对顶层 `SkillsPage`/route 的硬依赖。
+- [x] 实现 Settings tab 宽度 descriptor，不改变其他 tab 的阅读宽度。
+- [x] 新增 summary/file tree/read file IPC DTO 和薄 commands。
+- [x] 为本地、外部和缓存远端 source 实现统一 `SkillFileProvider` adapter。
+- [x] 加入路径逃逸、junction/symlink、ADS、Unicode、大小、编码和读取竞态测试。
+- [x] `SkillDetailPanel` 改为固定 header + `文件/安全/概览` tabs，默认 Files。
+- [x] Files tab 实现文件树和独立预览 pane；没有选择时不请求任何正文。
+- [x] 点击文件加载，切换时取消/丢弃旧 generation；大文件分段继续加载。
+- [x] 二进制和不支持编码显示 metadata 空状态，不直接渲染。
+- [x] 安全 tab 先接 scan summary 占位契约，随后接 findings。
+- [x] 删除 UI 对 `skill_markdown` 的读取，统计新详情首屏 payload/IPC 次数。
+- [x] 补键盘 tree、tabs、switch、窄窗口、独立滚动、长文件和 500 文件性能测试。
+- [x] 更新三份现有 UI 规范的相关章节和 Last reviewed。
 
 ### 6.5 性能预算
 

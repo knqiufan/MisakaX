@@ -100,6 +100,63 @@ pub struct SkillFileNode {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillSummary {
+    pub generation: u64,
+    pub skill: SkillRecord,
+    pub manifest: SkillManifest,
+    /// Contract metric: summary responses never contain file body bytes.
+    pub body_bytes_transferred: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillFileEntry {
+    pub path: String,
+    pub name: String,
+    pub kind: String,
+    pub size_bytes: u64,
+    pub is_directory: bool,
+    pub is_text_candidate: bool,
+    pub is_link: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillFilePage {
+    pub skill_id: String,
+    pub generation: u64,
+    pub parent: Option<String>,
+    pub items: Vec<SkillFileEntry>,
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillFilePreview {
+    pub skill_id: String,
+    pub generation: u64,
+    pub path: String,
+    pub kind: String,
+    pub encoding: Option<String>,
+    pub content: Option<String>,
+    pub offset: u64,
+    pub next_offset: Option<u64>,
+    pub total_size_bytes: u64,
+    pub sha256: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillScanSummary {
+    pub skill_id: String,
+    pub generation: u64,
+    pub state: String,
+    pub decision: Option<String>,
+    pub max_severity: Option<String>,
+    pub finding_counts: BTreeMap<String, u64>,
+    pub engine_version: Option<String>,
+    pub policy_version: Option<String>,
+    pub last_scanned_at: Option<String>,
+    pub placeholder: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillDetail {
     pub skill: SkillRecord,
     pub manifest: SkillManifest,

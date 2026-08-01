@@ -8,6 +8,7 @@ import { ModelSettings } from "./ModelSettings";
 import { McpSettings } from "./McpSettings";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { AboutSettings } from "./AboutSettings";
+import { SkillsSettingsFeature } from "@/components/skills/SkillsSettingsFeature";
 
 export function SettingsPage() {
   const route = useAppStore((s) => s.route);
@@ -25,13 +26,22 @@ export function SettingsPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 min-w-0 flex-1 overflow-auto p-6 lg:p-10">
+      <div
+        className={cn(
+          "min-h-0 min-w-0 flex-1 p-6 lg:p-10",
+          activeNav.contentWidth === "wide"
+            ? "overflow-auto lg:overflow-hidden"
+            : "overflow-auto",
+        )}
+      >
         <div
           className={cn(
             "mx-auto w-full",
-            activeNav.contentWidth === "3xl"
-              ? "max-w-3xl space-y-6"
-              : "max-w-4xl space-y-10"
+            activeNav.contentWidth === "wide"
+              ? "h-full min-h-0 max-w-6xl"
+              : activeNav.normalMaxWidth === "3xl"
+                ? "max-w-3xl space-y-6"
+                : "max-w-4xl space-y-10"
           )}
         >
           <SettingsContent tab={activeTab} />
@@ -49,6 +59,8 @@ function SettingsContent({ tab }: { tab: SettingsTab }) {
       return <ModelSettings />;
     case "mcp":
       return <McpSettings />;
+    case "skills":
+      return <SkillsSettingsFeature />;
     case "appearance":
       return <AppearanceSettings />;
     case "about":

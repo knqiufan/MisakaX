@@ -48,6 +48,7 @@ function SettingsNavButton({
     <button
       type="button"
       onClick={onClick}
+      aria-current={active ? "page" : undefined}
       className={cn(
         "flex h-9 w-full items-center gap-2 rounded-xl px-3 text-[13px] transition-colors duration-[var(--ds-dur-fast)] ease-out",
         active

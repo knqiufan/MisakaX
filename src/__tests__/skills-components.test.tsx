@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SkillDetailPanel } from "@/components/skills/SkillDetailPanel";
 import { SkillsList } from "@/components/skills/SkillsList";
-import type { InstalledSkill, RemoteSkillDetail, SkillDetail, SkillRiskReport } from "@/lib/ipc";
+import type { InstalledSkill, RemoteSkillDetail, SkillFilePage, SkillRiskReport, SkillSummary } from "@/lib/ipc";
 
 vi.mock("@/components/ui/scroll-area", () => ({
   ScrollArea: ({ children, className }: { children: ReactNode; className?: string }) => (
@@ -116,36 +116,54 @@ describe("Skills repository panels", () => {
     expect(screen.getByText("Skill 12")).toBeTruthy();
   });
 
-  it("renders a hierarchical package file tree with file sizes", () => {
-    render(<SkillDetailPanel detail={installedDetail()} onBack={vi.fn()} />);
+  it("exposes an always-visible accessible enable switch", () => {
+    const onToggleInstalled = vi.fn();
+    render(
+      <SkillsList
+        installed={[installedSkill()]}
+        remote={[]}
+        view="installed"
+        loading={false}
+        query=""
+        selectedKey={null}
+        pendingSkillIds={new Set()}
+        onSelectInstalled={vi.fn()}
+        onToggleInstalled={onToggleInstalled}
+        onSelectRemote={vi.fn()}
+        onInstall={vi.fn()}
+      />,
+    );
 
-    expect(screen.getByText("scripts")).toBeTruthy();
-    expect(screen.getByText("format.py")).toBeTruthy();
-    expect(screen.getByText("1.5 KB")).toBeTruthy();
+    const toggle = screen.getByRole("switch", { name: "enableSkill" });
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(toggle);
+    expect(onToggleInstalled).toHaveBeenCalledWith(expect.objectContaining({ skill_id: "example-skill-id" }), false);
   });
 
-  it("keeps SKILL.md preview wrapping instead of nested max-height clipping", () => {
-    const longLine = `---\nname: example-skill\ndescription: ${"A".repeat(240)}\n---\n\n# Body\n${"word ".repeat(80)}`;
+  it("renders a hierarchical package file tree with file sizes", () => {
+    render(<SkillDetailPanel detail={installedDetail()} initialFiles={rootFiles()} onBack={vi.fn()} />);
+
+    expect(screen.getByText("scripts")).toBeTruthy();
+    expect(screen.getByText("SKILL.md")).toBeTruthy();
+  });
+
+  it("does not render or request a SKILL.md body before a file is selected", () => {
     render(
       <SkillDetailPanel
-        detail={{ ...installedDetail(), skill_markdown: longLine }}
+        detail={installedDetail()}
+        initialFiles={rootFiles()}
         onBack={vi.fn()}
       />,
     );
 
-    const preview = screen.getByText(/name: example-skill/);
-    expect(preview.tagName).toBe("PRE");
-    expect(preview.className).toContain("whitespace-pre-wrap");
-    expect(preview.className).toContain("break-words");
-    expect(preview.className).not.toContain("max-h-80");
-    expect(screen.getByRole("tree", { name: "File structure" }).parentElement?.className).not.toContain("max-h-56");
+    expect(screen.getByText("selectFileToPreview")).toBeTruthy();
+    expect(screen.queryByText(/name: example-skill/)).toBeNull();
   });
 
   it("explains why a remote package has no previewable files", () => {
     render(<SkillDetailPanel detail={remoteDetailWithoutPreview()} onBack={vi.fn()} />);
 
-    expect(screen.getByText("Registry metadata is available, but package files could not be previewed.")).toBeTruthy();
-    expect(screen.getByText("Registry metadata is available, but SKILL.md could not be previewed.")).toBeTruthy();
+    expect(screen.getByText("remoteFilesRequireInstall")).toBeTruthy();
   });
 });
 
@@ -176,8 +194,9 @@ function installedSkill(overrides: Partial<InstalledSkill> = {}): InstalledSkill
   };
 }
 
-function installedDetail(): SkillDetail {
+function installedDetail(): SkillSummary {
   return {
+    generation: 7,
     skill: installedSkill(),
     manifest: {
       name: "example-skill",
@@ -187,11 +206,20 @@ function installedDetail(): SkillDetail {
       allowed_tools: null,
       metadata: {},
     },
-    files: [
-      { path: "SKILL.md", kind: "skill-manifest", size_bytes: 240 },
-      { path: "scripts/format.py", kind: "py", size_bytes: 1536 },
+    body_bytes_transferred: 0,
+  };
+}
+
+function rootFiles(): SkillFilePage {
+  return {
+    skill_id: "example-skill-id",
+    generation: 7,
+    parent: null,
+    next_cursor: null,
+    items: [
+      { path: "scripts", name: "scripts", kind: "directory", size_bytes: 0, is_directory: true, is_text_candidate: false, is_link: false },
+      { path: "SKILL.md", name: "SKILL.md", kind: "skill-manifest", size_bytes: 240, is_directory: false, is_text_candidate: true, is_link: false },
     ],
-    skill_markdown: "---\nname: example-skill\n---",
   };
 }
 

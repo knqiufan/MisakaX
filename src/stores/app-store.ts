@@ -1,6 +1,12 @@
 import { create } from "zustand";
 
-export type SettingsTab = "general" | "models" | "mcp" | "appearance" | "about";
+export type SettingsTab =
+  | "general"
+  | "models"
+  | "mcp"
+  | "skills"
+  | "appearance"
+  | "about";
 
 export type Route =
   | { page: "chat"; sessionId?: string }
@@ -9,6 +15,12 @@ export type Route =
   | { page: "dashboard" }
   | { page: "notifications" }
   | { page: "settings"; tab?: SettingsTab };
+
+export function normalizeRoute(route: Route): Route {
+  return route.page === "skills"
+    ? { page: "settings", tab: "skills" }
+    : route;
+}
 
 export const SESSION_LIST_DEFAULT_WIDTH = 240;
 export const SESSION_LIST_MIN_WIDTH = 180;
@@ -56,7 +68,7 @@ export const useAppStore = create<AppState>((set) => ({
   sessionListWidth: loadSessionListWidth(),
   globalLoading: false,
 
-  navigate: (route) => set({ route }),
+  navigate: (route) => set({ route: normalizeRoute(route) }),
   setSessionListWidth: (width) => {
     const clamped = clampSessionListWidth(width);
     localStorage.setItem(SESSION_LIST_WIDTH_KEY, String(clamped));

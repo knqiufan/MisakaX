@@ -1,10 +1,12 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { SkillDetail } from "@/lib/ipc";
+import type { RemoteSkillDetail, SkillFilePage, SkillSummary } from "@/lib/ipc";
 
 const mocks = vi.hoisted(() => ({
-  getDetail: vi.fn(),
+  getSummary: vi.fn(),
+  listFiles: vi.fn(),
+  readFile: vi.fn(),
   refresh: vi.fn(),
   searchRemote: vi.fn(),
 }));
@@ -39,6 +41,7 @@ vi.mock("@/components/skills/SkillsList", () => ({
       type="button"
       onClick={() => onSelectInstalled({
         slug: "demo-skill",
+        skill_id: "demo-skill-id",
         name: "Demo Skill",
         description: "Demo",
         version: "1.0.0",
@@ -53,7 +56,7 @@ vi.mock("@/components/skills/SkillsList", () => ({
 }));
 
 vi.mock("@/components/skills/SkillDetailPanel", () => ({
-  SkillDetailPanel: ({ detail }: { detail: SkillDetail | null }) => (
+  SkillDetailPanel: ({ detail }: { detail: SkillSummary | RemoteSkillDetail | null }) => (
     <output data-testid="detail-state">{detail ? "loaded" : "empty"}</output>
   ),
 }));
@@ -76,7 +79,9 @@ vi.mock("@/components/skills/useSkillsInventory", () => ({
 
 vi.mock("@/lib/ipc", () => ({
   skillsIpc: {
-    getDetail: mocks.getDetail,
+    getSummary: mocks.getSummary,
+    listFiles: mocks.listFiles,
+    readFile: mocks.readFile,
     getRemoteDetail: vi.fn(),
     searchRemote: mocks.searchRemote,
     setEnabled: vi.fn(),
@@ -85,32 +90,38 @@ vi.mock("@/lib/ipc", () => ({
   },
 }));
 
-import { SkillsPage } from "@/pages/SkillsPage";
+import { SkillsSettingsFeature } from "@/components/skills/SkillsSettingsFeature";
 
-describe("SkillsPage detail selection", () => {
+describe("Skills Settings detail selection", () => {
   beforeEach(() => {
-    mocks.getDetail.mockReset();
+    mocks.getSummary.mockReset();
+    mocks.listFiles.mockReset();
+    mocks.readFile.mockReset();
     mocks.refresh.mockReset();
     mocks.searchRemote.mockReset();
     mocks.refresh.mockResolvedValue(undefined);
     mocks.searchRemote.mockResolvedValue({ items: [] });
+    mocks.listFiles.mockResolvedValue(filePageFixture());
   });
 
   it("clears a loaded installed detail when switching to Discover", async () => {
-    mocks.getDetail.mockResolvedValue(detailFixture());
-    render(<SkillsPage />);
+    mocks.getSummary.mockResolvedValue(detailFixture());
+    render(<SkillsSettingsFeature />);
 
     fireEvent.click(screen.getByText("Open Skill"));
     await waitFor(() => expect(screen.getByTestId("detail-state").textContent).toBe("loaded"));
+    expect(mocks.getSummary).toHaveBeenCalledWith("demo-skill-id");
+    expect(mocks.listFiles).toHaveBeenCalledTimes(1);
+    expect(mocks.readFile).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByText("Discover"));
     expect(screen.getByTestId("detail-state").textContent).toBe("empty");
   });
 
   it("does not restore a late detail response after switching context", async () => {
-    let resolveDetail: (value: SkillDetail) => void = () => undefined;
-    mocks.getDetail.mockReturnValue(new Promise<SkillDetail>((resolve) => { resolveDetail = resolve; }));
-    render(<SkillsPage />);
+    let resolveDetail: (value: SkillSummary) => void = () => undefined;
+    mocks.getSummary.mockReturnValue(new Promise<SkillSummary>((resolve) => { resolveDetail = resolve; }));
+    render(<SkillsSettingsFeature />);
 
     fireEvent.click(screen.getByText("Open Skill"));
     fireEvent.click(screen.getByText("Discover"));
@@ -123,8 +134,9 @@ describe("SkillsPage detail selection", () => {
   });
 });
 
-function detailFixture(): SkillDetail {
+function detailFixture(): SkillSummary {
   return {
+    generation: 11,
     skill: {
       skill_id: "demo-skill-id",
       slug: "demo-skill",
@@ -162,7 +174,16 @@ function detailFixture(): SkillDetail {
       allowed_tools: null,
       metadata: {},
     },
-    files: [],
-    skill_markdown: "---\nname: demo-skill\n---",
+    body_bytes_transferred: 0,
+  };
+}
+
+function filePageFixture(): SkillFilePage {
+  return {
+    skill_id: "demo-skill-id",
+    generation: 11,
+    parent: null,
+    items: [],
+    next_cursor: null,
   };
 }

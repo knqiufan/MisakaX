@@ -3,6 +3,7 @@ import { CheckCircle2, ChevronDown, Download, Loader2, PackageOpen, ShieldAlert 
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type { InstalledSkill, RemoteSkill } from "@/lib/ipc";
 
@@ -27,7 +28,9 @@ interface SkillsListProps {
   loading: boolean;
   query: string;
   selectedKey: string | null;
+  pendingSkillIds?: Set<string>;
   onSelectInstalled: (skill: InstalledSkill) => void;
+  onToggleInstalled?: (skill: InstalledSkill, enabled: boolean) => void;
   onSelectRemote: (skill: RemoteSkill) => void;
   onInstall: (skill: RemoteSkill) => void;
 }
@@ -39,7 +42,9 @@ export function SkillsList({
   loading,
   query,
   selectedKey,
+  pendingSkillIds = new Set<string>(),
   onSelectInstalled,
+  onToggleInstalled,
   onSelectRemote,
   onInstall,
 }: SkillsListProps) {
@@ -85,7 +90,9 @@ export function SkillsList({
               skills={visibleItems.filter(isInstalledSkill)}
               sourceCounts={installedSourceCounts}
               selectedKey={selectedKey}
+              pendingSkillIds={pendingSkillIds}
               onSelect={onSelectInstalled}
+              onToggle={onToggleInstalled}
             />
           ) : null}
           {!loading && items.length > 0 && view === "discover" ? (
@@ -123,12 +130,16 @@ function InstalledSourceGroups({
   skills,
   sourceCounts,
   selectedKey,
+  pendingSkillIds,
   onSelect,
+  onToggle,
 }: {
   skills: InstalledSkill[];
   sourceCounts: Map<string, number>;
   selectedKey: string | null;
+  pendingSkillIds: Set<string>;
   onSelect: (skill: InstalledSkill) => void;
+  onToggle?: (skill: InstalledSkill, enabled: boolean) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -137,11 +148,13 @@ function InstalledSourceGroups({
           <SourceGroupHeader source={group.source} count={sourceCounts.get(group.source) ?? group.skills.length} />
           <ul className="mt-1.5 space-y-1.5" role="list">
             {group.skills.map((skill) => (
-              <li key={skill.slug}>
+              <li key={skill.skill_id}>
                 <InstalledListItem
                   skill={skill}
                   selected={selectedKey === installedKey(skill)}
+                  pending={pendingSkillIds.has(skill.skill_id)}
                   onSelect={() => onSelect(skill)}
+                  onToggle={onToggle ? (enabled) => onToggle(skill, enabled) : undefined}
                 />
               </li>
             ))}
@@ -172,37 +185,55 @@ function SourceGroupHeader({ source, count }: { source: string; count: number })
 function InstalledListItem({
   skill,
   selected,
+  pending,
   onSelect,
+  onToggle,
 }: {
   skill: InstalledSkill;
   selected: boolean;
+  pending: boolean;
   onSelect: () => void;
+  onToggle?: (enabled: boolean) => void;
 }) {
   const { t } = useTranslation("skills");
   const healthy = skill.health === "healthy";
   return (
-    <button
-      type="button"
-      onClick={onSelect}
+    <div
       aria-current={selected ? "true" : undefined}
       className={cn(
-        "flex min-h-16 w-full min-w-0 cursor-pointer items-start gap-3 overflow-hidden rounded-lg border px-3 py-2.5 text-left transition-colors duration-150 focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:outline-none",
+        "flex min-h-16 w-full min-w-0 items-start gap-2 overflow-hidden rounded-lg border px-2 py-2 text-left transition-colors duration-150",
         selected
           ? "border-primary/30 bg-primary/8"
           : "border-border/60 bg-background/45 hover:bg-muted/60",
       )}
     >
-      <span className="mt-0.5 shrink-0">
-        <StatusIcon healthy={healthy} />
-      </span>
-      <SkillText name={skill.name} description={skill.description} />
-      <div className="ml-auto flex shrink-0 flex-col items-end gap-1 pt-0.5">
-        <span className="text-[10px] text-muted-foreground">{skill.version ?? t("unknown")}</span>
-        <span className={cn("text-[10px]", skill.enabled && healthy ? "text-primary" : "text-muted-foreground")}>
-          {skill.enabled ? t("enabled") : t("disabled")}
+      <button
+        type="button"
+        onClick={onSelect}
+        className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-md px-1 py-0.5 text-left focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:outline-none"
+      >
+        <span className="mt-0.5 shrink-0">
+          <StatusIcon healthy={healthy} />
         </span>
+        <SkillText name={skill.name} description={skill.description} />
+      </button>
+      <div className="ml-auto flex min-h-11 shrink-0 flex-col items-end justify-center gap-1 px-1">
+        <span className="text-[10px] text-muted-foreground">{skill.version ?? t("unknown")}</span>
+        {onToggle ? (
+          <Switch
+            checked={skill.enabled}
+            disabled={pending || !healthy}
+            aria-label={t("enableSkill", { name: skill.name })}
+            aria-busy={pending}
+            onCheckedChange={onToggle}
+          />
+        ) : (
+          <span className={cn("text-[10px]", skill.enabled && healthy ? "text-primary" : "text-muted-foreground")}>
+            {skill.enabled ? t("enabled") : t("disabled")}
+          </span>
+        )}
       </div>
-    </button>
+    </div>
   );
 }
 

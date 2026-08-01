@@ -7,6 +7,10 @@ import type {
   SkillDetail,
   SkillInstallResult,
   SkillActivationView,
+  SkillFilePage,
+  SkillFilePreview,
+  SkillScanSummary,
+  SkillSummary,
 } from "./types";
 
 export const skillsIpc = {
@@ -17,6 +21,33 @@ export const skillsIpc = {
 
   getDetail: (slug: string) =>
     invoke<SkillDetail>("skills_get_detail", { slug }),
+
+  getSummary: (skillId: string) =>
+    invoke<SkillSummary>("skills_get_summary", { skillId }),
+
+  listFiles: (
+    skillId: string,
+    parent?: string,
+    cursor?: string,
+    limit?: number
+  ) =>
+    invoke<SkillFilePage>("skills_list_files", {
+      skillId,
+      parent,
+      cursor,
+      limit,
+    }),
+
+  readFile: (skillId: string, path: string, offset = 0, limit?: number) =>
+    invoke<SkillFilePreview>("skills_read_file", {
+      skillId,
+      path,
+      offset,
+      limit,
+    }),
+
+  getScanSummary: (skillId: string) =>
+    invoke<SkillScanSummary>("skills_get_scan_summary", { skillId }),
 
   inspectArchive: (path: string) =>
     invoke<SkillArchiveInspection>("skills_inspect_archive", { path }),

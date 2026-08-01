@@ -139,6 +139,9 @@
     "permissions": "工具权限",
     "resetPermission": "重置权限"
   },
+  "skills": {
+    "title": "Skills"
+  },
   "appearance": {
     "title": "外观",
     "theme": "主题",

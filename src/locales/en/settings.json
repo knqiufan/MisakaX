@@ -139,6 +139,9 @@
     "permissions": "Tool Permissions",
     "resetPermission": "Reset Permission"
   },
+  "skills": {
+    "title": "Skills"
+  },
   "appearance": {
     "title": "Appearance",
     "theme": "Theme",

@@ -1,6 +1,6 @@
 # MisakaX 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-08-01（v10）
+**最后审阅 / Last reviewed:** 2026-08-01（v11）
 
 > 主色已切换为 **charcoal**（非冷蓝强调色）。文中若仍出现历史「蓝调」示例，以实现侧 CSS 变量与 [frontend-ui-guidelines.md](./frontend-ui-guidelines.md) 为准。
 >
@@ -1284,6 +1284,8 @@ Hover:    transform=none, shadow=none, brightness(1)  [150ms]
 
 ### 9.1 设置导航项 (`.settings-nav-item` / `.ds-panel-nav-item`)
 
+设置导航顺序固定为 `General → Models → MCP → Skills → Appearance → About`。Skills 与其他项使用相同 16px Lucide 图标、`h-9` 命中区和焦点环；当前项必须暴露 `aria-current="page"`，不能只靠背景色表达选中。
+
 ```css
 .ds-panel-nav-item {
   width: 100%;
@@ -1834,6 +1836,21 @@ Hover:    transform=none, shadow=none, brightness(1)  [150ms]
 - ON 背景：蓝→绿 渐变
 - OFF→ON 移动距离：20px
 - 动画：弹簧缓动 `cubic-bezier(0.34, 1.56, 0.64, 1)` 160ms
+
+> **现行实现校正：** React 页面统一使用 `src/components/ui/switch.tsx` 的 Radix Switch 与主题 token；禁止复制上面的蓝绿渐变或弹簧 easing。状态变化只用现有轨道/旋钮位移与 `--ds-dur-fast`，遵循全局“无弹跳、无缩放”规则。
+
+Skills inventory 与详情头部的 Switch 还必须满足：
+
+- accessible name 为“启用 {skillName}”，并暴露 `checked`、`disabled` 与异步时的 `aria-busy`；关键开关始终可见，不藏在 hover action 中。
+- pending 时禁用重复操作；成功后以 inventory/event 的后端状态刷新，失败回滚并显示本地化错误。
+- unhealthy 或后续扫描状态不允许启用时，Switch disabled，原因在相邻状态文字/安全 tab 解释；禁止把完整原因只放进 disabled tooltip。
+- Switch 不得嵌套在 Skill 选择 `<button>` 内；行内选择区与 Switch 是并列控件，分别拥有明确焦点顺序。
+
+### 12.2.1 Skills 详情 Tabs 与文件树动作
+
+- 详情 tabs 固定为 `文件 / 安全 / 概览`，复用共享 Radix `Tabs` 的 line variant、可见 focus ring 与键盘行为；默认 Files，不用手写只响应鼠标的伪 tab。
+- 文件树行是紧凑、整行可点击的 `treeitem`，目录 disclosure 与文件图标使用 Lucide；hover/selected 只改颜色和背景，不缩放或位移。
+- “继续加载文件/预览”是显式小型 outline/text action，必须有不少于 32px 的行高、pending disabled 和可见焦点；不得以无限自动读取替代用户确认。
 
 ### 12.3 分段控件 (`.settings-segmented`)
 

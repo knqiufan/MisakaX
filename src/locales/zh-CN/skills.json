@@ -94,5 +94,29 @@
   "downloadSaved": "ZIP 已保存",
   "unknown": "未知",
   "files": "文件",
-  "riskStatus": "扫描状态：{{status}}"
+  "riskStatus": "扫描状态：{{status}}",
+  "enableSkill": "启用 {{name}}",
+  "detailTabs": "Skill 详情分区",
+  "filesTab": "文件",
+  "securityTab": "安全",
+  "overviewTab": "概览",
+  "filePreview": "文件预览",
+  "selectFileToPreview": "选择左侧文件以查看内容。",
+  "loadingPreview": "正在加载预览…",
+  "previewProgress": "已加载 {{loaded}} / {{total}}",
+  "loadMorePreview": "继续加载",
+  "loadMoreFiles": "继续加载 {{parent}} 中的文件",
+  "rootDirectory": "根目录",
+  "binaryPreviewUnavailable": "二进制文件不支持内联预览。",
+  "encodingPreviewUnavailable": "当前文本编码暂不支持内联预览。",
+  "fileSize": "文件大小",
+  "encoding": "编码",
+  "remoteFilesRequireInstall": "普通远端详情不会下载包文件。请先安装或显式扫描 Skill，再检查制品内容。",
+  "securitySummary": "安全摘要",
+  "scanPlaceholder": "结构化扫描契约已经接入；完整 findings 和重新扫描将在 S3 扫描阶段提供。",
+  "remoteSecurityMetadata": "这里只展示仓库安全元数据；查看普通详情不会下载包文件。",
+  "health": "健康状态",
+  "scanState": {
+    "unscanned": "尚未扫描"
+  }
 }

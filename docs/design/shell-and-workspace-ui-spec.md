@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口混合壳结构、任务侧栏、对话页顶栏、设置页与工作区布局语义。 |
 | **受众** | 负责 `AppShell`、`UnifiedTopBar`、`SessionPanel`、`SettingsSidebar`、`ChatPage`、`WorkspaceBar`、`SettingsPage` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-07-23（v24） |
+| **最后审阅** | 2026-08-01（v25） |
 
 ## 相关文档
 
@@ -36,7 +36,7 @@ AppShell (flex-col h-screen)
 1. **顶栏 `UnifiedTopBar`**：**仅非 chat** 渲染（返回 → chat + 页面标题）；chat 页不渲染，对话 chrome 由 WorkspaceBar / Hero 承担。
 2. **左栏（单列）**：
    - `chat`：任务列表 + Quick actions + 仅含用户菜单的底栏。
-   - `settings`：整列换成 `SettingsSidebar`（五分区导航）。
+   - `settings`：整列换成 `SettingsSidebar`（六分区导航）。
    - `skills` / `knowledge` / `dashboard` / `notifications`：**无左栏**，仅 TopBar + 主内容。
 3. **主内容区**：当前页面；无任务时为居中 hero（见 §6）。
 4. **Sidecar / Agent 状态**：不在任务底栏展示；放在设置 → 关于 → 系统信息（`SidecarStatusBadge`，异常时可点重启）。
@@ -149,7 +149,7 @@ Sidecar 状态**不**放在底栏（见 §1 / 关于页）。
 
 ## 4. 设置页
 
-参考视觉：[`docs/ui/04-settings.md`](../ui/04-settings.md)。**本期 IA** 仍为五分区：`general` / `models` / `mcp` / `appearance` / `about`（不扩 overview / runtime / health 等）。
+参考视觉：[`docs/ui/04-settings.md`](../ui/04-settings.md)。**本期 IA** 为六分区：`general` / `models` / `mcp` / `skills` / `appearance` / `about`（不扩 overview / runtime / health 等）。
 
 ### 4.1 导航壳
 
@@ -164,6 +164,7 @@ Sidecar 状态**不**放在底栏（见 §1 / 关于页）。
 
 - 内容：`p-6 lg:p-10`；必须 `mx-auto`。
 - 多数分区：`max-w-4xl` + `space-y-10`；Appearance / About：`max-w-3xl` + `space-y-6`。
+- tab descriptor 使用 `contentWidth: normal | wide`；normal 继续保留上述 `3xl/4xl` 阅读宽，只有 Skills 使用 `wide`（`max-w-6xl`）。禁止由 feature 用负 margin 或绝对定位逃出内容槽。
 
 ### 4.3 卡片与表单
 
@@ -183,21 +184,22 @@ Provider 目录网格仅 `md:grid-cols-2`。Appearance 主题分段：`rounded-m
 - MCP 添加服务器弹窗提供「表单填写 / JSON 输入」两个互斥入口。JSON 入口一次只解析一个服务器；HTTP 表单在 URL 下方提供 JSON 请求头，错误必须就近显示且不得静默丢弃配置。
 - Max tokens 使用固定预设（200K、220K、273K、300K、1M）或自定义模式；预设以 radio 标签组呈现，禁止使用下拉框。仅自定义模式展示数值输入框，新建供应商默认 220K。
 
-### 4.4 Skills 仓库页
+### 4.4 Settings > Skills 仓库
 
-- Skills 为**无左栏**非 Chat 页面：沿用 `UnifiedTopBar` 后的主内容槽，内容区 `mx-auto max-w-6xl p-6 lg:p-10`；禁止新增第二套侧边栏或网页式 Hero。
+- Skills 是 Settings 第四个分区，固定置于 MCP 与 Appearance 之间，沿用 `SettingsSidebar`、`UnifiedTopBar` 与 resize gutter；旧独立 Skills route 在一个兼容周期内只重定向到 `{ page: "settings", tab: "skills" }`。
+- Settings 内容槽为 Skills 使用 `wide` + `max-w-6xl`，同时保持 `h-full min-h-0 overflow-hidden`；禁止新增第二套侧边栏、网页式 Hero 或 feature 内负 margin。
 - 顶部固定信息层级为标题/短说明、已安装/在线发现切换、搜索、来源筛选与「上传安装」主操作；列表与详情在宽屏为紧凑双列，在窄宽度自然纵向排列。
-- 在线与已安装详情共用同一详情面板：元数据、风险摘要、`SKILL.md` 的**纯文本**预览及目录树。包内 HTML 和脚本不得作为页面内容执行。
+- 在线与已安装详情共用固定头部和 `文件 / 安全 / 概览` tabs。普通远端详情只取仓库元数据，不自动下载或解包制品；本地文件也只在用户点击后按相对路径读取。
 - 上传、导入、卸载等风险操作必须使用现有 Dialog，并说明 ZIP 预检或删除影响；导出/下载必须先使用系统文件保存对话框。
 
 #### 4.4.1 Skills 双栏面板与长列表
 
 - 宽屏双栏必须在页面、网格与两侧面板链路上同时保留 `min-h-0` 与 `min-w-0`（含 `SkillsContent` 网格列、`SkillsList` / `SkillDetailPanel` 根节点）；页面外层不承担 Skills 列表或详情正文的滚动，左侧列表和右侧详情分别使用自己的滚动容器。窄屏自然改为页面纵向滚动，不得把固定高度带到移动布局。
 - 列表和详情使用相同的卡片表面、边框与标题栏层级；列表卡片只承载选择和快捷操作。列表项标题单行截断；描述使用最多两行（`line-clamp-2` + `break-words`），禁止单行硬裁切导致卡片内文字贴边消失。
-- 详情正文（元数据、完整描述、风险、`SKILL.md`、文件树）只由右侧面板外层 `ScrollArea` 纵向滚动；**禁止**再给 `SKILL.md` / 文件树套独立 `max-height` 嵌套滚动，以免底部条目被裁切。正文容器与预览块必须 `min-w-0` / `max-w-full`；长 YAML/URL 行用 `whitespace-pre-wrap` + `break-words` / `overflow-wrap: anywhere` 换行，不得横向溢出后被父级 `overflow: hidden` 吃掉。
+- 详情头部与 tabs 固定；Files 内文件树和预览是两个独立 `ScrollArea`，其他 tab 各自滚动。正文容器与预览块必须 `min-w-0` / `max-w-full`；长 YAML/URL 行用 `whitespace-pre-wrap` + `break-words` / `overflow-wrap: anywhere` 换行，不得横向溢出后被父级 `overflow: hidden` 吃掉。
 - 长列表先渲染 10 项，接近列表底部时再追加下一批；追加期间使用就地、非阻塞的旋转加载反馈。已安装 Skills 按来源分组，组标题展示来源和总数量，卡片内不重复来源文字。
 - 切换「已安装 / 在线发现」或在线来源时，必须清除当前选中项和详情，并忽略较早详情请求的迟到结果，避免跨上下文保留旧 Skill 内容。
-- 文件树默认可见并随详情面板一起滚到底，展示包内相对路径、类型和大小；远程包无法预览或无文件时必须显示明确说明，不能留下空白区域。`SKILL.md` 仅作为文本预览，禁止执行任何包内资产。
+- 文件树默认可见但不默认选中文件，展示相对路径、类型和大小，目录按需展开并分页；未点击文件时正文读取次数必须为 0。文本源码按 200 KiB 分段显式继续加载；二进制/不支持编码显示 metadata 空态。远端未缓存制品必须解释“安装或显式扫描后检查”，不能暗中下载。
 
 ---
 

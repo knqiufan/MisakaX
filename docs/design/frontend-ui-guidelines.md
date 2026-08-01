@@ -8,7 +8,7 @@
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-08-01（v23）
+**最后审阅 / Last reviewed:** 2026-08-01（v24）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -144,6 +144,15 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 
 - 共享 `ScrollArea`（`src/components/ui/scroll-area.tsx`）的 Viewport 必须把 Radix 默认内容包装层约束为 **`block` + `min-w-0` + `w-full`**，避免 `display: table` 被长行撑开后被根节点 `overflow: hidden` 横向裁切。
 - 放进 flex / grid 双栏的滚动面板，链路本身也要带 `min-w-0`；长文本预览用换行（`break-words` / `overflow-wrap: anywhere`），不要依赖嵌套横向裁切。
+
+### 4.3.z.1 Skills 设置与按需文件预览
+
+- Skills 的稳定入口是 `Settings > Skills`；历史 `{ page: "skills" }` 只做兼容重定向。领域 UI 必须由 `SkillsSettingsFeature` 承载，不重新依赖顶层 route。
+- 选中已安装 Skill 的首屏只允许请求 summary 与目录页，`body_bytes_transferred` 必须为 0；没有明确选择文件前不得调用 `skills_read_file`，也不得默认读取或渲染 `SKILL.md`。
+- 详情固定使用 `文件 / 安全 / 概览` 顺序并默认文件；安全摘要只在首次打开安全 tab 时按需加载。文件树与预览各自滚动，窄宽度改为上下两区，不让长文件撑高 Settings 根页面。
+- 文件树使用标准 tree ARIA 与 roving focus；支持方向键、Home/End、Enter/Space。所有异步目录页、预览段和扫描摘要都必须核对稳定 `skill_id` 与 generation，迟到结果直接丢弃。
+- 文本仅以转义后的源码 `<pre>` 展示；单段不超过 200 KiB、总预览不超过后端预算，并由用户显式继续加载。二进制或不支持编码只显示大小、编码和可用 hash 元数据，禁止 Base64/HTML/iframe/远端资源内联。
+- 具体布局、安全空态与 Switch 语义以 [Skills/Workspace/Terminal UI 设计](./SKILLS_WORKSPACE_TERMINAL_UI_DESIGN.md) 为准；本节只记录跨页面必须复用的实现约束。
 
 ### 4.4 空页面与占位符 (Empty States)
 - 空页面设计应具有**引导性**。

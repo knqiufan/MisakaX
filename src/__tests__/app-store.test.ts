@@ -37,16 +37,23 @@ describe("useAppStore", () => {
     expect(useAppStore.getState().route).toEqual({ page: "notifications" });
   });
 
-  it("records the S0 route baseline before Skills moves into Settings", () => {
+  it("redirects the legacy Skills route into the Settings deep link", () => {
     useAppStore.getState().navigate({ page: "skills" });
-    expect(useAppStore.getState().route).toEqual({ page: "skills" });
+    expect(useAppStore.getState().route).toEqual({
+      page: "settings",
+      tab: "skills",
+    });
     expect(SETTINGS_NAV.map((item) => item.id)).toEqual([
       "general",
       "models",
       "mcp",
+      "skills",
       "appearance",
       "about",
     ]);
+    expect(SETTINGS_NAV.find((item) => item.id === "skills")?.contentWidth).toBe(
+      "wide"
+    );
   });
 
   it("should clamp and persist session list width", () => {

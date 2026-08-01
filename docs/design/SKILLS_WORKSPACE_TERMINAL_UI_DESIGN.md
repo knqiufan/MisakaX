@@ -3,7 +3,7 @@
 > **用途：** 定义 Skills 设置页、按需文件预览、安全报告、输入框下方工作区标识和右侧终端的交互规范。
 > **受众：** 产品、UI/UX、React、Rust IPC 和测试维护者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **状态：** 增量实施中；S1 已落地稳定 Skill 身份、有效激活过滤与失效 chip 清理，Settings/文件预览仍由 S2 实施。
+> **状态：** 增量实施中；S1 稳定身份/激活闭环与 S2 Settings/按需文件预览已落地，安全 findings 由 S3、Workspace/Terminal 由 W1–W6 继续实施。
 > **上位规范：** [`frontend-ui-guidelines.md`](./frontend-ui-guidelines.md)、[`shell-and-workspace-ui-spec.md`](./shell-and-workspace-ui-spec.md)、[`button-menu-design-spec.md`](./button-menu-design-spec.md)。
 
 ---
@@ -100,6 +100,7 @@ Skills tab 需要宽内容模式，但 Settings 的导航和顶部栏不变化�
 - 点击文件后显示 skeleton，再调用单文件 read API。切换文件取消旧请求或用 request generation 丢弃迟到结果。
 - 文本使用只读 Monaco/轻量代码视图，Markdown 默认显示源码；可提供显式“预览/源码”切换，但不能执行 HTML、脚本或远端资源。
 - 大文件首段加载后显示“已加载 200 KiB / 总大小”，用户可继续加载；不可一次把多 MB 放入 DOM。
+- 后端单段硬上限 200 KiB、单文件总预览预算 2 MiB、并发读取上限 8；到达总预算时只保留 metadata/已加载源码，不绕过限制继续读取。
 - 二进制显示类型、大小、hash 和“不支持内联预览”；图片若未来预览，必须走受控 blob URL 和大小限制。
 - 路径 breadcrumb 可复制，但不能通过编辑路径读取 Skill 根外内容。
 - 空状态文案：“选择左侧文件以查看内容”，而不是默认塞入 `SKILL.md`。

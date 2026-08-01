@@ -2,6 +2,7 @@ import {
   Settings,
   Bot,
   Plug,
+  Puzzle,
   Palette,
   Info,
   type LucideIcon,
@@ -13,7 +14,9 @@ export interface SettingsNavItem {
   labelKey: string;
   icon: LucideIcon;
   /** Page content width ladder from docs/ui/04-settings.md */
-  contentWidth: "4xl" | "3xl";
+  contentWidth: "normal" | "wide";
+  /** Preserves the established reading width of non-wide tabs. */
+  normalMaxWidth?: "3xl" | "4xl";
 }
 
 export const SETTINGS_NAV: SettingsNavItem[] = [
@@ -21,31 +24,42 @@ export const SETTINGS_NAV: SettingsNavItem[] = [
     id: "general",
     labelKey: "settings:general.title",
     icon: Settings,
-    contentWidth: "4xl",
+    contentWidth: "normal",
+    normalMaxWidth: "4xl",
   },
   {
     id: "models",
     labelKey: "settings:models.title",
     icon: Bot,
-    contentWidth: "4xl",
+    contentWidth: "normal",
+    normalMaxWidth: "4xl",
   },
   {
     id: "mcp",
     labelKey: "settings:mcp.title",
     icon: Plug,
-    contentWidth: "4xl",
+    contentWidth: "normal",
+    normalMaxWidth: "4xl",
+  },
+  {
+    id: "skills",
+    labelKey: "settings:skills.title",
+    icon: Puzzle,
+    contentWidth: "wide",
   },
   {
     id: "appearance",
     labelKey: "settings:appearance.title",
     icon: Palette,
-    contentWidth: "3xl",
+    contentWidth: "normal",
+    normalMaxWidth: "3xl",
   },
   {
     id: "about",
     labelKey: "settings:about.title",
     icon: Info,
-    contentWidth: "3xl",
+    contentWidth: "normal",
+    normalMaxWidth: "3xl",
   },
 ];
 
