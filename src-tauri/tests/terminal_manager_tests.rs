@@ -670,5 +670,18 @@ fn process_exists(pid: u32) -> bool {
 
 #[cfg(unix)]
 fn process_exists(pid: u32) -> bool {
-    unsafe { libc::kill(pid as libc::pid_t, 0) == 0 }
+    let numeric_pid = pid as libc::pid_t;
+    let pid = pid.to_string();
+    match std::process::Command::new("ps")
+        .args(["-o", "stat=", "-p", &pid])
+        .output()
+    {
+        Ok(output) if !output.status.success() => false,
+        Ok(output) => {
+            let state = String::from_utf8_lossy(&output.stdout);
+            let state = state.trim();
+            !state.is_empty() && !state.starts_with('Z')
+        }
+        Err(_) => unsafe { libc::kill(numeric_pid, 0) == 0 },
+    }
 }
