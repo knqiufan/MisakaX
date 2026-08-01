@@ -259,6 +259,7 @@ fn trusted_unix_shell(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+#[cfg(windows)]
 fn is_regular_file(path: &Path) -> bool {
     std::fs::metadata(path)
         .map(|metadata| metadata.is_file())

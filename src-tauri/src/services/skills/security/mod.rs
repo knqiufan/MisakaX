@@ -722,7 +722,7 @@ mod tests {
         let approvals = SkillSecurityRepo::list_approvals(&conn, "review-scan").unwrap();
         assert_eq!(approvals.len(), 1);
         assert_eq!(approvals[0].reason, "Reviewed fixture");
-        assert_eq!(operation.installed_skill.unwrap().enabled, false);
+        assert!(!operation.installed_skill.unwrap().enabled);
         let approved = SkillSourceRepo::find(&conn, &skill_id).unwrap().unwrap();
         assert_eq!(approved.security_state, "approved");
         ensure_scan_allows(&conn, &approved).unwrap();

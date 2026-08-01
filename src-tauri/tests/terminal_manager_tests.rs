@@ -381,8 +381,10 @@ fn rejects_missing_cwd_before_starting_a_host_process() {
 #[test]
 fn output_flood_is_rate_limited_and_process_is_stopped() {
     let cwd = tempfile::tempdir().unwrap();
-    let mut limits = TerminalLimits::default();
-    limits.max_output_bytes_per_second = 1024;
+    let limits = TerminalLimits {
+        max_output_bytes_per_second: 1024,
+        ..TerminalLimits::default()
+    };
     let manager = Arc::new(TerminalManager::new(limits));
     let (events_tx, events_rx) = mpsc::channel();
     manager.start(move |event| events_tx.send(event).unwrap(), |_| {});
@@ -417,8 +419,10 @@ fn output_flood_is_rate_limited_and_process_is_stopped() {
 #[test]
 fn ten_mibibyte_long_line_is_bounded_and_reaps_the_process() {
     let cwd = tempfile::tempdir().unwrap();
-    let mut limits = TerminalLimits::default();
-    limits.max_output_bytes_per_second = 256 * 1024;
+    let limits = TerminalLimits {
+        max_output_bytes_per_second: 256 * 1024,
+        ..TerminalLimits::default()
+    };
     let manager = Arc::new(TerminalManager::new(limits));
     let (events_tx, events_rx) = mpsc::channel();
     manager.start(move |event| events_tx.send(event).unwrap(), |_| {});

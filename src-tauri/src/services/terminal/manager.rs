@@ -596,11 +596,7 @@ impl TerminalManager {
             .name("misakax-terminal-output".to_string())
             .spawn(move || {
                 let mut output_rate = FixedWindow::default();
-                loop {
-                    let first = match receiver.recv() {
-                        Ok(chunk) => chunk,
-                        Err(_) => break,
-                    };
+                while let Ok(first) = receiver.recv() {
                     let mut batch = first;
                     let deadline = Instant::now() + output_limits.output_batch_delay;
                     while batch.len() < output_limits.output_batch_bytes {

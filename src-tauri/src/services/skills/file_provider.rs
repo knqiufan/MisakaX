@@ -400,7 +400,7 @@ fn is_link_like(metadata: &Metadata) -> bool {
     #[cfg(windows)]
     {
         use std::os::windows::fs::MetadataExt;
-        return metadata.file_attributes() & WINDOWS_REPARSE_POINT_ATTRIBUTE != 0;
+        metadata.file_attributes() & WINDOWS_REPARSE_POINT_ATTRIBUTE != 0
     }
     #[cfg(not(windows))]
     {
@@ -486,7 +486,7 @@ fn classify_file(file: &mut File, size: u64) -> Result<FileClassification> {
     }
     let bom_len = usize::from(probe.starts_with(&[0xEF, 0xBB, 0xBF])) * 3;
     let content = &probe[bom_len.min(probe.len())..];
-    if content.iter().any(|byte| *byte == 0) {
+    if content.contains(&0) {
         return Ok(FileClassification::Binary {
             encoding: Some("binary".to_string()),
         });
