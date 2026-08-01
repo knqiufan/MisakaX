@@ -24,7 +24,7 @@ export function ProviderDialogView({ controller }: { controller: ProviderDialogC
 
   return (
     <Dialog open={controller.open} onOpenChange={controller.onOpenChange}>
-      <DialogContent className="grid max-h-[85vh] w-[min(60rem,calc(100vw-2rem))] max-w-3xl sm:max-w-[96rem] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-0">
+      <DialogContent className="grid max-h-[85vh] w-[min(60rem,calc(100vw-2rem))] max-w-3xl sm:max-w-[96rem] grid-rows-[auto_minmax(0,1fr)_auto] overflow-clip p-0">
         <DialogHeader>
           <DialogTitle className="px-6 pt-6">
             {form.isEditing ? t("models.editProvider") : t("models.addProvider")}

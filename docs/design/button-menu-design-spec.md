@@ -1,6 +1,6 @@
 # MisakaX 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-07-23（v9）
+**最后审阅 / Last reviewed:** 2026-08-01（v10）
 
 > 主色已切换为 **charcoal**（非冷蓝强调色）。文中若仍出现历史「蓝调」示例，以实现侧 CSS 变量与 [frontend-ui-guidelines.md](./frontend-ui-guidelines.md) 为准。
 >
@@ -2047,6 +2047,7 @@ Hover:    transform=none, shadow=none, brightness(1)  [150ms]
 - 宽度优先使用 `max-w-[96rem]`（约为原 `max-w-3xl` / 48rem 的两倍）；需要适配窄屏时叠加 `w-[min(96rem,calc(100vw-2rem))]`，避免内容贴边或横向溢出。
 - **必须**同时写 `sm:max-w-[96rem]`：`DialogContent` 基类含 `sm:max-w-lg`，与无断点 `max-w-*` 不会被 `tailwind-merge` 互斥剔除，窄屏上限仍在 `sm+` 生效；显式覆盖才可避免桌面宽度被钉在约 32rem。
 - 高度上限使用 `max-h-[85vh]`；内容区应在弹窗内部滚动，页脚操作按钮固定在可见区域下方，不依赖整页滚动。
+- Provider 等三段式弹窗使用 `grid-rows-[auto_minmax(0,1fr)_auto]`：外层必须是不可滚动的 `overflow-clip`，仅中间内容区使用 `min-h-0 overflow-y-auto`，页脚保持 `auto` 行。禁止用 `overflow-hidden` 代替外层裁剪；它仍可被焦点滚动并连同页脚一起产生位移。
 - 弹窗只允许承载一个主流程。若流程需要二次筛选（如获取模型后的多选列表），使用内嵌二级 Dialog，并将二级 Dialog 控制在 `max-w-2xl`、`max-h-[80vh]`。
 - 长列表区域须有独立高度约束（如 `h-[360px]` 或 `max-h-[360px]`）和内部滚动，不让列表把弹窗撑出视口。
 - 进入和退出动画仍遵守全局克制动效：以透明度和极小位移为主，不使用夸张缩放、弹跳或悬停位移。
