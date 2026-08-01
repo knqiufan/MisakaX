@@ -1,8 +1,11 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use portable_pty::{Child, MasterPty};
 
 use super::types::TerminalServiceError;
 
 pub struct ProcessTreeGuard {
+    terminated: AtomicBool,
     #[cfg(windows)]
     job: windows_sys::Win32::Foundation::HANDLE,
     #[cfg(unix)]
@@ -25,7 +28,10 @@ impl ProcessTreeGuard {
             let process_group = master
                 .process_group_leader()
                 .ok_or(TerminalServiceError::SpawnFailed("process_group"))?;
-            Ok(Self { process_group })
+            Ok(Self {
+                terminated: AtomicBool::new(false),
+                process_group,
+            })
         }
         #[cfg(not(any(windows, unix)))]
         {
@@ -69,18 +75,32 @@ impl ProcessTreeGuard {
             unsafe { CloseHandle(job) };
             return Err(TerminalServiceError::SpawnFailed("job_assign"));
         }
-        Ok(Self { job })
+        Ok(Self {
+            terminated: AtomicBool::new(false),
+            job,
+        })
     }
 
     pub fn terminate(&self) {
+        if self.terminated.swap(true, Ordering::AcqRel) {
+            return;
+        }
         #[cfg(windows)]
         unsafe {
             windows_sys::Win32::System::JobObjects::TerminateJobObject(self.job, 1);
         }
         #[cfg(unix)]
-        unsafe {
-            libc::kill(-self.process_group, libc::SIGHUP);
-            libc::kill(-self.process_group, libc::SIGKILL);
+        {
+            // Interactive shells can place background jobs in their own process
+            // groups within the PTY session. Give the shell a brief chance to
+            // forward SIGHUP to those jobs before force-killing its own group.
+            unsafe {
+                libc::kill(-self.process_group, libc::SIGHUP);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(150));
+            unsafe {
+                libc::kill(-self.process_group, libc::SIGKILL);
+            }
         }
     }
 }
