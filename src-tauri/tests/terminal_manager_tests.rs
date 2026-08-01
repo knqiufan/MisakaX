@@ -291,13 +291,33 @@ fn windows_profiles_and_long_unicode_workspace_round_trip() {
     assert!(String::from_utf8_lossy(&output).contains("W6_CMD_OK"));
 
     let manager = Arc::new(TerminalManager::default());
-    manager.start(|_| {}, |_| {});
-    let fallback = spawn_profile(&manager, base.path(), "pwsh-fallback", "pwsh");
-    if fallback.shell_name != "pwsh" {
-        assert_eq!(fallback.shell_name, "powershell");
-        assert!(fallback.fallback_reason.is_some());
+    let (events_tx, events_rx) = mpsc::channel();
+    manager.start(move |event| events_tx.send(event).unwrap(), |_| {});
+    let pwsh = spawn_profile(&manager, base.path(), "pwsh-profile", "pwsh");
+    manager
+        .write(
+            &pwsh.terminal_id,
+            &owner("pwsh-profile"),
+            &with_terminal_handshake(shell_line(
+                &pwsh.shell_name,
+                "Write-Output \"W6_PWSH_MAJOR=$($PSVersionTable.PSVersion.Major)\"; Write-Output 'W6_PWSH_OK'; exit 0",
+                "echo W6_PWSH_UNEXPECTED_CMD & exit 1",
+                "printf 'W6_PWSH_UNEXPECTED_UNIX\\n'; exit 1",
+            )),
+        )
+        .unwrap();
+    let (output, exit) = collect_until_exit(&events_rx, Instant::now() + Duration::from_secs(10));
+    assert_eq!(exit.exit_code, Some(0));
+    let output = String::from_utf8_lossy(&output);
+    assert!(output.contains("W6_PWSH_OK"));
+    if pwsh.shell_name == "pwsh" {
+        assert!(output.contains("W6_PWSH_MAJOR=7"));
+        assert!(pwsh.fallback_reason.is_none());
+    } else {
+        assert_eq!(pwsh.shell_name, "powershell");
+        assert!(output.contains("W6_PWSH_MAJOR=5"));
+        assert!(pwsh.fallback_reason.is_some());
     }
-    manager.shutdown();
 }
 
 #[test]
