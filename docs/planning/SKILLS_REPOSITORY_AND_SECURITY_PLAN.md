@@ -117,19 +117,19 @@ CREATE TABLE skill_sources (
 
 ### 5.3 TODO
 
-- [ ] 新增 `skill_sources` migration、repo 和 rollback 测试。
-- [ ] 为已有受管 Skills 生成稳定 ID；保留 slug 查询兼容 facade。
-- [ ] 外部扫描结果写 Registry，不再在 list 时构造 `enabled=true` 临时记录。
-- [ ] 实现来源冲突排序和 UI 可解释的 `effective_rank/conflict` 字段。
-- [ ] 扩展 `message_skill_selections` 支持 `skill_id`、slug/hash snapshot，先 dual-write。
-- [ ] 实现 `SkillActivationService` 和 `effective_active` 规格测试。
-- [ ] 实现会话 activation manifest/generation；目录或虚拟映射必须只读。
-- [ ] Python `build_agent` 改为读取 activation view，不再挂载整个 `settings.skills_dir`。
-- [ ] Python selection path 改用 stable ID + generation，保留一次旧 slug 协议兼容。
-- [ ] 后端在 enable、selection、mount 三个入口调用同一 `SkillSecurityGate`。
-- [ ] inventory/activation 事件使 composer 自动移除刚禁用的 chip，并显示一次非阻塞说明。
-- [ ] 增加并发测试：扫描/禁用与发送同时发生时，旧 generation 必须被拒绝。
-- [ ] 增加外部文件删除、重命名、同名来源新增和应用重启后的持久化测试。
+- [x] 新增 `skill_sources` migration、repo 和 rollback 测试。
+- [x] 为已有受管 Skills 生成稳定 ID；保留 slug 查询兼容 facade。
+- [x] 外部扫描结果写 Registry，不再在 list 时构造 `enabled=true` 临时记录。
+- [x] 实现来源冲突排序和 UI 可解释的 `effective_rank/conflict` 字段。
+- [x] 扩展 `message_skill_selections` 支持 `skill_id`、slug/hash snapshot，先 dual-write。
+- [x] 实现 `SkillActivationService` 和 `effective_active` 规格测试。
+- [x] 实现会话 activation manifest/generation；目录或虚拟映射必须只读。
+- [x] Python `build_agent` 改为读取 activation view，不再挂载整个 `settings.skills_dir`。
+- [x] Python selection path 改用 stable ID + generation，保留一次旧 slug 协议兼容。
+- [x] 后端在 enable、selection、mount 三个入口调用同一 `SkillSecurityGate`。
+- [x] inventory/activation 事件使 composer 自动移除刚禁用的 chip，并显示一次非阻塞说明。
+- [x] 增加并发测试：扫描/禁用与发送同时发生时，旧 generation 必须被拒绝。
+- [x] 增加外部文件删除、重命名、同名来源新增和应用重启后的持久化测试。
 
 ### 5.4 退出门
 

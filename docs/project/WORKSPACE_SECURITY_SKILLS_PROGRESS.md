@@ -3,7 +3,7 @@
 > **用途：** 作为本轮 Skills/安全检查/Git 标识/终端/Sandbox/最终架构审查的单一进度台账。
 > **受众：** 项目负责人、开发、测试、安全和后续接手者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **代码基线：** `main@10b9f6c`。
+> **代码基线：** `main@14a048a`。
 > **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；`DEVELOPMENT_STATUS.md` 中关于 Phase 5 Skills 尚未开始的描述已落后于当前代码，最终架构阶段需统一修订。
 
 ---
@@ -23,9 +23,9 @@
 | 能力 | 当前状态 | 判断 |
 |---|---:|---|
 | Skills 基础 inventory/本地与远端安装 | 🟡 | 主流程已存在；仅有归档级风险检查，未经过完整 Security Gate |
-| 受管 Skill 启用/禁用 | 🟡 | DB、command、详情动作已有；未闭环到 Python 整目录挂载 |
-| 外部 Skill 启用/禁用 | ⬜ | 外部发现记录被临时视为启用，无法持久禁用 |
-| composer Skill 选择过滤 | 🟡 | UI 和 Rust 发送路径有过滤/复核；状态变化后的 chip/generation 与 Sidecar 挂载仍需补齐 |
+| 受管 Skill 启用/禁用 | ✅ | stable ID、统一 Gate、activation generation 与 Python 只读逐项挂载已闭环 |
+| 外部 Skill 启用/禁用 | 🟡 | 来源与开关已持久化、默认禁用且不改原目录；S3 扫描裁决仍待实现 |
+| composer Skill 选择过滤 | ✅ | 仅展示 `effective_active` 来源，发送 stable ID；失效事件会移除 chip 并非阻塞提示 |
 | 详情按需文件浏览 | ⬜ | 当前直接读取并在文件树前展示完整 `SKILL.md` |
 | Skills 迁入 Settings/MCP 下方 | ⬜ | 当前仍为独立 `skills` route |
 | Skills 安全检查 | 🟡 | 有安全解包和脚本/二进制布尔标注；无 quarantine、多引擎、policy、finding、rescan |
@@ -110,7 +110,7 @@
 |---|---:|---|---|
 | M0 调研与方案 | ✅ | 仓库审计、官方资料调研、总体架构、UI、分项计划、总执行指导、进度台账 | 文档 review 通过 |
 | M1 契约与回归基线 | ✅ | S0/W0 特征测试、稳定 DTO/error/event、默认关闭 feature flags、capability/CSP 审计 | 进入 S1/W1 前保持基线测试绿色 |
-| M2 Skills 闭环 | 🟡 | S0 特征基线完成；现有基础可复用 | 全来源开关、activation view、lazy files、Settings、安全 gate |
+| M2 Skills 闭环 | 🟡 | S0/S1 完成：稳定来源、全来源持久开关、activation view、只读 Sidecar 挂载 | S2 lazy files/Settings；S3 强制扫描 Gate |
 | M3 工作区体验 | 🟡 | W0 行为/安全基线完成；Explorer/resize 基础可复用 | Git/local badge、WorkspacePanel、三平台 PTY、CSP/IPC 收窄 |
 | M4 Sandbox Spike | 📄 | 调研和 ADR | 三平台 filesystem/network/process attack fixtures 通过 |
 | M5 Sandbox 默认化 | ⬜ | 逻辑 guard/审批可复用 | Agent/Skill/MCP 无 host Shell fallback，严格模式发布 gate |
@@ -130,8 +130,8 @@
 
 | 编号 | 类型 | 内容 | 处理阶段 |
 |---|---|---|---|
-| B-01 | 安全 | disabled 受管 Skill 仍可能因整目录挂载被 Agent 发现 | M2 / S1 |
-| B-02 | 安全 | 外部 Skill 无持久开关、扫描和稳定身份 | M2 / S1-S3 |
+| B-01 | 安全 | ✅ S1 已解除：Python 不再挂载整目录，只读取 generation-stamped activation view | 已关闭 |
+| B-02 | 安全 | 外部 Skill 已有稳定身份和持久开关；quarantine/扫描裁决仍缺失 | M2 / S3 |
 | B-03 | UX/API | 详情 DTO 自动携带全文，长内容挤压文件树 | M2 / S2 |
 | B-04 | 安全 | 所有安装入口缺统一 Security Gate/quarantine | M2 / S3 |
 | B-05 | 安全 | 主 WebView 通用 Shell 权限 + CSP null | M3 上线门 |
@@ -154,7 +154,7 @@
 
 - [ ] 对本轮文档完成团队 review，确认 Windows UAC setup、存量未扫描 Skill 默认禁用和云扫描隐私三项产品决策。
 - [x] 从 [`SKILLS_REPOSITORY_AND_SECURITY_PLAN.md`](../planning/SKILLS_REPOSITORY_AND_SECURITY_PLAN.md) 的 S0 与 [`WORKSPACE_CONTEXT_AND_TERMINAL_PLAN.md`](../planning/WORKSPACE_CONTEXT_AND_TERMINAL_PLAN.md) 的 W0 建立回归基线。
-- [ ] 执行 Skills S1，优先关闭 disabled Skill 仍被全目录挂载的 B-01。
+- [x] 执行 Skills S1，关闭 disabled Skill 仍被全目录挂载的 B-01。
 - [ ] 执行 Workspace W1/W2，交付只读工作区标识与 panel 容器。
 - [ ] Sandbox B0–B7：按用户当前范围暂不实施；未获得新指令前不启动 Spike 或生产执行链改造。
 
@@ -172,3 +172,17 @@
 - 文档同步：两份专项 Plan、Tauri capability/CSP 审计、本进度台账。
 - 风险/阻断：B-01、B-02、B-05 均未解除；本阶段只建立可回归证据。
 - 下一步：Skills S1，先实现 stable identity、全来源持久开关和 activation generation/view，关闭 B-01。
+
+### 2026-08-01 Skills S1 稳定身份与激活视图
+
+- 状态：已完成；实现提交 `14a048a`。
+- 完成 TODO：Skills S1 全部 13 项；Sandbox 未实施。
+- 数据证据：v11 `skill_sources`、稳定 `skill_id`、slug/hash 消息快照、单调 activation generation；升级前用 SQLite `VACUUM INTO` 自动生成可恢复 v10 备份。
+- 运行时证据：managed/Codex/Claude/Cursor 来源持久化并按 rank 冲突消解；外部首次发现默认禁用；制品 hash 改变会失效旧激活；enable/selection/mount 共用 `SkillSecurityGate`。
+- Sidecar 证据：Rust 每次请求发送 activation view；Python 已删除 slug 推导宿主路径和全局 `settings.skills_dir` 挂载，只读虚拟 `/skills/<slug>/` 拒绝 write/edit/upload。
+- UI 证据：Composer 只选择 `effective_active` 来源并发送 stable ID；禁用、缺失、hash 变化或冲突会清理 chip，提示已补中英文 i18n。
+- 测试证据：前端 full 233 passed；Python full 121 passed，新增 workspace targeted 10 passed；Rust `cargo test --features test-private -j 1` 全量通过；`npm run build`、`cargo check`、`ruff` 通过。
+- 兼容与限制：旧 slug 查询/显式 path-bearing Sidecar 协议保留一个版本；`legacy_allowed` 只描述迁移兼容，不等同扫描通过。S3 将以 scan/policy 状态替换该过渡裁决。
+- 风险/阻断：B-01 已解除；B-02 缩小为扫描与 quarantine 缺口；B-05 仍待 Workspace W5。
+- 回滚：代码回滚到 `663c8bb`；数据库用同目录 `.pre-v11.sqlite3` 备份恢复，外部 Skill 原目录从未移动或删除。
+- 下一步：Skills S2，迁入 Settings 并实现 summary/tree/read-file 按需详情；同时可启动 Workspace W1/W2。
