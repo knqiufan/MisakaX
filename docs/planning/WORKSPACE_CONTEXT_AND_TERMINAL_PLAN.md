@@ -89,17 +89,17 @@ pub enum WorkspaceKind { Git, Local }
 
 ### 4.3 TODO
 
-- [ ] 新增 `workspace` domain types、`VcsProvider` 和 `WorkspaceContextService`。
-- [ ] 实现 `GitCliProvider` 的结构化命令、超时、取消、输出上限和日志脱敏。
-- [ ] 覆盖普通分支、detached、worktree、submodule、bare/non-worktree、路径空格/Unicode。
-- [ ] Git CLI 缺失/被 PATH 劫持时给出安全诊断；只使用可信 PATH 解析策略。
-- [ ] 新增 `workspace_get_context` command 和 `workspace.context.changed` 事件。
-- [ ] 实现 single-flight cache、generation、focus/terminal-exit/debounced watcher 刷新。
-- [ ] React 新增 `useWorkspaceContext`，处理 loading/stale/error 和旧 generation。
-- [ ] 在 composer footer 加 `WorkspaceContextBadge`，实现长分支截断和 detached 文案。
-- [ ] 非 Git 和查询失败显示“本地项目”；tooltip 不暴露敏感绝对路径给屏幕共享场景，路径按现有设置决定。
-- [ ] 给未来 provider/panel action 定义 interface，但首期不渲染 chevron/menu。
-- [ ] 补 React/IPC/E2E 测试，测工作区快速切换和 watcher 事件风暴。
+- [x] 新增 `workspace` domain types、`VcsProvider` 和 `WorkspaceContextService`。
+- [x] 实现 `GitCliProvider` 的结构化命令、超时、取消、输出上限和日志脱敏。
+- [x] 覆盖普通分支、detached、worktree、submodule、bare/non-worktree、路径空格/Unicode。
+- [x] Git CLI 缺失/被 PATH 劫持时给出安全诊断；只使用可信 PATH 解析策略。
+- [x] 新增 `workspace_get_context` command 和 `workspace.context.changed` 事件。
+- [x] 实现 single-flight cache、generation、focus/terminal-exit/debounced watcher 刷新。
+- [x] React 新增 `useWorkspaceContext`，处理 loading/stale/error 和旧 generation。
+- [x] 在 composer footer 加 `WorkspaceContextBadge`，实现长分支截断和 detached 文案。
+- [x] 非 Git 和查询失败显示“本地项目”；tooltip 不暴露敏感绝对路径给屏幕共享场景，路径按现有设置决定。
+- [x] 给未来 provider/panel action 定义 interface，但首期不渲染 chevron/menu。
+- [x] 补 React/IPC/E2E 测试，测工作区快速切换和 watcher 事件风暴。
 
 ### 4.4 退出门
 

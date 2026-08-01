@@ -3,7 +3,7 @@
 > **用途：** 作为本轮 Skills/安全检查/Git 标识/终端/Sandbox/最终架构审查的单一进度台账。
 > **受众：** 项目负责人、开发、测试、安全和后续接手者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **代码基线：** `main@789676d`。
+> **代码基线：** `main@0675b24`。
 > **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；Skills S0–S3、S5 已闭环，S4 因依赖 Sandbox helper 按用户范围明确延期，Sandbox 本身暂不实施。
 
 ---
@@ -29,7 +29,7 @@
 | 详情按需文件浏览 | ✅ | summary/tree/read-file 已拆分；文件正文仅在用户选择后按 200 KiB 分段读取 |
 | Skills 迁入 Settings/MCP 下方 | ✅ | Settings 导航顺序为 MCP → Skills；旧 `skills` route/title/nav/page wrapper 已删除 |
 | Skills 安全检查 | ✅ | 内置离线引擎、quarantine、versioned policy、finding/审批/rescan/export、升级批量扫描与统一 Gate 已闭环；Sandbox deep scanner 按范围延后 |
-| Git/本地项目 badge | ⬜ | 无 Git service/DTO/UI |
+| Git/本地项目 badge | ✅ | 只读 WorkspaceContext/Git provider、generation DTO/event、composer badge 与无路径诊断已闭环 |
 | 嵌入式终端 | ⬜ | 现有 Terminal 图标实际打开 Tool Logs；无 xterm/PTY |
 | Tauri 终端安全收口 | ⛔ | 主 WebView shell/fs/http 权限偏宽且 CSP 为空，终端上线前必须修复 |
 | Agent OS Sandbox | ⛔ | 当前为逻辑路径 guard；Shell 在宿主直接执行并继承环境 |
@@ -76,11 +76,13 @@
 
 ### 3.4 Workspace 与 Terminal 差距
 
+- `src-tauri/src/services/workspace/` 已提供只读 Git provider、可信可执行文件解析、结构化 argv、超时/取消/输出上限、single-flight/TTL/watcher/generation；普通分支、detached、worktree、submodule、bare 与非 Git 均有真实 Git fixture。
+- `src/components/chat/composer/WorkspaceContextBadge.tsx` 与 `src/hooks/use-workspace-context.ts` 已交付 composer Git/本地标识，快速工作区切换会丢弃旧请求/旧 generation，诊断 tooltip 不暴露绝对路径。
 - `src/components/chat/workspace/WorkspaceBar.tsx` 已使用 Terminal 图标，但 action 打开的是 Tool Logs，不是 PTY。
 - `src/components/chat/ChatView.tsx` 持有 Tool Logs drawer 状态。
 - `src/pages/ChatPage.tsx` 右侧只渲染 `WorkspaceExplorer`。
 - `src/components/chat/workspace/WorkspaceExplorer.tsx` 已有文件树和 Monaco，可复用 panel shell。
-- `package.json` 无 xterm 依赖，`src-tauri/Cargo.toml` 无 PTY/Git/Sandbox 依赖。
+- `package.json` 无 xterm 依赖，`src-tauri/Cargo.toml` 无 PTY/Sandbox 依赖；W1 Git 上下文使用受控系统 Git CLI，不引入 Git crate。
 
 ### 3.5 Sandbox 与 Tauri 安全差距
 
@@ -114,7 +116,7 @@
 | M0 调研与方案 | ✅ | 仓库审计、官方资料调研、总体架构、UI、分项计划、总执行指导、进度台账 | 文档 review 通过 |
 | M1 契约与回归基线 | ✅ | S0/W0 特征测试、稳定 DTO/error/event、默认关闭 feature flags、capability/CSP 审计 | 进入 S1/W1 前保持基线测试绿色 |
 | M2 Skills 闭环 | ✅ | S0–S3、S5 完成：稳定来源、按需文件、只读挂载、quarantine/内置扫描/统一 Gate、存量迁移与旧路径清理 | S4 Sandbox deep scanner 由用户范围明确延期，不阻塞当前 Skills 交付 |
-| M3 工作区体验 | 🟡 | W0 行为/安全基线完成；Explorer/resize 基础可复用 | Git/local badge、WorkspacePanel、三平台 PTY、CSP/IPC 收窄 |
+| M3 工作区体验 | 🟡 | W0/W1 完成：行为/安全基线、只读 Git/local badge、缓存/刷新/generation；Explorer/resize 基础可复用 | WorkspacePanel、三平台 PTY、CSP/IPC 收窄 |
 | M4 Sandbox Spike | 📄 | 调研和 ADR | 三平台 filesystem/network/process attack fixtures 通过 |
 | M5 Sandbox 默认化 | ⬜ | 逻辑 guard/审批可复用 | Agent/Skill/MCP 无 host Shell fallback，严格模式发布 gate |
 | M6 安全强化 | 🟡 | S3 内置离线扫描、恶意/良性 corpus、审批与 stale 生命周期；S5 存量 rescan 完成 | S4 deep scanner（Sandbox 延后）、独立安全 review |
@@ -162,7 +164,8 @@
 - [x] 执行 Skills S3，交付 quarantine、内置离线扫描、finding/policy/审批和强制安装 Gate，关闭 B-02/B-04。
 - [ ] Skills S4 — DEFERRED(Sandbox)：第三方 deep scanner 必须在 read-only/offline Sandbox helper 中验证；按用户范围暂不实现，不以宿主直接运行替代。
 - [x] 执行 Skills S5，完成存量扫描迁移和旧生产旁路清理。
-- [ ] 执行 Workspace W1/W2，交付只读工作区标识与 panel 容器。
+- [x] 执行 Workspace W1，交付只读工作区标识、可信 Git provider 与缓存/刷新闭环。
+- [ ] 执行 Workspace W2，交付独立 WorkspacePanel 容器、统一 panel actions 与 Tool Logs 新入口。
 - [ ] Sandbox B0–B7：按用户当前范围暂不实施；未获得新指令前不启动 Spike 或生产执行链改造。
 
 ## 10. 实施记录
@@ -240,3 +243,17 @@
 - 特性开关：S0 的 Skills 休眠 flags 已删除；安全 Gate 与 Settings/按需详情为单一生产实现，不存在可绕过 Gate 的旧回滚分支。
 - 回滚：代码回滚到 `89dc716`；数据库用同目录 `.pre-v13.sqlite3` 恢复 v12。回滚不删除 quarantine 或用户外部目录，外部目录从未被迁移写入。
 - 下一步：Workspace Terminal W1，交付只读 workspace identity/Git context；Sandbox 继续排除。
+
+### 2026-08-01 Workspace W1 只读 WorkspaceContext 与 Git Provider
+
+- 状态：已完成并推送；实现提交 `0675b24`，Sandbox 未实施。
+- 完成 TODO：Workspace Terminal W1 全部 11 项；W0 的休眠 `workspace_context_badge` flag 已删除，当前只保留后续 terminal/narrow rollout flags。
+- 后端证据：新增 `WorkspaceContextService`、`VcsProvider` 与 `GitCliProvider`；工作区由 chat session 后端解析并 canonicalize，前端不能传 cwd、命令或 executable。Git 只使用结构化 argv 和只读 `rev-parse`/`symbolic-ref`，执行前清理继承的 `GIT_*`，设置 `GIT_OPTIONAL_LOCKS=0`/`GIT_TERMINAL_PROMPT=0`，并具备可信路径解析、2 秒超时、显式取消、8 KiB stdout/stderr 上限与 UTF-8/branch/SHA 校验。
+- 一致性证据：cache key 为 canonical path + 单调 workspace generation；3 秒 TTL、并发 single-flight、会话 rebind/unbind 取消、HEAD/common refs/packed-refs watcher 与 300 ms debounce 已落地；focus 和 terminal-exit refresh seam 统一发出 `workspace.context.changed`。
+- UI/隐私证据：composer footer 新增纯展示 `WorkspaceContextBadge`，覆盖 branch、`detached:<sha>`、Local project、loading 和窄栏文字隐藏；长分支中部省略。tooltip 仅显示通用诊断和短 correlation ID，不显示工作区绝对路径；未渲染 chevron/menu 或 Git 写操作空壳。
+- 测试证据：前端 full 34 files / 253 tests；Rust workspace unit 5/5、真实 Git integration 5/5；普通分支、detached、worktree、submodule、bare、非 Git、空格/中文路径、缺失 Git、超时/取消、快速切换、旧 generation 和 watcher 事件均有覆盖。`npm run build`、`npx tsc --noEmit`、`cargo check --all-features -j1`、`cargo fmt --check`、`git diff --check` 通过；Vite 仅有既有大 chunk 警告。
+- 安全证据：生产 workspace context 源码静态审计未发现 add/commit/checkout/push/pull/merge/reset/restore/switch/stage 子命令；Git 可执行文件拒绝工作区、临时目录与相对 PATH 候选，诊断文案不携带敏感路径。
+- 环境差异：本阶段仅在 Windows 实机验证系统 Git；worktree/submodule 等语义通过真实 Git 仓库测试，但不据此宣称 macOS/Linux 实机或打包完成，三平台发布证据留待 W6。
+- 架构说明：service 通过事件/任务回调与 Tauri 解耦，避免 Windows 测试二进制被 GUI manifest/ComCtl v6 加载条件影响，同时生产 setup 仍由 AppHandle adapter 注入事件与异步任务。
+- 回滚：代码回滚到 `4800a10`；本阶段无数据库迁移，也不修改工作区文件或 Git 元数据。
+- 下一步：Workspace Terminal W2，建立独立 panel state/container，替换 Terminal/Tool Logs 入口并保持 Explorer 状态；Sandbox 继续排除。
