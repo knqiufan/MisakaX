@@ -676,12 +676,11 @@ fn process_exists(pid: u32) -> bool {
         .args(["-o", "stat=", "-p", &pid])
         .output()
     {
-        Ok(output) if !output.status.success() => false,
-        Ok(output) => {
+        Ok(output) if output.status.success() => {
             let state = String::from_utf8_lossy(&output.stdout);
             let state = state.trim();
             !state.is_empty() && !state.starts_with('Z')
         }
-        Err(_) => unsafe { libc::kill(numeric_pid, 0) == 0 },
+        _ => unsafe { libc::kill(numeric_pid, 0) == 0 },
     }
 }
