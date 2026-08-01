@@ -126,6 +126,7 @@ describe("SkillsPage detail selection", () => {
 function detailFixture(): SkillDetail {
   return {
     skill: {
+      skill_id: "demo-skill-id",
       slug: "demo-skill",
       name: "Demo Skill",
       description: "Demo",
@@ -138,6 +139,11 @@ function detailFixture(): SkillDetail {
       enabled: true,
       health: "healthy",
       is_external: false,
+      effective_active: true,
+      effective_rank: 400,
+      conflict: false,
+      disabled_reason: null,
+      security_state: "legacy_allowed",
       risk: {
         has_scripts: false,
         has_binary_files: false,

@@ -3,7 +3,7 @@ pub mod models;
 pub mod repository;
 
 use anyhow::Result;
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 use std::path::Path;
 
 type SqliteExtensionInit = unsafe extern "C" fn(
@@ -26,6 +26,8 @@ pub fn init_database(db_path: &Path) -> Result<Connection> {
     conn.execute_batch("PRAGMA foreign_keys=ON;")?;
     conn.execute_batch("PRAGMA busy_timeout=5000;")?;
 
+    backup_before_migration(&conn, db_path, 11)?;
+
     // Load sqlite-vec extension
     unsafe {
         let ext = std::mem::transmute::<usize, SqliteExtensionInit>(
@@ -39,4 +41,36 @@ pub fn init_database(db_path: &Path) -> Result<Connection> {
 
     tracing::info!("Database initialized at: {}", db_path.display());
     Ok(conn)
+}
+
+/// Create one SQLite-consistent backup before a schema upgrade. `VACUUM INTO`
+/// includes committed WAL content and leaves the original database untouched.
+pub fn backup_before_migration(
+    conn: &Connection,
+    db_path: &Path,
+    target_version: i64,
+) -> Result<Option<std::path::PathBuf>> {
+    let has_version_table: Option<i64> = conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '_schema_version'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if has_version_table.is_none() {
+        return Ok(None);
+    }
+    let current: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(version), 0) FROM _schema_version",
+        [],
+        |row| row.get(0),
+    )?;
+    if current >= target_version {
+        return Ok(None);
+    }
+    let backup = db_path.with_extension(format!("pre-v{target_version}.sqlite3"));
+    if !backup.exists() {
+        conn.execute("VACUUM INTO ?1", [backup.display().to_string()])?;
+    }
+    Ok(Some(backup))
 }

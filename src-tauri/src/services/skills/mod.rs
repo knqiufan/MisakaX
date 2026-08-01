@@ -3,6 +3,7 @@ pub mod catalog;
 pub mod exporter;
 pub mod installer;
 pub mod manifest;
+pub mod registry;
 pub mod types;
 
 pub use types::{

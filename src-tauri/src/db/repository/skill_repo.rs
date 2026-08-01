@@ -1,7 +1,10 @@
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 
+use crate::services::skills::types::MessageSkillSelection;
 use crate::services::skills::types::{SkillRecord, SkillRiskReport};
+
+use super::SkillSourceRepo;
 
 pub struct SkillRepo;
 
@@ -84,32 +87,26 @@ impl SkillRepo {
         message_id: &str,
         slugs: &[String],
     ) -> Result<()> {
-        let transaction = conn.unchecked_transaction()?;
-        transaction.execute(
-            "DELETE FROM message_skill_selections WHERE message_id = ?1",
-            [message_id],
-        )?;
-        for (index, slug) in slugs.iter().enumerate() {
-            transaction.execute(
-                "INSERT INTO message_skill_selections (message_id, skill_slug, sort_order)
-                 VALUES (?1, ?2, ?3)",
-                rusqlite::params![message_id, slug, index as i64],
-            )?;
+        let mut selections = Vec::with_capacity(slugs.len());
+        for slug in slugs {
+            let source = SkillSourceRepo::find_id_or_legacy_slug(conn, slug)?
+                .with_context(|| format!("Skill selection '{slug}' is not registered"))?;
+            selections.push(MessageSkillSelection {
+                skill_id: source.skill_id,
+                slug_snapshot: source.slug,
+                artifact_hash_snapshot: source.checksum,
+            });
         }
-        transaction
-            .commit()
-            .context("Cannot save message skill selection")?;
-        Ok(())
+        SkillSourceRepo::replace_message_selection(conn, message_id, &selections)
     }
 
     pub fn message_selection(conn: &Connection, message_id: &str) -> Result<Vec<String>> {
-        let mut statement = conn.prepare(
-            "SELECT skill_slug FROM message_skill_selections
-             WHERE message_id = ?1 ORDER BY sort_order",
-        )?;
-        let rows = statement.query_map([message_id], |row| row.get(0))?;
-        rows.collect::<rusqlite::Result<Vec<_>>>()
-            .map_err(Into::into)
+        SkillSourceRepo::message_selection(conn, message_id).map(|items| {
+            items
+                .into_iter()
+                .map(|selection| selection.skill_id)
+                .collect()
+        })
     }
 
     pub fn enabled_healthy(conn: &Connection, slugs: &[String]) -> Result<Vec<SkillRecord>> {
@@ -130,6 +127,7 @@ impl SkillRepo {
         let risk_json: String = row.get(11)?;
         let risk = serde_json::from_str(&risk_json).unwrap_or_else(|_| SkillRiskReport::default());
         Ok(SkillRecord {
+            skill_id: String::new(),
             slug: row.get(0)?,
             name: row.get(1)?,
             description: row.get(2)?,
@@ -142,6 +140,11 @@ impl SkillRepo {
             enabled: row.get(9)?,
             health: row.get(10)?,
             is_external: false,
+            effective_active: false,
+            effective_rank: 400,
+            conflict: false,
+            disabled_reason: None,
+            security_state: "legacy_allowed".to_string(),
             risk,
             installed_at: row.get(12)?,
             updated_at: row.get(13)?,

@@ -6,6 +6,7 @@ pub mod router_config_repo;
 pub mod session_repo;
 pub mod settings_repo;
 pub mod skill_repo;
+pub mod skill_source_repo;
 pub mod tool_permission_repo;
 pub mod workspace_repo;
 
@@ -16,5 +17,6 @@ pub use router_config_repo::RouterConfigRepo;
 pub use session_repo::SessionRepo;
 pub use settings_repo::SettingsRepo;
 pub use skill_repo::SkillRepo;
+pub use skill_source_repo::SkillSourceRepo;
 pub use tool_permission_repo::{ToolPermission, ToolPermissionRepo};
 pub use workspace_repo::{DirectoryInfo, RecentDirectory, WorkspacePreference, WorkspaceRepo};

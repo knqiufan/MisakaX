@@ -58,6 +58,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         migrate_v10(conn)?;
     }
 
+    if current_version < 11 {
+        migrate_v11(conn)?;
+    }
+
     Ok(())
 }
 
@@ -376,6 +380,92 @@ fn migrate_v10(conn: &Connection) -> Result<()> {
     )?;
 
     tracing::info!("Database migrated to version 10");
+    Ok(())
+}
+
+fn migrate_v11(conn: &Connection) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute_batch(
+        "
+        CREATE TABLE skill_sources (
+            skill_id TEXT PRIMARY KEY,
+            slug TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            version TEXT,
+            source_kind TEXT NOT NULL,
+            source_locator TEXT NOT NULL,
+            source_ref TEXT,
+            source_url TEXT,
+            artifact_hash TEXT NOT NULL,
+            installed_path TEXT NOT NULL,
+            is_managed INTEGER NOT NULL DEFAULT 0,
+            user_enabled INTEGER NOT NULL DEFAULT 0,
+            health TEXT NOT NULL DEFAULT 'healthy',
+            security_state TEXT NOT NULL DEFAULT 'pending_user',
+            effective_rank INTEGER NOT NULL DEFAULT 0,
+            disabled_reason TEXT,
+            risk_json TEXT NOT NULL DEFAULT '{}',
+            installed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(source_kind, source_locator)
+        );
+
+        INSERT INTO skill_sources (
+            skill_id, slug, name, description, version, source_kind, source_locator,
+            source_ref, source_url, artifact_hash, installed_path, is_managed,
+            user_enabled, health, security_state, effective_rank, risk_json,
+            installed_at, updated_at
+        )
+        SELECT
+            lower(hex(randomblob(16))), slug, name, description, version,
+            'managed', installed_path, source_ref, source_url, checksum,
+            installed_path, 1, enabled, health, 'legacy_allowed', 400,
+            risk_json, installed_at, updated_at
+        FROM skills;
+
+        CREATE TABLE message_skill_selections_v11 (
+            message_id TEXT NOT NULL,
+            skill_id TEXT NOT NULL,
+            skill_slug_snapshot TEXT NOT NULL,
+            artifact_hash_snapshot TEXT NOT NULL,
+            sort_order INTEGER NOT NULL,
+            PRIMARY KEY (message_id, skill_id),
+            FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+        );
+
+        INSERT INTO message_skill_selections_v11 (
+            message_id, skill_id, skill_slug_snapshot, artifact_hash_snapshot, sort_order
+        )
+        SELECT selection.message_id, source.skill_id, selection.skill_slug,
+               source.artifact_hash, selection.sort_order
+        FROM message_skill_selections selection
+        JOIN skill_sources source
+          ON source.slug = selection.skill_slug AND source.is_managed = 1;
+
+        DROP TABLE message_skill_selections;
+        ALTER TABLE message_skill_selections_v11 RENAME TO message_skill_selections;
+
+        CREATE TABLE skill_activation_state (
+            singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+            generation INTEGER NOT NULL CHECK(generation > 0),
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        INSERT INTO skill_activation_state(singleton, generation) VALUES (1, 1);
+
+        CREATE INDEX idx_skill_sources_slug_rank
+        ON skill_sources(slug, effective_rank DESC, updated_at DESC);
+        CREATE INDEX idx_skill_sources_activation
+        ON skill_sources(user_enabled, health, security_state, effective_rank DESC);
+        CREATE INDEX idx_message_skill_selections_message
+        ON message_skill_selections(message_id, sort_order);
+
+        INSERT INTO _schema_version (version) VALUES (11);
+        ",
+    )?;
+    tx.commit()?;
+
+    tracing::info!("Database migrated to version 11");
     Ok(())
 }
 

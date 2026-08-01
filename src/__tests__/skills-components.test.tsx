@@ -151,6 +151,7 @@ describe("Skills repository panels", () => {
 
 function installedSkill(overrides: Partial<InstalledSkill> = {}): InstalledSkill {
   return {
+    skill_id: "example-skill-id",
     slug: "example-skill",
     name: "Example Skill",
     description: "Example description",
@@ -163,6 +164,11 @@ function installedSkill(overrides: Partial<InstalledSkill> = {}): InstalledSkill
     enabled: true,
     health: "healthy",
     is_external: false,
+    effective_active: true,
+    effective_rank: 400,
+    conflict: false,
+    disabled_reason: null,
+    security_state: "legacy_allowed",
     risk: noRisk(),
     installed_at: "2026-07-23T00:00:00Z",
     updated_at: "2026-07-23T00:00:00Z",

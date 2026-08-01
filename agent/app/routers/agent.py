@@ -20,7 +20,6 @@ from app.models import (
     ChatRequest,
     ChatResponse,
     MessageRole,
-    SelectedSkillMount,
     TokenUsage,
     ToolCall,
 )
@@ -117,16 +116,37 @@ def _build_request_agent(request: ChatRequest):
     mode = "research" if request.agent_mode == "research" else "chat"
     settings = get_settings()
     try:
-        # Keep older desktop clients working while new clients provide a
-        # canonical, Rust-validated directory for each compatible Skill.
-        mounts = request.selected_skills or [
-            SelectedSkillMount(slug=slug, path=str(settings.skills_dir / slug))
-            for slug in request.selected_skill_ids
-        ]
-        selected_skills = resolve_selected_skills(
-            mounts,
-            settings.skills_dir,
-        )
+        if request.skill_activation is not None:
+            active_skills = resolve_selected_skills(
+                request.skill_activation.skills,
+                settings.skills_dir,
+            )
+            by_id = {skill.skill_id: skill for skill in active_skills}
+            if any(not skill_id for skill_id in request.selected_skill_ids):
+                raise ValueError("Selected Skill ID cannot be empty")
+            missing = [
+                skill_id
+                for skill_id in request.selected_skill_ids
+                if skill_id not in by_id
+            ]
+            if missing:
+                raise ValueError("Selected Skill is absent from the activation view")
+            selected_skills = [by_id[skill_id] for skill_id in request.selected_skill_ids]
+        elif request.selected_skills:
+            # One-release compatibility path: an old client must still provide
+            # explicit validated paths. Slugs alone are never expanded here.
+            active_skills = resolve_selected_skills(
+                request.selected_skills,
+                settings.skills_dir,
+            )
+            selected_skills = active_skills
+        elif request.selected_skill_ids:
+            raise ValueError(
+                "Skill IDs require a generation-stamped activation view"
+            )
+        else:
+            active_skills = []
+            selected_skills = []
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return build_agent(
@@ -137,6 +157,7 @@ def _build_request_agent(request: ChatRequest):
         model=model,
         agent_mode=mode,
         selected_skills=selected_skills,
+        active_skills=active_skills,
     )
 
 

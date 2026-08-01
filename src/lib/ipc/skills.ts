@@ -6,10 +6,14 @@ import type {
   SkillArchiveInspection,
   SkillDetail,
   SkillInstallResult,
+  SkillActivationView,
 } from "./types";
 
 export const skillsIpc = {
   listInstalled: () => invoke<InstalledSkill[]>("skills_list_installed"),
+
+  getActivationView: () =>
+    invoke<SkillActivationView>("skills_get_activation_view"),
 
   getDetail: (slug: string) =>
     invoke<SkillDetail>("skills_get_detail", { slug }),
@@ -48,8 +52,9 @@ export const skillsIpc = {
       destination,
     }),
 
-  setEnabled: (slug: string, enabled: boolean) =>
-    invoke<void>("skills_set_enabled", { slug, enabled }),
+  setEnabled: (identifier: string, enabled: boolean) =>
+    invoke<void>("skills_set_enabled", { identifier, enabled }),
 
-  uninstall: (slug: string) => invoke<void>("skills_uninstall", { slug }),
+  uninstall: (identifier: string) =>
+    invoke<void>("skills_uninstall", { identifier }),
 };

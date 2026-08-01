@@ -256,6 +256,7 @@ export interface SkillRiskReport {
 }
 
 export interface InstalledSkill {
+  skill_id: string;
   slug: string;
   name: string;
   description: string;
@@ -269,9 +270,26 @@ export interface InstalledSkill {
   health: "healthy" | "missing" | string;
   /** Discovered from a compatible Agent directory; MisakaX does not own it. */
   is_external: boolean;
+  effective_active: boolean;
+  effective_rank: number;
+  conflict: boolean;
+  disabled_reason: string | null;
+  security_state: "legacy_allowed" | "pending_user" | "user_allowed" | string;
   risk: SkillRiskReport;
   installed_at: string;
   updated_at: string;
+}
+
+export interface SkillActivationMount {
+  skill_id: string;
+  slug: string;
+  path: string;
+  artifact_hash: string;
+}
+
+export interface SkillActivationView {
+  generation: number;
+  skills: SkillActivationMount[];
 }
 
 export interface SkillManifest {

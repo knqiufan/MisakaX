@@ -1,4 +1,4 @@
-use misaka_x_lib::db::migrations::run_migrations;
+use misaka_x_lib::db::{backup_before_migration, migrations::run_migrations};
 use rusqlite::Connection;
 
 fn create_test_db() -> Connection {
@@ -162,13 +162,13 @@ fn test_migration_idempotent() {
             row.get(0)
         })
         .unwrap();
-    assert_eq!(version, 10);
+    assert_eq!(version, 11);
 }
 
 #[test]
-fn test_v10_skill_fixture_survives_idempotent_migration_and_rollback() {
+fn test_v11_skill_fixture_survives_forward_idempotent_migration_and_rollback() {
     let conn = create_test_db();
-    run_migrations(&conn).unwrap();
+    run_migrations_to_v10(&conn);
     conn.execute("INSERT INTO sessions (id) VALUES ('skill-session')", [])
         .unwrap();
     conn.execute(
@@ -196,30 +196,80 @@ fn test_v10_skill_fixture_survives_idempotent_migration_and_rollback() {
     .unwrap();
 
     run_migrations(&conn).unwrap();
+    let stable_id: String = conn
+        .query_row(
+            "SELECT skill_id FROM skill_sources WHERE slug = 'legacy-skill'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(!stable_id.is_empty());
+    run_migrations(&conn).unwrap();
     conn.execute_batch(
         "BEGIN IMMEDIATE;
-         UPDATE skills SET enabled = 0 WHERE slug = 'legacy-skill';
+         UPDATE skill_sources SET user_enabled = 0 WHERE slug = 'legacy-skill';
          ROLLBACK;",
     )
     .unwrap();
 
     let enabled: i64 = conn
         .query_row(
-            "SELECT enabled FROM skills WHERE slug = 'legacy-skill'",
+            "SELECT user_enabled FROM skill_sources WHERE slug = 'legacy-skill'",
             [],
             |row| row.get(0),
         )
         .unwrap();
-    let selected: String = conn
+    let (selected_id, slug_snapshot, hash_snapshot): (String, String, String) = conn
         .query_row(
-            "SELECT skill_slug FROM message_skill_selections
+            "SELECT skill_id, skill_slug_snapshot, artifact_hash_snapshot
+             FROM message_skill_selections
              WHERE message_id = 'skill-message'",
             [],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
         .unwrap();
     assert_eq!(enabled, 1);
-    assert_eq!(selected, "legacy-skill");
+    assert_eq!(selected_id, stable_id);
+    assert_eq!(slug_snapshot, "legacy-skill");
+    assert_eq!(hash_snapshot, "abc123");
+}
+
+#[test]
+fn test_v11_upgrade_creates_a_restorable_v10_backup() {
+    let temporary = tempfile::tempdir().unwrap();
+    let db_path = temporary.path().join("misaka.db");
+    let conn = Connection::open(&db_path).unwrap();
+    conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+    run_migrations_to_v10(&conn);
+    conn.execute(
+        "INSERT INTO skills (
+            slug, name, description, source_kind, checksum, installed_path
+         ) VALUES ('backup-skill', 'Backup', 'Fixture', 'local', 'hash', 'C:/backup')",
+        [],
+    )
+    .unwrap();
+
+    let backup = backup_before_migration(&conn, &db_path, 11)
+        .unwrap()
+        .expect("v10 database should be backed up");
+    run_migrations(&conn).unwrap();
+    drop(conn);
+
+    let restored = Connection::open(backup).unwrap();
+    let version: i64 = restored
+        .query_row("SELECT MAX(version) FROM _schema_version", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    let slug: String = restored
+        .query_row(
+            "SELECT slug FROM skills WHERE slug = 'backup-skill'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(version, 10);
+    assert_eq!(slug, "backup-skill");
 }
 
 #[test]
@@ -386,6 +436,13 @@ fn test_migration_v6_injects_builtin_models_for_existing_router_configs() {
 
 fn run_migrations_to_v5(conn: &Connection) {
     run_migrations(conn).unwrap();
+    conn.execute_batch(
+        "DROP TABLE message_skill_selections;
+         DROP TABLE skill_activation_state;
+         DROP TABLE skill_sources;
+         DROP TABLE skills;",
+    )
+    .unwrap();
     conn.execute("DELETE FROM _schema_version WHERE version >= 6", [])
         .unwrap();
     conn.execute("DROP TABLE workspace_preferences", [])
@@ -407,6 +464,26 @@ fn run_migrations_to_v5(conn: &Connection) {
         .unwrap();
     conn.execute("ALTER TABLE custom_models DROP COLUMN sort_order", [])
         .unwrap();
+}
+
+fn run_migrations_to_v10(conn: &Connection) {
+    run_migrations(conn).unwrap();
+    conn.execute_batch(
+        "DROP TABLE message_skill_selections;
+         DROP TABLE skill_activation_state;
+         DROP TABLE skill_sources;
+         CREATE TABLE message_skill_selections (
+             message_id TEXT NOT NULL,
+             skill_slug TEXT NOT NULL,
+             sort_order INTEGER NOT NULL,
+             PRIMARY KEY (message_id, skill_slug),
+             FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+         );
+         CREATE INDEX idx_message_skill_selections_message
+         ON message_skill_selections(message_id, sort_order);
+         DELETE FROM _schema_version WHERE version = 11;",
+    )
+    .unwrap();
 }
 
 #[test]

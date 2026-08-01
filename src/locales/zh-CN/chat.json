@@ -57,6 +57,7 @@
   "errorOccurred": "请求失败",
   "streamError": "流式输出错误",
   "sendFailed": "无法完成请求",
+  "skillSelectionRemoved": "某个 Skill 已不再处于激活状态，已从输入框移除。",
   "toolCall": {
     "arguments": "参数",
     "result": "结果",

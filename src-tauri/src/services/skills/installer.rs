@@ -1,4 +1,5 @@
-use std::collections::{BTreeMap, HashSet};
+#[cfg(test)]
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -8,7 +9,7 @@ use sha2::{Digest, Sha256};
 use walkdir::WalkDir;
 
 use crate::config;
-use crate::db::repository::SkillRepo;
+use crate::db::repository::{SkillRepo, SkillSourceRepo};
 
 use super::archive::{extract_archive, inspect_archive};
 use super::manifest::parse_manifest;
@@ -39,25 +40,13 @@ pub fn install_local_archive(
 }
 
 pub fn list_installed(conn: &Connection) -> Result<Vec<SkillRecord>> {
-    let root = config::skills_dir()?;
-    let managed = SkillRepo::list(conn)?
-        .into_iter()
-        .map(|record| Ok(with_current_health(record, &root)))
-        .collect::<Result<Vec<_>>>()?;
-    let mut skills = merge_installed_sources(managed, discover_external_skills()?);
-    skills.sort_by(|left, right| {
-        left.is_external
-            .cmp(&right.is_external)
-            .then_with(|| left.name.to_lowercase().cmp(&right.name.to_lowercase()))
-    });
-    Ok(skills)
+    super::registry::sync_inventory(conn)
 }
 
-pub fn get_detail(conn: &Connection, slug: &str) -> Result<SkillDetail> {
-    let record = match SkillRepo::find(conn, slug)? {
-        Some(record) => record,
-        None => find_external_skill(slug)?.context("Skill is not installed")?,
-    };
+pub fn get_detail(conn: &Connection, identifier: &str) -> Result<SkillDetail> {
+    super::registry::sync_inventory(conn)?;
+    let record = SkillSourceRepo::find_id_or_legacy_slug(conn, identifier)?
+        .context("Skill is not installed")?;
     let skill_dir = skill_dir_for_record(&record)?;
     let markdown =
         fs::read_to_string(skill_dir.join("SKILL.md")).context("Cannot read SKILL.md")?;
@@ -71,28 +60,38 @@ pub fn get_detail(conn: &Connection, slug: &str) -> Result<SkillDetail> {
     })
 }
 
-pub fn set_enabled(conn: &Connection, slug: &str, enabled: bool) -> Result<()> {
-    let record = SkillRepo::find(conn, slug)?.context("Skill is not installed")?;
-    if health_for_record(&record, &config::skills_dir()?) != "healthy" {
-        bail!("Cannot enable a missing or corrupted skill")
-    }
-    SkillRepo::set_enabled(conn, slug, enabled)
+pub fn set_enabled(conn: &Connection, identifier: &str, enabled: bool) -> Result<(String, u64)> {
+    super::registry::set_enabled(conn, identifier, enabled)
 }
 
-pub fn uninstall(conn: &Connection, slug: &str) -> Result<()> {
-    let record = SkillRepo::find(conn, slug)?.context("Skill is not installed")?;
+pub fn uninstall(conn: &Connection, identifier: &str) -> Result<(String, u64)> {
+    super::registry::sync_inventory(conn)?;
+    let record = SkillSourceRepo::find_id_or_legacy_slug(conn, identifier)?
+        .context("Skill is not installed")?;
+    if record.is_external {
+        bail!("External Skill sources are never modified or removed by MisakaX")
+    }
     let skill_dir = checked_skill_dir(&record)?;
     if skill_dir.exists() {
         fs::remove_dir_all(&skill_dir).context("Cannot remove installed skill files")?;
     }
-    SkillRepo::delete(conn, slug)
+    SkillRepo::delete(conn, &record.slug)?;
+    SkillSourceRepo::delete_source(conn, &record.skill_id)?;
+    Ok((record.skill_id, SkillSourceRepo::generation(conn)?))
 }
 
 pub fn installed_selection(conn: &Connection, slugs: &[String]) -> Result<Vec<SkillRecord>> {
-    let root = config::skills_dir()?;
-    installed_selection_with(conn, slugs, &root, find_external_skill)
+    let (_, selections) = super::registry::resolve_selection(conn, slugs, None)?;
+    selections
+        .iter()
+        .map(|selection| {
+            SkillSourceRepo::find(conn, &selection.skill_id)?
+                .context("Selected Skill disappeared from the registry")
+        })
+        .collect()
 }
 
+#[cfg(test)]
 fn installed_selection_with(
     conn: &Connection,
     slugs: &[String],
@@ -129,10 +128,15 @@ fn install_staged_skill(
         restore_backup(&target, backup.as_deref());
         return Err(error);
     }
+    let mut current = record.clone();
+    current.checksum = super::registry::artifact_hash(&target)?;
+    let (skill_id, _) =
+        SkillSourceRepo::upsert_source(conn, &current, &current.installed_path, true)?;
     if let Some(path) = backup {
         let _ = fs::remove_dir_all(path);
     }
-    let persisted = SkillRepo::find(conn, &record.slug)?.context("Cannot read installed skill")?;
+    let persisted =
+        SkillSourceRepo::find(conn, &skill_id)?.context("Cannot read installed skill")?;
     Ok(SkillInstallResult {
         skill: persisted,
         replaced_existing,
@@ -187,6 +191,7 @@ fn build_record(
     source: InstallSource,
 ) -> SkillRecord {
     SkillRecord {
+        skill_id: String::new(),
         slug: inspection.manifest.name.clone(),
         name: inspection.manifest.name.clone(),
         description: inspection.manifest.description.clone(),
@@ -199,6 +204,11 @@ fn build_record(
         enabled: true,
         health: "healthy".to_string(),
         is_external: false,
+        effective_active: true,
+        effective_rank: 400,
+        conflict: false,
+        disabled_reason: None,
+        security_state: "legacy_allowed".to_string(),
         risk: merge_risk(&inspection.risk, &source.remote_risk),
         installed_at: String::new(),
         updated_at: String::new(),
@@ -274,18 +284,21 @@ pub fn discover_external_skills() -> Result<Vec<SkillRecord>> {
 }
 
 fn discover_external_from_roots(roots: &[(&str, PathBuf)]) -> Result<Vec<SkillRecord>> {
-    let mut by_slug = BTreeMap::new();
+    let mut found = Vec::new();
     for (source, root) in roots {
-        if by_slug.len() >= EXTERNAL_SKILL_LIMIT {
+        if found.len() >= EXTERNAL_SKILL_LIMIT {
             break;
         }
-        for skill in discover_from_root(source, root, EXTERNAL_SKILL_LIMIT - by_slug.len())? {
-            by_slug.entry(skill.slug.clone()).or_insert(skill);
-        }
+        found.extend(discover_from_root(
+            source,
+            root,
+            EXTERNAL_SKILL_LIMIT - found.len(),
+        )?);
     }
-    Ok(by_slug.into_values().collect())
+    Ok(found)
 }
 
+#[cfg(test)]
 fn merge_installed_sources(
     managed: Vec<SkillRecord>,
     external: Vec<SkillRecord>,
@@ -301,12 +314,6 @@ fn merge_installed_sources(
             .filter(|skill| !managed_slugs.contains(&skill.slug)),
     );
     skills
-}
-
-fn find_external_skill(slug: &str) -> Result<Option<SkillRecord>> {
-    Ok(discover_external_skills()?
-        .into_iter()
-        .find(|skill| skill.slug == slug))
 }
 
 fn discover_from_root(source: &str, root: &Path, remaining: usize) -> Result<Vec<SkillRecord>> {
@@ -364,6 +371,7 @@ fn external_record(
     hasher.update(markdown.as_bytes());
     let checksum = format!("{:x}", hasher.finalize());
     SkillRecord {
+        skill_id: String::new(),
         slug: manifest.name.clone(),
         name: manifest.name,
         description: manifest.description,
@@ -377,9 +385,14 @@ fn external_record(
         source_url: None,
         checksum,
         installed_path: directory.display().to_string(),
-        enabled: true,
+        enabled: false,
         health: "healthy".to_string(),
         is_external: true,
+        effective_active: false,
+        effective_rank: crate::db::repository::skill_source_repo::source_rank(source, false),
+        conflict: false,
+        disabled_reason: Some("pending_user".to_string()),
+        security_state: "pending_user".to_string(),
         risk: SkillRiskReport {
             notes: vec!["Discovered from another Agent's local Skills directory.".to_string()],
             ..SkillRiskReport::default()
@@ -505,8 +518,10 @@ mod tests {
 
         let found = discover_external_from_roots(&roots).unwrap();
 
-        assert_eq!(found.len(), 1);
+        assert_eq!(found.len(), 3);
         assert_eq!(found[0].source_kind, "codex");
+        assert_eq!(found[1].source_kind, "claude");
+        assert_eq!(found[2].source_kind, "cursor");
     }
 
     #[test]
@@ -592,6 +607,7 @@ mod tests {
 
     fn record(slug: &str, source: &str, enabled: bool, installed_path: &Path) -> SkillRecord {
         SkillRecord {
+            skill_id: String::new(),
             slug: slug.to_string(),
             name: slug.to_string(),
             description: "Skill description".to_string(),
@@ -604,6 +620,15 @@ mod tests {
             enabled,
             health: "healthy".to_string(),
             is_external: source != "managed" && source != "local",
+            effective_active: enabled,
+            effective_rank: if source == "managed" || source == "local" {
+                400
+            } else {
+                100
+            },
+            conflict: false,
+            disabled_reason: None,
+            security_state: "legacy_allowed".to_string(),
             risk: SkillRiskReport::default(),
             installed_at: String::new(),
             updated_at: String::new(),

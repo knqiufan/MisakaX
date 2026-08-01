@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowUp, Square } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +34,7 @@ import {
   getDocumentPlainText,
   getSlashSkillQuery,
   replaceSlashQueryWithSkill,
+  reconcileActiveSkillSegments,
   selectedSkillIds,
   selectableSkills,
 } from "./composerSegment";
@@ -85,7 +87,7 @@ export function MessageInput({
     clearMentions,
     focusRequestId,
   } = useComposerStore();
-  const { skills: installedSkills } = useSkillsInventory();
+  const { skills: installedSkills, loading: skillsLoading } = useSkillsInventory();
   const [isDragOver, setIsDragOver] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
   const [slashIndex, setSlashIndex] = useState(0);
@@ -110,6 +112,17 @@ export function MessageInput({
     setSlashIndex(0);
     setSlashDismissed(false);
   }, [slashSignature]);
+
+  useEffect(() => {
+    if (skillsLoading) return;
+    const active = new Set(selectableSkills(installedSkills).map((skill) => skill.skill_id));
+    const reconciled = reconcileActiveSkillSegments(segments, active);
+    if (reconciled.removed.length === 0) return;
+    setSegments(reconciled.segments);
+    toast.info(t("skillSelectionRemoved", {
+      defaultValue: "A Skill was removed because it is no longer active.",
+    }));
+  }, [installedSkills, segments, setSegments, skillsLoading, t]);
 
   const canSend = canSendComposerMessage({
     content: plainText,
@@ -164,6 +177,7 @@ export function MessageInput({
       if (!slashQuery) return;
       const result = replaceSlashQueryWithSkill(segments, slashQuery, {
         id: crypto.randomUUID(),
+        skillId: skill.skill_id,
         slug: skill.slug,
         name: skill.name,
         description: skill.description,

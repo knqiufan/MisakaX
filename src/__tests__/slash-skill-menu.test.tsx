@@ -57,6 +57,7 @@ const skills: InstalledSkill[] = [
 
 function installedSkill(overrides: Partial<InstalledSkill>): InstalledSkill {
   return {
+    skill_id: overrides.skill_id ?? `id-${overrides.slug ?? "skill"}`,
     slug: "skill",
     name: "Skill",
     description: "Skill description",
@@ -69,6 +70,11 @@ function installedSkill(overrides: Partial<InstalledSkill>): InstalledSkill {
     enabled: true,
     health: "healthy",
     is_external: false,
+    effective_active: true,
+    effective_rank: 400,
+    conflict: false,
+    disabled_reason: null,
+    security_state: "legacy_allowed",
     risk: {
       has_scripts: false,
       has_binary_files: false,

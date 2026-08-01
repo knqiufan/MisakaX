@@ -36,11 +36,11 @@ export function SkillSelectorPopover({
       .includes(query.trim().toLocaleLowerCase())
   );
 
-  const toggleSkill = (slug: string, checked: boolean) => {
-    const current = selected.find((skill) => skill.slug === slug);
+  const toggleSkill = (skillId: string, checked: boolean) => {
+    const current = selected.find((skill) => skill.skillId === skillId);
     if (checked && !current) {
-      const skill = enabledSkills.find((item) => item.slug === slug);
-      if (skill) insertInlineSkill({ id: crypto.randomUUID(), slug, name: skill.name, description: skill.description });
+      const skill = enabledSkills.find((item) => item.skill_id === skillId);
+      if (skill) insertInlineSkill({ id: crypto.randomUUID(), skillId, slug: skill.slug, name: skill.name, description: skill.description });
     }
     if (!checked && current) {
       removeSkill(current.id);
@@ -81,9 +81,9 @@ export function SkillSelectorPopover({
         <div className="max-h-56 overflow-y-auto">
         {matches.map((skill) => (
           <DropdownMenuCheckboxItem
-            key={skill.slug}
-            checked={selected.some((item) => item.slug === skill.slug)}
-            onCheckedChange={(checked) => toggleSkill(skill.slug, checked === true)}
+            key={skill.skill_id}
+            checked={selected.some((item) => item.skillId === skill.skill_id)}
+            onCheckedChange={(checked) => toggleSkill(skill.skill_id, checked === true)}
           >
             <span className="min-w-0"><span className="block truncate">{skill.name}</span><span className="block truncate text-[10px] text-muted-foreground">{skill.description}</span></span>
           </DropdownMenuCheckboxItem>

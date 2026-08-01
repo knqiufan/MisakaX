@@ -8,7 +8,7 @@
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-07-23（v22）
+**最后审阅 / Last reviewed:** 2026-08-01（v23）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -123,13 +123,14 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - **禁止**显示删除 `X` 按钮；删除通过 **Backspace**（光标在 text 段 offset=0 时删前一个引用）或 **Delete**（光标在 text 段末尾时删后一个引用）完成。
 - 引用触发后通过 `focusRequestId` + `composerCursor` 自动 focus 到插入点后的 text segment；**不**弹出「已引用」成功 toast（失败仍 `toast.error`）。
 - **跨段全选**：多 `textarea` 无法原生跨 chip 选区；`Ctrl/Cmd+A` 由 `useComposerTextSelection` 选中全部 text segment（chip 不参与），各段 `bg-primary/15` 高亮；`Ctrl+C` 复制纯文本；`Backspace/Delete` 清空全部文本但保留 chip。
-- 发送：`ready` mentions 走 `mentionsToWorkspaceAttachments(segments)`；Skill segment 只生成 `selected_skill_ids` 回合快照，**不得**把完整 `SKILL.md` 拼入用户正文；展示正文用 `buildOutgoingFromSegments` 按 segment 顺序交错 `@relPath` 与文本；发送成功后重置整个引用文档。
+- 发送：`ready` mentions 走 `mentionsToWorkspaceAttachments(segments)`；Skill segment 只发送 Registry 的稳定 `skill_id`，slug 仅作显示快照，**不得**把完整 `SKILL.md` 或宿主绝对路径拼入用户正文；展示正文用 `buildOutgoingFromSegments` 按 segment 顺序交错 `@relPath` 与文本；发送成功后重置整个引用文档。
 - `canSendComposerMessage` 使用 `getDocumentPlainText(segments)` 作为 `content`，`countSendableFromSegments` + `attachments.length` 作为 `attachmentCount`。
 - `AttachmentPreview` 仍在 segment 行**之上**，与 workspace 引用语义分离。
 
 ### 4.3.x.1 Composer Skill 选择与 Slash 菜单
 
-- 底栏 Skill 多选器只展示 **已安装、已启用且健康** 的条目；选择与取消必须直接增删同一份行内 `skill` segment，禁止维护第二套选择状态。
+- 底栏 Skill 多选器只展示后端判定为 **`effective_active`** 的具体来源；`enabled`、`healthy` 或 slug 相同均不能替代该判定。选择与取消必须按稳定 `skill_id` 直接增删同一份行内 `skill` segment，禁止维护第二套选择状态。
+- 已选来源因禁用、缺失、制品变化或来源冲突而退出激活视图时，Composer 必须自动移除对应 chip，并用一次非阻塞、本地化提示说明；不得继续发送旧 slug，也不得在库存尚未加载时误删 chip。
 - `/` 仅在空文本段或空白边界触发；过滤范围为最后一个 `/` 后的片段。IME 合成期间不触发或截获键盘操作。
 - Slash 浮层使用 `usePresence` 和 fade + `slide-in-from-bottom-1`，不得直接条件卸载或缩放；`↑/↓` 移动、`Enter/Tab` 插入、`Esc` 关闭，列表项提供 `role="option"` 与可见焦点。
 

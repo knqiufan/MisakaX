@@ -93,7 +93,7 @@ function DetailActions({ detail, onRefresh, onUninstall, onInstall }: { detail: 
   if ("changelog" in detail) return <RemoteActions detail={detail} onInstall={onInstall} />;
   if (detail.skill.is_external) return null;
   const setEnabled = async () => {
-    try { await skillsIpc.setEnabled(detail.skill.slug, !detail.skill.enabled); await onRefresh(); } catch (error) { toast.error(String(error)); }
+    try { await skillsIpc.setEnabled(detail.skill.skill_id, !detail.skill.enabled); await onRefresh(); } catch (error) { toast.error(String(error)); }
   };
   return <><Button size="xs" variant="outline" onClick={setEnabled}><Power className="size-3" />{t(detail.skill.enabled ? "disable" : "enable")}</Button><Button size="xs" variant="outline" onClick={() => void exportInstalled(detail.skill, t)}><Download className="size-3" />{t("export")}</Button><Button size="xs" variant="destructive" onClick={() => onUninstall(detail.skill)}><Trash2 className="size-3" />{t("uninstall")}</Button></>;
 }
@@ -119,7 +119,7 @@ async function loadInstalledDetail(skill: InstalledSkill, requestIdRef: { curren
   const requestId = ++requestIdRef.current;
   setSelection({ type: "installed", skill }); setDetail(null);
   try {
-    const loaded = await skillsIpc.getDetail(skill.slug);
+    const loaded = await skillsIpc.getDetail(skill.skill_id);
     if (requestId === requestIdRef.current) setDetail(loaded);
   } catch (error) {
     if (requestId === requestIdRef.current) toast.error(String(error));

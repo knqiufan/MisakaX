@@ -427,7 +427,7 @@ function isRemoteSkill(skill: ListSkill): skill is RemoteSkill {
 }
 
 export function installedKey(skill: InstalledSkill) {
-  return `installed:${skill.slug}`;
+  return `installed:${skill.skill_id}`;
 }
 
 export function remoteKey(skill: RemoteSkill) {

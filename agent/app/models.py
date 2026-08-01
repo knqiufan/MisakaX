@@ -76,10 +76,22 @@ class ChatConfig(BaseModel):
 class SelectedSkillMount(BaseModel):
     """A Rust-validated Skill directory mounted read-only for one turn."""
 
+    # Empty only for the one-release, explicit-mount compatibility protocol.
+    skill_id: str = ""
     slug: str
     path: str
+    artifact_hash: str = ""
 
     model_config = {"frozen": False, "extra": "ignore"}
+
+
+class SkillActivationView(BaseModel):
+    """Generation-stamped, Rust-authoritative Skill mount manifest."""
+
+    generation: int = Field(gt=0)
+    skills: list[SelectedSkillMount] = Field(default_factory=list)
+
+    model_config = {"frozen": False, "extra": "forbid"}
 
 
 class ChatRequest(BaseModel):
@@ -93,8 +105,10 @@ class ChatRequest(BaseModel):
     agent_mode: str = "chat"
     # Explicitly selected installed Skills for this turn.
     selected_skill_ids: list[str] = Field(default_factory=list)
-    # Rich, path-bearing selection added for compatible external Skill roots.
+    # One-release compatibility: accepted only as explicit, path-bearing mounts.
     selected_skills: list[SelectedSkillMount] = Field(default_factory=list)
+    # Authoritative activation view for new desktop clients.
+    skill_activation: SkillActivationView | None = None
 
     model_config = {"frozen": False, "extra": "ignore"}
 

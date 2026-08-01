@@ -160,7 +160,7 @@ export function UninstallSkillDialog({
   const uninstall = async () => {
     if (!skill) return;
     await runAction(setBusy, async () => {
-      await skillsIpc.uninstall(skill.slug);
+      await skillsIpc.uninstall(skill.skill_id);
       onComplete();
       onOpenChange(false);
     }, t);

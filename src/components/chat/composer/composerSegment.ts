@@ -33,11 +33,25 @@ export function collectSkills(segments: ComposerSegment[]): PendingSkill[] {
 }
 
 export function selectedSkillIds(segments: ComposerSegment[]): string[] {
-  return collectSkills(segments).map((skill) => skill.slug);
+  return collectSkills(segments).map((skill) => skill.skillId);
 }
 
 export function selectableSkills(skills: InstalledSkill[]): InstalledSkill[] {
-  return skills.filter((skill) => skill.enabled && skill.health === "healthy");
+  return skills.filter((skill) => skill.effective_active);
+}
+
+export function reconcileActiveSkillSegments(
+  segments: ComposerSegment[],
+  activeSkillIds: ReadonlySet<string>
+): { segments: ComposerSegment[]; removed: PendingSkill[] } {
+  const removed = collectSkills(segments).filter(
+    (skill) => !activeSkillIds.has(skill.skillId)
+  );
+  const next = removed.reduce(
+    (current, skill) => removeSkillById(current, skill.id),
+    segments
+  );
+  return { segments: next, removed };
 }
 
 export function getDocumentPlainText(segments: ComposerSegment[]): string {
@@ -85,7 +99,7 @@ export function insertSkillAtCursor(
   cursor: ComposerCursor | null,
   skill: PendingSkill
 ): { segments: ComposerSegment[]; cursor: ComposerCursor } {
-  if (collectSkills(segments).some((item) => item.slug === skill.slug)) {
+  if (collectSkills(segments).some((item) => item.skillId === skill.skillId)) {
     return { segments, cursor: cursor ?? defaultCursor(segments) };
   }
   return insertReferenceAtCursor(segments, cursor, { type: "skill", skill }, skill.id);

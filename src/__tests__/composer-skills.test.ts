@@ -3,6 +3,7 @@ import {
   getSlashSkillQuery,
   handleSegmentBackspace,
   replaceSlashQueryWithSkill,
+  reconcileActiveSkillSegments,
   selectableSkills,
   selectedSkillIds,
   type ComposerSegment,
@@ -10,6 +11,7 @@ import {
 
 const skill = {
   id: "skill-1",
+  skillId: "stable-skill-id",
   slug: "code-review",
   name: "Code review",
   description: "Review a change",
@@ -22,22 +24,33 @@ describe("composer Skill segments", () => {
       { type: "skill", skill },
       { type: "text", id: "text-2", value: " inspect this" },
     ];
-    expect(selectedSkillIds(segments)).toEqual(["code-review"]);
+    expect(selectedSkillIds(segments)).toEqual(["stable-skill-id"]);
   });
 
-  it("records the S0 defect that an inventory removal does not clear an existing chip", () => {
+  it("keeps stable identity independent from the slug snapshot", () => {
     const segments: ComposerSegment[] = [
       { type: "skill", skill },
       { type: "text", id: "text-1", value: "Run it" },
     ];
-    const enabledInventory: string[] = [];
+    expect(selectedSkillIds(segments)).toEqual(["stable-skill-id"]);
+  });
 
-    expect(enabledInventory).not.toContain("code-review");
-    expect(selectedSkillIds(segments)).toEqual(["code-review"]);
+  it("removes a chip when its stable Skill source is no longer active", () => {
+    const segments: ComposerSegment[] = [
+      { type: "text", id: "text-1", value: "Run " },
+      { type: "skill", skill },
+      { type: "text", id: "text-2", value: " now" },
+    ];
+    const reconciled = reconcileActiveSkillSegments(segments, new Set());
+    expect(reconciled.removed).toEqual([skill]);
+    expect(reconciled.segments).toEqual([
+      { type: "text", id: "text-1", value: "Run  now" },
+    ]);
   });
 
   it("filters disabled and unhealthy inventory entries from selector and slash sources", () => {
     const base = {
+      skill_id: "base-id",
       name: "Code review",
       description: "Review a change",
       version: null,
@@ -47,6 +60,11 @@ describe("composer Skill segments", () => {
       checksum: "checksum",
       installed_path: "C:/skills/code-review",
       is_external: false,
+      effective_active: true,
+      effective_rank: 400,
+      conflict: false,
+      disabled_reason: null,
+      security_state: "legacy_allowed",
       risk: {
         has_scripts: false,
         has_binary_files: false,
@@ -58,9 +76,9 @@ describe("composer Skill segments", () => {
       updated_at: "",
     };
     const inventory = [
-      { ...base, slug: "enabled", enabled: true, health: "healthy" },
-      { ...base, slug: "disabled", enabled: false, health: "healthy" },
-      { ...base, slug: "missing", enabled: true, health: "missing" },
+      { ...base, skill_id: "enabled-id", slug: "enabled", enabled: true, health: "healthy" },
+      { ...base, skill_id: "disabled-id", slug: "disabled", enabled: false, health: "healthy", effective_active: false },
+      { ...base, skill_id: "missing-id", slug: "missing", enabled: true, health: "missing", effective_active: false },
     ];
 
     expect(selectableSkills(inventory).map((item) => item.slug)).toEqual(["enabled"]);

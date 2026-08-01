@@ -3,7 +3,7 @@
 > **用途：** 定义 Skills 设置页、按需文件预览、安全报告、输入框下方工作区标识和右侧终端的交互规范。
 > **受众：** 产品、UI/UX、React、Rust IPC 和测试维护者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **状态：** 规划稿；实现时必须同步更新现有三份全局 UI 规范。
+> **状态：** 增量实施中；S1 已落地稳定 Skill 身份、有效激活过滤与失效 chip 清理，Settings/文件预览仍由 S2 实施。
 > **上位规范：** [`frontend-ui-guidelines.md`](./frontend-ui-guidelines.md)、[`shell-and-workspace-ui-spec.md`](./shell-and-workspace-ui-spec.md)、[`button-menu-design-spec.md`](./button-menu-design-spec.md)。
 
 ---

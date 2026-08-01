@@ -132,7 +132,9 @@ class WorkspacePathBackend:
         )
 
     def write(self, file_path: str, content: str) -> Any:
-        return self._inner.write(self._guard(file_path), content)
+        safe = self._guard(file_path)
+        self._ensure_writable(safe)
+        return self._inner.write(safe, content)
 
     def edit(
         self,
@@ -141,12 +143,52 @@ class WorkspacePathBackend:
         new_string: str,
         replace_all: bool = False,
     ) -> Any:
+        safe = self._guard(file_path)
+        self._ensure_writable(safe)
         return self._inner.edit(
-            self._guard(file_path),
+            safe,
             old_string,
             new_string,
             replace_all=replace_all,
         )
+
+    async def awrite(self, file_path: str, content: str) -> Any:
+        safe = self._guard(file_path)
+        self._ensure_writable(safe)
+        return await self._inner.awrite(safe, content)
+
+    async def aedit(
+        self,
+        file_path: str,
+        old_string: str,
+        new_string: str,
+        replace_all: bool = False,
+    ) -> Any:
+        safe = self._guard(file_path)
+        self._ensure_writable(safe)
+        return await self._inner.aedit(
+            safe,
+            old_string,
+            new_string,
+            replace_all=replace_all,
+        )
+
+    def upload_files(self, files: list[tuple[str, bytes]]) -> Any:
+        safe_files = [(self._guard(path), content) for path, content in files]
+        for path, _content in safe_files:
+            self._ensure_writable(path)
+        return self._inner.upload_files(safe_files)
+
+    async def aupload_files(self, files: list[tuple[str, bytes]]) -> Any:
+        safe_files = [(self._guard(path), content) for path, content in files]
+        for path, _content in safe_files:
+            self._ensure_writable(path)
+        return await self._inner.aupload_files(safe_files)
+
+    @staticmethod
+    def _ensure_writable(path: str) -> None:
+        if path == SKILLS_PREFIX or path.startswith(f"{SKILLS_PREFIX}/"):
+            raise ValueError("Activated Skills are mounted read-only")
 
     def ls(self, path: str = "/workspace") -> Any:
         return self._inner.ls(self._guard(path))
@@ -173,21 +215,41 @@ class WorkspacePathBackend:
         return await self._inner.adownload_files([self._guard(p) for p in paths])
 
 
+class ActivatedSkillsIndexBackend:
+    """Virtual read-only parent directory for independently routed Skills."""
+
+    def __init__(self, slugs: list[str]):
+        self._slugs = tuple(sorted(set(slugs)))
+
+    def ls(self, path: str = "/") -> list[dict[str, Any]]:
+        if path not in ("/", ""):
+            return []
+        return [
+            {"path": f"/{slug}/", "is_dir": True, "size": 0, "modified_at": ""}
+            for slug in self._slugs
+        ]
+
+    async def als(self, path: str = "/") -> list[dict[str, Any]]:
+        return self.ls(path)
+
+    def write(self, *_args, **_kwargs):
+        raise ValueError("Activated Skills are mounted read-only")
+
+    def edit(self, *_args, **_kwargs):
+        raise ValueError("Activated Skills are mounted read-only")
+
+
 def _mount_system_routes(
     routes: dict[str, Any],
     filesystem_cls: Any | None,
-    skills_dir: Path | None,
     selected_skill_dirs: dict[str, Path] | None,
     memories_dir: Path | None,
 ) -> None:
     if filesystem_cls is None:
         return
-    if skills_dir is not None:
-        root = Path(skills_dir)
-        root.mkdir(parents=True, exist_ok=True)
-        routes[f"{SKILLS_PREFIX}/"] = filesystem_cls(
-            root_dir=str(root),
-            virtual_mode=True,
+    if selected_skill_dirs:
+        routes[f"{SKILLS_PREFIX}/"] = ActivatedSkillsIndexBackend(
+            list(selected_skill_dirs)
         )
     for slug, directory in (selected_skill_dirs or {}).items():
         routes[f"{SKILLS_PREFIX}/{slug}/"] = filesystem_cls(
@@ -210,18 +272,16 @@ def make_workspace_backend_factory(
     composite_cls,
     *,
     filesystem_cls=None,
-    skills_dir: Path | None = None,
     selected_skill_dirs: dict[str, Path] | None = None,
     memories_dir: Path | None = None,
 ):
-    """Bind project dir under /workspace; mount global skills/memories separately."""
+    """Bind project dir and only Rust-authorized Skill routes."""
 
     def factory(rt):
         routes: dict[str, Any] = {}
         _mount_system_routes(
             routes,
             filesystem_cls,
-            skills_dir,
             selected_skill_dirs,
             memories_dir,
         )
@@ -238,7 +298,7 @@ def make_workspace_backend_factory(
             composite = composite_cls(default=shell, routes=routes)
             return WorkspacePathBackend(composite)
 
-        return composite_cls(default=state_cls(rt), routes=routes)
+        return WorkspacePathBackend(composite_cls(default=state_cls(rt), routes=routes))
 
     return factory
 
@@ -249,6 +309,7 @@ __all__ = [
     "SKILLS_PREFIX",
     "WORKSPACE_PREFIX",
     "WorkspacePathBackend",
+    "ActivatedSkillsIndexBackend",
     "coerce_file_data",
     "coerce_read_result",
     "make_workspace_backend_factory",

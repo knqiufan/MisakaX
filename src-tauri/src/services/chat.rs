@@ -11,17 +11,15 @@ use tauri::AppHandle;
 
 use crate::crypto;
 use crate::db::models::{Message, RouterConfig, Session};
-use crate::db::repository::{
-    CustomModelRepo, MessageRepo, RouterConfigRepo, SessionRepo, SkillRepo,
-};
+use crate::db::repository::{CustomModelRepo, MessageRepo, RouterConfigRepo, SessionRepo};
 use crate::services::llm::backend::MessageAttachment;
 use crate::services::llm::config::LlmConfig;
 use crate::services::llm::{RigBackend, StreamResult};
 use crate::services::mcp::{McpToolLoop, MAX_TOOL_ROUNDS};
 use crate::services::mcp_bridge::McpToolBridge;
-use crate::services::sidecar_client::AgentSkillMount;
 use crate::services::sidecar_client::{AgentChatConfig, AgentChatMessage, AgentChatRequest};
 use crate::services::sidecar_sse::consume_sidecar_stream;
+use crate::services::skills::types::{MessageSkillSelection, SkillActivationView};
 use crate::services::thinking_capabilities::lookup_thinking_capability;
 use crate::AppState;
 
@@ -34,38 +32,30 @@ pub(crate) fn parse_attachments_json(json: Option<&str>) -> Option<Vec<MessageAt
 pub(crate) fn resolve_selected_skill_ids(
     state: &AppState,
     requested: &[String],
-) -> Result<Vec<AgentSkillMount>, String> {
+) -> Result<(SkillActivationView, Vec<MessageSkillSelection>), String> {
     let unique = normalize_skill_ids(requested)?;
     let db = state.db.lock().map_err(|error| error.to_string())?;
-    crate::services::skills::installer::installed_selection(&db, &unique)
-        .map(|records| {
-            records
-                .into_iter()
-                .map(|record| AgentSkillMount {
-                    slug: record.slug,
-                    path: record.installed_path,
-                })
-                .collect()
-        })
+    crate::services::skills::registry::resolve_selection(&db, &unique, None)
         .map_err(|error| error.to_string())
 }
 
 pub(crate) fn save_message_skill_selection(
     state: &AppState,
     message_id: &str,
-    skill_ids: &[String],
+    selections: &[MessageSkillSelection],
 ) -> Result<(), String> {
     let db = state.db.lock().map_err(|error| error.to_string())?;
-    SkillRepo::replace_message_selection(&db, message_id, skill_ids)
+    crate::db::repository::SkillSourceRepo::replace_message_selection(&db, message_id, selections)
         .map_err(|error| error.to_string())
 }
 
 pub(crate) fn load_message_skill_selection(
     state: &AppState,
     message_id: &str,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<MessageSkillSelection>, String> {
     let db = state.db.lock().map_err(|error| error.to_string())?;
-    SkillRepo::message_selection(&db, message_id).map_err(|error| error.to_string())
+    crate::db::repository::SkillSourceRepo::message_selection(&db, message_id)
+        .map_err(|error| error.to_string())
 }
 
 fn normalize_skill_ids(requested: &[String]) -> Result<Vec<String>, String> {
@@ -74,11 +64,12 @@ fn normalize_skill_ids(requested: &[String]) -> Result<Vec<String>, String> {
     }
     let mut unique = Vec::new();
     for raw in requested {
-        let slug = raw.trim();
-        crate::services::skills::manifest::validate_slug(slug)
-            .map_err(|error| error.to_string())?;
-        if !unique.iter().any(|item| item == slug) {
-            unique.push(slug.to_string());
+        let identifier = raw.trim();
+        if identifier.is_empty() {
+            return Err("Skill identifier cannot be empty".to_string());
+        }
+        if !unique.iter().any(|item| item == identifier) {
+            unique.push(identifier.to_string());
         }
     }
     Ok(unique)
@@ -239,7 +230,8 @@ pub(crate) async fn send_via_sidecar(
     user_content: &str,
     turn: &TurnModel,
     llm_config: Option<LlmConfig>,
-    selected_skills: Vec<AgentSkillMount>,
+    skill_activation: SkillActivationView,
+    selected_skills: Vec<MessageSkillSelection>,
     abort_flag: Arc<AtomicBool>,
     assistant_msg_id: &str,
 ) -> Result<(StreamResult, Option<String>), String> {
@@ -258,9 +250,9 @@ pub(crate) async fn send_via_sidecar(
     );
     request.selected_skill_ids = selected_skills
         .iter()
-        .map(|skill| skill.slug.clone())
+        .map(|skill| skill.skill_id.clone())
         .collect();
-    request.selected_skills = selected_skills;
+    request.skill_activation = Some(skill_activation);
     let response = state.sidecar_client.stream(&request).await?;
     if !response.status().is_success() {
         let status = response.status();
@@ -360,7 +352,7 @@ pub fn build_agent_chat_request(
         working_dir: session.working_directory.clone(),
         agent_mode: llm_config.agent_mode.clone(),
         selected_skill_ids: Vec::new(),
-        selected_skills: Vec::new(),
+        skill_activation: None,
     }
 }
 

@@ -41,6 +41,7 @@ export interface PendingFileMention {
 
 export interface PendingSkill {
   id: string;
+  skillId: string;
   slug: string;
   name: string;
   description: string;

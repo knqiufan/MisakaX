@@ -50,7 +50,7 @@ export function SlashSkillMenu({
       <div className="max-h-56 overflow-y-auto">
         {skills.map((skill, index) => (
           <button
-            key={skill.slug}
+            key={skill.skill_id}
             ref={index === activeIndex ? activeRef : undefined}
             type="button"
             role="option"

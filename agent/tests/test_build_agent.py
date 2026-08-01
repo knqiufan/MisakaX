@@ -56,9 +56,9 @@ def test_build_agent_mounts_workspace_for_valid_dir(tmp_path: Path):
     composite.assert_called_once()
     routes = composite.call_args.kwargs.get("routes") or composite.call_args.args[1]
     assert "/workspace/" in routes
-    assert f"{SKILLS_PREFIX}/" in routes
+    assert f"{SKILLS_PREFIX}/" not in routes
     assert "/memories/" in routes
-    assert captured["skills"] == [f"{SKILLS_PREFIX}/"]
+    assert captured["skills"] == []
     assert captured["memory"] == [MEMORY_FILE]
     assert captured["subagents"] == []
     assert "/workspace" in captured["system_prompt"]
@@ -123,12 +123,13 @@ def test_build_agent_uses_state_backend_without_working_dir():
     assert agent is not None
     assert backend_factory is not None
     backend = backend_factory(MagicMock(name="runtime"))
-    assert backend is composite.return_value
+    assert isinstance(backend, WorkspacePathBackend)
+    assert backend._inner is composite.return_value
     local_shell.assert_not_called()
     state_backend.assert_called_once()
     routes = composite.call_args.kwargs.get("routes") or {}
-    assert f"{SKILLS_PREFIX}/" in routes
-    assert captured["skills"] == [f"{SKILLS_PREFIX}/"]
+    assert f"{SKILLS_PREFIX}/" not in routes
+    assert captured["skills"] == []
     assert captured["system_prompt"] == build_system_prompt(has_workspace=False)
 
 
@@ -237,7 +238,7 @@ def test_selected_skills_are_validated_and_added_to_prompt(tmp_path: Path):
     prompt = build_system_prompt(selected_skills=selected)
 
     assert selected == [
-        SelectedSkill("code-review", "Review changes safely", skill_dir.resolve())
+        SelectedSkill("", "code-review", "Review changes safely", skill_dir.resolve(), "")
     ]
     assert "/skills/<slug>/SKILL.md" in prompt
     assert "`code-review`: Review changes safely" in prompt

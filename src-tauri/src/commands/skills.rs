@@ -9,8 +9,8 @@ use crate::services::skills::catalog;
 use crate::services::skills::exporter::export_skill_dir;
 use crate::services::skills::installer;
 use crate::services::skills::types::{
-    InstallSource, RemoteSearchPage, RemoteSkill, RemoteSkillDetail, SkillDetail,
-    SkillInstallResult, SkillRecord, SkillRiskReport,
+    InstallSource, RemoteSearchPage, RemoteSkill, RemoteSkillDetail, SkillActivationView,
+    SkillDetail, SkillInstallResult, SkillRecord, SkillRiskReport,
 };
 use crate::AppState;
 
@@ -18,6 +18,15 @@ use crate::AppState;
 pub fn skills_list_installed(state: State<'_, AppState>) -> Result<Vec<SkillRecord>, String> {
     let conn = state.db.lock().map_err(|error| error.to_string())?;
     installer::list_installed(&conn).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn skills_get_activation_view(
+    state: State<'_, AppState>,
+) -> Result<SkillActivationView, String> {
+    let conn = state.db.lock().map_err(|error| error.to_string())?;
+    crate::services::skills::registry::activation_view(&conn, None)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -42,7 +51,9 @@ pub fn skills_install_archive(
     let conn = state.db.lock().map_err(|error| error.to_string())?;
     let result = installer::install_local_archive(&conn, &PathBuf::from(path), local_source())
         .map_err(|error| error.to_string())?;
-    emit_change(&app, "installed", &result.skill.slug);
+    let generation = crate::db::repository::SkillSourceRepo::generation(&conn)
+        .map_err(|error| error.to_string())?;
+    emit_change(&app, "installed", &result.skill.skill_id, Some(generation));
     Ok(result)
 }
 
@@ -88,7 +99,12 @@ pub async fn skills_install_remote(
     let source = registry_source(&detail, version);
     let result =
         install_remote_archive(&state, &archive, source).map_err(|error| error.to_string())?;
-    emit_change(&app, "installed", &result.skill.slug);
+    emit_change(
+        &app,
+        "installed",
+        &result.skill.skill_id,
+        current_generation(&state),
+    );
     Ok(result)
 }
 
@@ -105,7 +121,12 @@ pub async fn skills_import_modelscope(
     let source = modelscope_source(&remote);
     let result =
         install_remote_archive(&state, &archive, source).map_err(|error| error.to_string())?;
-    emit_change(&app, "installed", &result.skill.slug);
+    emit_change(
+        &app,
+        "installed",
+        &result.skill.skill_id,
+        current_generation(&state),
+    );
     Ok(result)
 }
 
@@ -145,12 +166,18 @@ pub async fn skills_download_remote(
 pub fn skills_set_enabled(
     app: AppHandle,
     state: State<'_, AppState>,
-    slug: String,
+    identifier: String,
     enabled: bool,
 ) -> Result<(), String> {
     let conn = state.db.lock().map_err(|error| error.to_string())?;
-    installer::set_enabled(&conn, &slug, enabled).map_err(|error| error.to_string())?;
-    emit_change(&app, if enabled { "enabled" } else { "disabled" }, &slug);
+    let (skill_id, generation) =
+        installer::set_enabled(&conn, &identifier, enabled).map_err(|error| error.to_string())?;
+    emit_change(
+        &app,
+        if enabled { "enabled" } else { "disabled" },
+        &skill_id,
+        Some(generation),
+    );
     Ok(())
 }
 
@@ -158,12 +185,18 @@ pub fn skills_set_enabled(
 pub fn skills_uninstall(
     app: AppHandle,
     state: State<'_, AppState>,
-    slug: String,
+    identifier: String,
 ) -> Result<(), String> {
     let conn = state.db.lock().map_err(|error| error.to_string())?;
-    installer::uninstall(&conn, &slug).map_err(|error| error.to_string())?;
-    emit_change(&app, "uninstalled", &slug);
+    let (skill_id, generation) =
+        installer::uninstall(&conn, &identifier).map_err(|error| error.to_string())?;
+    emit_change(&app, "uninstalled", &skill_id, Some(generation));
     Ok(())
+}
+
+fn current_generation(state: &State<'_, AppState>) -> Option<u64> {
+    let conn = state.db.lock().ok()?;
+    crate::db::repository::SkillSourceRepo::generation(&conn).ok()
 }
 
 fn local_source() -> InstallSource {
@@ -257,9 +290,13 @@ fn merge_preview_risk(mut remote: SkillRiskReport, preview: SkillRiskReport) -> 
     remote
 }
 
-fn emit_change(app: &AppHandle, action: &str, slug: &str) {
+fn emit_change(app: &AppHandle, action: &str, skill_id: &str, generation: Option<u64>) {
     let _ = app.emit(
         "skills:changed",
-        serde_json::json!({ "action": action, "slug": slug }),
+        serde_json::json!({
+            "action": action,
+            "skill_id": skill_id,
+            "generation": generation,
+        }),
     );
 }

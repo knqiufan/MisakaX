@@ -2,6 +2,8 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
+use crate::services::skills::types::SkillActivationView;
+
 // --------------------------------------------------------------------------- //
 //  Request / Response types (aligned with Python agent/app/models.py)
 // --------------------------------------------------------------------------- //
@@ -84,16 +86,10 @@ pub struct AgentChatRequest {
     /// Explicitly selected installed Skills for this turn, validated by Rust.
     #[serde(default)]
     pub selected_skill_ids: Vec<String>,
-    /// Verified local Skill mounts. These let the Sidecar use compatible
-    /// Claude, Codex, and Cursor Skills without copying them into MisakaX.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub selected_skills: Vec<AgentSkillMount>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentSkillMount {
-    pub slug: String,
-    pub path: String,
+    /// Generation-stamped, Rust-authoritative view of every Skill the Agent
+    /// may read for this execution. Python never derives mounts from a slug.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skill_activation: Option<SkillActivationView>,
 }
 
 fn default_agent_mode() -> String {

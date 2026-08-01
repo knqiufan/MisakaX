@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import threading
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -42,9 +43,11 @@ _PROVIDER_PROFILE_KEYS = (
 
 @dataclass(frozen=True)
 class SelectedSkill:
+    skill_id: str
     slug: str
     description: str
     directory: Path
+    artifact_hash: str
 
 
 def build_agent(
@@ -57,6 +60,7 @@ def build_agent(
     agent_mode: AgentMode = "chat",
     model: Any | None = None,
     selected_skills: list[SelectedSkill] | None = None,
+    active_skills: list[SelectedSkill] | None = None,
 ):
     """Create a DeepAgent graph for the given session context.
 
@@ -100,7 +104,7 @@ def build_agent(
 
     # DeepAgents skills/memory paths are backend-virtual, not host absolute paths.
     # Host dirs are mounted at /skills and /memories via CompositeBackend routes.
-    kwargs["skills"] = [f"{SKILLS_PREFIX}/"]
+    kwargs["skills"] = [f"{SKILLS_PREFIX}/"] if active_skills else []
     kwargs["memory"] = [MEMORY_FILE]
     kwargs["backend"] = make_workspace_backend_factory(
         validated,
@@ -108,8 +112,7 @@ def build_agent(
         StateBackend,
         CompositeBackend,
         filesystem_cls=FilesystemBackend,
-        skills_dir=settings.skills_dir,
-        selected_skill_dirs={skill.slug: skill.directory for skill in selected_skills or []},
+        selected_skill_dirs={skill.slug: skill.directory for skill in active_skills or []},
         memories_dir=settings.memories_dir,
     )
 
@@ -188,9 +191,28 @@ def resolve_selected_skills(
         if not description:
             raise ValueError(f"Selected Skill '{slug}' has no description")
         resolved.append(
-            SelectedSkill(slug=slug, description=description, directory=directory)
+            SelectedSkill(
+                skill_id=mount.skill_id,
+                slug=slug,
+                description=description,
+                directory=directory,
+                artifact_hash=mount.artifact_hash,
+            )
         )
+        if mount.artifact_hash and _artifact_hash(directory) != mount.artifact_hash:
+            raise ValueError(f"Selected Skill '{slug}' changed after Rust activation")
     return resolved
+
+
+def _artifact_hash(root: Path) -> str:
+    """Mirror Rust's deterministic S1 artifact hash before a directory is mounted."""
+    digest = hashlib.sha256()
+    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        digest.update(path.relative_to(root).as_posix().encode())
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def _validate_skill_slug(slug: str) -> None:

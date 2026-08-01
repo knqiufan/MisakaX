@@ -78,9 +78,8 @@ def test_workspace_backend_reads_via_workspace_prefix(tmp_path: Path):
         backend.read(r"/workspaceD:\x\README.md")
 
 
-def test_factory_mounts_skills_and_memories(tmp_path: Path):
+def test_factory_mounts_only_activated_skills_and_memories(tmp_path: Path):
     project = tmp_path / "project"
-    skills = tmp_path / "skills"
     external_skill = tmp_path / "external" / "demo"
     memories = tmp_path / "memories"
     project.mkdir()
@@ -102,33 +101,26 @@ def test_factory_mounts_skills_and_memories(tmp_path: Path):
     factory = make_workspace_backend_factory(
         project,
         FakeLocal,
-        object,
+        lambda _rt: object(),
         FakeComposite,
         filesystem_cls=FakeFs,
-        skills_dir=skills,
         selected_skill_dirs={"demo": external_skill},
         memories_dir=memories,
     )
     backend = factory(object())
     routes = backend._inner.routes
     assert f"{SKILLS_PREFIX}/" in routes
+    assert not hasattr(routes[f"{SKILLS_PREFIX}/"], "kwargs")
     assert f"{SKILLS_PREFIX}/demo/" in routes
     assert f"{MEMORIES_PREFIX}/" in routes
     assert "/workspace/" in routes
-    assert skills.is_dir()
     assert memories.is_dir()
-    assert Path(routes[f"{SKILLS_PREFIX}/"].kwargs["root_dir"]) == skills
     assert Path(routes[f"{SKILLS_PREFIX}/demo/"].kwargs["root_dir"]) == external_skill
-    assert routes[f"{SKILLS_PREFIX}/"].kwargs["virtual_mode"] is True
+    assert routes[f"{SKILLS_PREFIX}/demo/"].kwargs["virtual_mode"] is True
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="S0 baseline: the legacy global /skills mount exposes disabled managed Skills",
-)
 def test_disabled_skills_are_not_exposed_by_a_global_skills_mount(tmp_path: Path):
-    """Future S1 invariant: only the activation view may own /skills routes."""
-    skills = tmp_path / "skills"
+    """Only the activation view may own /skills routes."""
 
     class FakeFs:
         def __init__(self, **kwargs):
@@ -142,13 +134,12 @@ def test_disabled_skills_are_not_exposed_by_a_global_skills_mount(tmp_path: Path
     factory = make_workspace_backend_factory(
         None,
         object,
-        object,
+        lambda _rt: object(),
         FakeComposite,
         filesystem_cls=FakeFs,
-        skills_dir=skills,
     )
 
-    routes = factory(object()).routes
+    routes = factory(object())._inner.routes
     assert f"{SKILLS_PREFIX}/" not in routes
 
 
@@ -171,7 +162,7 @@ def test_skills_route_outside_workspace_root(tmp_path: Path):
         object,
         CompositeBackend,
         filesystem_cls=FilesystemBackend,
-        skills_dir=skills,
+        selected_skill_dirs={"demo": skill_dir},
         memories_dir=tmp_path / "memories",
     )
     backend = factory(object())
@@ -198,7 +189,6 @@ def test_selected_external_skill_route_reads_from_its_original_directory(tmp_pat
         object,
         CompositeBackend,
         filesystem_cls=FilesystemBackend,
-        skills_dir=tmp_path / "managed-skills",
         selected_skill_dirs={"demo": external_skill},
         memories_dir=tmp_path / "memories",
     )
@@ -206,3 +196,29 @@ def test_selected_external_skill_route_reads_from_its_original_directory(tmp_pat
     result = backend.read("/skills/demo/SKILL.md")
     file_data = result.file_data if hasattr(result, "file_data") else result["file_data"]
     assert file_data["content"] == "# external demo\n"
+
+
+def test_activated_skills_are_read_only(tmp_path: Path):
+    class FakeInner:
+        def write(self, path, content):
+            return (path, content)
+
+        def edit(self, path, *args, **kwargs):
+            return (path, args, kwargs)
+
+        def upload_files(self, files):
+            return files
+
+    from app.workspace_backend import WorkspacePathBackend
+
+    backend = WorkspacePathBackend(FakeInner())
+    with pytest.raises(ValueError, match="read-only"):
+        backend.write("/skills/demo/SKILL.md", "changed")
+    with pytest.raises(ValueError, match="read-only"):
+        backend.edit("/skills/demo/SKILL.md", "a", "b")
+    with pytest.raises(ValueError, match="read-only"):
+        backend.upload_files([("/skills/demo/new.txt", b"content")])
+    assert backend.write("/workspace/note.txt", "ok") == (
+        "/workspace/note.txt",
+        "ok",
+    )

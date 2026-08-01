@@ -68,11 +68,8 @@ pub async fn send_message(
         .unwrap_or(true);
     let use_sidecar = chat::read_use_sidecar(&state);
     let turn = chat::resolve_turn_model(&state, &selected, thinking_enabled, use_sidecar)?;
-    let selected_skills = chat::resolve_selected_skill_ids(&state, &request.selected_skill_ids)?;
-    let selected_skill_ids = selected_skills
-        .iter()
-        .map(|skill| skill.slug.clone())
-        .collect::<Vec<_>>();
+    let (skill_activation, selected_skills) =
+        chat::resolve_selected_skill_ids(&state, &request.selected_skill_ids)?;
 
     chat::save_user_message(
         &state,
@@ -81,7 +78,7 @@ pub async fn send_message(
         &request.content,
         request.attachments.as_deref(),
     )?;
-    chat::save_message_skill_selection(&state, &user_msg_id, &selected_skill_ids)?;
+    chat::save_message_skill_selection(&state, &user_msg_id, &selected_skills)?;
     chat::create_assistant_placeholder(
         &state,
         &assistant_msg_id,
@@ -99,6 +96,7 @@ pub async fn send_message(
             &request.content,
             &turn,
             request.llm_config.clone(),
+            skill_activation,
             selected_skills,
             abort_flag,
             &assistant_msg_id,
@@ -174,8 +172,12 @@ pub async fn regenerate_message(
         .unwrap_or(true);
     let use_sidecar = chat::read_use_sidecar(&state);
     let turn = chat::resolve_turn_model(&state, &selected, thinking_enabled, use_sidecar)?;
-    let selected_skill_ids = chat::load_message_skill_selection(&state, &regen_ctx.user_msg_id)?;
-    let selected_skills = chat::resolve_selected_skill_ids(&state, &selected_skill_ids)?;
+    let skill_snapshots = chat::load_message_skill_selection(&state, &regen_ctx.user_msg_id)?;
+    let (skill_activation, selected_skills) = {
+        let db = state.db.lock().map_err(|error| error.to_string())?;
+        crate::services::skills::registry::resolve_snapshot_selection(&db, &skill_snapshots)
+            .map_err(|error| error.to_string())?
+    };
 
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -196,6 +198,7 @@ pub async fn regenerate_message(
             &regen_ctx.user_content,
             &turn,
             llm_config.clone(),
+            skill_activation,
             selected_skills,
             abort_flag,
             &assistant_msg_id,

@@ -64,6 +64,8 @@ export type {
   RemoteSearchPage,
   SkillArchiveInspection,
   SkillInstallResult,
+  SkillActivationMount,
+  SkillActivationView,
 } from "./types";
 export type { DirectoryInfo, RecentDirectory, WorkspacePreference } from "./workspace";
 export type { CreateSessionParams, UpdateSessionWorkingDirParams } from "./sessions";

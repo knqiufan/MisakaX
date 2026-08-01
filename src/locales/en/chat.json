@@ -57,6 +57,7 @@
   "errorOccurred": "Request failed",
   "streamError": "Stream error",
   "sendFailed": "Could not complete the request",
+  "skillSelectionRemoved": "A Skill was removed because it is no longer active.",
   "toolCall": {
     "arguments": "Arguments",
     "result": "Result",
