@@ -18,12 +18,14 @@ export interface WorkspaceContextState {
   context: WorkspaceContext | null;
   status: WorkspaceContextStatus;
   errorCode: string | null;
+  identity: string | null;
 }
 
 const IDLE_STATE: WorkspaceContextState = {
   context: null,
   status: "idle",
   errorCode: null,
+  identity: null,
 };
 
 export function useWorkspaceContext(
@@ -50,6 +52,7 @@ export function useWorkspaceContext(
         context: identityChanged ? null : current.context,
         status: !identityChanged && current.context ? "stale" : "loading",
         errorCode: null,
+        identity,
       }));
       try {
         const context = await workspaceIpc.getContext(chatSessionId, refresh);
@@ -61,7 +64,7 @@ export function useWorkspaceContext(
           ) {
             return current;
           }
-          return { context, status: "ready", errorCode: null };
+          return { context, status: "ready", errorCode: null, identity };
         });
       } catch (error) {
         if (sequence !== requestSequence.current) return;
@@ -69,6 +72,7 @@ export function useWorkspaceContext(
           context: current.context,
           status: "error",
           errorCode: error instanceof IpcError ? error.code : "INTERNAL_ERROR",
+          identity,
         }));
       }
     },
@@ -100,6 +104,7 @@ export function useWorkspaceContext(
             context: event.payload,
             status: "ready",
             errorCode: null,
+            identity: `${chatSessionId}\u0000${workingDirectory}`,
           };
         });
       },

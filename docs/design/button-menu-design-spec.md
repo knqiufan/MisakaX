@@ -1,6 +1,6 @@
 # MisakaX 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-08-01（v14）
+**最后审阅 / Last reviewed:** 2026-08-01（v15）
 
 > 主色已切换为 **charcoal**（非冷蓝强调色）。文中若仍出现历史「蓝调」示例，以实现侧 CSS 变量与 [frontend-ui-guidelines.md](./frontend-ui-guidelines.md) 为准。
 >
@@ -563,6 +563,13 @@ Hover:    transform=none, shadow=none, brightness(1)  [150ms]
   background: var(--surface-card-strong);
 }
 ```
+
+### 4.8 WorkspaceBar Panel 与工具日志按钮
+
+- Explorer/Terminal 使用共享 `BarIconButton`：`ghost size-7`，仅当右栏已打开且 mode 匹配时切为 `secondary`；同 mode 再按一次关闭，另一 mode 切换。禁止用 disabled 表示已打开。
+- 两个按钮都必须有准确 `aria-label`、`aria-pressed`、`aria-keyshortcuts` 和 Tooltip；Explorer 显示 `Ctrl/Cmd+Shift+E`，Terminal 显示 `Ctrl/Cmd+反引号`。图标选中态可提高 stroke，不增加缩放、位移或彩色发光。
+- Terminal feature 未完成或 rollout flag 关闭时不渲染该按钮；不得显示可点击的“即将推出”空动作。
+- Tool Logs 不再占 WorkspaceBar Terminal 图标。消息工具组的日志入口使用 `ScrollText` 语义图标、`ghost icon-xs/size-7`、明确“打开工具日志”名称；它是独立 button，不能嵌套进 Collapsible trigger，点击不得顺带改变消息工具组展开态。
 
 ---
 

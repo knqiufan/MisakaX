@@ -5,6 +5,7 @@ import {
   ChevronDown,
   Loader2,
   Server,
+  ScrollText,
   Wrench,
   XCircle,
 } from "lucide-react";
@@ -16,6 +17,12 @@ import {
 } from "@/components/ui/collapsible";
 import type { ToolCall } from "@/lib/ipc";
 import { CodeBlock } from "./CodeBlock";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const AUTO_CLOSE_DELAY_MS = 1000;
 
@@ -23,12 +30,14 @@ interface ToolActionsGroupProps {
   toolCalls: ToolCall[];
   /** Force open (e.g. Tool Logs drawer). Otherwise auto: open while running, close when done. */
   defaultOpen?: boolean;
+  onOpenToolLogs?: () => void;
 }
 
 /** Compact left-rail tool list (docs/ui/06 §7.2). */
 export function ToolActionsGroup({
   toolCalls,
   defaultOpen,
+  onOpenToolLogs,
 }: ToolActionsGroupProps) {
   const { t } = useTranslation("chat");
   const hasRunning = useMemo(
@@ -99,24 +108,45 @@ export function ToolActionsGroup({
           setOpen(next);
         }}
       >
-        <CollapsibleTrigger
-          className={cn(
-            "flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs",
-            "text-muted-foreground/60 transition-colors duration-[var(--ds-dur-fast)]",
-            "hover:bg-muted/30 hover:text-muted-foreground"
-          )}
-        >
-          <span className="rounded bg-muted/80 px-1.5 py-0.5 text-[10px] tabular-nums">
-            {toolCalls.length}
-          </span>
-          <span className="min-w-0 flex-1 truncate text-left">{summary}</span>
-          <ChevronDown
+        <div className="flex min-w-0 items-center gap-0.5">
+          <CollapsibleTrigger
             className={cn(
-              "size-3.5 shrink-0 transition-transform duration-[var(--ds-dur-fast)]",
-              open && "rotate-180"
+              "flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-xs",
+              "text-muted-foreground/60 transition-colors duration-[var(--ds-dur-fast)]",
+              "hover:bg-muted/30 hover:text-muted-foreground"
             )}
-          />
-        </CollapsibleTrigger>
+          >
+            <span className="rounded bg-muted/80 px-1.5 py-0.5 text-[10px] tabular-nums">
+              {toolCalls.length}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-left">{summary}</span>
+            <ChevronDown
+              className={cn(
+                "size-3.5 shrink-0 transition-transform duration-[var(--ds-dur-fast)]",
+                open && "rotate-180"
+              )}
+            />
+          </CollapsibleTrigger>
+          {onOpenToolLogs ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="size-7 text-muted-foreground/60"
+                  onClick={onOpenToolLogs}
+                  aria-label={t("toolGroup.openLogs")}
+                >
+                  <ScrollText className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {t("toolGroup.openLogs")}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
+        </div>
         <CollapsibleContent>
           <div className="mt-0.5 space-y-0.5">
             {toolCalls.map((tc) => (

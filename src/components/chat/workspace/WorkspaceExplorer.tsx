@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { fsIpc } from "@/lib/ipc";
 import { useWorkspaceExplorerStore } from "@/stores/workspace-explorer-store";
+import { useWorkspacePanelStore } from "@/stores/workspace-panel-store";
 import { FileTreeView } from "./FileTreeView";
 import { EditorColumn } from "./EditorColumn";
 import { useFileEditor } from "./useFileEditor";
@@ -30,7 +31,8 @@ interface WorkspaceExplorerProps {
  */
 export function WorkspaceExplorer({ workingDir }: WorkspaceExplorerProps) {
   const { t } = useTranslation("workspace");
-  const { setOpen, openTab, tabs } = useWorkspaceExplorerStore();
+  const { openTab, tabs } = useWorkspaceExplorerStore();
+  const closePanel = useWorkspacePanelStore((state) => state.close);
   const { activeTab, handleChange, handleSave } = useFileEditor(workingDir);
   const [treeRefreshKey, setTreeRefreshKey] = useState(0);
   const [treeLoading, setTreeLoading] = useState(false);
@@ -86,7 +88,7 @@ export function WorkspaceExplorer({ workingDir }: WorkspaceExplorerProps) {
         collapseLabel={t("explorer.collapse")}
         treeLoading={treeLoading}
         onRefresh={refreshTree}
-        onCollapse={() => setOpen(false)}
+        onCollapse={closePanel}
       />
       <div className="flex min-h-0 flex-1 flex-col">{workspaceContent}</div>
     </aside>

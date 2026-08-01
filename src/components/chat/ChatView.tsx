@@ -13,19 +13,24 @@ import { MessageList } from "./message/MessageList";
 import { MessageInput } from "./composer/MessageInput";
 import { ChatEmptyState } from "./ChatEmptyState";
 import { ToolApprovalDialog } from "./ToolApprovalDialog";
+import type { WorkspacePanelMode } from "@/stores/workspace-panel-store";
 
 interface ChatViewProps {
   session: Session;
   onChangeDir: () => void;
-  onToggleExplorer?: () => void;
-  explorerOpen?: boolean;
+  onTogglePanel?: (mode: WorkspacePanelMode) => void;
+  panelOpen?: boolean;
+  panelMode?: WorkspacePanelMode;
+  terminalEnabled?: boolean;
 }
 
 export function ChatView({
   session,
   onChangeDir,
-  onToggleExplorer,
-  explorerOpen = false,
+  onTogglePanel,
+  panelOpen = false,
+  panelMode = "explorer",
+  terminalEnabled = false,
 }: ChatViewProps) {
   const { t } = useTranslation("chat");
   const {
@@ -256,10 +261,10 @@ export function ChatView({
         workingDir={session.working_directory}
         workspaceKind={session.workspace_kind}
         onChangeDir={onChangeDir}
-        onToggleExplorer={onToggleExplorer}
-        explorerOpen={explorerOpen}
-        onToggleToolLogs={() => setToolLogsOpen((open) => !open)}
-        toolLogsOpen={toolLogsOpen}
+        onTogglePanel={onTogglePanel}
+        panelOpen={panelOpen}
+        panelMode={panelMode}
+        terminalEnabled={terminalEnabled}
       />
       {toolLogsOpen ? (
         <ToolLogsPanel onClose={() => setToolLogsOpen(false)} />
@@ -279,13 +284,14 @@ export function ChatView({
           onLoadEarlier={() => loadEarlierMessages(session.id)}
           scrollToMessageId={scrollToMessageId}
           onScrollToMessageHandled={() => setScrollToMessageId(null)}
+          onOpenToolLogs={() => setToolLogsOpen(true)}
         />
       )}
       <div className="mx-auto w-full max-w-3xl px-4">
         <MessageInput
           onSend={handleSend}
           onStop={handleStop}
-          onPickWorkspaceFile={onToggleExplorer}
+          onPickWorkspaceFile={() => onTogglePanel?.("explorer")}
           chatSessionId={session.id}
           workingDirectory={session.working_directory}
         />

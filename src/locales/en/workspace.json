@@ -27,7 +27,10 @@
   "noWorkingDir": "No working directory set",
   "selectDir": "Select directory",
   "switchDir": "Switch directory",
-  "openExplorer": "Open workspace panel",
+  "openExplorer": "Open file explorer",
+  "openExplorerShortcut": "Open file explorer · Ctrl+Shift+E",
+  "openTerminal": "Open terminal",
+  "openTerminalShortcut": "Open terminal · Ctrl+`",
   "notFound": "The workspace is unavailable.",
   "gitUnavailable": "Git context is unavailable; showing a local project.",
   "context": {
@@ -36,6 +39,11 @@
     "localHint": "This workspace is not a Git work tree.",
     "gitUnavailable": "Git context is unavailable; showing a local project. Error ID: {{id}}",
     "ariaLabel": "Workspace context: {{value}}"
+  },
+  "terminal": {
+    "title": "Terminal · Local permissions",
+    "collapse": "Collapse terminal panel",
+    "preparing": "The terminal runtime is disabled until its PTY and security phases are complete."
   },
   "explorer": {
     "title": "Workspace",

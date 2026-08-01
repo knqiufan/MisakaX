@@ -8,7 +8,7 @@
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-08-01（v27）
+**最后审阅 / Last reviewed:** 2026-08-01（v28）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -164,6 +164,13 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - Git 分支使用中间省略并在 tooltip 展示完整 ref；detached 必须显示 `detached:<short-sha>`。非 Git、Git 不可用、超时和查询错误统一显示“本地项目”，不得把绝对路径、stderr 或 PATH 候选放入 tooltip/屏幕共享区域。
 - 首次加载使用固定宽度 skeleton；刷新旧值标为 stale 但不阻塞输入。所有 response/event 必须核对 chat session 与 generation，快速切换后的旧结果直接丢弃。
 - 前端只调用固定 `workspace_get_context(chatSessionId, refresh)`，不得构造 Git 命令、传 cwd 或可执行文件。后端事件名固定为 `workspace.context.changed`；未来 provider action 只保留类型 seam，无 provider 时不渲染控件。
+
+### 4.3.z.3 WorkspacePanel 容器
+
+- 右侧只存在一个 `WorkspacePanel`，`explorer/terminal` 是 mode 而非两套互斥侧栏。Panel store 不得接管 Explorer tabs/file state 或 Terminal process/output state，只协调 open/mode/size 与当前 session/generation。
+- `open/mode/size` 可持久化；session/generation 不得持久化。切任务、工作区或 mode 时，迟到 generation 不能覆盖新绑定；已访问 Terminal 槽隐藏而不卸载，避免未来重复 spawn。
+- 宽屏用百分比 split panel，窄屏用右侧 overlay，禁止继续压缩聊天可读列；overlay 必须能通过 Escape 和面板关闭按钮退出。
+- Terminal rollout flag 在 PTY、xterm 与 W5 安全门完成前保持默认关闭。Tool Logs 使用消息工具组内的明确日志操作打开聊天列抽屉，不得借用 Terminal 图标。
 
 ### 4.4 空页面与占位符 (Empty States)
 - 空页面设计应具有**引导性**。

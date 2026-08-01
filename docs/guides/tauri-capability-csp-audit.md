@@ -60,6 +60,7 @@ form-action 'none'
 
 ## Tool Logs 迁移决定
 
-Tool Logs 保留其诊断价值并继续作为聊天列内抽屉；W2 将 WorkspaceBar 的 Terminal 图标
-改为真实 Terminal toggle 后，Tool Logs 入口迁入消息工具组的显式“工具日志”动作。
-在新入口测试通过前，不删除 `ToolLogsPanel` 或其 store 数据。
+Tool Logs 保留其诊断价值并继续作为聊天列内抽屉。W2 已把入口迁入消息
+`ToolActionsGroup` 的显式“工具日志”动作，并从 WorkspaceBar Terminal 图标解除绑定；
+`ToolLogsPanel` 与其 store 数据继续保留。Terminal toggle 已接入统一 panel action，但在
+W3/W4 的 PTY/xterm 完成前由默认关闭的 feature flag 隐藏。

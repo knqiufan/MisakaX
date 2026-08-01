@@ -7,15 +7,16 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import type { WorkspacePanelMode } from "@/stores/workspace-panel-store";
 
 interface WorkspaceBarProps {
   workingDir: string | null;
   workspaceKind?: string | null;
   onChangeDir: () => void;
-  onToggleExplorer?: () => void;
-  explorerOpen?: boolean;
-  onToggleToolLogs?: () => void;
-  toolLogsOpen?: boolean;
+  onTogglePanel?: (mode: WorkspacePanelMode) => void;
+  panelOpen?: boolean;
+  panelMode?: WorkspacePanelMode;
+  terminalEnabled?: boolean;
 }
 
 const barShellClass = cn(
@@ -27,10 +28,10 @@ export function WorkspaceBar({
   workingDir,
   workspaceKind,
   onChangeDir,
-  onToggleExplorer,
-  explorerOpen = false,
-  onToggleToolLogs,
-  toolLogsOpen,
+  onTogglePanel,
+  panelOpen = false,
+  panelMode = "explorer",
+  terminalEnabled = false,
 }: WorkspaceBarProps) {
   const { t } = useTranslation("workspace");
 
@@ -44,10 +45,10 @@ export function WorkspaceBar({
       workingDir={workingDir}
       workspaceKind={workspaceKind}
       onChangeDir={onChangeDir}
-      onToggleExplorer={onToggleExplorer}
-      explorerOpen={explorerOpen}
-      onToggleToolLogs={onToggleToolLogs}
-      toolLogsOpen={toolLogsOpen}
+      onTogglePanel={onTogglePanel}
+      panelOpen={panelOpen}
+      panelMode={panelMode}
+      terminalEnabled={terminalEnabled}
     />
   );
 }
@@ -90,19 +91,19 @@ function WorkspaceBarSet({
   workingDir,
   workspaceKind,
   onChangeDir,
-  onToggleExplorer,
-  explorerOpen,
-  onToggleToolLogs,
-  toolLogsOpen,
+  onTogglePanel,
+  panelOpen,
+  panelMode,
+  terminalEnabled,
 }: {
   t: (k: string) => string;
   workingDir: string;
   workspaceKind?: string | null;
   onChangeDir: () => void;
-  onToggleExplorer?: () => void;
-  explorerOpen: boolean;
-  onToggleToolLogs?: () => void;
-  toolLogsOpen?: boolean;
+  onTogglePanel?: (mode: WorkspacePanelMode) => void;
+  panelOpen: boolean;
+  panelMode: WorkspacePanelMode;
+  terminalEnabled: boolean;
 }) {
   const isDefault = workspaceKind === "default";
   const displayName = isDefault
@@ -137,18 +138,24 @@ function WorkspaceBarSet({
       />
       <BarIconButton
         label={t("openExplorer")}
-        onClick={onToggleExplorer}
-        disabled={!onToggleExplorer}
-        active={explorerOpen}
+        tooltip={t("openExplorerShortcut")}
+        onClick={() => onTogglePanel?.("explorer")}
+        disabled={!onTogglePanel}
+        active={panelOpen && panelMode === "explorer"}
         icon={FolderTree}
-        strokeWidth={explorerOpen ? 2 : undefined}
+        strokeWidth={panelOpen && panelMode === "explorer" ? 2 : undefined}
+        ariaKeyShortcuts="Control+Shift+E Meta+Shift+E"
       />
-      {onToggleToolLogs ? (
+      {terminalEnabled ? (
         <BarIconButton
-          label={t("explorer.toolLogs")}
-          onClick={onToggleToolLogs}
-          active={toolLogsOpen}
+          label={t("openTerminal")}
+          tooltip={t("openTerminalShortcut")}
+          onClick={() => onTogglePanel?.("terminal")}
+          disabled={!onTogglePanel}
+          active={panelOpen && panelMode === "terminal"}
           icon={Terminal}
+          strokeWidth={panelOpen && panelMode === "terminal" ? 2 : undefined}
+          ariaKeyShortcuts="Control+Backquote Meta+Backquote"
         />
       ) : null}
     </div>
@@ -157,18 +164,22 @@ function WorkspaceBarSet({
 
 function BarIconButton({
   label,
+  tooltip = label,
   onClick,
   disabled,
   active,
   icon: Icon,
   strokeWidth,
+  ariaKeyShortcuts,
 }: {
   label: string;
+  tooltip?: string;
   onClick?: () => void;
   disabled?: boolean;
   active?: boolean;
   icon: typeof FolderTree;
   strokeWidth?: number;
+  ariaKeyShortcuts?: string;
 }) {
   return (
     <Tooltip>
@@ -182,12 +193,13 @@ function BarIconButton({
           className="size-7 shrink-0"
           aria-label={label}
           aria-pressed={active}
+          aria-keyshortcuts={ariaKeyShortcuts}
         >
           <Icon className="size-3.5" strokeWidth={strokeWidth} />
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom" className="text-xs">
-        {label}
+        {tooltip}
       </TooltipContent>
     </Tooltip>
   );

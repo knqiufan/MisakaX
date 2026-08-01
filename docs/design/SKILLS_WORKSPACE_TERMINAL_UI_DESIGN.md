@@ -3,7 +3,7 @@
 > **用途：** 定义 Skills 设置页、按需文件预览、安全报告、输入框下方工作区标识和右侧终端的交互规范。
 > **受众：** 产品、UI/UX、React、Rust IPC 和测试维护者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **状态：** 增量实施中；S1–S3、S5 与 Workspace W1 已落地，独立 Skills 路径和旧全文/双写兼容面已删除；Sandbox 隔离的 S4 可选深度扫描器按用户范围延后，WorkspacePanel/Terminal 由 W2–W6 继续实施。
+> **状态：** 增量实施中；S1–S3、S5 与 Workspace W1–W2 已落地，独立 Skills 路径和旧全文/双写兼容面已删除；Sandbox 隔离的 S4 可选深度扫描器按用户范围延后，PTY/Terminal/CSP 由 W3–W6 继续实施。
 > **上位规范：** [`frontend-ui-guidelines.md`](./frontend-ui-guidelines.md)、[`shell-and-workspace-ui-spec.md`](./shell-and-workspace-ui-spec.md)、[`button-menu-design-spec.md`](./button-menu-design-spec.md)。
 
 ---
@@ -168,8 +168,16 @@ W1 落地约束：
 
 - 原“工作日志/Tool Logs”快捷图标替换为真正的 Terminal 操作。
 - Terminal 和 Explorer 图标表示右侧 `WorkspacePanel` 的 mode；当前 mode 有选中态，再次点击可关闭右栏。
-- Tool Logs 如仍保留，应移动到消息内工具组或 `···` 菜单，并使用日志图标和准确名称。
+- Tool Logs 固定从消息内 `ToolActionsGroup` 的日志图标进入，继续打开聊天列内抽屉；不得再复用 Terminal 图标或占用右轨。
 - Tooltip 使用“打开终端”“打开文件浏览器”，包含快捷键时在右侧显示。
+- Explorer 使用 `Ctrl/Cmd+Shift+E`，Terminal 使用 `Ctrl/Cmd+反引号`；按钮提供 `aria-pressed`、`aria-keyshortcuts` 和可见 focus ring。W3/W4 完成前 Terminal 入口由默认关闭的 `workspaceTerminal` feature flag 隔离，不显示不可用按钮。
+
+### 7.1.1 WorkspacePanel 状态与窄窗口
+
+- `WorkspacePanel` 只持有 `open/mode/size/sessionId/workspaceGeneration`；持久化仅包含 UI 偏好 `open/mode/size`，会话与 generation 不跨启动恢复。
+- Explorer 的 tabs/activePath 继续由 Explorer store 独立管理；W2 迁移只读取一次旧 `misakax:workspace-explorer.state.open`，成功写入新 panel 偏好后删除旧键。
+- mode 切换不得卸载已访问的 Terminal 内容槽；Explorer tabs 也不得因关栏、切 mode 或切任务被 panel store 清空。未来 Terminal session 生命周期仍归 Terminal store/manager，不得塞进 panel store。
+- 宽窗口保持 70/30 百分比分栏并持久化 18%–55% panel 宽度；视口 `<= 960px` 时改为右侧 overlay（最大 520px、宽度不超过 88%），不挤压聊天列，`Escape` 可关闭。
 
 ### 7.2 终端面板
 

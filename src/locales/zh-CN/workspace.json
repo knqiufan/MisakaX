@@ -27,7 +27,10 @@
   "noWorkingDir": "未设置工作目录",
   "selectDir": "选择目录",
   "switchDir": "切换目录",
-  "openExplorer": "打开工作区面板",
+  "openExplorer": "打开文件浏览器",
+  "openExplorerShortcut": "打开文件浏览器 · Ctrl+Shift+E",
+  "openTerminal": "打开终端",
+  "openTerminalShortcut": "打开终端 · Ctrl+`",
   "notFound": "工作区不可用。",
   "gitUnavailable": "无法读取 Git 上下文，已显示为本地项目。",
   "context": {
@@ -36,6 +39,11 @@
     "localHint": "此工作区不是 Git 工作树。",
     "gitUnavailable": "无法读取 Git 上下文，已显示为本地项目。错误 ID：{{id}}",
     "ariaLabel": "工作区上下文：{{value}}"
+  },
+  "terminal": {
+    "title": "终端 · 本机权限",
+    "collapse": "收起终端面板",
+    "preparing": "PTY 与安全阶段完成前，终端运行时保持关闭。"
   },
   "explorer": {
     "title": "工作区",

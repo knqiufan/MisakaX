@@ -125,11 +125,11 @@ MisakaX/
 | `main.tsx` | React 入口 |
 | `index.css` | Tailwind CSS v4 + 设计 token |
 | `components/layout/` | `AppShell`、`Sidebar`、`ContentArea` |
-| `components/chat/` | `ChatView`、会话、Composer、只读 WorkspaceContext badge、工作区、Monaco 编辑 |
+| `components/chat/` | `ChatView`、会话、Composer、只读 WorkspaceContext badge、WorkspacePanel、Explorer/Monaco 与消息工具日志入口 |
 | `components/ui/` | shadcn/ui 组件 |
 | `pages/` | `ChatPage`、`SettingsPage`；Skills 领域 UI 位于 Settings，Knowledge / Dashboard 仍为占位 |
 | `components/skills/` | Skills 仓库双栏、按需文件预览、安全报告、迁移进度与安装/卸载 Dialog |
-| `stores/` | Zustand：`chat-store`、`settings-store`、`theme-store` 等 |
+| `stores/` | Zustand：`chat-store`、`settings-store`、`theme-store`、独立 `workspace-panel-store` 与 `workspace-explorer-store` 等 |
 | `lib/ipc/` | Tauri IPC 封装（chat、session、mcp、settings…） |
 | `lib/providers/` | Provider 目录与 catalog |
 | `locales/` | i18n（zh-CN / en） |

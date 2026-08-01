@@ -26,6 +26,7 @@ interface MessageListProps {
   onLoadEarlier?: () => Promise<string | null>;
   scrollToMessageId?: string | null;
   onScrollToMessageHandled?: () => void;
+  onOpenToolLogs?: () => void;
 }
 
 const SCROLL_THRESHOLD = 80;
@@ -40,6 +41,7 @@ export function MessageList({
   onLoadEarlier,
   scrollToMessageId = null,
   onScrollToMessageHandled,
+  onOpenToolLogs,
 }: MessageListProps) {
   const { t } = useTranslation("chat");
   const parentRef = useRef<HTMLDivElement>(null);
@@ -175,6 +177,7 @@ export function MessageList({
                       msg.role === "assistant" ? onRegenerate : undefined
                     }
                     highlight={scrollToMessageId === msg.id}
+                    onOpenToolLogs={onOpenToolLogs}
                   />
                 </div>
               );

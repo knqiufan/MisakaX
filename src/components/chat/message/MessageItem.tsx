@@ -16,6 +16,7 @@ interface MessageItemProps {
   onRegenerate?: (messageId: string) => void;
   prevRole?: string | null;
   highlight?: boolean;
+  onOpenToolLogs?: () => void;
 }
 
 export function MessageItem({
@@ -24,6 +25,7 @@ export function MessageItem({
   isThinkingStreaming,
   onRegenerate,
   highlight = false,
+  onOpenToolLogs,
 }: MessageItemProps) {
   const isUser = message.role === "user";
   const hasThinking =
@@ -58,7 +60,10 @@ export function MessageItem({
             />
           ) : null}
           {hasToolCalls ? (
-            <ToolActionsGroup toolCalls={message.tool_calls!} />
+            <ToolActionsGroup
+              toolCalls={message.tool_calls!}
+              onOpenToolLogs={onOpenToolLogs}
+            />
           ) : null}
           <MessageBubble
             message={message}
