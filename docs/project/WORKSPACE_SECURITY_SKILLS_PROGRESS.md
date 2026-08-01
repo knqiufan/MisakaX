@@ -3,7 +3,7 @@
 > **用途：** 作为本轮 Skills/安全检查/Git 标识/终端/Sandbox/最终架构审查的单一进度台账。
 > **受众：** 项目负责人、开发、测试、安全和后续接手者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **代码基线：** `main@fa24bd7`。
+> **代码基线：** `main@10b9f6c`。
 > **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；`DEVELOPMENT_STATUS.md` 中关于 Phase 5 Skills 尚未开始的描述已落后于当前代码，最终架构阶段需统一修订。
 
 ---
@@ -162,8 +162,8 @@
 
 ### 2026-08-01 S0/W0 契约与回归基线
 
-- 状态：已完成，待提交/推送。
-- 基线：`main@fa24bd7`；推送：pending。
+- 状态：已完成并推送。
+- 基线：`main@fa24bd7`；推送：`10b9f6c`（`origin/main`）。
 - 完成 TODO：Skills S0 全部 9 项；Workspace Terminal W0 全部 7 项。
 - 代码证据：`src-tauri/src/contracts.rs`、`src/lib/ipc/contracts.ts`、`src/lib/feature-flags.ts`、Skills installer 特征测试、Workspace/Tool Logs/Explorer 特征测试、Tauri security config baseline 测试。
 - 测试证据：前端 full 232 passed；Rust `cargo test --features test-private -j 1` 全量通过（并行 `cargo test` 曾因 Windows 页文件不足 OOM，串行回退绿色）；Python full 116 passed + 1 strict xfail；`npm run build`、`cargo check`、`ruff` 通过。
