@@ -188,6 +188,8 @@ describe("Workspace W2 panel contract", () => {
     const { rerender } = render(
       <WorkspacePanel
         mode="terminal"
+        chatSessionId="session-a"
+        workspaceGeneration={4}
         workingDir="D:/code/Misaka-Tauri"
         terminalContent={<TerminalFixture />}
         onClose={vi.fn()}
@@ -196,6 +198,8 @@ describe("Workspace W2 panel contract", () => {
     rerender(
       <WorkspacePanel
         mode="explorer"
+        chatSessionId="session-a"
+        workspaceGeneration={4}
         workingDir="D:/code/Misaka-Tauri"
         terminalContent={<TerminalFixture />}
         onClose={vi.fn()}

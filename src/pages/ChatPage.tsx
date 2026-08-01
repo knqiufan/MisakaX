@@ -200,6 +200,8 @@ export function ChatPage() {
   const workspacePanel = activeSession?.working_directory ? (
     <WorkspacePanel
       mode={effectivePanelMode}
+      chatSessionId={activeSession.id}
+      workspaceGeneration={workspaceGeneration}
       workingDir={activeSession.working_directory}
       onClose={closePanel}
     />

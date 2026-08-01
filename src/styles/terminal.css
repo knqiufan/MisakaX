@@ -1,0 +1,20 @@
+.misaka-terminal-viewport {
+  background: var(--background);
+  color: var(--foreground);
+  overflow: hidden;
+}
+
+.misaka-terminal-viewport .xterm {
+  height: 100%;
+  padding: 8px 10px;
+}
+
+.misaka-terminal-viewport .xterm-viewport {
+  scrollbar-color: color-mix(in oklch, var(--muted-foreground) 45%, transparent)
+    transparent;
+  scrollbar-width: thin;
+}
+
+.misaka-terminal-viewport .xterm-helper-textarea:focus-visible {
+  outline: none;
+}

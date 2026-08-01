@@ -1,12 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Terminal, X } from "lucide-react";
-import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/button";
 import type { WorkspacePanelMode } from "@/stores/workspace-panel-store";
+import { TerminalPanel } from "./TerminalPanel";
 import { WorkspaceExplorer } from "./WorkspaceExplorer";
 
 interface WorkspacePanelProps {
   mode: WorkspacePanelMode;
+  chatSessionId: string;
+  workspaceGeneration: number;
   workingDir: string;
   terminalContent?: ReactNode;
   onClose: () => void;
@@ -15,6 +15,8 @@ interface WorkspacePanelProps {
 /** Mode shell only: Explorer/Terminal domain state remains in their own stores. */
 export function WorkspacePanel({
   mode,
+  chatSessionId,
+  workspaceGeneration,
   workingDir,
   terminalContent,
   onClose,
@@ -36,38 +38,17 @@ export function WorkspacePanel({
       </div>
       {terminalMounted ? (
         <div className="h-full" hidden={mode !== "terminal"}>
-          {terminalContent ?? <TerminalPreparationPanel onClose={onClose} />}
+          {terminalContent ?? (
+            <TerminalPanel
+              active={mode === "terminal"}
+              chatSessionId={chatSessionId}
+              workspaceGeneration={workspaceGeneration}
+              workingDir={workingDir}
+              onClose={onClose}
+            />
+          )}
         </div>
       ) : null}
     </div>
-  );
-}
-
-function TerminalPreparationPanel({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation("workspace");
-  return (
-    <aside className="flex h-full flex-col border-l border-border/40 bg-background">
-      <div className="flex h-10 shrink-0 items-center justify-between px-3">
-        <h2 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          <Terminal className="size-3.5" aria-hidden />
-          {t("terminal.title")}
-        </h2>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          className="size-7"
-          aria-label={t("terminal.collapse")}
-        >
-          <X className="size-3.5" />
-        </Button>
-      </div>
-      <div className="flex min-h-0 flex-1 items-center justify-center px-6 text-center">
-        <p className="max-w-xs text-sm text-muted-foreground">
-          {t("terminal.preparing")}
-        </p>
-      </div>
-    </aside>
   );
 }
