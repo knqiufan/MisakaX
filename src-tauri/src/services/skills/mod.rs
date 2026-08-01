@@ -5,6 +5,7 @@ pub mod file_provider;
 pub mod installer;
 pub mod manifest;
 pub mod registry;
+pub mod security;
 pub mod types;
 
 pub use types::{

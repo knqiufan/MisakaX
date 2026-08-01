@@ -62,6 +62,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         migrate_v11(conn)?;
     }
 
+    if current_version < 12 {
+        migrate_v12(conn)?;
+    }
+
     Ok(())
 }
 
@@ -466,6 +470,109 @@ fn migrate_v11(conn: &Connection) -> Result<()> {
     tx.commit()?;
 
     tracing::info!("Database migrated to version 11");
+    Ok(())
+}
+
+fn migrate_v12(conn: &Connection) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute_batch(
+        "
+        CREATE TABLE skill_artifacts (
+            artifact_hash TEXT PRIMARY KEY,
+            size_bytes INTEGER NOT NULL CHECK(size_bytes >= 0),
+            source_json TEXT NOT NULL,
+            quarantine_path TEXT,
+            installed_path TEXT,
+            state TEXT NOT NULL CHECK(state IN (
+                'quarantined', 'approved', 'published', 'blocked', 'expired'
+            )),
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE skill_scan_runs (
+            scan_id TEXT PRIMARY KEY,
+            artifact_hash TEXT NOT NULL,
+            state TEXT NOT NULL CHECK(state IN (
+                'queued', 'scanning', 'passed', 'warnings',
+                'review_required', 'blocked', 'error', 'stale', 'cancelled'
+            )),
+            engine_versions_json TEXT NOT NULL,
+            policy_version TEXT NOT NULL,
+            decision TEXT CHECK(decision IN ('allow', 'review', 'block')),
+            max_severity TEXT CHECK(max_severity IN (
+                'info', 'low', 'medium', 'high', 'critical'
+            )),
+            progress INTEGER NOT NULL DEFAULT 0 CHECK(progress BETWEEN 0 AND 100),
+            error_code TEXT,
+            error_detail TEXT,
+            correlation_id TEXT NOT NULL,
+            queued_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            started_at DATETIME,
+            completed_at DATETIME,
+            FOREIGN KEY (artifact_hash) REFERENCES skill_artifacts(artifact_hash)
+        );
+
+        CREATE TABLE skill_findings (
+            finding_id TEXT PRIMARY KEY,
+            scan_id TEXT NOT NULL,
+            engine TEXT NOT NULL,
+            rule_id TEXT NOT NULL,
+            severity TEXT NOT NULL CHECK(severity IN (
+                'info', 'low', 'medium', 'high', 'critical'
+            )),
+            category TEXT NOT NULL,
+            file_path TEXT,
+            line_start INTEGER,
+            line_end INTEGER,
+            title TEXT NOT NULL,
+            detail TEXT NOT NULL,
+            remediation TEXT,
+            fingerprint TEXT NOT NULL,
+            evidence_redacted TEXT,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (scan_id) REFERENCES skill_scan_runs(scan_id) ON DELETE CASCADE,
+            UNIQUE(scan_id, fingerprint)
+        );
+
+        CREATE TABLE skill_approvals (
+            approval_id TEXT PRIMARY KEY,
+            artifact_hash TEXT NOT NULL,
+            scan_id TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            decision TEXT NOT NULL CHECK(decision IN ('approve', 'reject')),
+            actor TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            scope TEXT NOT NULL CHECK(scope IN ('artifact', 'finding')),
+            expires_at DATETIME,
+            revoked_at DATETIME,
+            correlation_id TEXT NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (artifact_hash) REFERENCES skill_artifacts(artifact_hash),
+            FOREIGN KEY (scan_id) REFERENCES skill_scan_runs(scan_id)
+        );
+
+        ALTER TABLE skill_sources ADD COLUMN current_scan_id TEXT;
+
+        CREATE INDEX idx_skill_scan_runs_artifact_time
+        ON skill_scan_runs(artifact_hash, queued_at DESC);
+        CREATE INDEX idx_skill_scan_runs_state
+        ON skill_scan_runs(state, queued_at);
+        CREATE INDEX idx_skill_findings_scan_severity
+        ON skill_findings(scan_id, severity, finding_id);
+        CREATE INDEX idx_skill_findings_fingerprint
+        ON skill_findings(fingerprint);
+        CREATE INDEX idx_skill_approvals_artifact_active
+        ON skill_approvals(artifact_hash, revoked_at, expires_at);
+        CREATE INDEX idx_skill_sources_current_scan
+        ON skill_sources(current_scan_id);
+
+        INSERT INTO _schema_version (version) VALUES (12);
+        ",
+    )?;
+    tx.commit()?;
+
+    tracing::info!("Database migrated to version 12");
     Ok(())
 }
 

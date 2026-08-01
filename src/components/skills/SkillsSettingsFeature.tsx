@@ -310,7 +310,12 @@ function DetailActions({
     return <RemoteActions detail={detail} onInstall={onInstall} />;
   }
   const skill = detail.skill;
-  const canEnable = skill.health === "healthy";
+  const canEnable = skill.health === "healthy" && [
+    "legacy_allowed",
+    "passed",
+    "warnings",
+    "approved",
+  ].includes(skill.security_state);
   return (
     <>
       <label className="flex min-h-8 cursor-pointer items-center gap-2 rounded-lg px-1 text-xs text-muted-foreground">

@@ -26,7 +26,7 @@ pub fn init_database(db_path: &Path) -> Result<Connection> {
     conn.execute_batch("PRAGMA foreign_keys=ON;")?;
     conn.execute_batch("PRAGMA busy_timeout=5000;")?;
 
-    backup_before_migration(&conn, db_path, 11)?;
+    backup_before_migration(&conn, db_path, 12)?;
 
     // Load sqlite-vec extension
     unsafe {

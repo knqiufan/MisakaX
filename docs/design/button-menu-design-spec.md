@@ -1,6 +1,6 @@
 # MisakaX 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-08-01（v11）
+**最后审阅 / Last reviewed:** 2026-08-01（v12）
 
 > 主色已切换为 **charcoal**（非冷蓝强调色）。文中若仍出现历史「蓝调」示例，以实现侧 CSS 变量与 [frontend-ui-guidelines.md](./frontend-ui-guidelines.md) 为准。
 >
@@ -1851,6 +1851,13 @@ Skills inventory 与详情头部的 Switch 还必须满足：
 - 详情 tabs 固定为 `文件 / 安全 / 概览`，复用共享 Radix `Tabs` 的 line variant、可见 focus ring 与键盘行为；默认 Files，不用手写只响应鼠标的伪 tab。
 - 文件树行是紧凑、整行可点击的 `treeitem`，目录 disclosure 与文件图标使用 Lucide；hover/selected 只改颜色和背景，不缩放或位移。
 - “继续加载文件/预览”是显式小型 outline/text action，必须有不少于 32px 的行高、pending disabled 和可见焦点；不得以无限自动读取替代用户确认。
+
+### 12.2.2 Skills 安全筛选与审批动作
+
+- 严重度筛选复用 `size="xs"` Button 组；当前值用 secondary、其他值用 ghost，并同步 `aria-pressed`。不要为 severity 自造彩色胶囊或只靠颜色区分。
+- 批准/拒绝是 reason 输入后的并列动作：拒绝使用 outline，批准使用默认主按钮；输入不足、请求 pending 或 scan 已失效时两者 disabled，禁止用连续 Toast 代替就地状态。
+- “撤销批准”是可逆审计动作，使用 outline，不做 destructive 红色；删除 Skill/拒绝制品等不可逆动作仍遵循 Dialog 确认规则。
+- JSON/SARIF 导出使用带 Download 图标的 outline 小按钮；必须先打开系统保存对话框，取消保存不显示成功 Toast。
 
 ### 12.3 分段控件 (`.settings-segmented`)
 

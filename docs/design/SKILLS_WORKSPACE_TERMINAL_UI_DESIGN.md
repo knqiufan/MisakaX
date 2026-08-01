@@ -3,7 +3,7 @@
 > **用途：** 定义 Skills 设置页、按需文件预览、安全报告、输入框下方工作区标识和右侧终端的交互规范。
 > **受众：** 产品、UI/UX、React、Rust IPC 和测试维护者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **状态：** 增量实施中；S1 稳定身份/激活闭环与 S2 Settings/按需文件预览已落地，安全 findings 由 S3、Workspace/Terminal 由 W1–W6 继续实施。
+> **状态：** 增量实施中；S1 稳定身份/激活闭环、S2 Settings/按需文件预览与 S3 内置隔离扫描/安全 findings 已落地；Sandbox 隔离的可选深度扫描器按用户范围延后，Workspace/Terminal 由 W1–W6 继续实施。
 > **上位规范：** [`frontend-ui-guidelines.md`](./frontend-ui-guidelines.md)、[`shell-and-workspace-ui-spec.md`](./shell-and-workspace-ui-spec.md)、[`button-menu-design-spec.md`](./button-menu-design-spec.md)。
 
 ---
@@ -118,6 +118,14 @@ Skills tab 需要宽内容模式，但 Settings 的导航和顶部栏不变化�
 Findings 支持严重度、类别、文件过滤；每行显示 severity、规则标题、文件:行和引擎。展开后显示证据片段、风险、修复建议、误报/例外入口。证据按文本渲染并转义。
 
 重新扫描显示实时阶段和可取消状态。远端扫描服务、VirusTotal 或 LLM 会发送数据时，操作前明确说明数据范围和隐私影响。
+
+S3 落地约束：
+
+- 安全摘要、离线隐私契约、findings 与审批历史仅在打开安全 tab 后加载；findings 按 cursor 分页，严重度切换从第一页重新请求。
+- 内置扫描不联网、不上传 hash/文件、也不调用云 LLM；UI 使用“离线分析”而非“安全认证”。未来远端信号必须有独立同意状态，不能复用本地扫描的默认值。
+- `review_required` 必须填写至少 3 个非空字符的原因后才能批准/拒绝。批准会写入 actor、reason、scope、expires/correlation 审计记录，并以 disabled 状态安装；用户需另行启用。
+- 有效批准从持久层恢复并显示“撤销批准”；撤销、到期、artifact hash、规则/策略版本或来源撤销都会转为 stale 并禁用 Switch。
+- findings 的 evidence 只展示后端持久化的脱敏文本；不渲染原始行、HTML 或可点击命令。JSON/SARIF 导出同样只包含脱敏证据并通过系统保存对话框选择位置。
 
 ## 6. 输入框下方工作区标识
 

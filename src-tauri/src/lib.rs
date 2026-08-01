@@ -49,6 +49,9 @@ pub fn run() {
 
     let db_path = config::db_path().expect("Failed to determine database path");
     let conn = db::init_database(&db_path).expect("Failed to initialize database");
+    if let Err(error) = services::skills::security::recover_startup(&conn) {
+        tracing::warn!(error = %error, "Failed to recover interrupted Skill scans");
+    }
 
     let agent_dir = sidecar::resolve_agent_working_dir();
     tracing::info!(
@@ -185,6 +188,16 @@ pub fn run() {
             commands::skills::skills_list_files,
             commands::skills::skills_read_file,
             commands::skills::skills_get_scan_summary,
+            commands::skills::skills_list_findings,
+            commands::skills::skills_get_finding,
+            commands::skills::skills_list_approvals,
+            commands::skills::skills_rescan,
+            commands::skills::skills_cancel_scan,
+            commands::skills::skills_approve_scan,
+            commands::skills::skills_reject_scan,
+            commands::skills::skills_revoke_approval,
+            commands::skills::skills_export_scan,
+            commands::skills::skills_get_scan_privacy_defaults,
             commands::skills::skills_inspect_archive,
             commands::skills::skills_install_archive,
             commands::skills::skills_search_remote,
@@ -201,6 +214,9 @@ pub fn run() {
             tracing::info!("MisakaX initialized successfully");
 
             tray::setup(app.handle())?;
+            if let Err(error) = services::skills::security::watcher::start(app.handle().clone()) {
+                tracing::warn!(error = %error, "Failed to start Skill filesystem watcher");
+            }
 
             // Backfill sessions that still lack a working directory.
             {

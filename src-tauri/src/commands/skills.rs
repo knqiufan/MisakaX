@@ -1,20 +1,26 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
 use tauri::{AppHandle, Emitter, State};
 
 use crate::config;
+use crate::contracts::{AppErrorCode, AppErrorPayload};
 use crate::services::skills::archive::inspect_archive;
 use crate::services::skills::catalog;
 use crate::services::skills::exporter::export_skill_dir;
 use crate::services::skills::file_provider::{self, SkillFileProvider};
 use crate::services::skills::installer;
+use crate::services::skills::security;
 use crate::services::skills::types::{
     InstallSource, RemoteSearchPage, RemoteSkill, RemoteSkillDetail, SkillActivationView,
-    SkillDetail, SkillFilePage, SkillFilePreview, SkillInstallResult, SkillRecord, SkillRiskReport,
+    SkillApprovalOperation, SkillApprovalRecord, SkillDetail, SkillFilePage, SkillFilePreview,
+    SkillFinding, SkillFindingPage, SkillRecord, SkillRiskReport, SkillScanOperation,
     SkillScanSummary, SkillSummary,
 };
 use crate::AppState;
+
+type SkillCommandResult<T> = Result<T, AppErrorPayload>;
 
 #[tauri::command]
 pub fn skills_list_installed(state: State<'_, AppState>) -> Result<Vec<SkillRecord>, String> {
@@ -25,10 +31,9 @@ pub fn skills_list_installed(state: State<'_, AppState>) -> Result<Vec<SkillReco
 #[tauri::command]
 pub fn skills_get_activation_view(
     state: State<'_, AppState>,
-) -> Result<SkillActivationView, String> {
-    let conn = state.db.lock().map_err(|error| error.to_string())?;
-    crate::services::skills::registry::activation_view(&conn, None)
-        .map_err(|error| error.to_string())
+) -> SkillCommandResult<SkillActivationView> {
+    let conn = state.db.lock().map_err(skill_command_error)?;
+    crate::services::skills::registry::activation_view(&conn, None).map_err(skill_command_error)
 }
 
 #[tauri::command]
@@ -86,9 +91,9 @@ pub fn skills_read_file(
 pub fn skills_get_scan_summary(
     state: State<'_, AppState>,
     skill_id: String,
-) -> Result<SkillScanSummary, String> {
-    let conn = state.db.lock().map_err(|error| error.to_string())?;
-    file_provider::get_scan_summary(&conn, &skill_id).map_err(|error| error.to_string())
+) -> SkillCommandResult<SkillScanSummary> {
+    let conn = state.db.lock().map_err(skill_command_error)?;
+    file_provider::get_scan_summary(&conn, &skill_id).map_err(skill_command_error)
 }
 
 #[tauri::command]
@@ -103,13 +108,20 @@ pub fn skills_install_archive(
     app: AppHandle,
     state: State<'_, AppState>,
     path: String,
-) -> Result<SkillInstallResult, String> {
-    let conn = state.db.lock().map_err(|error| error.to_string())?;
-    let result = installer::install_local_archive(&conn, &PathBuf::from(path), local_source())
-        .map_err(|error| error.to_string())?;
-    let generation = crate::db::repository::SkillSourceRepo::generation(&conn)
-        .map_err(|error| error.to_string())?;
-    emit_change(&app, "installed", &result.skill.skill_id, Some(generation));
+) -> SkillCommandResult<SkillScanOperation> {
+    let conn = state.db.lock().map_err(skill_command_error)?;
+    let result = security::scan_and_install_archive(
+        &conn,
+        &PathBuf::from(path),
+        local_source(),
+        |scan_id, progress| emit_scan_progress(&app, scan_id, progress),
+    )
+    .map_err(skill_command_error)?;
+    let generation =
+        crate::db::repository::SkillSourceRepo::generation(&conn).map_err(skill_command_error)?;
+    if let Some(skill) = &result.installed_skill {
+        emit_change(&app, "installed", &skill.skill_id, Some(generation));
+    }
     Ok(result)
 }
 
@@ -141,26 +153,28 @@ pub async fn skills_install_remote(
     provider: String,
     slug: String,
     version: Option<String>,
-) -> Result<SkillInstallResult, String> {
+) -> SkillCommandResult<SkillScanOperation> {
     let detail = catalog::remote_detail(&provider, &slug)
         .await
-        .map_err(|error| error.to_string())?;
-    let archive = temporary_archive_path().map_err(|error| error.to_string())?;
+        .map_err(skill_command_error)?;
+    let archive = temporary_archive_path().map_err(skill_command_error)?;
     let download =
         catalog::download_registry_archive(&provider, &slug, version.as_deref(), &archive).await;
     if let Err(error) = download {
         let _ = fs::remove_file(&archive);
-        return Err(error.to_string());
+        return Err(skill_command_error(error));
     }
     let source = registry_source(&detail, version);
     let result =
-        install_remote_archive(&state, &archive, source).map_err(|error| error.to_string())?;
-    emit_change(
-        &app,
-        "installed",
-        &result.skill.skill_id,
-        current_generation(&state),
-    );
+        install_remote_archive(&app, &state, &archive, source).map_err(skill_command_error)?;
+    if let Some(skill) = &result.installed_skill {
+        emit_change(
+            &app,
+            "installed",
+            &skill.skill_id,
+            current_generation(&state),
+        );
+    }
     Ok(result)
 }
 
@@ -169,21 +183,167 @@ pub async fn skills_import_modelscope(
     app: AppHandle,
     state: State<'_, AppState>,
     reference: String,
-) -> Result<SkillInstallResult, String> {
-    let archive = temporary_archive_path().map_err(|error| error.to_string())?;
+) -> SkillCommandResult<SkillScanOperation> {
+    let archive = temporary_archive_path().map_err(skill_command_error)?;
     let remote = catalog::download_modelscope_archive(&reference, &archive)
         .await
-        .map_err(|error| error.to_string())?;
+        .map_err(skill_command_error)?;
     let source = modelscope_source(&remote);
     let result =
-        install_remote_archive(&state, &archive, source).map_err(|error| error.to_string())?;
+        install_remote_archive(&app, &state, &archive, source).map_err(skill_command_error)?;
+    if let Some(skill) = &result.installed_skill {
+        emit_change(
+            &app,
+            "installed",
+            &skill.skill_id,
+            current_generation(&state),
+        );
+    }
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn skills_list_findings(
+    state: State<'_, AppState>,
+    scan_id: String,
+    severity: Option<String>,
+    cursor: Option<String>,
+    limit: Option<u32>,
+) -> SkillCommandResult<SkillFindingPage> {
+    let conn = state.db.lock().map_err(skill_command_error)?;
+    crate::db::repository::SkillSecurityRepo::list_findings(
+        &conn,
+        &scan_id,
+        severity.as_deref(),
+        cursor.as_deref(),
+        limit.unwrap_or(50),
+    )
+    .map_err(skill_command_error)
+}
+
+#[tauri::command]
+pub fn skills_get_finding(
+    state: State<'_, AppState>,
+    scan_id: String,
+    finding_id: String,
+) -> SkillCommandResult<SkillFinding> {
+    let conn = state.db.lock().map_err(skill_command_error)?;
+    crate::db::repository::SkillSecurityRepo::get_finding(&conn, &scan_id, &finding_id)
+        .map_err(skill_command_error)
+}
+
+#[tauri::command]
+pub fn skills_list_approvals(
+    state: State<'_, AppState>,
+    scan_id: String,
+) -> SkillCommandResult<Vec<SkillApprovalRecord>> {
+    let conn = state.db.lock().map_err(skill_command_error)?;
+    crate::db::repository::SkillSecurityRepo::list_approvals(&conn, &scan_id)
+        .map_err(skill_command_error)
+}
+
+#[tauri::command]
+pub fn skills_rescan(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    skill_id: String,
+) -> SkillCommandResult<SkillScanOperation> {
+    let conn = state.db.lock().map_err(skill_command_error)?;
+    installer::list_installed(&conn).map_err(skill_command_error)?;
+    let record = crate::db::repository::SkillSourceRepo::find(&conn, &skill_id)
+        .map_err(skill_command_error)?
+        .ok_or_else(|| {
+            skill_command_error("SKILL_SCAN_REQUIRED: Skill source is not registered")
+        })?;
+    let result = security::scan_existing_source(&conn, &record, |scan_id, progress| {
+        emit_scan_progress(&app, scan_id, progress)
+    })
+    .map_err(skill_command_error)?;
     emit_change(
         &app,
-        "installed",
-        &result.skill.skill_id,
-        current_generation(&state),
+        "scan_completed",
+        &skill_id,
+        crate::db::repository::SkillSourceRepo::generation(&conn).ok(),
     );
     Ok(result)
+}
+
+#[tauri::command]
+pub fn skills_cancel_scan(state: State<'_, AppState>, scan_id: String) -> SkillCommandResult<bool> {
+    let signalled = security::coordinator().cancel(&scan_id);
+    let conn = state.db.lock().map_err(skill_command_error)?;
+    security::cancel_scan(&conn, &scan_id)
+        .map(|persisted| signalled || persisted)
+        .map_err(skill_command_error)
+}
+
+#[tauri::command]
+pub fn skills_approve_scan(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    scan_id: String,
+    actor: String,
+    reason: String,
+    expires_at: Option<String>,
+) -> SkillCommandResult<SkillApprovalOperation> {
+    let conn = state.db.lock().map_err(skill_command_error)?;
+    let (approval, operation) =
+        security::approve_scan(&conn, &scan_id, &actor, &reason, expires_at.as_deref())
+            .map_err(skill_command_error)?;
+    if let Some(skill) = &operation.installed_skill {
+        emit_change(
+            &app,
+            "scan_approved",
+            &skill.skill_id,
+            crate::db::repository::SkillSourceRepo::generation(&conn).ok(),
+        );
+    }
+    Ok(SkillApprovalOperation {
+        approval,
+        operation,
+    })
+}
+
+#[tauri::command]
+pub fn skills_reject_scan(
+    state: State<'_, AppState>,
+    scan_id: String,
+    actor: String,
+    reason: String,
+) -> SkillCommandResult<SkillApprovalRecord> {
+    let conn = state.db.lock().map_err(skill_command_error)?;
+    security::reject_scan(&conn, &scan_id, &actor, &reason).map_err(skill_command_error)
+}
+
+#[tauri::command]
+pub fn skills_revoke_approval(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    approval_id: String,
+    skill_id: String,
+) -> SkillCommandResult<()> {
+    let conn = state.db.lock().map_err(skill_command_error)?;
+    let generation =
+        security::revoke_approval(&conn, &approval_id, &skill_id).map_err(skill_command_error)?;
+    emit_change(&app, "approval_revoked", &skill_id, Some(generation));
+    Ok(())
+}
+
+#[tauri::command]
+pub fn skills_export_scan(
+    state: State<'_, AppState>,
+    scan_id: String,
+    format: String,
+    destination: String,
+) -> SkillCommandResult<()> {
+    let conn = state.db.lock().map_err(skill_command_error)?;
+    security::export_scan(&conn, &scan_id, &format, &PathBuf::from(destination))
+        .map_err(skill_command_error)
+}
+
+#[tauri::command]
+pub fn skills_get_scan_privacy_defaults() -> serde_json::Value {
+    security::privacy_defaults()
 }
 
 #[tauri::command]
@@ -224,10 +384,10 @@ pub fn skills_set_enabled(
     state: State<'_, AppState>,
     identifier: String,
     enabled: bool,
-) -> Result<(), String> {
-    let conn = state.db.lock().map_err(|error| error.to_string())?;
+) -> SkillCommandResult<()> {
+    let conn = state.db.lock().map_err(skill_command_error)?;
     let (skill_id, generation) =
-        installer::set_enabled(&conn, &identifier, enabled).map_err(|error| error.to_string())?;
+        installer::set_enabled(&conn, &identifier, enabled).map_err(skill_command_error)?;
     emit_change(
         &app,
         if enabled { "enabled" } else { "disabled" },
@@ -286,21 +446,26 @@ fn modelscope_source(remote: &RemoteSkill) -> InstallSource {
 }
 
 fn install_remote_archive(
+    app: &AppHandle,
     state: &State<'_, AppState>,
     archive: &PathBuf,
     source: InstallSource,
-) -> anyhow::Result<SkillInstallResult> {
+) -> anyhow::Result<SkillScanOperation> {
     let conn = state
         .db
         .lock()
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-    let result = installer::install_local_archive(&conn, archive, source);
+    let result = security::scan_and_install_archive(&conn, archive, source, |scan_id, progress| {
+        emit_scan_progress(app, scan_id, progress)
+    });
     let _ = fs::remove_file(archive);
     result
 }
 
 fn temporary_archive_path() -> anyhow::Result<PathBuf> {
-    let directory = config::skills_staging_dir()?.join("downloads");
+    let directory = config::skills_quarantine_dir()?
+        .join("incoming")
+        .join(uuid::Uuid::new_v4().to_string());
     fs::create_dir_all(&directory)?;
     Ok(directory.join(format!("{}.zip", uuid::Uuid::new_v4())))
 }
@@ -314,4 +479,82 @@ fn emit_change(app: &AppHandle, action: &str, skill_id: &str, generation: Option
             "generation": generation,
         }),
     );
+}
+
+fn emit_scan_progress(app: &AppHandle, scan_id: &str, progress: u8) {
+    let _ = app.emit(
+        "skills:scan-progress",
+        serde_json::json!({
+            "scan_id": scan_id,
+            "progress": progress,
+        }),
+    );
+}
+
+fn skill_command_error(error: impl ToString) -> AppErrorPayload {
+    let message = error.to_string();
+    let (code, message_key, retryable) = if message.contains("SKILL_DISABLED")
+        || message.to_ascii_lowercase().contains("is disabled")
+    {
+        (AppErrorCode::SkillDisabled, "errors.skillDisabled", false)
+    } else if message.contains("SKILL_APPROVAL_EXPIRED") {
+        (
+            AppErrorCode::SkillApprovalExpired,
+            "errors.skillApprovalExpired",
+            false,
+        )
+    } else if message.contains("SKILL_SCAN_STALE") {
+        (AppErrorCode::SkillScanStale, "errors.skillScanStale", true)
+    } else if message.contains("SKILL_REVIEW_REQUIRED") {
+        (
+            AppErrorCode::SkillReviewRequired,
+            "errors.skillReviewRequired",
+            false,
+        )
+    } else if message.contains("SKILL_POLICY_BLOCKED") {
+        (
+            AppErrorCode::SkillPolicyBlocked,
+            "errors.skillPolicyBlocked",
+            false,
+        )
+    } else if message.contains("SCAN_CANCELLED") {
+        (
+            AppErrorCode::SkillScanCancelled,
+            "errors.skillScanCancelled",
+            true,
+        )
+    } else if message.contains("SCAN_TIMEOUT") || message.contains("SCAN_QUEUE_TIMEOUT") {
+        (
+            AppErrorCode::SkillScanTimeout,
+            "errors.skillScanTimeout",
+            true,
+        )
+    } else if message.contains("SKILL_QUARANTINE_QUOTA") {
+        (
+            AppErrorCode::SkillQuarantineQuota,
+            "errors.skillQuarantineQuota",
+            true,
+        )
+    } else if message.contains("SKILL_SCAN_REQUIRED") {
+        (
+            AppErrorCode::SkillScanRequired,
+            "errors.skillScanRequired",
+            true,
+        )
+    } else if message.contains("path") || message.contains("archive") {
+        (
+            AppErrorCode::SkillPathInvalid,
+            "errors.skillPathInvalid",
+            false,
+        )
+    } else {
+        (AppErrorCode::InternalError, "errors.internal", false)
+    };
+    AppErrorPayload {
+        code,
+        message_key: message_key.to_string(),
+        params: BTreeMap::new(),
+        retryable,
+        correlation_id: uuid::Uuid::new_v4().to_string(),
+    }
 }

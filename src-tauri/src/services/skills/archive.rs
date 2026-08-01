@@ -116,7 +116,12 @@ fn reject_symlink(file: &zip::read::ZipFile<'_>) -> Result<()> {
 
 fn safe_relative_path(raw: &str) -> Result<PathBuf> {
     let path = Path::new(raw);
-    if path.is_absolute() || raw.contains('\\') {
+    if path.is_absolute()
+        || raw.contains('\\')
+        || raw.contains(':')
+        || raw.contains('\0')
+        || contains_unsafe_unicode(raw)
+    {
         bail!("Skill archive contains an unsafe path")
     }
     let safe = path
@@ -125,7 +130,45 @@ fn safe_relative_path(raw: &str) -> Result<PathBuf> {
     if !safe {
         bail!("Skill archive contains a path traversal entry")
     }
+    for component in raw.split('/') {
+        if component.ends_with(['.', ' ']) || is_reserved_windows_name(component) {
+            bail!("Skill archive contains a platform-ambiguous path")
+        }
+    }
     Ok(path.to_path_buf())
+}
+
+fn is_reserved_windows_name(component: &str) -> bool {
+    let stem = component
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .trim_end_matches(['.', ' '])
+        .to_ascii_uppercase();
+    matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || stem
+            .strip_prefix("COM")
+            .or_else(|| stem.strip_prefix("LPT"))
+            .is_some_and(|suffix| {
+                matches!(suffix, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
+            })
+}
+
+fn contains_unsafe_unicode(value: &str) -> bool {
+    value.chars().any(|character| {
+        matches!(
+            character,
+            '\u{061c}'
+                | '\u{200b}'
+                | '\u{200c}'
+                | '\u{200d}'
+                | '\u{200e}'
+                | '\u{200f}'
+                | '\u{202a}'..='\u{202e}'
+                | '\u{2060}'..='\u{2069}'
+                | '\u{feff}'
+        )
+    })
 }
 
 fn check_entry_limits(size: u64, compressed: u64, total: u64) -> Result<()> {
@@ -314,13 +357,17 @@ fn sha256_file(path: &Path) -> Result<String> {
 mod tests {
     use std::path::PathBuf;
 
-    use super::{resolve_root_prefix, safe_relative_path, ArchiveEntry};
+    use super::{check_entry_limits, resolve_root_prefix, safe_relative_path, ArchiveEntry};
 
     #[test]
     fn rejects_absolute_and_traversal_archive_paths() {
         assert!(safe_relative_path("../SKILL.md").is_err());
         assert!(safe_relative_path("/SKILL.md").is_err());
         assert!(safe_relative_path("nested\\SKILL.md").is_err());
+        assert!(safe_relative_path("notes.txt:payload").is_err());
+        assert!(safe_relative_path("CON/readme.md").is_err());
+        assert!(safe_relative_path("hidden. /readme.md").is_err());
+        assert!(safe_relative_path("safe/\u{202e}txt.exe").is_err());
     }
 
     #[test]
@@ -341,5 +388,12 @@ mod tests {
             resolve_root_prefix(&entries).unwrap(),
             Some("code-review".to_string())
         );
+    }
+
+    #[test]
+    fn rejects_zip_bomb_ratio_and_total_expansion() {
+        assert!(check_entry_limits(101, 1, 101).is_err());
+        assert!(check_entry_limits(1, 1, 100 * 1024 * 1024 + 1).is_err());
+        assert!(check_entry_limits(100, 1, 100).is_ok());
     }
 }

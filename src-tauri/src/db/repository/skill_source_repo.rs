@@ -101,11 +101,7 @@ impl SkillSourceRepo {
         let rank = source_rank(&source_kind, is_managed);
         let risk_json = serde_json::to_string(&record.risk)?;
         let initial_enabled = if is_managed { record.enabled } else { false };
-        let initial_security = if is_managed {
-            "legacy_allowed"
-        } else {
-            "pending_user"
-        };
+        let initial_security = record.security_state.as_str();
         conn.execute(
             "INSERT INTO skill_sources (
                 skill_id, slug, name, description, version, source_kind,
@@ -127,7 +123,7 @@ impl SkillSourceRepo {
                 END,
                 security_state = CASE
                     WHEN skill_sources.artifact_hash != excluded.artifact_hash
-                      THEN 'pending_user'
+                      THEN 'stale'
                     ELSE skill_sources.security_state
                 END,
                 disabled_reason = CASE
@@ -216,11 +212,7 @@ impl SkillSourceRepo {
         if enabled && record.health != "healthy" {
             bail!("Cannot enable a missing or corrupted Skill source")
         }
-        let security_state = if enabled && record.security_state == "pending_user" {
-            "user_allowed"
-        } else {
-            record.security_state.as_str()
-        };
+        let security_state = record.security_state.as_str();
         let changed = conn.execute(
             "UPDATE skill_sources
              SET user_enabled = ?1, security_state = ?2,
@@ -323,7 +315,7 @@ impl SkillSourceRepo {
                 && record.health == "healthy"
                 && matches!(
                     record.security_state.as_str(),
-                    "legacy_allowed" | "user_allowed"
+                    "legacy_allowed" | "passed" | "warnings" | "approved"
                 );
             record.effective_active = eligible && winners.insert(record.slug.clone());
             if record.conflict && eligible && !record.effective_active {
@@ -413,7 +405,7 @@ mod tests {
         let rediscovered = SkillSourceRepo::find(&conn, &skill_id).unwrap().unwrap();
         assert_eq!(rediscovered_id, skill_id);
         assert!(rediscovered.enabled);
-        assert_eq!(rediscovered.security_state, "user_allowed");
+        assert_eq!(rediscovered.security_state, "pending_user");
         assert_eq!(rediscovered.description, "Updated description");
     }
 
@@ -421,7 +413,8 @@ mod tests {
     fn conflict_resolution_activates_only_the_highest_ranked_source() {
         let conn = database();
         let managed = record("shared", "local", "C:/managed/shared", true);
-        let codex = record("shared", "codex", "C:/codex/shared", true);
+        let mut codex = record("shared", "codex", "C:/codex/shared", true);
+        codex.security_state = "passed".to_string();
         let (managed_id, _) =
             SkillSourceRepo::upsert_source(&conn, &managed, &managed.installed_path, true).unwrap();
         let (codex_id, _) =
@@ -472,7 +465,7 @@ mod tests {
         SkillSourceRepo::upsert_source(&conn, &changed, &changed.installed_path, false).unwrap();
         let invalidated = SkillSourceRepo::find(&conn, &skill_id).unwrap().unwrap();
         assert!(!invalidated.enabled);
-        assert_eq!(invalidated.security_state, "pending_user");
+        assert_eq!(invalidated.security_state, "stale");
         assert_eq!(
             invalidated.disabled_reason.as_deref(),
             Some("artifact_changed")
@@ -551,7 +544,11 @@ mod tests {
             effective_rank: 0,
             conflict: false,
             disabled_reason: None,
-            security_state: "legacy_allowed".to_string(),
+            security_state: if source == "local" {
+                "legacy_allowed".to_string()
+            } else {
+                "pending_user".to_string()
+            },
             risk: SkillRiskReport::default(),
             installed_at: String::new(),
             updated_at: String::new(),

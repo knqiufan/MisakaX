@@ -162,7 +162,7 @@ fn test_migration_idempotent() {
             row.get(0)
         })
         .unwrap();
-    assert_eq!(version, 11);
+    assert_eq!(version, 12);
 }
 
 #[test]
@@ -232,6 +232,86 @@ fn test_v11_skill_fixture_survives_forward_idempotent_migration_and_rollback() {
     assert_eq!(selected_id, stable_id);
     assert_eq!(slug_snapshot, "legacy-skill");
     assert_eq!(hash_snapshot, "abc123");
+}
+
+#[test]
+fn test_v12_security_schema_enforces_scan_and_finding_contracts() {
+    let conn = create_test_db();
+    run_migrations(&conn).unwrap();
+    conn.execute(
+        "INSERT INTO skill_artifacts (
+            artifact_hash, size_bytes, source_json, quarantine_path, state
+         ) VALUES ('hash-v12', 12, '{}', 'C:/quarantine/hash-v12', 'quarantined')",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO skill_scan_runs (
+            scan_id, artifact_hash, state, engine_versions_json,
+            policy_version, correlation_id
+         ) VALUES ('scan-v12', 'hash-v12', 'queued', '{}', 'balanced-v1', 'corr-v12')",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO skill_findings (
+            finding_id, scan_id, engine, rule_id, severity, category,
+            title, detail, fingerprint
+         ) VALUES (
+            'finding-v12', 'scan-v12', 'builtin', 'RULE-1', 'high',
+            'command_execution', 'Dangerous command', 'Redacted detail', 'fp-v12'
+         )",
+        [],
+    )
+    .unwrap();
+
+    let invalid = conn.execute(
+        "UPDATE skill_scan_runs SET state = 'made-up' WHERE scan_id = 'scan-v12'",
+        [],
+    );
+    assert!(invalid.is_err());
+    let scan_column: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('skill_sources') WHERE name = 'current_scan_id'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(scan_column, 1);
+}
+
+#[test]
+fn test_v12_upgrade_backup_restores_v11_without_security_tables() {
+    let temporary = tempfile::tempdir().unwrap();
+    let db_path = temporary.path().join("misaka.db");
+    let conn = Connection::open(&db_path).unwrap();
+    conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+    run_migrations_to_v11(&conn);
+
+    let backup = backup_before_migration(&conn, &db_path, 12)
+        .unwrap()
+        .expect("v11 database should be backed up");
+    run_migrations(&conn).unwrap();
+    drop(conn);
+
+    let restored = Connection::open(backup).unwrap();
+    let version: i64 = restored
+        .query_row("SELECT MAX(version) FROM _schema_version", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    let security_tables: i64 = restored
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master
+             WHERE type = 'table' AND name IN (
+                'skill_artifacts', 'skill_scan_runs', 'skill_findings', 'skill_approvals'
+             )",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(version, 11);
+    assert_eq!(security_tables, 0);
 }
 
 #[test]
@@ -437,7 +517,11 @@ fn test_migration_v6_injects_builtin_models_for_existing_router_configs() {
 fn run_migrations_to_v5(conn: &Connection) {
     run_migrations(conn).unwrap();
     conn.execute_batch(
-        "DROP TABLE message_skill_selections;
+        "DROP TABLE skill_approvals;
+         DROP TABLE skill_findings;
+         DROP TABLE skill_scan_runs;
+         DROP TABLE skill_artifacts;
+         DROP TABLE message_skill_selections;
          DROP TABLE skill_activation_state;
          DROP TABLE skill_sources;
          DROP TABLE skills;",
@@ -469,7 +553,14 @@ fn run_migrations_to_v5(conn: &Connection) {
 fn run_migrations_to_v10(conn: &Connection) {
     run_migrations(conn).unwrap();
     conn.execute_batch(
-        "DROP TABLE message_skill_selections;
+        "DROP TABLE skill_approvals;
+         DROP TABLE skill_findings;
+         DROP TABLE skill_scan_runs;
+         DROP TABLE skill_artifacts;
+         DROP INDEX idx_skill_sources_current_scan;
+         ALTER TABLE skill_sources DROP COLUMN current_scan_id;
+         DELETE FROM _schema_version WHERE version = 12;
+         DROP TABLE message_skill_selections;
          DROP TABLE skill_activation_state;
          DROP TABLE skill_sources;
          CREATE TABLE message_skill_selections (
@@ -482,6 +573,20 @@ fn run_migrations_to_v10(conn: &Connection) {
          CREATE INDEX idx_message_skill_selections_message
          ON message_skill_selections(message_id, sort_order);
          DELETE FROM _schema_version WHERE version = 11;",
+    )
+    .unwrap();
+}
+
+fn run_migrations_to_v11(conn: &Connection) {
+    run_migrations(conn).unwrap();
+    conn.execute_batch(
+        "DROP TABLE skill_approvals;
+         DROP TABLE skill_findings;
+         DROP TABLE skill_scan_runs;
+         DROP TABLE skill_artifacts;
+         DROP INDEX idx_skill_sources_current_scan;
+         ALTER TABLE skill_sources DROP COLUMN current_scan_id;
+         DELETE FROM _schema_version WHERE version = 12;",
     )
     .unwrap();
 }

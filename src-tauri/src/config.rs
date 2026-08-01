@@ -103,6 +103,13 @@ pub fn skills_staging_dir() -> Result<PathBuf> {
     Ok(config_dir()?.join("managed").join("skills-staging"))
 }
 
+/// Content-addressed and scan-scoped storage used before a Skill artifact is
+/// eligible for publication. Nothing under this root is mounted into Agent
+/// sessions.
+pub fn skills_quarantine_dir() -> Result<PathBuf> {
+    Ok(config_dir()?.join("managed").join("skills-quarantine"))
+}
+
 /// Cached remote archives used only for non-executing detail previews.
 pub fn skills_preview_cache_dir() -> Result<PathBuf> {
     Ok(config_dir()?.join("managed").join("skills-preview-cache"))

@@ -196,7 +196,12 @@ function InstalledListItem({
   onToggle?: (enabled: boolean) => void;
 }) {
   const { t } = useTranslation("skills");
-  const healthy = skill.health === "healthy";
+  const healthy = skill.health === "healthy" && [
+    "legacy_allowed",
+    "passed",
+    "warnings",
+    "approved",
+  ].includes(skill.security_state);
   return (
     <div
       aria-current={selected ? "true" : undefined}

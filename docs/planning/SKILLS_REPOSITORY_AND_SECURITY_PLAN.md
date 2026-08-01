@@ -226,28 +226,30 @@ skills_list_findings(scan_id, filter, cursor)
 
 ### 7.4 TODO
 
-- [ ] 新增 artifact/scan/finding/approval migrations、repo、索引、清理策略和 rollback 测试。
-- [ ] 实现 quarantine 配额、崩溃恢复、过期清理和原子发布。
-- [ ] 把本地 install、remote install 和 external discover 都路由到 `SkillSecurityGate`。
-- [ ] 拆分现有 `archive.rs`，保留已验证的 ZIP 安全规则并加嵌套归档/MIME/Unicode 检查。
-- [ ] 实现统一 `Finding` schema、fingerprint、severity 和 remediation。
-- [ ] 实现 Secret、危险命令、下载执行、持久化、混淆、凭据访问和权限不一致规则。
-- [ ] 建立 versioned policy config 和 `allow/review/block` 单元测试表。
-- [ ] 实现扫描队列、取消、超时、并发上限、progress 事件和应用重启恢复。
-- [ ] 实现“扫描通过 != 永久有效”：hash/规则/策略/source revocation 触发 stale。
-- [ ] 文件 watcher debounce 自动触发状态更新；选择/启用时仍同步校验 hash 防漏报。
-- [ ] 实现人工批准/拒绝/撤销，记录 actor、reason、scope、expires 和 correlation ID。
-- [ ] UI 接 findings 分页、过滤、证据、修复建议、重新扫描和隐私提示。
-- [ ] VirusTotal 只查 hash；文件上传与云 LLM 扫描默认关闭并单独确认。
-- [ ] 构建恶意/良性样本 corpus，覆盖三平台脚本、Prompt Injection、外传、持久化、混淆、路径和压缩攻击。
-- [ ] 增加 SARIF/JSON 导出，确保不泄露 Secret 原文。
-- [ ] 增加性能/DoS 测试：大树、长行、复杂正则、嵌套编码、超时与取消。
+- [x] 新增 artifact/scan/finding/approval migrations、repo、索引、清理策略和 rollback 测试。
+- [x] 实现 quarantine 配额、崩溃恢复、过期清理和原子发布。
+- [x] 把本地 install、remote install 和 external discover 都路由到 `SkillSecurityGate`。
+- [x] 拆分现有 `archive.rs`，保留已验证的 ZIP 安全规则并加嵌套归档/MIME/Unicode 检查。
+- [x] 实现统一 `Finding` schema、fingerprint、severity 和 remediation。
+- [x] 实现 Secret、危险命令、下载执行、持久化、混淆、凭据访问和权限不一致规则。
+- [x] 建立 versioned policy config 和 `allow/review/block` 单元测试表。
+- [x] 实现扫描队列、取消、超时、并发上限、progress 事件和应用重启恢复。
+- [x] 实现“扫描通过 != 永久有效”：hash/规则/策略/source revocation 触发 stale。
+- [x] 文件 watcher debounce 自动触发状态更新；选择/启用时仍同步校验 hash 防漏报。
+- [x] 实现人工批准/拒绝/撤销，记录 actor、reason、scope、expires 和 correlation ID。
+- [x] UI 接 findings 分页、过滤、证据、修复建议、重新扫描和隐私提示。
+- [x] VirusTotal 只查 hash；文件上传与云 LLM 扫描默认关闭并单独确认。
+- [x] 构建恶意/良性样本 corpus，覆盖三平台脚本、Prompt Injection、外传、持久化、混淆、路径和压缩攻击。
+- [x] 增加 SARIF/JSON 导出，确保不泄露 Secret 原文。
+- [x] 增加性能/DoS 测试：大树、长行、复杂正则、嵌套编码、超时与取消。
 
 ### 7.5 退出门
 
 - 三种来源 100% 经过 gate；通过直接调用旧 command 无法旁路。
 - 高危样本按策略阻止，良性基线误报率达到团队约定门槛。
 - 扫描器崩溃不影响主库完整性，制品不会提前进入激活目录。
+
+退出证据记录于 [`WORKSPACE_SECURITY_SKILLS_PROGRESS.md`](../project/WORKSPACE_SECURITY_SKILLS_PROGRESS.md) 的 S3 条目；第三方 deep scanner 的 Sandbox helper 隔离不属于本阶段，也未被内置扫描器绕过。
 
 ## 8. Phase S4：深度扫描器与供应链信号
 

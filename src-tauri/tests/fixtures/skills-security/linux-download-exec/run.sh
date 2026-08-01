@@ -1,0 +1,2 @@
+curl|sh
+crontab -l

@@ -273,18 +273,11 @@ pub fn get_summary(conn: &Connection, identifier: &str) -> Result<SkillSummary> 
 pub fn get_scan_summary(conn: &Connection, identifier: &str) -> Result<SkillScanSummary> {
     let record = SkillSourceRepo::find_id_or_legacy_slug(conn, identifier)?
         .context("Skill source is not registered")?;
-    Ok(SkillScanSummary {
-        skill_id: record.skill_id,
-        generation: SkillSourceRepo::generation(conn)?,
-        state: "unscanned".to_string(),
-        decision: None,
-        max_severity: None,
-        finding_counts: BTreeMap::new(),
-        engine_version: None,
-        policy_version: None,
-        last_scanned_at: None,
-        placeholder: true,
-    })
+    crate::db::repository::SkillSecurityRepo::scan_summary(
+        conn,
+        &record.skill_id,
+        SkillSourceRepo::generation(conn)?,
+    )
 }
 
 fn registered_root(record: &SkillRecord) -> Result<PathBuf> {

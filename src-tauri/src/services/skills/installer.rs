@@ -11,8 +11,8 @@ use walkdir::WalkDir;
 use crate::config;
 use crate::db::repository::{SkillRepo, SkillSourceRepo};
 
-use super::archive::{extract_archive, inspect_archive};
 use super::manifest::parse_manifest;
+use super::security::ApprovedArtifactId;
 use super::types::{
     ArchiveInspection, InstallSource, SkillDetail, SkillFileNode, SkillInstallResult, SkillRecord,
     SkillRiskReport,
@@ -24,19 +24,20 @@ pub fn install_local_archive(
     source: InstallSource,
 ) -> Result<SkillInstallResult> {
     ensure_zip_file(archive_path)?;
-    let inspection = inspect_archive(archive_path)?;
-    let stage = prepare_staging_dir()?;
-    let extract_result = extract_archive(archive_path, &stage);
-    if let Err(error) = extract_result {
-        let _ = fs::remove_dir_all(&stage);
-        return Err(error);
-    }
+    super::security::install_archive_compat(conn, archive_path, source)
+}
 
-    let result = install_staged_skill(conn, stage.clone(), inspection, source);
-    if result.is_err() {
-        let _ = fs::remove_dir_all(&stage);
+pub(crate) fn install_approved_artifact(
+    conn: &Connection,
+    approved: ApprovedArtifactId,
+    source: InstallSource,
+    force_disabled: bool,
+) -> Result<SkillInstallResult> {
+    let (_scan_id, artifact_hash, extracted_path, inspection) = approved.into_parts();
+    if inspection.checksum != artifact_hash {
+        bail!("Approved artifact capability failed hash validation")
     }
-    result
+    install_staged_skill(conn, extracted_path, inspection, source, force_disabled)
 }
 
 pub fn list_installed(conn: &Connection) -> Result<Vec<SkillRecord>> {
@@ -119,24 +120,36 @@ fn install_staged_skill(
     stage: PathBuf,
     inspection: ArchiveInspection,
     source: InstallSource,
+    force_disabled: bool,
 ) -> Result<SkillInstallResult> {
     let target = config::skills_dir()?.join(&inspection.manifest.name);
     let replaced_existing = target.exists();
     let backup = replace_target_atomically(&stage, &target)?;
-    let record = build_record(&target, &inspection, source);
-    if let Err(error) = SkillRepo::upsert(conn, &record) {
+    let record = build_record(&target, &inspection, source, force_disabled);
+    let transaction = conn.unchecked_transaction()?;
+    let persisted = (|| -> Result<SkillRecord> {
+        SkillRepo::upsert(&transaction, &record)?;
+        let mut current = record.clone();
+        current.checksum = super::registry::artifact_hash(&target)?;
+        let (skill_id, _) =
+            SkillSourceRepo::upsert_source(&transaction, &current, &current.installed_path, true)?;
+        SkillSourceRepo::find(&transaction, &skill_id)?.context("Cannot read installed skill")
+    })();
+    let persisted = match persisted {
+        Ok(persisted) => persisted,
+        Err(error) => {
+            drop(transaction);
+            restore_backup(&target, backup.as_deref());
+            return Err(error);
+        }
+    };
+    if let Err(error) = transaction.commit() {
         restore_backup(&target, backup.as_deref());
-        return Err(error);
+        return Err(error.into());
     }
-    let mut current = record.clone();
-    current.checksum = super::registry::artifact_hash(&target)?;
-    let (skill_id, _) =
-        SkillSourceRepo::upsert_source(conn, &current, &current.installed_path, true)?;
     if let Some(path) = backup {
         let _ = fs::remove_dir_all(path);
     }
-    let persisted =
-        SkillSourceRepo::find(conn, &skill_id)?.context("Cannot read installed skill")?;
     Ok(SkillInstallResult {
         skill: persisted,
         replaced_existing,
@@ -151,12 +164,6 @@ fn ensure_zip_file(path: &Path) -> Result<()> {
         bail!("Only .zip skill archives are supported")
     }
     Ok(())
-}
-
-fn prepare_staging_dir() -> Result<PathBuf> {
-    let directory = config::skills_staging_dir()?.join(uuid::Uuid::new_v4().to_string());
-    fs::create_dir_all(&directory).context("Cannot create skills staging directory")?;
-    Ok(directory)
 }
 
 fn replace_target_atomically(stage: &Path, target: &Path) -> Result<Option<PathBuf>> {
@@ -189,6 +196,7 @@ fn build_record(
     target: &Path,
     inspection: &ArchiveInspection,
     source: InstallSource,
+    force_disabled: bool,
 ) -> SkillRecord {
     SkillRecord {
         skill_id: String::new(),
@@ -201,14 +209,14 @@ fn build_record(
         source_url: source.url,
         checksum: inspection.checksum.clone(),
         installed_path: target.display().to_string(),
-        enabled: true,
+        enabled: !force_disabled,
         health: "healthy".to_string(),
         is_external: false,
-        effective_active: true,
+        effective_active: false,
         effective_rank: 400,
         conflict: false,
-        disabled_reason: None,
-        security_state: "legacy_allowed".to_string(),
+        disabled_reason: force_disabled.then(|| "review_approved".to_string()),
+        security_state: "unscanned".to_string(),
         risk: merge_risk(&inspection.risk, &source.remote_risk),
         installed_at: String::new(),
         updated_at: String::new(),

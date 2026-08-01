@@ -13,6 +13,24 @@ const mocks = vi.hoisted(() => ({
   listFiles: vi.fn(),
   readFile: vi.fn(),
   getScanSummary: vi.fn(),
+  getScanPrivacyDefaults: vi.fn(),
+  listFindings: vi.fn(),
+  listApprovals: vi.fn(),
+  rescan: vi.fn(),
+  approveScan: vi.fn(),
+  rejectScan: vi.fn(),
+  revokeApproval: vi.fn(),
+  cancelScan: vi.fn(),
+  scanProgressHandler: null as null | ((event: { payload: { scan_id: string; progress: number } }) => void),
+}));
+
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(async (_event: string, handler: typeof mocks.scanProgressHandler) => {
+    mocks.scanProgressHandler = handler;
+    return () => {
+      mocks.scanProgressHandler = null;
+    };
+  }),
 }));
 
 vi.mock("@/lib/ipc", async (importOriginal) => {
@@ -24,6 +42,14 @@ vi.mock("@/lib/ipc", async (importOriginal) => {
       listFiles: mocks.listFiles,
       readFile: mocks.readFile,
       getScanSummary: mocks.getScanSummary,
+      getScanPrivacyDefaults: mocks.getScanPrivacyDefaults,
+      listFindings: mocks.listFindings,
+      listApprovals: mocks.listApprovals,
+      rescan: mocks.rescan,
+      approveScan: mocks.approveScan,
+      rejectScan: mocks.rejectScan,
+      revokeApproval: mocks.revokeApproval,
+      cancelScan: mocks.cancelScan,
     },
   };
 });
@@ -34,7 +60,7 @@ vi.mock("@/components/ui/scroll-area", () => ({
   ),
 }));
 
-vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -53,8 +79,34 @@ describe("lazy Skill file details", () => {
     mocks.listFiles.mockReset();
     mocks.readFile.mockReset();
     mocks.getScanSummary.mockReset();
+    mocks.getScanPrivacyDefaults.mockReset();
+    mocks.listFindings.mockReset();
+    mocks.listApprovals.mockReset();
+    mocks.rescan.mockReset();
+    mocks.approveScan.mockReset();
+    mocks.rejectScan.mockReset();
+    mocks.revokeApproval.mockReset();
+    mocks.cancelScan.mockReset();
+    mocks.scanProgressHandler = null;
     mocks.listFiles.mockResolvedValue(filePage([], "folder"));
     mocks.getScanSummary.mockResolvedValue(scanSummary());
+    mocks.getScanPrivacyDefaults.mockResolvedValue({
+      virus_total_hash_lookup: false,
+      virus_total_file_upload: false,
+      cloud_llm_analysis: false,
+      network_used_by_builtin_scan: false,
+    });
+    mocks.listFindings.mockResolvedValue({ scan_id: "scan", items: [], next_cursor: null });
+    mocks.listApprovals.mockResolvedValue([]);
+    mocks.revokeApproval.mockResolvedValue(undefined);
+    mocks.cancelScan.mockResolvedValue(true);
+    mocks.rescan.mockResolvedValue({
+      scan_id: "scan",
+      artifact_hash: "hash",
+      state: "passed",
+      decision: "allow",
+      installed_skill: null,
+    });
   });
 
   it("keeps the default Files tab body-free until a file is selected", async () => {
@@ -154,7 +206,7 @@ describe("lazy Skill file details", () => {
     await screen.findByText("print('safe')");
   });
 
-  it("loads the scan placeholder only after Security is opened", async () => {
+  it("loads the real scan summary and offline privacy contract only after Security is opened", async () => {
     renderPanel([file("SKILL.md", 20)]);
     expect(mocks.getScanSummary).not.toHaveBeenCalled();
 
@@ -164,7 +216,137 @@ describe("lazy Skill file details", () => {
     fireEvent.click(securityTab);
     await screen.findByText("scanState.unscanned");
     expect(mocks.getScanSummary).toHaveBeenCalledWith("skill-id");
-    expect(screen.getByText("scanPlaceholder")).toBeTruthy();
+    expect(mocks.getScanPrivacyDefaults).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("notScannedHelp")).toBeTruthy();
+    expect(screen.getByText("scanPrivacyOffline")).toBeTruthy();
+  });
+
+  it("renders structured findings and filters them by severity", async () => {
+    mocks.getScanSummary.mockResolvedValue({
+      ...scanSummary(),
+      scan_id: "scan-findings",
+      state: "blocked",
+      decision: "block",
+      max_severity: "high",
+    });
+    mocks.listFindings.mockResolvedValue({
+      scan_id: "scan-findings",
+      items: [finding()],
+      next_cursor: null,
+    });
+    renderPanel([file("SKILL.md", 20)]);
+    openSecurityTab();
+
+    await screen.findByText("Credential access detected");
+    expect(screen.getByText("Remove credential access.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "severity.high" }));
+    await act(async () => Promise.resolve());
+    expect(mocks.listFindings).toHaveBeenLastCalledWith(
+      "scan-findings",
+      "high",
+      undefined,
+      25,
+    );
+  });
+
+  it("records a reason before approving a review-required scan", async () => {
+    mocks.getScanSummary
+      .mockResolvedValueOnce({
+        ...scanSummary(),
+        scan_id: "scan-review",
+        state: "review_required",
+        decision: "review",
+        max_severity: "medium",
+      })
+      .mockResolvedValueOnce({
+        ...scanSummary(),
+        scan_id: "scan-review",
+        state: "warnings",
+        decision: "allow",
+        max_severity: "medium",
+      });
+    mocks.approveScan.mockResolvedValue({
+      approval: { approval_id: "approval-1" },
+      operation: { installed_skill: null },
+    });
+    renderPanel([file("SKILL.md", 20)]);
+    openSecurityTab();
+
+    const reason = await screen.findByRole("textbox", { name: "approvalReason" });
+    fireEvent.change(reason, { target: { value: "Reviewed local source" } });
+    fireEvent.click(screen.getByRole("button", { name: "approveScan" }));
+    await act(async () => Promise.resolve());
+    expect(mocks.approveScan).toHaveBeenCalledWith(
+      "scan-review",
+      "local-user",
+      "Reviewed local source",
+    );
+  });
+
+  it("restores an active approval after reopening Security and can revoke it", async () => {
+    mocks.getScanSummary.mockResolvedValue({
+      ...scanSummary(),
+      scan_id: "scan-approved",
+      state: "warnings",
+      decision: "allow",
+      max_severity: "medium",
+    });
+    mocks.listApprovals.mockResolvedValue([{
+      approval_id: "approval-existing",
+      artifact_hash: "hash",
+      scan_id: "scan-approved",
+      subject: "hash",
+      decision: "approve",
+      actor: "local-user",
+      reason: "Reviewed local source",
+      scope: "artifact",
+      expires_at: null,
+      revoked_at: null,
+      correlation_id: "correlation",
+      created_at: "2026-08-01T00:00:00Z",
+    }]);
+    renderPanel([file("SKILL.md", 20)]);
+    openSecurityTab();
+
+    const revoke = await screen.findByRole("button", { name: "revokeApproval" });
+    fireEvent.click(revoke);
+    await act(async () => Promise.resolve());
+    expect(mocks.revokeApproval).toHaveBeenCalledWith("approval-existing", "skill-id");
+  });
+
+  it("shows live scan progress and sends cancellation for the active scan", async () => {
+    let resolveRescan: (value: unknown) => void = () => undefined;
+    mocks.rescan.mockImplementation(() => new Promise((resolve) => {
+      resolveRescan = resolve;
+    }));
+    mocks.getScanSummary.mockResolvedValue({
+      ...scanSummary(),
+      scan_id: "scan-old",
+      state: "passed",
+      decision: "allow",
+    });
+    renderPanel([file("SKILL.md", 20)]);
+    openSecurityTab();
+    await screen.findByText("scanState.passed");
+    fireEvent.click(screen.getByRole("button", { name: "rescan" }));
+    await act(async () => {
+      mocks.scanProgressHandler?.({ payload: { scan_id: "scan-live", progress: 42 } });
+    });
+
+    expect(screen.getByRole("progressbar", { name: "scanProgress" }).getAttribute("aria-valuenow"))
+      .toBe("42");
+    fireEvent.click(screen.getByRole("button", { name: "cancelScan" }));
+    await act(async () => Promise.resolve());
+    expect(mocks.cancelScan).toHaveBeenCalledWith("scan-live");
+    await act(async () => {
+      resolveRescan({
+        scan_id: "scan-live",
+        artifact_hash: "hash",
+        state: "cancelled",
+        decision: "block",
+        installed_skill: null,
+      });
+    });
   });
 
   it("keeps a 500-entry tree within the interaction performance budget", () => {
@@ -306,6 +488,7 @@ function scanSummary(): SkillScanSummary {
   return {
     skill_id: "skill-id",
     generation: 3,
+    scan_id: null,
     state: "unscanned",
     decision: null,
     max_severity: null,
@@ -313,6 +496,32 @@ function scanSummary(): SkillScanSummary {
     engine_version: null,
     policy_version: null,
     last_scanned_at: null,
-    placeholder: true,
+    placeholder: false,
   };
+}
+
+function finding() {
+  return {
+    finding_id: "finding-1",
+    scan_id: "scan-findings",
+    engine: "builtin",
+    rule_id: "CREDENTIAL-ACCESS",
+    severity: "high",
+    category: "credential_access",
+    file_path: "SKILL.md",
+    line_start: 8,
+    line_end: 8,
+    title: "Credential access detected",
+    detail: "Credential material may be read.",
+    remediation: "Remove credential access.",
+    fingerprint: "fingerprint",
+    evidence_redacted: "[REDACTED]",
+  };
+}
+
+function openSecurityTab() {
+  const securityTab = screen.getByRole("tab", { name: "securityTab" });
+  fireEvent.pointerDown(securityTab, { button: 0, ctrlKey: false });
+  fireEvent.mouseDown(securityTab, { button: 0 });
+  fireEvent.click(securityTab);
 }

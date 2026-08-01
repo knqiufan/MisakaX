@@ -13,7 +13,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { skillsIpc } from "@/lib/ipc";
-import type { InstalledSkill, RemoteSkill, SkillArchiveInspection } from "@/lib/ipc";
+import type {
+  InstalledSkill,
+  RemoteSkill,
+  SkillArchiveInspection,
+  SkillFinding,
+  SkillScanOperation,
+} from "@/lib/ipc";
 
 interface DialogControl {
   open: boolean;
@@ -40,6 +46,7 @@ function UploadSkillForm({ onOpenChange, onComplete }: DialogControl) {
   const { t } = useTranslation("skills");
   const [path, setPath] = useState<string | null>(null);
   const [inspection, setInspection] = useState<SkillArchiveInspection | null>(null);
+  const [pendingScan, setPendingScan] = useState<SkillScanOperation | null>(null);
   const [busy, setBusy] = useState(false);
   const chooseArchive = async () => {
     const selected = await dialogOpen({ multiple: false, filters: [{ name: "ZIP", extensions: ["zip"] }] });
@@ -56,17 +63,26 @@ function UploadSkillForm({ onOpenChange, onComplete }: DialogControl) {
     if (!path || !inspection) return;
     await runAction(setBusy, async () => {
       const result = await skillsIpc.installArchive(path);
-      onComplete(result.skill);
-      onOpenChange(false);
+      finishOrReview(result, setPendingScan, onComplete, onOpenChange);
     }, t);
   };
   return (
     <>
       <ArchivePicker path={path} inspection={inspection} busy={busy} onChoose={chooseArchive} onInspect={inspect} />
+      {pendingScan ? (
+        <PendingScanReview
+          operation={pendingScan}
+          onApproved={(skill) => {
+            onComplete(skill);
+            onOpenChange(false);
+          }}
+          onClose={() => onOpenChange(false)}
+        />
+      ) : null}
       <p className="text-xs text-muted-foreground">{t("replaceNotice")}</p>
       <DialogFooter>
         <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>{t("cancel")}</Button>
-        <Button onClick={install} disabled={!inspection || busy}>{t(busy ? "installing" : "confirmInstall")}</Button>
+        <Button onClick={install} disabled={!inspection || busy || Boolean(pendingScan)}>{t(busy ? "installing" : "confirmInstall")}</Button>
       </DialogFooter>
     </>
   );
@@ -124,20 +140,30 @@ function ModelScopeImportForm({ onOpenChange, onComplete }: DialogControl) {
   const { t } = useTranslation("skills");
   const [reference, setReference] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pendingScan, setPendingScan] = useState<SkillScanOperation | null>(null);
   const importSkill = async () => {
     if (!reference.trim()) return;
     await runAction(setBusy, async () => {
       const result = await skillsIpc.importModelScope(reference);
-      onComplete(result.skill);
-      onOpenChange(false);
+      finishOrReview(result, setPendingScan, onComplete, onOpenChange);
     }, t);
   };
   return (
     <>
       <Input value={reference} onChange={(event) => setReference(event.target.value)} placeholder={t("modelscopePlaceholder")} />
+      {pendingScan ? (
+        <PendingScanReview
+          operation={pendingScan}
+          onApproved={(skill) => {
+            onComplete(skill);
+            onOpenChange(false);
+          }}
+          onClose={() => onOpenChange(false)}
+        />
+      ) : null}
       <DialogFooter>
         <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>{t("cancel")}</Button>
-        <Button onClick={importSkill} disabled={!reference.trim() || busy}>{t(busy ? "installing" : "import")}</Button>
+        <Button onClick={importSkill} disabled={!reference.trim() || busy || Boolean(pendingScan)}>{t(busy ? "installing" : "import")}</Button>
       </DialogFooter>
     </>
   );
@@ -188,7 +214,11 @@ export function RemoteInstallDialog({
 }) {
   const { t } = useTranslation("skills");
   const [busy, setBusy] = useState(false);
-  useEffect(() => setBusy(false), [skill, open]);
+  const [pendingScan, setPendingScan] = useState<SkillScanOperation | null>(null);
+  useEffect(() => {
+    setBusy(false);
+    setPendingScan(null);
+  }, [skill, open]);
   const install = async () => {
     if (!skill) return;
     await runAction(setBusy, async () => {
@@ -197,18 +227,129 @@ export function RemoteInstallDialog({
         skill.slug,
         skill.version ?? undefined
       );
-      onComplete(result.skill);
-      onOpenChange(false);
+      finishOrReview(result, setPendingScan, onComplete, onOpenChange);
     }, t);
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>{t("installTitle", { name: skill?.display_name ?? "" })}</DialogTitle><DialogDescription>{t("installDescription")}</DialogDescription></DialogHeader>
-        <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>{t("cancel")}</Button><Button onClick={install} disabled={busy}>{t(busy ? "installing" : "confirmInstall")}</Button></DialogFooter>
+        {pendingScan ? (
+          <PendingScanReview
+            operation={pendingScan}
+            onApproved={(installed) => {
+              onComplete(installed);
+              onOpenChange(false);
+            }}
+            onClose={() => onOpenChange(false)}
+          />
+        ) : null}
+        <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>{t("cancel")}</Button><Button onClick={install} disabled={busy || Boolean(pendingScan)}>{t(busy ? "installing" : "confirmInstall")}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   );
+}
+
+function PendingScanReview({
+  operation,
+  onApproved,
+  onClose,
+}: {
+  operation: SkillScanOperation;
+  onApproved: (skill: InstalledSkill) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation("skills");
+  const [findings, setFindings] = useState<SkillFinding[]>([]);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void skillsIpc
+      .listFindings(operation.scan_id, undefined, undefined, 20)
+      .then((page) => {
+        if (active) setFindings(page.items);
+      })
+      .catch((error) => {
+        if (active) toast.error(String(error));
+      });
+    return () => {
+      active = false;
+    };
+  }, [operation.scan_id]);
+  const approve = async () => {
+    await runAction(setBusy, async () => {
+      const result = await skillsIpc.approveScan(
+        operation.scan_id,
+        "local-user",
+        reason.trim(),
+      );
+      if (result.operation.installed_skill) onApproved(result.operation.installed_skill);
+    }, t);
+  };
+  const reject = async () => {
+    await runAction(setBusy, async () => {
+      await skillsIpc.rejectScan(operation.scan_id, "local-user", reason.trim());
+      onClose();
+    }, t);
+  };
+  return (
+    <section className="rounded-lg border border-border/70 bg-muted/25 p-3" aria-live="polite">
+      <p className="text-sm font-medium text-foreground">
+        {t(`scanState.${operation.state}`)}
+      </p>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        {operation.state === "review_required" ? t("reviewRequiredHelp") : t("scanBlockedHelp")}
+      </p>
+      {findings.length > 0 ? (
+        <ul className="mt-3 max-h-32 space-y-1 overflow-auto text-xs text-muted-foreground">
+          {findings.map((finding) => (
+            <li key={finding.finding_id}>
+              <span className="font-medium uppercase text-foreground">{finding.severity}</span>
+              {" · "}{finding.title}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {operation.state === "review_required" ? (
+        <>
+          <Input
+            className="mt-3"
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder={t("approvalReasonPlaceholder")}
+            aria-label={t("approvalReason")}
+          />
+          <div className="mt-3 flex justify-end gap-2">
+            <Button size="sm" variant="outline" disabled={busy || reason.trim().length < 3} onClick={reject}>
+              {t("rejectScan")}
+            </Button>
+            <Button size="sm" disabled={busy || reason.trim().length < 3} onClick={approve}>
+              {t("approveScan")}
+            </Button>
+          </div>
+        </>
+      ) : (
+        <div className="mt-3 flex justify-end">
+          <Button size="sm" variant="outline" onClick={onClose}>{t("close")}</Button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function finishOrReview(
+  operation: SkillScanOperation,
+  setPending: (operation: SkillScanOperation) => void,
+  onComplete: (skill: InstalledSkill) => void,
+  onOpenChange: (open: boolean) => void,
+) {
+  if (operation.installed_skill) {
+    onComplete(operation.installed_skill);
+    onOpenChange(false);
+  } else {
+    setPending(operation);
+  }
 }
 
 async function runAction(

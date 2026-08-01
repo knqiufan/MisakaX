@@ -16,10 +16,15 @@ import {
   PackageOpen,
   ShieldAlert,
   ShieldCheck,
+  RefreshCw,
+  Download,
 } from "lucide-react";
+import { save as dialogSave } from "@tauri-apps/plugin-dialog";
+import { listen } from "@tauri-apps/api/event";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { skillsIpc } from "@/lib/ipc";
@@ -29,7 +34,9 @@ import type {
   SkillFileEntry,
   SkillFilePage,
   SkillFilePreview,
+  SkillFinding,
   SkillRiskReport,
+  SkillScanPrivacyDefaults,
   SkillScanSummary,
   SkillSummary,
 } from "@/lib/ipc";
@@ -65,6 +72,7 @@ export function SkillDetailPanel({
   const [activeTab, setActiveTab] = useState("files");
   const [scanSummary, setScanSummary] = useState<SkillScanSummary | null>(null);
   const [scanLoading, setScanLoading] = useState(false);
+  const [privacyDefaults, setPrivacyDefaults] = useState<SkillScanPrivacyDefaults | null>(null);
   const scanRequestId = useRef(0);
   const detailId = detailIdentity(detail);
 
@@ -72,6 +80,7 @@ export function SkillDetailPanel({
     setActiveTab("files");
     setScanSummary(null);
     setScanLoading(false);
+    setPrivacyDefaults(null);
     scanRequestId.current += 1;
   }, [detailId]);
 
@@ -83,14 +92,17 @@ export function SkillDetailPanel({
       }
       const requestId = ++scanRequestId.current;
       setScanLoading(true);
-      void skillsIpc
-        .getScanSummary(detail.skill.skill_id)
-        .then((summary) => {
+      void Promise.all([
+        skillsIpc.getScanSummary(detail.skill.skill_id),
+        skillsIpc.getScanPrivacyDefaults(),
+      ])
+        .then(([summary, privacy]) => {
           if (
             requestId === scanRequestId.current &&
             summary.generation === detail.generation
           ) {
             setScanSummary(summary);
+            setPrivacyDefaults(privacy);
           }
         })
         .catch((error) => {
@@ -160,10 +172,14 @@ export function SkillDetailPanel({
           <ScrollArea className="h-full min-h-0">
             <div className="space-y-5 p-4 pb-8">
               <SecurityPanel
+                skillId={installed ? detail.skill.skill_id : null}
                 risk={installed ? detail.skill.risk : detail.risk}
                 scanSummary={scanSummary}
                 loading={scanLoading}
                 remote={!installed}
+                privacyDefaults={privacyDefaults}
+                onSummaryChange={setScanSummary}
+                onLoadingChange={setScanLoading}
               />
             </div>
           </ScrollArea>
@@ -646,17 +662,178 @@ function RemoteFilesEmpty() {
 }
 
 function SecurityPanel({
+  skillId,
   risk,
   scanSummary,
   loading,
   remote,
+  privacyDefaults,
+  onSummaryChange,
+  onLoadingChange,
 }: {
+  skillId: string | null;
   risk: SkillRiskReport;
   scanSummary: SkillScanSummary | null;
   loading: boolean;
   remote: boolean;
+  privacyDefaults: SkillScanPrivacyDefaults | null;
+  onSummaryChange: (summary: SkillScanSummary) => void;
+  onLoadingChange: (loading: boolean) => void;
 }) {
   const { t } = useTranslation("skills");
+  const [severity, setSeverity] = useState("all");
+  const [findings, setFindings] = useState<SkillFinding[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [findingsLoading, setFindingsLoading] = useState(false);
+  const [approvalReason, setApprovalReason] = useState("");
+  const [latestApprovalId, setLatestApprovalId] = useState<string | null>(null);
+  const [activeScan, setActiveScan] = useState<{ scanId: string; progress: number } | null>(null);
+  const scanRequestActiveRef = useRef(false);
+  const scanId = scanSummary?.scan_id ?? null;
+  const loadFindings = useCallback(async (cursor?: string) => {
+    if (!scanId) {
+      setFindings([]);
+      setNextCursor(null);
+      return;
+    }
+    setFindingsLoading(true);
+    try {
+      const page = await skillsIpc.listFindings(
+        scanId,
+        severity === "all" ? undefined : severity,
+        cursor,
+        25,
+      );
+      setFindings((current) => cursor ? [...current, ...page.items] : page.items);
+      setNextCursor(page.next_cursor);
+    } catch (error) {
+      toast.error(String(error));
+    } finally {
+      setFindingsLoading(false);
+    }
+  }, [scanId, severity]);
+  useEffect(() => {
+    setLatestApprovalId(null);
+    void loadFindings();
+    if (scanId) {
+      void skillsIpc.listApprovals(scanId).then((approvals) => {
+        const active = approvals.find((approval) =>
+          approval.decision === "approve"
+          && !approval.revoked_at
+          && (!approval.expires_at || Date.parse(approval.expires_at) > Date.now())
+        );
+        setLatestApprovalId(active?.approval_id ?? null);
+      }).catch((error) => toast.error(String(error)));
+    }
+  }, [loadFindings, scanId]);
+  useEffect(() => {
+    let active = true;
+    let dispose: () => void = () => undefined;
+    void listen<{ scan_id: string; progress: number }>("skills:scan-progress", (event) => {
+      if (!active || !scanRequestActiveRef.current) return;
+      const progress = Math.max(0, Math.min(100, event.payload.progress));
+      if (progress >= 100) {
+        scanRequestActiveRef.current = false;
+        setActiveScan(null);
+      } else {
+        setActiveScan({ scanId: event.payload.scan_id, progress });
+      }
+    }).then((unlisten) => {
+      if (active) dispose = unlisten;
+      else unlisten();
+    }).catch((error) => toast.error(String(error)));
+    return () => {
+      active = false;
+      dispose();
+    };
+  }, []);
+  const refreshSummary = useCallback(async () => {
+    if (!skillId) return;
+    const summary = await skillsIpc.getScanSummary(skillId);
+    onSummaryChange(summary);
+  }, [onSummaryChange, skillId]);
+  const rescan = async () => {
+    if (!skillId) return;
+    scanRequestActiveRef.current = true;
+    onLoadingChange(true);
+    try {
+      await skillsIpc.rescan(skillId);
+      await refreshSummary();
+      toast.success(t("rescanComplete"));
+    } catch (error) {
+      toast.error(String(error));
+    } finally {
+      scanRequestActiveRef.current = false;
+      setActiveScan(null);
+      onLoadingChange(false);
+    }
+  };
+  const cancelActiveScan = async () => {
+    if (!activeScan) return;
+    try {
+      await skillsIpc.cancelScan(activeScan.scanId);
+      toast.success(t("scanCancelRequested"));
+    } catch (error) {
+      toast.error(String(error));
+    }
+  };
+  const approve = async () => {
+    if (!scanId || !skillId) return;
+    onLoadingChange(true);
+    try {
+      const result = await skillsIpc.approveScan(scanId, "local-user", approvalReason.trim());
+      setLatestApprovalId(result.approval.approval_id);
+      setApprovalReason("");
+      await refreshSummary();
+      toast.success(t("approvalRecorded"));
+    } catch (error) {
+      toast.error(String(error));
+    } finally {
+      onLoadingChange(false);
+    }
+  };
+  const reject = async () => {
+    if (!scanId) return;
+    onLoadingChange(true);
+    try {
+      await skillsIpc.rejectScan(scanId, "local-user", approvalReason.trim());
+      setApprovalReason("");
+      await refreshSummary();
+      toast.success(t("rejectionRecorded"));
+    } catch (error) {
+      toast.error(String(error));
+    } finally {
+      onLoadingChange(false);
+    }
+  };
+  const revoke = async () => {
+    if (!latestApprovalId || !skillId) return;
+    onLoadingChange(true);
+    try {
+      await skillsIpc.revokeApproval(latestApprovalId, skillId);
+      setLatestApprovalId(null);
+      await refreshSummary();
+      toast.success(t("approvalRevoked"));
+    } catch (error) {
+      toast.error(String(error));
+    } finally {
+      onLoadingChange(false);
+    }
+  };
+  const exportReport = async (format: "json" | "sarif") => {
+    if (!scanId) return;
+    const destination = await dialogSave({
+      defaultPath: `skill-scan-${scanId}.${format}`,
+      filters: [{ name: format.toUpperCase(), extensions: [format] }],
+    });
+    if (!destination) return;
+    try {
+      await skillsIpc.exportScan(scanId, format, destination);
+      toast.success(t("scanExported"));
+    } catch (error) {
+      toast.error(String(error));
+    }
+  };
   const notes = [
     ...risk.notes.filter((note) => !STANDARD_RISK_NOTES.has(note)),
     ...riskLabels(risk, t),
@@ -668,19 +845,146 @@ function SecurityPanel({
         {t("securitySummary")}
       </h4>
       <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 p-4">
-        {loading ? (
+        {loading && !activeScan ? (
           <div className="h-12 animate-pulse rounded bg-muted/70" />
         ) : scanSummary ? (
           <>
             <p className="text-sm font-medium text-foreground">{t(`scanState.${scanSummary.state}`)}</p>
-            {scanSummary.placeholder ? (
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">{t("scanPlaceholder")}</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {scanSummary.last_scanned_at
+                ? t("lastScannedAt", { value: scanSummary.last_scanned_at })
+                : t("notScannedHelp")}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {skillId ? (
+                <Button size="sm" variant="outline" onClick={rescan} disabled={loading}>
+                  <RefreshCw className="size-3.5" />{t("rescan")}
+                </Button>
+              ) : null}
+              {scanId ? (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => void exportReport("json")}>
+                    <Download className="size-3.5" />JSON
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => void exportReport("sarif")}>
+                    <Download className="size-3.5" />SARIF
+                  </Button>
+                </>
+              ) : null}
+            </div>
+            {activeScan ? (
+              <div className="mt-3 flex items-center gap-2">
+                <div
+                  className="h-1.5 min-w-24 flex-1 overflow-hidden rounded-full bg-muted"
+                  role="progressbar"
+                  aria-label={t("scanProgress")}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={activeScan.progress}
+                >
+                  <div
+                    className="h-full bg-foreground/70 transition-[width] duration-150"
+                    style={{ width: `${activeScan.progress}%` }}
+                  />
+                </div>
+                <span className="text-[11px] tabular-nums text-muted-foreground">
+                  {activeScan.progress}%
+                </span>
+                <Button size="xs" variant="outline" onClick={() => void cancelActiveScan()}>
+                  {t("cancelScan")}
+                </Button>
+              </div>
             ) : null}
           </>
         ) : remote ? (
           <p className="text-xs leading-5 text-muted-foreground">{t("remoteSecurityMetadata")}</p>
         ) : null}
       </div>
+      {scanSummary?.state === "review_required" && scanId ? (
+        <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 p-3">
+          <p className="text-xs leading-5 text-muted-foreground">{t("reviewRequiredHelp")}</p>
+          <Input
+            className="mt-2"
+            value={approvalReason}
+            onChange={(event) => setApprovalReason(event.target.value)}
+            placeholder={t("approvalReasonPlaceholder")}
+            aria-label={t("approvalReason")}
+          />
+          <div className="mt-2 flex justify-end gap-2">
+            <Button size="sm" variant="outline" disabled={loading || approvalReason.trim().length < 3} onClick={reject}>
+              {t("rejectScan")}
+            </Button>
+            <Button size="sm" disabled={loading || approvalReason.trim().length < 3} onClick={approve}>
+              {t("approveScan")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {latestApprovalId ? (
+        <div className="mt-3 flex justify-end">
+          <Button size="sm" variant="outline" disabled={loading} onClick={revoke}>
+            {t("revokeApproval")}
+          </Button>
+        </div>
+      ) : null}
+      {scanId ? (
+        <section className="mt-4" aria-label={t("findings")}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h5 className="text-xs font-medium text-foreground">{t("findings")}</h5>
+            <div className="flex flex-wrap gap-1" role="group" aria-label={t("filterBySeverity")}>
+              {["all", "critical", "high", "medium", "low", "info"].map((value) => (
+                <Button
+                  key={value}
+                  size="xs"
+                  variant={severity === value ? "secondary" : "ghost"}
+                  aria-pressed={severity === value}
+                  onClick={() => setSeverity(value)}
+                >
+                  {t(`severity.${value}`)}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div className="mt-3 space-y-2">
+            {findings.map((finding) => (
+              <article key={finding.finding_id} className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-foreground">
+                    {finding.severity}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">{finding.rule_id}</span>
+                </div>
+                <p className="mt-1 text-xs font-medium text-foreground">{finding.title}</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">{finding.detail}</p>
+                {finding.file_path ? (
+                  <p className="mt-1 break-all font-mono text-[10px] text-muted-foreground">
+                    {finding.file_path}{finding.line_start ? `:${finding.line_start}` : ""}
+                  </p>
+                ) : null}
+                {finding.remediation ? (
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                    <span className="font-medium text-foreground">{t("remediation")}:</span>{" "}
+                    {finding.remediation}
+                  </p>
+                ) : null}
+              </article>
+            ))}
+            {!findingsLoading && findings.length === 0 ? (
+              <p className="text-xs text-muted-foreground">{t("noFindings")}</p>
+            ) : null}
+            {nextCursor ? (
+              <Button size="sm" variant="outline" disabled={findingsLoading} onClick={() => void loadFindings(nextCursor)}>
+                {t("loadMoreFindings")}
+              </Button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+      {privacyDefaults ? (
+        <p className="mt-4 rounded-lg border border-border/60 bg-muted/20 p-3 text-xs leading-5 text-muted-foreground">
+          {t("scanPrivacyOffline")}
+        </p>
+      ) : null}
       <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 p-3">
         {notes.length === 0 ? (
           <p className="text-xs text-muted-foreground">{t("noRisk")}</p>

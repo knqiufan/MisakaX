@@ -146,6 +146,7 @@ pub struct SkillFilePreview {
 pub struct SkillScanSummary {
     pub skill_id: String,
     pub generation: u64,
+    pub scan_id: Option<String>,
     pub state: String,
     pub decision: Option<String>,
     pub max_severity: Option<String>,
@@ -154,6 +155,64 @@ pub struct SkillScanSummary {
     pub policy_version: Option<String>,
     pub last_scanned_at: Option<String>,
     pub placeholder: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillFinding {
+    pub finding_id: String,
+    pub scan_id: String,
+    pub engine: String,
+    pub rule_id: String,
+    pub severity: String,
+    pub category: String,
+    pub file_path: Option<String>,
+    pub line_start: Option<u32>,
+    pub line_end: Option<u32>,
+    pub title: String,
+    pub detail: String,
+    pub remediation: Option<String>,
+    pub fingerprint: String,
+    /// Evidence is redacted before persistence. Secret values and complete
+    /// source lines must never cross this contract.
+    pub evidence_redacted: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillFindingPage {
+    pub scan_id: String,
+    pub items: Vec<SkillFinding>,
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillScanOperation {
+    pub scan_id: String,
+    pub artifact_hash: String,
+    pub state: String,
+    pub decision: Option<String>,
+    pub installed_skill: Option<SkillRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillApprovalRecord {
+    pub approval_id: String,
+    pub artifact_hash: String,
+    pub scan_id: String,
+    pub subject: String,
+    pub decision: String,
+    pub actor: String,
+    pub reason: String,
+    pub scope: String,
+    pub expires_at: Option<String>,
+    pub revoked_at: Option<String>,
+    pub correlation_id: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillApprovalOperation {
+    pub approval: SkillApprovalRecord,
+    pub operation: SkillScanOperation,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -214,7 +273,7 @@ pub struct SkillInstallResult {
     pub replaced_existing: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InstallSource {
     pub kind: String,
     pub reference: Option<String>,

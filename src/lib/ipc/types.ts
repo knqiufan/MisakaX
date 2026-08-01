@@ -348,6 +348,7 @@ export interface SkillFilePreview {
 export interface SkillScanSummary {
   skill_id: string;
   generation: number;
+  scan_id: string | null;
   state: string;
   decision: string | null;
   max_severity: string | null;
@@ -356,6 +357,64 @@ export interface SkillScanSummary {
   policy_version: string | null;
   last_scanned_at: string | null;
   placeholder: boolean;
+}
+
+export interface SkillFinding {
+  finding_id: string;
+  scan_id: string;
+  engine: string;
+  rule_id: string;
+  severity: "info" | "low" | "medium" | "high" | "critical" | string;
+  category: string;
+  file_path: string | null;
+  line_start: number | null;
+  line_end: number | null;
+  title: string;
+  detail: string;
+  remediation: string | null;
+  fingerprint: string;
+  evidence_redacted: string | null;
+}
+
+export interface SkillFindingPage {
+  scan_id: string;
+  items: SkillFinding[];
+  next_cursor: string | null;
+}
+
+export interface SkillScanOperation {
+  scan_id: string;
+  artifact_hash: string;
+  state: string;
+  decision: string | null;
+  installed_skill: InstalledSkill | null;
+}
+
+export interface SkillApprovalRecord {
+  approval_id: string;
+  artifact_hash: string;
+  scan_id: string;
+  subject: string;
+  decision: "approve" | "reject";
+  actor: string;
+  reason: string;
+  scope: string;
+  expires_at: string | null;
+  revoked_at: string | null;
+  correlation_id: string;
+  created_at: string;
+}
+
+export interface SkillApprovalOperation {
+  approval: SkillApprovalRecord;
+  operation: SkillScanOperation;
+}
+
+export interface SkillScanPrivacyDefaults {
+  virus_total_hash_lookup: false;
+  virus_total_file_upload: false;
+  cloud_llm_analysis: false;
+  network_used_by_builtin_scan: false;
 }
 
 export interface SkillDetail {

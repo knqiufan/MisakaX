@@ -19,24 +19,27 @@ use super::types::{MessageSkillSelection, SkillActivationMount, SkillActivationV
 pub struct SkillSecurityGate;
 
 impl SkillSecurityGate {
-    pub fn ensure_enableable(record: &SkillRecord) -> Result<()> {
+    pub fn ensure_enableable(conn: &Connection, record: &SkillRecord) -> Result<()> {
         if record.health != "healthy" {
             bail!("Skill '{}' is missing or corrupted", record.slug);
         }
         if !Path::new(&record.installed_path).join("SKILL.md").is_file() {
             bail!("Skill '{}' no longer contains SKILL.md", record.slug);
         }
+        if record.security_state != "legacy_allowed" {
+            super::security::ensure_scan_allows(conn, record)?;
+        }
         Ok(())
     }
 
-    pub fn ensure_effective(record: &SkillRecord) -> Result<()> {
-        Self::ensure_enableable(record)?;
+    pub fn ensure_effective(conn: &Connection, record: &SkillRecord) -> Result<()> {
+        Self::ensure_enableable(conn, record)?;
         if !record.enabled {
             bail!("Skill '{}' is disabled", record.slug);
         }
         if !matches!(
             record.security_state.as_str(),
-            "legacy_allowed" | "user_allowed"
+            "legacy_allowed" | "passed" | "warnings" | "approved"
         ) {
             bail!("Skill '{}' is awaiting security approval", record.slug);
         }
@@ -51,6 +54,7 @@ impl SkillSecurityGate {
 }
 
 pub fn sync_inventory(conn: &Connection) -> Result<Vec<SkillRecord>> {
+    crate::db::repository::SkillSecurityRepo::expire_approvals(conn)?;
     let managed_root = config::skills_dir()?;
     for mut record in SkillRepo::list(conn)? {
         let expected = managed_root.join(&record.slug);
@@ -73,7 +77,10 @@ pub fn sync_inventory(conn: &Connection) -> Result<Vec<SkillRecord>> {
         .collect::<HashSet<_>>();
     for mut record in external {
         record.checksum = artifact_hash(Path::new(&record.installed_path))?;
-        SkillSourceRepo::upsert_source(conn, &record, &record.installed_path, false)?;
+        let (skill_id, _) =
+            SkillSourceRepo::upsert_source(conn, &record, &record.installed_path, false)?;
+        record.skill_id = skill_id;
+        super::security::ensure_external_scan(conn, &record)?;
     }
     SkillSourceRepo::mark_missing_external_except(conn, &present)?;
     SkillSourceRepo::list(conn)
@@ -84,7 +91,7 @@ pub fn set_enabled(conn: &Connection, identifier: &str, enabled: bool) -> Result
     let record = SkillSourceRepo::find_id_or_legacy_slug(conn, identifier)?
         .context("Skill source is not registered")?;
     if enabled {
-        SkillSecurityGate::ensure_enableable(&record)?;
+        SkillSecurityGate::ensure_enableable(conn, &record)?;
     }
     let generation = SkillSourceRepo::set_enabled(conn, &record.skill_id, enabled)?;
     Ok((record.skill_id, generation))
@@ -113,7 +120,7 @@ fn activation_view_from_registry(
         .iter()
         .filter(|record| record.effective_active)
         .map(|record| {
-            SkillSecurityGate::ensure_effective(record)?;
+            SkillSecurityGate::ensure_effective(conn, record)?;
             Ok(SkillActivationMount {
                 skill_id: record.skill_id.clone(),
                 slug: record.slug.clone(),
@@ -143,7 +150,7 @@ pub fn resolve_selection(
         }
         let record = SkillSourceRepo::find_id_or_legacy_slug(conn, raw)?
             .with_context(|| format!("Selected Skill '{raw}' is not registered"))?;
-        SkillSecurityGate::ensure_effective(&record)?;
+        SkillSecurityGate::ensure_effective(conn, &record)?;
         let mount = view
             .skills
             .iter()
@@ -219,10 +226,10 @@ mod tests {
     use rusqlite::Connection;
 
     use crate::db::migrations::run_migrations;
-    use crate::db::repository::SkillSourceRepo;
+    use crate::db::repository::{SkillSecurityRepo, SkillSourceRepo};
     use crate::services::skills::types::{SkillRecord, SkillRiskReport};
 
-    use super::{activation_view_from_registry, artifact_hash};
+    use super::{activation_view_from_registry, artifact_hash, SkillSecurityGate};
 
     #[test]
     fn stale_activation_generation_is_rejected_before_mounting() {
@@ -266,5 +273,96 @@ mod tests {
         assert!(error
             .to_string()
             .contains("Stale Skill activation generation"));
+    }
+
+    #[test]
+    fn scan_gate_rejects_unscanned_and_stale_artifacts_without_a_legacy_bypass() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        let temporary = tempfile::tempdir().unwrap();
+        fs::write(
+            temporary.path().join("SKILL.md"),
+            "---\nname: scanned-skill\ndescription: Demo\n---\n",
+        )
+        .unwrap();
+        let hash = artifact_hash(temporary.path()).unwrap();
+        let record = SkillRecord {
+            skill_id: String::new(),
+            slug: "scanned-skill".to_string(),
+            name: "Scanned".to_string(),
+            description: "Demo".to_string(),
+            version: None,
+            source_kind: "managed".to_string(),
+            source_ref: None,
+            source_url: None,
+            checksum: hash.clone(),
+            installed_path: temporary.path().display().to_string(),
+            enabled: false,
+            health: "healthy".to_string(),
+            is_external: false,
+            effective_active: false,
+            effective_rank: 400,
+            conflict: false,
+            disabled_reason: Some("unscanned".to_string()),
+            security_state: "unscanned".to_string(),
+            risk: SkillRiskReport::default(),
+            installed_at: String::new(),
+            updated_at: String::new(),
+        };
+        let (skill_id, _) =
+            SkillSourceRepo::upsert_source(&conn, &record, &record.installed_path, true).unwrap();
+        let unscanned = SkillSourceRepo::find(&conn, &skill_id).unwrap().unwrap();
+        assert!(SkillSecurityGate::ensure_enableable(&conn, &unscanned).is_err());
+
+        SkillSecurityRepo::upsert_artifact(&conn, &hash, 1, "{}", None, "approved").unwrap();
+        SkillSecurityRepo::create_scan(
+            &conn,
+            "scan-gate",
+            &hash,
+            &serde_json::json!({
+                "builtin": super::super::security::scanner::ENGINE_VERSION
+            })
+            .to_string(),
+            super::super::security::policy::POLICY_VERSION,
+            "corr",
+        )
+        .unwrap();
+        SkillSecurityRepo::begin_scan(&conn, "scan-gate").unwrap();
+        SkillSecurityRepo::complete_scan(&conn, "scan-gate", "passed", "allow", None, &[]).unwrap();
+        SkillSecurityRepo::attach_scan_to_source(&conn, &skill_id, "scan-gate", "passed").unwrap();
+        let passed = SkillSourceRepo::find(&conn, &skill_id).unwrap().unwrap();
+        SkillSecurityGate::ensure_enableable(&conn, &passed).unwrap();
+
+        let mut changed = passed.clone();
+        changed.checksum = "changed".to_string();
+        assert!(SkillSecurityGate::ensure_enableable(&conn, &changed)
+            .unwrap_err()
+            .to_string()
+            .contains("SKILL_SCAN_STALE"));
+
+        conn.execute(
+            "UPDATE skill_scan_runs
+             SET state = 'passed', decision = 'allow', engine_versions_json = '{\"builtin\":\"old\"}'
+             WHERE scan_id = 'scan-gate'",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE skill_sources SET security_state = 'passed' WHERE skill_id = ?1",
+            [&skill_id],
+        )
+        .unwrap();
+        let version_stale = SkillSourceRepo::find(&conn, &skill_id).unwrap().unwrap();
+        assert!(SkillSecurityGate::ensure_enableable(&conn, &version_stale)
+            .unwrap_err()
+            .to_string()
+            .contains("SKILL_SCAN_STALE"));
+        assert_eq!(
+            SkillSourceRepo::find(&conn, &skill_id)
+                .unwrap()
+                .unwrap()
+                .security_state,
+            "stale"
+        );
     }
 }

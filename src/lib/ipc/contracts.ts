@@ -2,13 +2,19 @@ export type AppErrorCode =
   | "SKILL_DISABLED"
   | "SKILL_SCAN_REQUIRED"
   | "SKILL_SCAN_STALE"
+  | "SKILL_REVIEW_REQUIRED"
   | "SKILL_POLICY_BLOCKED"
+  | "SKILL_APPROVAL_EXPIRED"
+  | "SKILL_SCAN_CANCELLED"
+  | "SKILL_SCAN_TIMEOUT"
+  | "SKILL_QUARANTINE_QUOTA"
   | "SKILL_PATH_INVALID"
   | "FILE_PREVIEW_TOO_LARGE"
   | "WORKSPACE_NOT_FOUND"
   | "GIT_NOT_AVAILABLE"
   | "TERMINAL_SESSION_NOT_FOUND"
-  | "TERMINAL_SESSION_OWNERSHIP_MISMATCH";
+  | "TERMINAL_SESSION_OWNERSHIP_MISMATCH"
+  | "INTERNAL_ERROR";
 
 export interface AppErrorPayload {
   code: AppErrorCode;
@@ -30,7 +36,8 @@ export type ScanState =
   | "review_required"
   | "blocked"
   | "error"
-  | "stale";
+  | "stale"
+  | "cancelled";
 
 export type ScanDecision =
   | "unknown"

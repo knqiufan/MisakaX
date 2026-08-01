@@ -10,13 +10,19 @@ pub enum AppErrorCode {
     SkillDisabled,
     SkillScanRequired,
     SkillScanStale,
+    SkillReviewRequired,
     SkillPolicyBlocked,
+    SkillApprovalExpired,
+    SkillScanCancelled,
+    SkillScanTimeout,
+    SkillQuarantineQuota,
     SkillPathInvalid,
     FilePreviewTooLarge,
     WorkspaceNotFound,
     GitNotAvailable,
     TerminalSessionNotFound,
     TerminalSessionOwnershipMismatch,
+    InternalError,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -49,6 +55,7 @@ pub enum ScanState {
     Blocked,
     Error,
     Stale,
+    Cancelled,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
