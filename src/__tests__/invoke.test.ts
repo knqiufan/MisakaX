@@ -88,6 +88,23 @@ describe("invoke wrapper", () => {
 
     logSpy.mockRestore();
   });
+
+  it("never logs terminal input bytes", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    mockTauriInvoke.mockResolvedValue(undefined);
+
+    await invoke<void>("terminal_write", {
+      terminalId: "terminal-1",
+      dataBase64: "c2VjcmV0IGNvbW1hbmQ=",
+    });
+
+    expect(logSpy.mock.calls[0]?.[1]).toMatchObject({
+      terminalId: "terminal-1",
+      dataBase64: "<redacted>",
+    });
+    expect(JSON.stringify(logSpy.mock.calls)).not.toContain("c2VjcmV0IGNvbW1hbmQ=");
+    logSpy.mockRestore();
+  });
 });
 
 describe("IpcError", () => {

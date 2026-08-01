@@ -134,10 +134,12 @@ pub fn update_session(
 // ─── delete_session Command ──────────────────────────────────────────
 
 #[tauri::command]
-pub fn delete_session(state: State<'_, AppState>, id: String) -> Result<(), String> {
+pub async fn delete_session(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    let _binding_guard = state.workspace_terminal_guard.lock().await;
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     SessionRepo::delete(&conn, &id).map_err(|e| e.to_string())?;
     drop(conn);
+    state.terminal_manager.kill_chat_session(&id);
     state.workspace_context.unbind_session(&id);
     Ok(())
 }
@@ -153,11 +155,12 @@ pub fn search_sessions(state: State<'_, AppState>, query: String) -> Result<Vec<
 // ─── update_session_working_dir Command ──────────────────────────────
 
 #[tauri::command]
-pub fn update_session_working_dir(
+pub async fn update_session_working_dir(
     state: State<'_, AppState>,
     session_id: String,
     working_directory: Option<String>,
 ) -> Result<(), String> {
+    let _binding_guard = state.workspace_terminal_guard.lock().await;
     let workspace = resolve_workspace(working_directory.as_deref())?;
 
     let conn = state.db.lock().map_err(|e| e.to_string())?;

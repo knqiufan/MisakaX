@@ -8,6 +8,7 @@ mod tests {
     use misaka_x_lib::services::llm::StreamRegistry;
     use misaka_x_lib::services::mcp::McpManager;
     use misaka_x_lib::services::sidecar_client::SidecarClient;
+    use misaka_x_lib::services::terminal::TerminalManager;
     use misaka_x_lib::services::workspace::{GitCliProvider, WorkspaceContextService};
     use misaka_x_lib::sidecar::SidecarManager;
     use misaka_x_lib::AppState;
@@ -30,6 +31,8 @@ mod tests {
             workspace_context: Arc::new(WorkspaceContextService::new(Arc::new(
                 GitCliProvider::default(),
             ))),
+            terminal_manager: Arc::new(TerminalManager::default()),
+            workspace_terminal_guard: tokio::sync::Mutex::new(()),
             feature_flags: FeatureFlags::default(),
         }
     }

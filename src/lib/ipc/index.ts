@@ -10,6 +10,7 @@ export { mcpIpc } from "./mcp";
 export { fsIpc } from "./fs";
 export { skillsIpc } from "./skills";
 export { trayIpc } from "./tray";
+export { terminalIpc } from "./terminal";
 export type {
   AppConfig,
   CloseBehavior,
@@ -91,3 +92,14 @@ export type { SidecarStatus, SidecarStatusEvent } from "./sidecar";
 export type { McpServerConfigInput, McpTransportInput } from "./mcp";
 export type { FsEntry } from "./fs";
 export type { CloseRequestAction, TrayContext } from "./tray";
+export type {
+  ShellFallbackReason,
+  TerminalExitReason,
+  TerminalExitedEvent,
+  TerminalExitedPayload,
+  TerminalKillReason,
+  TerminalOutputEvent,
+  TerminalOutputPayload,
+  TerminalState,
+  TerminalStatus,
+} from "./terminal";

@@ -7,5 +7,6 @@ pub mod session;
 pub mod settings;
 pub mod sidecar;
 pub mod skills;
+pub mod terminal;
 pub mod tray;
 pub mod workspace;

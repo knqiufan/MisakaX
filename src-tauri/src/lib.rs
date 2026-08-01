@@ -22,6 +22,7 @@ use db::repository::SessionRepo;
 use services::llm::StreamRegistry;
 use services::mcp::McpManager;
 use services::sidecar_client::SidecarClient;
+use services::terminal::{TerminalDomainEvent, TerminalManager};
 use services::workspace::{GitCliProvider, WorkspaceContextService};
 use sidecar::SidecarManager;
 use std::sync::{Arc, Mutex};
@@ -39,6 +40,9 @@ pub struct AppState {
     /// MCP Server 管理器 — 管理所有 MCP Server 连接的生命周期
     pub mcp_manager: Arc<McpManager>,
     pub workspace_context: Arc<WorkspaceContextService>,
+    pub terminal_manager: Arc<TerminalManager>,
+    /// Serializes terminal cwd validation with session workspace mutation.
+    pub workspace_terminal_guard: tokio::sync::Mutex<()>,
     pub feature_flags: contracts::FeatureFlags,
 }
 
@@ -93,6 +97,7 @@ pub fn run() {
     let workspace_context = Arc::new(WorkspaceContextService::new(Arc::new(
         GitCliProvider::default(),
     )));
+    let terminal_manager = Arc::new(TerminalManager::default());
 
     let mcp_configs = {
         let config_root = config::config_dir().unwrap_or_default();
@@ -114,6 +119,8 @@ pub fn run() {
             stream_registry: StreamRegistry::new(),
             mcp_manager: Arc::clone(&mcp_manager),
             workspace_context: Arc::clone(&workspace_context),
+            terminal_manager: Arc::clone(&terminal_manager),
+            workspace_terminal_guard: tokio::sync::Mutex::new(()),
             feature_flags: contracts::FeatureFlags::from_env(),
         })
         .manage(tray::TrayState::default())
@@ -159,6 +166,11 @@ pub fn run() {
             commands::workspace::list_workspace_preferences,
             commands::workspace::update_workspace_preference,
             commands::workspace::workspace_get_context,
+            commands::terminal::terminal_spawn,
+            commands::terminal::terminal_write,
+            commands::terminal::terminal_resize,
+            commands::terminal::terminal_kill,
+            commands::terminal::terminal_get_state,
             commands::session::create_session,
             commands::session::list_sessions,
             commands::session::update_session,
@@ -226,6 +238,13 @@ pub fn run() {
                     .workspace_context
                     .request_refresh_all();
             }
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                window
+                    .app_handle()
+                    .state::<AppState>()
+                    .terminal_manager
+                    .kill_window(window.label());
+            }
         })
         .setup(move |app| {
             tracing::info!("MisakaX initialized successfully");
@@ -241,6 +260,25 @@ pub fn run() {
                 },
                 |task| {
                     tauri::async_runtime::spawn(task);
+                },
+            );
+            let terminal_event_app = app.handle().clone();
+            let terminal_workspace_context = Arc::clone(&workspace_context);
+            app.state::<AppState>().terminal_manager.start(
+                move |event| match event {
+                    TerminalDomainEvent::Output(event) => {
+                        if let Err(error) = terminal_event_app.emit("terminal.output", event) {
+                            tracing::warn!(error = %error, "Failed to emit terminal output event");
+                        }
+                    }
+                    TerminalDomainEvent::Exited(event) => {
+                        if let Err(error) = terminal_event_app.emit("terminal.exited", event) {
+                            tracing::warn!(error = %error, "Failed to emit terminal exit event");
+                        }
+                    }
+                },
+                move |chat_session_id| {
+                    terminal_workspace_context.request_refresh(&chat_session_id);
                 },
             );
             if let Err(error) = services::skills::security::migration::start(app.handle().clone()) {
@@ -364,6 +402,7 @@ pub fn run() {
         .run(|app_handle, event| {
             if matches!(event, RunEvent::Exit | RunEvent::ExitRequested { .. }) {
                 let state = app_handle.state::<AppState>();
+                state.terminal_manager.shutdown();
                 state.sidecar.shutdown();
             }
         });

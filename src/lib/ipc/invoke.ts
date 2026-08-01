@@ -35,7 +35,7 @@ export async function invoke<T>(
   args?: Record<string, unknown>
 ): Promise<T> {
   if (import.meta.env.DEV) {
-    console.log(`[IPC] → ${command}`, sanitizeForLog(args ?? {}));
+    console.log(`[IPC] → ${command}`, sanitizeIpcArgs(command, args ?? {}));
   }
 
   try {
@@ -64,6 +64,17 @@ export async function invoke<T>(
 
     throw ipcError;
   }
+}
+
+function sanitizeIpcArgs(
+  command: string,
+  args: Record<string, unknown>,
+): unknown {
+  const sanitized = sanitizeForLog(args);
+  if (command !== "terminal_write" || !isRecord(sanitized)) {
+    return sanitized;
+  }
+  return { ...sanitized, dataBase64: REDACTED };
 }
 
 function isAppErrorPayload(value: unknown): value is Record<string, unknown> & {

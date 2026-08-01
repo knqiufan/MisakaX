@@ -22,6 +22,9 @@ pub enum AppErrorCode {
     GitNotAvailable,
     TerminalSessionNotFound,
     TerminalSessionOwnershipMismatch,
+    TerminalInvalidRequest,
+    TerminalLimitExceeded,
+    TerminalSpawnFailed,
     InternalError,
 }
 
