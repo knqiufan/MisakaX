@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { ChevronDown, Search, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useComposerStore } from "@/stores/composer-store";
-import { collectSkills } from "./composerSegment";
+import { collectSkills, selectableSkills } from "./composerSegment";
 import { useSkillsInventory } from "@/components/skills/useSkillsInventory";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,7 +26,7 @@ export function SkillSelectorPopover({
   const [query, setQuery] = useState("");
   const selected = collectSkills(segments);
   const enabledSkills = useMemo(
-    () => skills.filter((skill) => skill.enabled && skill.health === "healthy"),
+    () => selectableSkills(skills),
     [skills]
   );
   const matches = enabledSkills.filter((skill) =>

@@ -1,3 +1,4 @@
+import type { InstalledSkill } from "@/lib/ipc";
 import type { PendingFileMention, PendingSkill } from "@/stores/composer-store";
 
 export type ComposerSegment =
@@ -33,6 +34,10 @@ export function collectSkills(segments: ComposerSegment[]): PendingSkill[] {
 
 export function selectedSkillIds(segments: ComposerSegment[]): string[] {
   return collectSkills(segments).map((skill) => skill.slug);
+}
+
+export function selectableSkills(skills: InstalledSkill[]): InstalledSkill[] {
+  return skills.filter((skill) => skill.enabled && skill.health === "healthy");
 }
 
 export function getDocumentPlainText(segments: ComposerSegment[]): string {

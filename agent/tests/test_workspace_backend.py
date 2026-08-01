@@ -114,12 +114,42 @@ def test_factory_mounts_skills_and_memories(tmp_path: Path):
     assert f"{SKILLS_PREFIX}/" in routes
     assert f"{SKILLS_PREFIX}/demo/" in routes
     assert f"{MEMORIES_PREFIX}/" in routes
-    assert f"/workspace/" in routes
+    assert "/workspace/" in routes
     assert skills.is_dir()
     assert memories.is_dir()
     assert Path(routes[f"{SKILLS_PREFIX}/"].kwargs["root_dir"]) == skills
     assert Path(routes[f"{SKILLS_PREFIX}/demo/"].kwargs["root_dir"]) == external_skill
     assert routes[f"{SKILLS_PREFIX}/"].kwargs["virtual_mode"] is True
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="S0 baseline: the legacy global /skills mount exposes disabled managed Skills",
+)
+def test_disabled_skills_are_not_exposed_by_a_global_skills_mount(tmp_path: Path):
+    """Future S1 invariant: only the activation view may own /skills routes."""
+    skills = tmp_path / "skills"
+
+    class FakeFs:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class FakeComposite:
+        def __init__(self, default, routes=None, **_kwargs):
+            self.default = default
+            self.routes = routes or {}
+
+    factory = make_workspace_backend_factory(
+        None,
+        object,
+        object,
+        FakeComposite,
+        filesystem_cls=FakeFs,
+        skills_dir=skills,
+    )
+
+    routes = factory(object()).routes
+    assert f"{SKILLS_PREFIX}/" not in routes
 
 
 def test_skills_route_outside_workspace_root(tmp_path: Path):

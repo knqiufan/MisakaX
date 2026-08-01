@@ -3,6 +3,7 @@ import {
   getSlashSkillQuery,
   handleSegmentBackspace,
   replaceSlashQueryWithSkill,
+  selectableSkills,
   selectedSkillIds,
   type ComposerSegment,
 } from "@/components/chat/composer/composerSegment";
@@ -22,6 +23,47 @@ describe("composer Skill segments", () => {
       { type: "text", id: "text-2", value: " inspect this" },
     ];
     expect(selectedSkillIds(segments)).toEqual(["code-review"]);
+  });
+
+  it("records the S0 defect that an inventory removal does not clear an existing chip", () => {
+    const segments: ComposerSegment[] = [
+      { type: "skill", skill },
+      { type: "text", id: "text-1", value: "Run it" },
+    ];
+    const enabledInventory: string[] = [];
+
+    expect(enabledInventory).not.toContain("code-review");
+    expect(selectedSkillIds(segments)).toEqual(["code-review"]);
+  });
+
+  it("filters disabled and unhealthy inventory entries from selector and slash sources", () => {
+    const base = {
+      name: "Code review",
+      description: "Review a change",
+      version: null,
+      source_kind: "local",
+      source_ref: null,
+      source_url: null,
+      checksum: "checksum",
+      installed_path: "C:/skills/code-review",
+      is_external: false,
+      risk: {
+        has_scripts: false,
+        has_binary_files: false,
+        has_allowed_tools: false,
+        remote_scan_status: null,
+        notes: [],
+      },
+      installed_at: "",
+      updated_at: "",
+    };
+    const inventory = [
+      { ...base, slug: "enabled", enabled: true, health: "healthy" },
+      { ...base, slug: "disabled", enabled: false, health: "healthy" },
+      { ...base, slug: "missing", enabled: true, health: "missing" },
+    ];
+
+    expect(selectableSkills(inventory).map((item) => item.slug)).toEqual(["enabled"]);
   });
 
   it("opens slash matching only at a whitespace boundary", () => {

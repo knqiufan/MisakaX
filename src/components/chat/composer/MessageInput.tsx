@@ -34,6 +34,7 @@ import {
   getSlashSkillQuery,
   replaceSlashQueryWithSkill,
   selectedSkillIds,
+  selectableSkills,
 } from "./composerSegment";
 import { SlashSkillMenu } from "./SlashSkillMenu";
 import {
@@ -94,9 +95,7 @@ export function MessageInput({
 
   const plainText = getDocumentPlainText(segments);
   const slashQuery = isComposing ? null : getSlashSkillQuery(segments, composerCursor);
-  const slashSkills = installedSkills.filter((skill) =>
-    skill.enabled &&
-    skill.health === "healthy" &&
+  const slashSkills = selectableSkills(installedSkills).filter((skill) =>
     [skill.name, skill.slug, skill.description]
       .join(" ")
       .toLocaleLowerCase()

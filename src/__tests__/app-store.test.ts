@@ -6,6 +6,7 @@ import {
   SESSION_LIST_DEFAULT_WIDTH,
   LG_BREAKPOINT,
 } from "@/stores/app-store";
+import { SETTINGS_NAV } from "@/components/settings/nav-config";
 
 describe("useAppStore", () => {
   beforeEach(() => {
@@ -34,6 +35,18 @@ describe("useAppStore", () => {
   it("should navigate to notifications", () => {
     useAppStore.getState().navigate({ page: "notifications" });
     expect(useAppStore.getState().route).toEqual({ page: "notifications" });
+  });
+
+  it("records the S0 route baseline before Skills moves into Settings", () => {
+    useAppStore.getState().navigate({ page: "skills" });
+    expect(useAppStore.getState().route).toEqual({ page: "skills" });
+    expect(SETTINGS_NAV.map((item) => item.id)).toEqual([
+      "general",
+      "models",
+      "mcp",
+      "appearance",
+      "about",
+    ]);
   });
 
   it("should clamp and persist session list width", () => {

@@ -12,6 +12,7 @@ import {
   PANEL_RESIZE_HANDLE_CLASS,
   PANEL_RESIZE_HANDLE_LINE_CLASS,
 } from "@/components/chat/workspace/panelResizeHandle";
+import { LEGACY_CHAT_PANEL_LAYOUT } from "@/components/chat/workspace/workspacePanelLayout";
 import { useChatStore } from "@/stores/chat-store";
 import { useWorkspaceExplorerStore } from "@/stores/workspace-explorer-store";
 import { sessionsIpc } from "@/lib/ipc";
@@ -104,7 +105,11 @@ export function ChatPage() {
       ) : (
         <div className="flex h-full min-w-0 flex-col">
           <PanelGroup orientation="horizontal" id="misakax-chat-explorer">
-            <Panel id="chat" defaultSize="70%" minSize="55%">
+            <Panel
+              id="chat"
+              defaultSize={LEGACY_CHAT_PANEL_LAYOUT.chatDefaultSize}
+              minSize={LEGACY_CHAT_PANEL_LAYOUT.chatMinSize}
+            >
               <ChatView
                 session={activeSession}
                 onChangeDir={handleChangeWorkingDir}
@@ -117,7 +122,12 @@ export function ChatPage() {
                 <PanelResizeHandle className={PANEL_RESIZE_HANDLE_CLASS}>
                   <span className={PANEL_RESIZE_HANDLE_LINE_CLASS} />
                 </PanelResizeHandle>
-                <Panel id="explorer" defaultSize="30%" minSize="18%" maxSize="55%">
+                <Panel
+                  id="explorer"
+                  defaultSize={LEGACY_CHAT_PANEL_LAYOUT.explorerDefaultSize}
+                  minSize={LEGACY_CHAT_PANEL_LAYOUT.explorerMinSize}
+                  maxSize={LEGACY_CHAT_PANEL_LAYOUT.explorerMaxSize}
+                >
                   <WorkspaceExplorer workingDir={activeSession.working_directory} />
                 </Panel>
               </>

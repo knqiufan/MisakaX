@@ -162,7 +162,64 @@ fn test_migration_idempotent() {
             row.get(0)
         })
         .unwrap();
-    assert_eq!(version, 9);
+    assert_eq!(version, 10);
+}
+
+#[test]
+fn test_v10_skill_fixture_survives_idempotent_migration_and_rollback() {
+    let conn = create_test_db();
+    run_migrations(&conn).unwrap();
+    conn.execute("INSERT INTO sessions (id) VALUES ('skill-session')", [])
+        .unwrap();
+    conn.execute(
+        "INSERT INTO messages (id, session_id, role, content)
+         VALUES ('skill-message', 'skill-session', 'user', 'use the skill')",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO skills (
+            slug, name, description, source_kind, checksum, installed_path,
+            enabled, health, risk_json
+         ) VALUES (
+            'legacy-skill', 'Legacy Skill', 'Fixture', 'local', 'abc123',
+            'C:/fixture/legacy-skill', 1, 'healthy', '{}'
+         )",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO message_skill_selections (message_id, skill_slug, sort_order)
+         VALUES ('skill-message', 'legacy-skill', 0)",
+        [],
+    )
+    .unwrap();
+
+    run_migrations(&conn).unwrap();
+    conn.execute_batch(
+        "BEGIN IMMEDIATE;
+         UPDATE skills SET enabled = 0 WHERE slug = 'legacy-skill';
+         ROLLBACK;",
+    )
+    .unwrap();
+
+    let enabled: i64 = conn
+        .query_row(
+            "SELECT enabled FROM skills WHERE slug = 'legacy-skill'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let selected: String = conn
+        .query_row(
+            "SELECT skill_slug FROM message_skill_selections
+             WHERE message_id = 'skill-message'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(enabled, 1);
+    assert_eq!(selected, "legacy-skill");
 }
 
 #[test]

@@ -44,16 +44,7 @@ pub fn list_installed(conn: &Connection) -> Result<Vec<SkillRecord>> {
         .into_iter()
         .map(|record| Ok(with_current_health(record, &root)))
         .collect::<Result<Vec<_>>>()?;
-    let managed_slugs = managed
-        .iter()
-        .map(|skill| skill.slug.clone())
-        .collect::<HashSet<_>>();
-    let mut skills = managed;
-    skills.extend(
-        discover_external_skills()?
-            .into_iter()
-            .filter(|skill| !managed_slugs.contains(&skill.slug)),
-    );
+    let mut skills = merge_installed_sources(managed, discover_external_skills()?);
     skills.sort_by(|left, right| {
         left.is_external
             .cmp(&right.is_external)
@@ -98,13 +89,23 @@ pub fn uninstall(conn: &Connection, slug: &str) -> Result<()> {
 }
 
 pub fn installed_selection(conn: &Connection, slugs: &[String]) -> Result<Vec<SkillRecord>> {
-    let mut records = Vec::with_capacity(slugs.len());
     let root = config::skills_dir()?;
+    installed_selection_with(conn, slugs, &root, find_external_skill)
+}
+
+fn installed_selection_with(
+    conn: &Connection,
+    slugs: &[String],
+    root: &Path,
+    mut find_external: impl FnMut(&str) -> Result<Option<SkillRecord>>,
+) -> Result<Vec<SkillRecord>> {
+    let mut records = Vec::with_capacity(slugs.len());
     for slug in slugs {
         let record = match SkillRepo::find(conn, slug)? {
             Some(record) => record,
-            None => find_external_skill(slug)?
-                .context(format!("Selected skill '{slug}' is not installed"))?,
+            None => {
+                find_external(slug)?.context(format!("Selected skill '{slug}' is not installed"))?
+            }
         };
         if !record.enabled || health_for_record(&record, &root) != "healthy" {
             bail!("Selected skill '{}' is missing or corrupted", record.slug)
@@ -269,16 +270,37 @@ pub fn discover_external_skills() -> Result<Vec<SkillRecord>> {
         ("claude", home.join(".claude").join("skills")),
         ("cursor", home.join(".cursor").join("skills")),
     ];
+    discover_external_from_roots(&roots)
+}
+
+fn discover_external_from_roots(roots: &[(&str, PathBuf)]) -> Result<Vec<SkillRecord>> {
     let mut by_slug = BTreeMap::new();
     for (source, root) in roots {
         if by_slug.len() >= EXTERNAL_SKILL_LIMIT {
             break;
         }
-        for skill in discover_from_root(source, &root, EXTERNAL_SKILL_LIMIT - by_slug.len())? {
+        for skill in discover_from_root(source, root, EXTERNAL_SKILL_LIMIT - by_slug.len())? {
             by_slug.entry(skill.slug.clone()).or_insert(skill);
         }
     }
     Ok(by_slug.into_values().collect())
+}
+
+fn merge_installed_sources(
+    managed: Vec<SkillRecord>,
+    external: Vec<SkillRecord>,
+) -> Vec<SkillRecord> {
+    let managed_slugs = managed
+        .iter()
+        .map(|skill| skill.slug.clone())
+        .collect::<HashSet<_>>();
+    let mut skills = managed;
+    skills.extend(
+        external
+            .into_iter()
+            .filter(|skill| !managed_slugs.contains(&skill.slug)),
+    );
+    skills
 }
 
 fn find_external_skill(slug: &str) -> Result<Option<SkillRecord>> {
@@ -424,9 +446,19 @@ fn to_file_node(root: &Path, path: &Path) -> Result<SkillFileNode> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::{fs, path::Path};
 
-    use super::discover_from_root;
+    use rusqlite::Connection;
+
+    use crate::{
+        db::{migrations::run_migrations, repository::SkillRepo},
+        services::skills::types::{SkillRecord, SkillRiskReport},
+    };
+
+    use super::{
+        discover_external_from_roots, discover_from_root, installed_selection_with,
+        merge_installed_sources,
+    };
 
     #[test]
     fn discovers_only_valid_external_skill_directories() {
@@ -457,5 +489,124 @@ mod tests {
             found[0].installed_path,
             fs::canonicalize(valid).unwrap().display().to_string()
         );
+    }
+
+    #[test]
+    fn external_discovery_uses_codex_claude_cursor_precedence() {
+        let temporary = tempfile::tempdir().unwrap();
+        let roots = [
+            ("codex", temporary.path().join("codex")),
+            ("claude", temporary.path().join("claude")),
+            ("cursor", temporary.path().join("cursor")),
+        ];
+        for (_, root) in &roots {
+            write_skill(root, "shared-skill", "Shared Skill");
+        }
+
+        let found = discover_external_from_roots(&roots).unwrap();
+
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].source_kind, "codex");
+    }
+
+    #[test]
+    fn managed_inventory_wins_same_slug_source_conflicts() {
+        let managed = record("shared-skill", "managed", true, Path::new("managed"));
+        let mut external = record("shared-skill", "codex", true, Path::new("external"));
+        external.is_external = true;
+
+        let merged = merge_installed_sources(vec![managed], vec![external]);
+
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].source_kind, "managed");
+    }
+
+    #[test]
+    fn managed_enable_disable_and_overwrite_behavior_is_stable() {
+        let conn = database();
+        let root = tempfile::tempdir().unwrap();
+        let first = record("demo-skill", "local", true, root.path());
+        SkillRepo::upsert(&conn, &first).unwrap();
+        SkillRepo::set_enabled(&conn, "demo-skill", false).unwrap();
+        assert!(
+            !SkillRepo::find(&conn, "demo-skill")
+                .unwrap()
+                .unwrap()
+                .enabled
+        );
+
+        let mut replacement = first;
+        replacement.description = "Replacement".to_string();
+        replacement.enabled = true;
+        SkillRepo::upsert(&conn, &replacement).unwrap();
+        let persisted = SkillRepo::find(&conn, "demo-skill").unwrap().unwrap();
+        assert_eq!(persisted.description, "Replacement");
+        assert!(persisted.enabled);
+    }
+
+    #[test]
+    fn installed_selection_rejects_disabled_and_corrupted_managed_skills() {
+        let conn = database();
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path();
+        let skill_dir = root.join("demo-skill");
+        write_skill(root, "demo-skill", "Demo Skill");
+        let skill = record("demo-skill", "local", true, &skill_dir);
+        SkillRepo::upsert(&conn, &skill).unwrap();
+
+        let selected =
+            installed_selection_with(&conn, &["demo-skill".to_string()], root, |_| Ok(None))
+                .unwrap();
+        assert_eq!(selected.len(), 1);
+
+        SkillRepo::set_enabled(&conn, "demo-skill", false).unwrap();
+        assert!(
+            installed_selection_with(&conn, &["demo-skill".to_string()], root, |_| Ok(None),)
+                .is_err()
+        );
+
+        SkillRepo::set_enabled(&conn, "demo-skill", true).unwrap();
+        fs::remove_file(skill_dir.join("SKILL.md")).unwrap();
+        assert!(
+            installed_selection_with(&conn, &["demo-skill".to_string()], root, |_| Ok(None),)
+                .is_err()
+        );
+    }
+
+    fn database() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+        run_migrations(&conn).unwrap();
+        conn
+    }
+
+    fn write_skill(root: &Path, slug: &str, description: &str) {
+        let directory = root.join(slug);
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(
+            directory.join("SKILL.md"),
+            format!("---\nname: {slug}\ndescription: {description}\n---\n"),
+        )
+        .unwrap();
+    }
+
+    fn record(slug: &str, source: &str, enabled: bool, installed_path: &Path) -> SkillRecord {
+        SkillRecord {
+            slug: slug.to_string(),
+            name: slug.to_string(),
+            description: "Skill description".to_string(),
+            version: Some("1.0.0".to_string()),
+            source_kind: source.to_string(),
+            source_ref: None,
+            source_url: None,
+            checksum: "checksum".to_string(),
+            installed_path: installed_path.display().to_string(),
+            enabled,
+            health: "healthy".to_string(),
+            is_external: source != "managed" && source != "local",
+            risk: SkillRiskReport::default(),
+            installed_at: String::new(),
+            updated_at: String::new(),
+        }
     }
 }

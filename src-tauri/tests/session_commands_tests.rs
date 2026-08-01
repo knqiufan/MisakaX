@@ -2,6 +2,7 @@
 mod tests {
     use misaka_x_lib::commands::session::{export_sessions_to_file, import_sessions_from_file};
     use misaka_x_lib::config::AppConfig;
+    use misaka_x_lib::contracts::FeatureFlags;
     use misaka_x_lib::db::migrations::run_migrations;
     use misaka_x_lib::db::repository::{MessageRepo, SessionRepo, WorkspaceRepo};
     use misaka_x_lib::services::llm::StreamRegistry;
@@ -25,6 +26,7 @@ mod tests {
             sidecar_client: SidecarClient::new(9527),
             stream_registry: StreamRegistry::new(),
             mcp_manager: Arc::new(McpManager::new()),
+            feature_flags: FeatureFlags::default(),
         }
     }
 

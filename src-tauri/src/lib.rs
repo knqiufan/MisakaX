@@ -3,6 +3,7 @@ mod commands;
 #[cfg(feature = "test-private")]
 pub mod commands;
 pub mod config;
+pub mod contracts;
 pub mod crypto;
 pub mod db;
 pub mod services;
@@ -36,6 +37,7 @@ pub struct AppState {
     pub stream_registry: StreamRegistry,
     /// MCP Server 管理器 — 管理所有 MCP Server 连接的生命周期
     pub mcp_manager: Arc<McpManager>,
+    pub feature_flags: contracts::FeatureFlags,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -103,6 +105,7 @@ pub fn run() {
             sidecar_client,
             stream_registry: StreamRegistry::new(),
             mcp_manager: Arc::clone(&mcp_manager),
+            feature_flags: contracts::FeatureFlags::from_env(),
         })
         .manage(tray::TrayState::default())
         .invoke_handler(tauri::generate_handler![
