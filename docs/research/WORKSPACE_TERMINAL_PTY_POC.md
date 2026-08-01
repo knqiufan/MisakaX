@@ -3,7 +3,7 @@
 > **用途：** 固定 W3 的 PTY/xterm 依赖、跨平台进程模型、安全边界和当前平台验证证据。  
 > **受众：** Rust/Tauri、React、测试、安全与发布维护者。  
 > **最后审阅 / Last reviewed：** 2026-08-01  
-> **实现基线：** `main@9249915`。
+> **实现基线：** `main@b96d0e3`（W5）。
 
 ## 结论
 
@@ -37,19 +37,19 @@ backend session lookup + generation check
   -> open PTY / spawn child
   -> attach Job Object (Windows) or retain PTY process group (Unix)
   -> bounded reader + batch event thread + blocking child wait thread
-  -> terminal.output(seq, base64)
+  -> terminal:output(seq, base64)
   -> child exit: drop writer/master, drain reader
-  -> terminal.exited(last_seq, exit_code/signal/reason)
+  -> terminal:exited(last_seq, exit_code/signal/reason)
   -> refresh WorkspaceContext
 ```
 
-应用退出、window destroyed、会话删除和显式 kill 都终止整个进程树。Windows 关闭/终止 Job；Unix 对负 PGID 发送 SIGHUP/SIGKILL，guard drop 也会清理残留组。`terminal.exited.last_seq` 定义输出完成边界，W4 只能接受相同 terminal/generation 且严格递增的 output seq，并在 exited 后丢弃迟到事件。
+应用退出、window destroyed、会话删除和显式 kill 都终止整个进程树。Windows 关闭/终止 Job；Unix 对负 PGID 发送 SIGHUP/SIGKILL，guard drop 也会清理残留组。`terminal:exited.last_seq` 定义输出完成边界，W4 只能接受相同 terminal/generation 且严格递增的 output seq，并在 exited 后丢弃迟到事件。
 
 ## 平台矩阵
 
 | 平台 | W3 证据 | 当前结论 |
 |---|---|---|
-| Windows 11 / ConPTY | 当前实机运行 `terminal_manager_tests`：DSR 握手、CR 输入、resize、Unicode、SGR 颜色、alternate screen/TUI 序列、exit code、owner 篡改、输出洪水、shell + grandchild Job 回收 | ✅ W3 实机 PoC 通过 |
+| Windows 11 / ConPTY | `terminal_manager_tests` 覆盖 DSR、CR、resize、Unicode、SGR、alternate screen/TUI、exit、owner、输出洪水和进程树；W5 Release UI 默认启动真实 PowerShell，并验证 prompt、中文宽字符、ANSI、原生 clipboard paste 与关闭后归零 | ✅ W3 PTY + W5 Release UI 通过；W6 压力/IME/更多 shell 待补 |
 | macOS / PTY | `portable-pty 0.9.0` 官方支持；代码选择原生 PTY、验证 allowlisted `$SHELL` 并以 process group 清理 | 🟡 实现完成，真实 macOS 运行/打包证据留 W6 |
 | Linux / PTY | `portable-pty 0.9.0` 官方支持；与 macOS 共用 Unix PTY/process-group 路径 | 🟡 实现完成，真实 Linux 运行/打包证据留 W6 |
 
@@ -68,16 +68,17 @@ backend session lookup + generation check
 cargo test --test terminal_manager_tests                 # 5 passed
 cargo test terminal --lib                                # 4 passed
 cargo test --all-features -j 1                           # 全量通过
-npm test                                                 # W4 基线：37 files / 267 tests
+npm test                                                 # W5 基线：38 files / 271 tests
 npm run build                                            # 通过；仅既有大 chunk 警告
+npm run tauri build                                      # W5 Windows EXE/MSI/NSIS 通过
 ```
 
 `cargo nextest run --all-features --profile ci` 在并发编译阶段触发 Windows 页文件不足（OS 1455 / `0xc000012d`）；按仓库指南回退到串行 `cargo test --all-features -j 1` 后全量绿色，未执行 `cargo clean`。
 
 ## 尚未由 W3 解除的上线门
 
-- W4：已由 `main@2a5b112` 交付 xterm UI、Fit/ResizeObserver、输入输出/exit、seq 丢弃、复制粘贴、工作区切换选择和可访问错误态；真实 shell UI 路径须待 W5 capability 解锁后复验。
-- W5：删除主 WebView 通用 shell/fs/http 权限、配置生产 CSP 和 command authorization/XSS/OSC/link 测试。
+- W4：已由 `main@2a5b112` 交付 xterm UI、Fit/ResizeObserver、输入输出/exit、seq 丢弃、复制粘贴、工作区切换选择和可访问错误态。
+- W5：已由 `main@b96d0e3` 删除主 WebView 通用 shell/fs/http 权限，配置生产 CSP、精确 command authorization 与 XSS/OSC/link 测试，并通过 Windows Release 真实 shell UI 复验。
 - W6：macOS/Linux 真机、三平台 bundle、IME/TUI/睡眠恢复与性能矩阵。
 - Sandbox：本 PoC 是明确标注的“本机权限”用户终端，不是 Agent Sandbox，也没有实现或改变 Sandbox provider。
 

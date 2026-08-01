@@ -8,7 +8,7 @@
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-08-01（v29）
+**最后审阅 / Last reviewed:** 2026-08-01（v30）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -163,7 +163,7 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - 已绑定会话在 composer footer 左侧渲染只读 `WorkspaceContextBadge`，Model/MCP/Skill 与发送能力优先；窄宽度可只保留图标 + tooltip。badge 不得使用 Button、chevron 或空 menu 暗示尚不存在的 Git 操作。
 - Git 分支使用中间省略并在 tooltip 展示完整 ref；detached 必须显示 `detached:<short-sha>`。非 Git、Git 不可用、超时和查询错误统一显示“本地项目”，不得把绝对路径、stderr 或 PATH 候选放入 tooltip/屏幕共享区域。
 - 首次加载使用固定宽度 skeleton；刷新旧值标为 stale 但不阻塞输入。所有 response/event 必须核对 chat session 与 generation，快速切换后的旧结果直接丢弃。
-- 前端只调用固定 `workspace_get_context(chatSessionId, refresh)`，不得构造 Git 命令、传 cwd 或可执行文件。后端事件名固定为 `workspace.context.changed`；未来 provider action 只保留类型 seam，无 provider 时不渲染控件。
+- 前端只调用固定 `workspace_get_context(chatSessionId, refresh)`，不得构造 Git 命令、传 cwd 或可执行文件。后端事件名固定为 `workspace:context:changed`；未来 provider action 只保留类型 seam，无 provider 时不渲染控件。
 
 ### 4.3.z.3 WorkspacePanel 容器
 
@@ -172,7 +172,7 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - 宽屏用百分比 split panel，窄屏用右侧 overlay，禁止继续压缩聊天可读列；overlay 必须能通过 Escape 和面板关闭按钮退出。
 - Terminal process/output 必须由独立 store 与 Rust manager 持有；output 只接受当前 terminal/session/generation 且严格递增的 seq，`exited.last_seq` 是排空边界。React StrictMode 探测、mode 隐藏/恢复和快速重复打开不得生成第二个 shell。
 - xterm 只加载本地静态资源，主题由现有 token 映射；禁止 `innerHTML`、自动链接打开和远端资源。终端标题固定标注“本机权限”，只展示 shell 与工作区 basename；持续输出不进入 live region，只有退出/错误由独立状态通知。
-- Terminal rollout flag 在 W5 capability/CSP 安全门完成前保持默认关闭。Tool Logs 使用消息工具组内的明确日志操作打开聊天列抽屉，不得借用 Terminal 图标。
+- W5 后 Terminal 默认启用；rollout flag 只接受 `false|0` 作为前后端同步的显式紧急 kill switch。原生 clipboard paste 规范化换行为 CR 后直接写入窄 IPC，不触发浏览器 permission prompt。Tool Logs 使用消息工具组内的明确日志操作打开聊天列抽屉，不得借用 Terminal 图标。
 
 ### 4.4 空页面与占位符 (Empty States)
 - 空页面设计应具有**引导性**。

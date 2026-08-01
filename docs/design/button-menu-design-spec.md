@@ -1,6 +1,6 @@
 # MisakaX 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-08-01（v16）
+**最后审阅 / Last reviewed:** 2026-08-01（v17）
 
 > 主色已切换为 **charcoal**（非冷蓝强调色）。文中若仍出现历史「蓝调」示例，以实现侧 CSS 变量与 [frontend-ui-guidelines.md](./frontend-ui-guidelines.md) 为准。
 >
@@ -568,9 +568,10 @@ Hover:    transform=none, shadow=none, brightness(1)  [150ms]
 
 - Explorer/Terminal 使用共享 `BarIconButton`：`ghost size-7`，仅当右栏已打开且 mode 匹配时切为 `secondary`；同 mode 再按一次关闭，另一 mode 切换。禁止用 disabled 表示已打开。
 - 两个按钮都必须有准确 `aria-label`、`aria-pressed`、`aria-keyshortcuts` 和 Tooltip；Explorer 显示 `Ctrl/Cmd+Shift+E`，Terminal 显示 `Ctrl/Cmd+反引号`。图标选中态可提高 stroke，不增加缩放、位移或彩色发光。
-- Terminal rollout flag 关闭或 W5 capability/CSP 安全门未解除时不渲染该按钮；不得显示可点击的“即将推出”空动作，也不得把可预见的 ACL 拒绝暴露给稳定入口。
+- W5 后 Terminal 默认启用；只有前后端显式 `false|0` 紧急 kill switch 关闭时不渲染按钮。不得显示可点击的“即将推出”空动作，也不得把可预见的 ACL 拒绝暴露给稳定入口。
 - Tool Logs 不再占 WorkspaceBar Terminal 图标。消息工具组的日志入口使用 `ScrollText` 语义图标、`ghost icon-xs/size-7`、明确“打开工具日志”名称；它是独立 button，不能嵌套进 Collapsible trigger，点击不得顺带改变消息工具组展开态。
 - TerminalPanel 工具栏使用 `ghost size-7` 的清屏、复制、粘贴、收起按钮，顺序固定且均有 Tooltip/`aria-label`；复制在无 selection 时 disabled，粘贴在 clipboard 不可用时 disabled。按钮不缩放、不发光，失败反馈进入面板状态条而非 Toast 风暴。
+- 所有来自 Markdown、About、provider 或终端衍生内容的外链，只能在通过长度、控制字符、credentials 与 HTTP(S) scheme 校验后调用原生 `shell open`；禁止 `window.open` 和当前 WebView 导航。相对路径、恶意 scheme 与无效 URL 保持不可导航文本，不渲染伪按钮或空 tooltip。
 
 ---
 

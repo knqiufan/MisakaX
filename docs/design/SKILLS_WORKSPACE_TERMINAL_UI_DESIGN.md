@@ -3,7 +3,7 @@
 > **用途：** 定义 Skills 设置页、按需文件预览、安全报告、输入框下方工作区标识和右侧终端的交互规范。
 > **受众：** 产品、UI/UX、React、Rust IPC 和测试维护者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **状态：** 增量实施中；S1–S3、S5 与 Workspace W1–W4 已落地，独立 Skills 路径和旧全文/双写兼容面已删除；Sandbox 隔离的 S4 可选深度扫描器按用户范围延后，Terminal capability/CSP 与三平台发布验证由 W5–W6 继续实施。
+> **状态：** 增量实施中；S1–S3、S5 与 Workspace W1–W5 已落地，独立 Skills 路径和旧全文/双写兼容面已删除；Sandbox 隔离的 S4 可选深度扫描器按用户范围延后，Terminal 跨平台、压力与发布验证由 W6 继续实施。
 > **上位规范：** [`frontend-ui-guidelines.md`](./frontend-ui-guidelines.md)、[`shell-and-workspace-ui-spec.md`](./shell-and-workspace-ui-spec.md)、[`button-menu-design-spec.md`](./button-menu-design-spec.md)。
 
 ---
@@ -158,7 +158,7 @@ S3 落地约束：
 
 W1 落地约束：
 
-- badge 的 cwd 只能由后端按 chat session 解析；前端不得传 Git argv、可执行文件或替代 cwd。`workspace_get_context` 返回的 generation 与 `workspace.context.changed` event 必须共同用于丢弃快速切换后的迟到结果。
+- badge 的 cwd 只能由后端按 chat session 解析；前端不得传 Git argv、可执行文件或替代 cwd。`workspace_get_context` 返回的 generation 与 `workspace:context:changed` event 必须共同用于丢弃快速切换后的迟到结果。
 - Git 查询失败、可信 Git CLI 缺失、超时或输出越界一律退化为“本地项目”；tooltip 只显示稳定诊断和短 correlation ID，不显示绝对路径、stderr 或 PATH 候选。
 - 分支/ref watcher、窗口 focus 和未来 terminal-exit 刷新均需 debounce；重复查询使用 single-flight/cache，不能阻塞 composer 输入。只读 badge 是单一生产实现，不保留默认关闭但无回滚分支的休眠开关。
 
@@ -170,7 +170,7 @@ W1 落地约束：
 - Terminal 和 Explorer 图标表示右侧 `WorkspacePanel` 的 mode；当前 mode 有选中态，再次点击可关闭右栏。
 - Tool Logs 固定从消息内 `ToolActionsGroup` 的日志图标进入，继续打开聊天列内抽屉；不得再复用 Terminal 图标或占用右轨。
 - Tooltip 使用“打开终端”“打开文件浏览器”，包含快捷键时在右侧显示。
-- Explorer 使用 `Ctrl/Cmd+Shift+E`，Terminal 使用 `Ctrl/Cmd+反引号`；按钮提供 `aria-pressed`、`aria-keyshortcuts` 和可见 focus ring。W5 capability/CSP 上线门解除前 Terminal 入口由默认关闭的 `workspaceTerminal` feature flag 隔离，不显示不可用按钮。
+- Explorer 使用 `Ctrl/Cmd+Shift+E`，Terminal 使用 `Ctrl/Cmd+反引号`；按钮提供 `aria-pressed`、`aria-keyshortcuts` 和可见 focus ring。W5 后 Terminal 默认启用；`workspaceTerminal=false|0` 只作为前后端同步的显式紧急 kill switch，关闭时不显示不可用按钮。
 
 ### 7.1.1 WorkspacePanel 状态与窄窗口
 
@@ -194,8 +194,8 @@ W1 落地约束：
 - panel resize 后 100 ms debounce 发送 cols/rows；隐藏时不销毁，真正关闭时终止仍在运行的 Shell。
 - 工作区切换且旧终端存活时，提示“在新工作区重启”或“保留旧终端”，不静默 `cd`。
 - Shell 退出后显示退出码和“重新启动”，不无限自动重启。
-- 复制/粘贴遵循系统快捷键；粘贴多行/疑似危险命令的确认属于后续增强，首期至少不启用终端自动链接执行。
-- output 只接受当前 terminal/session/workspace generation 且严格递增的 seq；收到 `exited.last_seq` 后先排空对应输出再进入退出态，之后丢弃迟到事件。StrictMode 探测与重复打开不得重复 spawn。
+- 复制/粘贴使用 Tauri 原生 clipboard text permission，不触发浏览器 permission prompt；粘贴把 LF/CRLF 规范化为 CR 后直接写入窄 Terminal IPC。多行/疑似危险命令确认属于后续增强，首期不启用终端自动链接执行。
+- output 只接受当前 terminal/session/workspace generation 且严格递增的 seq；收到 `terminal:exited.last_seq` 后先排空对应输出再进入退出态，之后丢弃迟到事件。listener 必须在 spawn 前安装，并使用有界 pre-spawn queue 处理 spawn/event 竞态；StrictMode 探测与重复打开不得重复 spawn。
 - xterm 只消费 base64 解码后的字节并通过其 buffer API 渲染；禁止 `innerHTML`、`dangerouslySetInnerHTML`、WebLinksAddon、任意 link provider 和 `window.open`。输入按 UTF-8/onBinary 两条路径串行分片写入。
 
 ### 7.3 视觉与动效

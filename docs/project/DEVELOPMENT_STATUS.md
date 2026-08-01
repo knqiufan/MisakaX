@@ -70,7 +70,7 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 - 新建会话时选择工作目录；会话绑定 `working_directory`
 - 工作区资源管理器、Monaco 编辑器、文件树、多 Tab 编辑
 - 独立 `WorkspacePanel` 管理 open/mode/size/session generation，Explorer tabs 保持分离；宽窗 70/30 resize、窄窗 overlay、Explorer 快捷键和旧 open 偏好迁移已完成
-- W3 已交付 owner-bound Rust PTY、窄 IPC、背压、事件顺序边界和 Windows Job Object / Unix process-group 回收；W4 已交付本地 xterm UI、独立 terminal store、严格 seq/generation 生命周期、resize/clipboard/workspace 选择与可访问错误态。capability/CSP 收口尚待 W5，入口继续受默认关闭的 feature flag 隔离
+- W3 已交付 owner-bound Rust PTY、窄 IPC、背压和 Windows Job Object / Unix process-group 回收；W4 已交付本地 xterm UI、独立 terminal store、严格 seq/generation、resize/clipboard/workspace 选择与可访问错误态；W5 已完成最小 capability、严格生产 CSP、原生 clipboard 与 Windows Release 真实 PowerShell 验证。Terminal 默认启用，`false|0` 仅作紧急 kill switch；macOS/Linux、原生 IME 与压力发布矩阵留 W6
 - Rust 文件读写命令（`fs_explorer`、`workspace`）
 - Composer footer 只读显示 Git 分支、detached short SHA 或“本地项目”；支持 worktree/submodule、可信 Git CLI 退化、generation/cache 与 HEAD/ref 刷新，不提供 Git 写操作
 
@@ -123,8 +123,8 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 
 | 范围 | 数量 | 运行命令 |
 |------|------|----------|
-| 前端 Vitest | 37 个测试文件 / 267 tests | `npm test` |
-| Rust 集成测试 | 37 个测试文件 | 日常：`cargo test --test <name>`；提交前：`cargo nextest run --all-features --profile ci`（或 `cargo test`） |
+| 前端 Vitest | 38 个测试文件 / 271 tests | `npm test` |
+| Rust 集成测试 | 50 个测试文件 | 日常：`cargo test --test <name>`；提交前：`cargo nextest run --all-features --profile ci`（或 `cargo test --all-features -j1`） |
 
 > Rust 日常构建/测试依赖增量编译，**不要**在每次 `cargo test` 前执行 `cargo clean`。日常改代码优先 `cargo check` + 精准 `--test`（映射表见优化指南 §4.2）；Cursor hook `.cursor/hooks/post-edit-test.sh` 已按映射自动选择测试。仅在链接异常、切分支后编译诡异失败等情况下按需 `cargo clean`。见 [`docs/guides/rust-build-test-optimization.md`](../guides/rust-build-test-optimization.md)。
 
@@ -138,7 +138,7 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 |----|------|------|
 | Sidecar Agent 端点 | `agent/app/routers/agent.py` 返回 501 | Phase 3 AC-4 → Phase 4 替换 |
 | UI/实机复验记录 | C/D/F 自动化与 CLI 验证已完成；V1-V26 中仍有若干 UI 操作需人工最终确认 | Phase 3 §6 |
-| 发布捆绑 | Nuitka 本地产物已验收；`tauri.conf.json` `externalBin` 与安装包捆绑属发布阶段 | Phase 6 |
+| 发布捆绑 | Nuitka 本地产物已验收；W5 已生成并审计本地未签名 EXE/MSI/NSIS 以验证 Terminal/CSP，`externalBin`、签名和三平台正式安装包仍属发布阶段 | Phase 6 / Workspace W6 |
 
 ### 4.2 Phase 4 核心缺口（**主续做线**）
 

@@ -93,7 +93,7 @@ pub enum WorkspaceKind { Git, Local }
 - [x] 实现 `GitCliProvider` 的结构化命令、超时、取消、输出上限和日志脱敏。
 - [x] 覆盖普通分支、detached、worktree、submodule、bare/non-worktree、路径空格/Unicode。
 - [x] Git CLI 缺失/被 PATH 劫持时给出安全诊断；只使用可信 PATH 解析策略。
-- [x] 新增 `workspace_get_context` command 和 `workspace.context.changed` 事件。
+- [x] 新增 `workspace_get_context` command 和 `workspace:context:changed` 事件。
 - [x] 实现 single-flight cache、generation、focus/terminal-exit/debounced watcher 刷新。
 - [x] React 新增 `useWorkspaceContext`，处理 loading/stale/error 和旧 generation。
 - [x] 在 composer footer 加 `WorkspaceContextBadge`，实现长分支截断和 detached 文案。
@@ -154,8 +154,8 @@ terminal_kill(terminal_id, reason)
 terminal_get_state(terminal_id)
 
 events:
-terminal.output { terminal_id, seq, bytes/base64 }
-terminal.exited { terminal_id, exit_code?, reason }
+terminal:output { terminal_id, seq, bytes/base64 }
+terminal:exited { terminal_id, exit_code?, reason }
 ```
 
 不要让前端传绝对 cwd、任意可执行路径或完整环境变量。用户选择的 shell profile 必须来自后端允许列表。
@@ -178,7 +178,7 @@ terminal.exited { terminal_id, exit_code?, reason }
 - [x] 应用退出、窗口关闭、会话删除和明确关闭面板时按策略终止进程树。
 - [x] Windows 使用 Job Object 或等价手段回收子进程；Unix 使用 process group/session。
 - [x] 实现 Shell profile 探测和可诊断 fallback。
-- [x] 实现结构化 `terminal.output/exited` 事件和迟到 seq 丢弃边界（W4 UI 按 generation/seq 消费）。
+- [x] 实现结构化 `terminal:output` / `terminal:exited` 事件和迟到 seq 丢弃边界（W4 UI 按 generation/seq 消费）。
 - [x] 增加 session 数、输出速率、输入大小、尺寸范围和命令频率限制。
 - [x] 补 Rust unit/integration，覆盖 owner 篡改、cwd 竞态、崩溃、输出洪水和应用关闭。
 
@@ -204,11 +204,11 @@ terminal.exited { terminal_id, exit_code?, reason }
 - [x] 工作区切换时提供“在新工作区重启/保留旧终端”，记录明确选择。
 - [x] Shell exit 显示 code/reason 和重启按钮；不无限自动重启。
 - [x] 实现清屏、复制、粘贴、focus restore 和快捷键冲突测试。
-- [ ] 为 IME、中文、Emoji、宽字符、ANSI 色、滚动、TUI alternate screen 做实机测试。（W3 已覆盖 Windows ConPTY 字节/ANSI/TUI；W4 桌面面板已验证错误态，真实 shell 路径受 W5 ACL 上线门阻断，原生 IME 与三平台矩阵留 W6。）
+- [ ] 为 IME、中文、Emoji、宽字符、ANSI 色、滚动、TUI alternate screen 做实机测试。（W3 已覆盖 Windows ConPTY 字节/ANSI/TUI；W5 Windows Release UI 已覆盖真实 prompt、中文/宽字符、ANSI 与 panel 保活，原生 IME、Emoji、滚动压力和 macOS/Linux 矩阵留 W6。）
 - [x] 终端输出不进入普通 screen-reader live stream；退出/错误使用独立 live region。
 - [x] panel 隐藏/显示和 React StrictMode 下不重复 spawn。
 
-状态：W4 实现已由 `main@2a5b112` 交付；前端自动化、生产构建与 Windows 桌面错误/重试态通过。真实 PTY 端到端启动必须先完成 W5 custom command capability，随后补记 Windows Unicode/ANSI/resize/保活证据；原生 IME 和 macOS/Linux 仍由 W6 负责。
+状态：W4 实现已由 `main@2a5b112` 交付；W5 已解除 capability 上线门，并在 Windows Release UI 补齐真实 PowerShell prompt、中文/宽字符、ANSI 与 panel 保活证据。原生 IME、压力矩阵和 macOS/Linux 仍由 W6 负责。
 
 ## 8. Phase W5：Tauri 能力与 CSP 收窄
 
@@ -216,15 +216,17 @@ terminal.exited { terminal_id, exit_code?, reason }
 
 ### 8.1 TODO
 
-- [ ] 删除主 WebView 的 `shell:allow-execute`、`shell:allow-spawn`、`shell:allow-stdin-write`、`shell:allow-kill`。
-- [ ] 检查现有功能是否仍需 `tauri-plugin-shell`；需要的外链打开使用单独窄 permission/scope。
-- [ ] 收窄 fs read/write/remove/rename 到确切业务 commands 或 scoped paths。
-- [ ] 收窄 HTTP capability 到模型/目录所需域名，敏感请求优先由 Rust/Sidecar 发起。
-- [ ] 生产 CSP 禁止远端 script、动态 eval 和任意 frame；xterm/Monaco 所需 worker 采用本地静态配置。
-- [ ] 开发 CSP 例外只在 dev config，不能进入 release bundle。
-- [ ] 对所有 custom commands 建 capability/authorization 测试，验证其他 window/webview 无权调用 terminal。
-- [ ] 做前端 XSS 回归：终端 title、OSC、链接和输出不能注入 DOM/IPC。
-- [ ] 运行 `tauri build` 后检查最终 capabilities、CSP 和 bundle 资源，不只检查源码。
+- [x] 删除主 WebView 的 `shell:allow-execute`、`shell:allow-spawn`、`shell:allow-stdin-write`、`shell:allow-kill`。
+- [x] 检查现有功能是否仍需 `tauri-plugin-shell`；外链只保留经过 HTTP(S) 校验的窄 `open` permission。
+- [x] 删除 WebView 通用 fs 插件与权限；文件操作继续经过有 root containment 的确切业务 commands。
+- [x] 删除 WebView 通用 HTTP 插件与 capability；模型、目录与 Sidecar 请求继续由 Rust/Sidecar 发起。
+- [x] 生产 CSP 禁止远端 script、动态 eval 和任意 frame；xterm/Monaco 使用本地静态 bundle。
+- [x] 开发 CSP 例外仅在 `devCsp` 生效，生产 `csp` 与生成的前端资源不含 dev origin。Tauri 会把同一配置结构中的非活动 `devCsp` 字面量编译进 Windows EXE，不能把“二进制中不存在 localhost 字符串”当作退出门。
+- [x] 对全部 custom commands 建 manifest/capability/authorization 测试；Terminal 仅由 `terminal-runtime` 精确授予 `main` 本地 WebView。
+- [x] 做前端 XSS 回归：终端 title、OSC、链接和输出不能注入 DOM/IPC。
+- [x] 运行 `tauri build` 后检查最终 capabilities、CSP、bundle 资源和 Windows Release 真实 PTY 路径，不只检查源码。
+
+状态：W5 已由 `main@b96d0e3` 完成。前端 38 files / 271 tests、Rust 全量 `cargo test --all-features -j1`、`cargo check --all-features`、`npm run build` 与 `npm run tauri build` 均通过；Windows Release 默认显示 Terminal，并实测 PowerShell prompt、中文/宽字符、ANSI 与原生 clipboard paste。最终 capability 只有 event listen/unlisten、HTTP(S) 外链 open、dialog open/save、clipboard read/write、`main-commands` 和五个 `terminal-runtime` commands；Sandbox 未实施。MSI/NSIS SHA-256 与 CSP 审计细节见 [`tauri-capability-csp-audit.md`](../guides/tauri-capability-csp-audit.md)。
 
 ## 9. Phase W6：三平台发布验证
 

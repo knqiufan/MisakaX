@@ -3,8 +3,8 @@
 > **用途：** 作为本轮 Skills/安全检查/Git 标识/终端/Sandbox/最终架构审查的单一进度台账。
 > **受众：** 项目负责人、开发、测试、安全和后续接手者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **代码基线：** `main@2a5b112`。
-> **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；Skills S0–S3、S5 与 Workspace W0–W4 实现已闭环，S4 因依赖 Sandbox helper 按用户范围明确延期，Sandbox 本身暂不实施；Terminal 稳定入口仍由 W5 capability/CSP 上线门阻断。
+> **代码基线：** `main@b96d0e3`。
+> **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；Skills S0–S3、S5 与 Workspace W0–W5 实现已闭环，S4 因依赖 Sandbox helper 按用户范围明确延期，Sandbox 本身暂不实施；Terminal 已解除 W5 安全门并完成 Windows Release 真实 shell 验证，W6 仍需跨平台与压力发布矩阵。
 
 ---
 
@@ -30,8 +30,8 @@
 | Skills 迁入 Settings/MCP 下方 | ✅ | Settings 导航顺序为 MCP → Skills；旧 `skills` route/title/nav/page wrapper 已删除 |
 | Skills 安全检查 | ✅ | 内置离线引擎、quarantine、versioned policy、finding/审批/rescan/export、升级批量扫描与统一 Gate 已闭环；Sandbox deep scanner 按范围延后 |
 | Git/本地项目 badge | ✅ | 只读 WorkspaceContext/Git provider、generation DTO/event、composer badge 与无路径诊断已闭环 |
-| 嵌入式终端 | 🟡 | W3 owner-bound PTY 与 W4 xterm UI/生命周期已交付；W5 安全收口和其后的真实 shell UI 复验尚未完成，入口继续默认关闭 |
-| Tauri 终端安全收口 | ⛔ | 主 WebView shell/fs/http 权限偏宽且 CSP 为空，终端上线前必须修复 |
+| 嵌入式终端 | 🟡 | W3–W5 已交付 owner-bound PTY、xterm UI、最小 capability/CSP 与 Windows Release 真实 shell；默认入口已启用，macOS/Linux、原生 IME 与压力矩阵留 W6 |
+| Tauri 终端安全收口 | ✅ | 通用 Shell execute/spawn/stdin/kill、FS/HTTP/Notification 权限已删除；生产 CSP、精确 custom-command manifest 与 Windows Release 审计通过 |
 | Agent OS Sandbox | ⛔ | 当前为逻辑路径 guard；Shell 在宿主直接执行并继承环境 |
 | 最终架构审查/重构 | ⬜ | 必须等其他功能和回归基线完成 |
 | 本轮调研与规划文档 | ✅ | 已在本基线生成并完成交叉链接 |
@@ -74,25 +74,26 @@
 - Python 只消费逐项只读 activation mount，不接收全局 Skills 目录、slug 推导宿主路径或 Skills 专用 `LocalShellBackend` fallback。
 - enable、selection、composer chip、消息发送与 Sidecar mount 共用 stable ID、effective-active 与扫描 Gate；禁用/变化事件会使旧选择失效。
 
-### 3.4 Workspace 与 Terminal 差距
+### 3.4 Workspace 与 Terminal 证据/差距
 
 - `src-tauri/src/services/workspace/` 已提供只读 Git provider、可信可执行文件解析、结构化 argv、超时/取消/输出上限、single-flight/TTL/watcher/generation；普通分支、detached、worktree、submodule、bare 与非 Git 均有真实 Git fixture。
 - `src/components/chat/composer/WorkspaceContextBadge.tsx` 与 `src/hooks/use-workspace-context.ts` 已交付 composer Git/本地标识，快速工作区切换会丢弃旧请求/旧 generation，诊断 tooltip 不暴露绝对路径。
 - `src/stores/workspace-panel-store.ts` 独立管理 open/mode/size/session/generation，只持久化 UI 偏好；旧 Explorer open 偏好一次性迁移，Explorer tabs/activePath 仍归原 store。
 - `src/pages/ChatPage.tsx` 已用单一 `WorkspacePanel` 包裹既有 `WorkspaceExplorer`；宽窗为 70/30 百分比分栏，窄窗为不挤压聊天列的右侧 overlay。
-- `src/components/chat/workspace/WorkspaceBar.tsx` 的 Explorer/Terminal 使用同一 mode action、pressed/tooltip/快捷键；Terminal 入口在 W5 capability/CSP 上线门解除前受默认关闭的 feature flag 隔离。
+- `src/components/chat/workspace/WorkspaceBar.tsx` 的 Explorer/Terminal 使用同一 mode action、pressed/tooltip/快捷键；W5 后 Terminal 默认启用，前后端只保留 `false|0` 显式紧急 kill switch，不渲染不可用空动作。
 - Tool Logs 已迁到消息 `ToolActionsGroup` 的明确日志按钮，仍打开 ChatView 内原聚合抽屉，不再借用 Terminal 图标或右轨。
-- `src-tauri/src/services/terminal/` 已实现 `TerminalManager`、可信 shell 解析、window + Chat Session + workspace generation ownership、限额/背压、结构化 output/exited 事件和 Windows Job Object / Unix process-group 回收；spawn 不接受 cwd、任意 executable、argv 或 env。
+- `src-tauri/src/services/terminal/` 已实现 `TerminalManager`、可信 shell 解析、window + Chat Session + workspace generation ownership、限额/背压、`terminal:output` / `terminal:exited` 事件和 Windows Job Object / Unix process-group 回收；spawn 不接受 cwd、任意 executable、argv 或 env。
 - `src/lib/ipc/terminal.ts` 只暴露 spawn/write/resize/kill/get-state 窄接口；输出使用 base64 二进制载荷和递增 seq，W4 UI 已按 terminal/generation/seq 丢弃迟到事件并以 `last_seq` 排空退出。
 - `WorkspacePanel` 会保持访问过的 Terminal 内容槽挂载；实际 process/output 生命周期归 Rust manager 与独立 `terminal-store`，不能写回 panel 偏好 store。
 - manifests 已锁定 `portable-pty = 0.9.0`、`@xterm/xterm = 6.0.0` 与 `@xterm/addon-fit = 0.11.0`；本地 xterm UI 已落地，Sandbox 依赖仍未加入。W1 Git 上下文继续使用受控系统 Git CLI，不引入 Git crate。
+- `src-tauri/capabilities/default.json` 只授予本地 `main` window 精确 event、HTTP(S) 外链 open、dialog、clipboard、`main-commands` 与五个 `terminal-runtime` commands；102 个 custom commands 的 handler/manifest/permission 集合由测试锁定。
+- `src-tauri/tauri.conf.json` 已配置严格 production CSP；HMR origin 只在 `devCsp` 生效。Windows Release 默认入口已真实启动 PowerShell 并验证 prompt、中文/宽字符、ANSI、原生 clipboard paste 与关闭后进程树归零。
 
-### 3.5 Sandbox 与 Tauri 安全差距
+### 3.5 Sandbox 安全差距
 
 - `agent/app/workspace_backend.py` 的逻辑根可降低误操作，但不是 OS 安全边界。
 - 生产 Agent 当前通过 `LocalShellBackend(..., virtual_mode=True, inherit_env=True)` 执行宿主命令。
-- `src-tauri/capabilities/default.json` 授予主 WebView 通用 Shell spawn/execute/stdin/kill 和较宽 FS/HTTP 能力。
-- `src-tauri/tauri.conf.json` 的 CSP 为 `null`。
+- W5 已关闭 WebView 通用 shell/fs/http 权限和 CSP 空缺；这只加固用户 Terminal/WebView 边界，不等于 Agent OS Sandbox。
 - 没有 Bubblewrap/Seatbelt/Windows restricted token、网络 Broker、资源限制或进程树审计。
 
 ## 4. 文档交付进度
@@ -109,7 +110,7 @@
 | [`SANDBOX_IMPLEMENTATION_PLAN.md`](../planning/SANDBOX_IMPLEMENTATION_PLAN.md) | ✅ | 三平台 Sandbox 分阶段 TODO/Gate |
 | [`ARCHITECTURE_REVIEW_AND_REFACTOR_PLAN.md`](../planning/ARCHITECTURE_REVIEW_AND_REFACTOR_PLAN.md) | ✅ | 功能完成后的无回退重构 TODO |
 | [`MASTER_IMPLEMENTATION_EXECUTION_GUIDE.md`](../planning/MASTER_IMPLEMENTATION_EXECUTION_GUIDE.md) | ✅ | AI Coding 文档路由、阶段闭环、测试、进度与 main push 总指导 |
-| [`tauri-capability-csp-audit.md`](../guides/tauri-capability-csp-audit.md) | ✅ | W0 主 WebView 权限调用点、CSP 目标与 Tool Logs 迁移决定 |
+| [`tauri-capability-csp-audit.md`](../guides/tauri-capability-csp-audit.md) | ✅ | W5 最小 capability、生产 CSP、Release bundle 与 Windows 实机证据 |
 | 本进度文档 | ✅ | 单一事实台账 |
 
 ## 5. 里程碑进度
@@ -119,7 +120,7 @@
 | M0 调研与方案 | ✅ | 仓库审计、官方资料调研、总体架构、UI、分项计划、总执行指导、进度台账 | 文档 review 通过 |
 | M1 契约与回归基线 | ✅ | S0/W0 特征测试、稳定 DTO/error/event、默认关闭 feature flags、capability/CSP 审计 | 进入 S1/W1 前保持基线测试绿色 |
 | M2 Skills 闭环 | ✅ | S0–S3、S5 完成：稳定来源、按需文件、只读挂载、quarantine/内置扫描/统一 Gate、存量迁移与旧路径清理 | S4 Sandbox deep scanner 由用户范围明确延期，不阻塞当前 Skills 交付 |
-| M3 工作区体验 | 🟡 | W0–W4 完成：行为/安全基线、只读 Git/local badge、统一 WorkspacePanel、owner-bound PTY/窄 IPC、xterm UI 与生命周期 | CSP/capability 收窄、真实 shell UI 复验与三平台发布验证 |
+| M3 工作区体验 | 🟡 | W0–W5 完成：只读 Git/local badge、统一 WorkspacePanel、owner-bound PTY/窄 IPC、xterm UI、最小 capability/CSP 与 Windows Release 真实 shell | W6 macOS/Linux、原生 IME、压力与签名/发布验证 |
 | M4 Sandbox Spike | 📄 | 调研和 ADR | 三平台 filesystem/network/process attack fixtures 通过 |
 | M5 Sandbox 默认化 | ⬜ | 逻辑 guard/审批可复用 | Agent/Skill/MCP 无 host Shell fallback，严格模式发布 gate |
 | M6 安全强化 | 🟡 | S3 内置离线扫描、恶意/良性 corpus、审批与 stale 生命周期；S5 存量 rescan 完成 | S4 deep scanner（Sandbox 延后）、独立安全 review |
@@ -142,7 +143,7 @@
 | B-02 | 安全 | ✅ S3 已解除：外部 Skill 发现/变更统一扫描，裁决、审批、stale 与持久开关闭环 | 已关闭 |
 | B-03 | UX/API | ✅ S2 已解除：详情首载不再返回正文，文件树与预览独立滚动并按需分段读取 | 已关闭 |
 | B-04 | 安全 | ✅ S3 已解除：本地/远端/外部入口统一 Security Gate；发布需要 `ApprovedArtifactId` | 已关闭 |
-| B-05 | 安全 | 主 WebView 通用 Shell 权限 + CSP null | M3 上线门 |
+| B-05 | 安全 | ✅ W5 已解除：主 WebView 最小 capability + 严格生产 CSP + Release 验证 | 已关闭 |
 | B-06 | 安全 | Agent Shell 宿主执行和环境继承 | M4-M5 |
 | B-07 | 选型 | Windows strong sandbox 需 UAC setup/专用用户/firewall 的产品接受度 | M4 Spike review |
 | B-08 | 依赖 | Cisco scanner 是否并入 Sidecar 或独立 helper，需三平台打包 PoC | M6 / S4 |
@@ -169,9 +170,10 @@
 - [x] 执行 Skills S5，完成存量扫描迁移和旧生产旁路清理。
 - [x] 执行 Workspace W1，交付只读工作区标识、可信 Git provider 与缓存/刷新闭环。
 - [x] 执行 Workspace W2，交付独立 WorkspacePanel 容器、统一 panel actions 与 Tool Logs 新入口。
-- [x] 执行 Workspace W3，交付 owner-bound Rust PTY/TerminalManager 与窄 IPC；继续保持 Terminal rollout 默认关闭。
-- [x] 执行 Workspace W4，交付 xterm UI、事件顺序/生命周期、复制粘贴、resize 与工作区切换选择；真实 shell UI 复验在 W5 capability 解锁后完成。
-- [ ] 执行 Workspace W5，删除主 WebView 通用权限、配置生产 CSP 与 custom command authorization，并解除 B-05。
+- [x] 执行 Workspace W3，交付 owner-bound Rust PTY/TerminalManager 与窄 IPC；W5 前保持 Terminal rollout 默认关闭。
+- [x] 执行 Workspace W4，交付 xterm UI、事件顺序/生命周期、复制粘贴、resize 与工作区切换选择。
+- [x] 执行 Workspace W5，删除主 WebView 通用权限、配置生产 CSP 与 custom command authorization，完成 Windows Release 真实 shell 复验并解除 B-05。
+- [ ] 执行 Workspace W6，完成压力/诊断/离线验证；Windows 当前机证据先行，macOS/Linux 与签名/发布矩阵不得用 Windows 结果代替。
 - [ ] Sandbox B0–B7：按用户当前范围暂不实施；未获得新指令前不启动 Spike 或生产执行链改造。
 
 ## 10. 实施记录
@@ -255,7 +257,7 @@
 - 状态：已完成并推送；实现提交 `0675b24`，Sandbox 未实施。
 - 完成 TODO：Workspace Terminal W1 全部 11 项；W0 的休眠 `workspace_context_badge` flag 已删除，当前只保留后续 terminal/narrow rollout flags。
 - 后端证据：新增 `WorkspaceContextService`、`VcsProvider` 与 `GitCliProvider`；工作区由 chat session 后端解析并 canonicalize，前端不能传 cwd、命令或 executable。Git 只使用结构化 argv 和只读 `rev-parse`/`symbolic-ref`，执行前清理继承的 `GIT_*`，设置 `GIT_OPTIONAL_LOCKS=0`/`GIT_TERMINAL_PROMPT=0`，并具备可信路径解析、2 秒超时、显式取消、8 KiB stdout/stderr 上限与 UTF-8/branch/SHA 校验。
-- 一致性证据：cache key 为 canonical path + 单调 workspace generation；3 秒 TTL、并发 single-flight、会话 rebind/unbind 取消、HEAD/common refs/packed-refs watcher 与 300 ms debounce 已落地；focus 和 terminal-exit refresh seam 统一发出 `workspace.context.changed`。
+- 一致性证据：cache key 为 canonical path + 单调 workspace generation；3 秒 TTL、并发 single-flight、会话 rebind/unbind 取消、HEAD/common refs/packed-refs watcher 与 300 ms debounce 已落地；focus 和 terminal-exit refresh seam 统一发出 `workspace:context:changed`。
 - UI/隐私证据：composer footer 新增纯展示 `WorkspaceContextBadge`，覆盖 branch、`detached:<sha>`、Local project、loading 和窄栏文字隐藏；长分支中部省略。tooltip 仅显示通用诊断和短 correlation ID，不显示工作区绝对路径；未渲染 chevron/menu 或 Git 写操作空壳。
 - 测试证据：前端 full 34 files / 253 tests；Rust workspace unit 5/5、真实 Git integration 5/5；普通分支、detached、worktree、submodule、bare、非 Git、空格/中文路径、缺失 Git、超时/取消、快速切换、旧 generation 和 watcher 事件均有覆盖。`npm run build`、`npx tsc --noEmit`、`cargo check --all-features -j1`、`cargo fmt --check`、`git diff --check` 通过；Vite 仅有既有大 chunk 警告。
 - 安全证据：生产 workspace context 源码静态审计未发现 add/commit/checkout/push/pull/merge/reset/restore/switch/stage 子命令；Git 可执行文件拒绝工作区、临时目录与相对 PATH 候选，诊断文案不携带敏感路径。
@@ -301,3 +303,19 @@
 - 环境差异：W3 已验证 Windows ConPTY Unicode/ANSI/alternate screen 与进程树；原生 IME、完整 Windows UI shell 路径和 macOS/Linux 实机仍未据此标完成。
 - 回滚：代码回滚到 `2366ce6`；本阶段无数据库迁移，不修改工作区文件。回滚不影响 W3 manager 中已建立的应用退出/会话删除 cleanup。
 - 下一步：Workspace W5，先配置最小 custom-command capability、移除通用 shell/fs/http 并建立生产 CSP；随后回到同一 Windows UI 路径补齐真实 shell、Unicode/ANSI、resize 和 mode 保活证据。Sandbox 继续排除。
+
+### 2026-08-01 Workspace W5 Tauri capability、CSP 与 Release 上线门
+
+- 状态：实现已完成、提交并推送；实现提交 `b96d0e3`。B-05 已关闭，Terminal 默认启用；Sandbox 未实施。
+- 权限证据：移除 WebView fs/http/notification 插件、Cargo 依赖与初始化；Shell 只保留经统一 helper 校验的 HTTP(S) 外链 open。`default` capability 仅绑定本地 `main` window，包含 event listen/unlisten、shell open、dialog open/save、clipboard read/write、`main-commands` 和精确五项 `terminal-runtime`。
+- custom command 证据：`build.rs` 将全部 102 个注册 commands 写入 Tauri AppManifest；`permissions/main.toml` 与 `permissions/terminal.toml` 拆分普通命令和 Terminal runtime，静态测试锁定 handler/manifest/permission 集合并拒绝通配或越权 window。
+- CSP/外链证据：production CSP 禁止远端 script、`unsafe-eval`、任意 frame 与远端 connect；HMR origin 只在 `devCsp` 生效，Release `index.html` 只引用本地 `/assets`。外链 helper 拒绝非 HTTP(S)、控制字符、credentials 与超长 URL；Markdown/About/provider 字段均不使用 `window.open` 或 WebView 内导航。
+- 终端协议加固：事件名修正为 Tauri 2 合法的 `workspace:context:changed`、`terminal:output`、`terminal:exited`；有界 pre-spawn queue 消除 listener/spawn 竞态。粘贴改用原生 clipboard 并规范化为 CR；恶意 title/OSC/link/output DOM 回归通过。Windows canonical `\\?\` 前缀只在完成安全校验后移除再交给 child shell。
+- Rollout：前端 `VITE_MISAKAX_WORKSPACE_TERMINAL` 与后端 `MISAKAX_WORKSPACE_TERMINAL` 默认启用，只有 `false|0` 显式关闭；两侧 gate 必须同时通过。
+- 自动化证据：前端全量 38 files / 271 tests；Rust `cargo check --all-features` 与串行 `cargo test --all-features -j1` 通过（73 lib tests 及全部 integration/doc tests，security 5/5、Windows Terminal 5/5）；`npm run build`、`npm run tauri build`、`git diff --check` 通过。Vite 仅有既有大 chunk 警告。
+- Windows Release 实机：未设置 feature flag 的 EXE 默认显示 Terminal；首次打开显示真实 PowerShell 工作区 prompt，原生粘贴成功执行 `RELEASE-W5-OK`、中文宽字符与 ANSI 颜色；关闭后验证进程树归零。开发态也通过普通 cwd、中文和 ANSI 路径。
+- Release 产物：`misakax.exe` SHA-256 `61C8827977488ECFEC8F5351E66E38F684957F61B351D619634B4C59CEC83F36`；MSI `8731A966E10AD275909B5F0501B9D08316E87956109868EB0C1208B7E32A21C8`；NSIS `89B2EBE69A35CF4768B0E08E29C18D41E465C3A05DFC06B71460668FFD0D450E`。
+- 审计边界：Tauri 会把同一配置中的非活动 `devCsp` 字面量编译进 Windows EXE，所以字符串扫描仍可看到 localhost；Release 运行时使用严格 production CSP，前端 bundle 无远端资源。不得把“二进制完全没有 dev origin 字符串”误记为已验证。
+- 环境差异：本阶段仅证明 Windows 11 当前机与本地未签名 installer；不宣称 Windows 10、macOS/Linux、原生 IME、签名/notarization 或压力矩阵完成。
+- 回滚：代码回滚到 `38506da` 会重新关闭入口并恢复旧权限/CSP 基线，不会修改用户工作区内容或数据库；不建议在生产安全边界上部分回滚。
+- 下一步：Workspace W6，补充 Windows shell/长路径/压力/离线/诊断证据，并在可用设备上分别验证 macOS/Linux 与签名/发布矩阵。Sandbox 继续排除。

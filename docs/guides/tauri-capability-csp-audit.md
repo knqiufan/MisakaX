@@ -1,68 +1,101 @@
 # Tauri WebView Capability 与 CSP 审计
 
-> **用途：** 记录 Workspace Terminal 上线前的主 WebView 权限基线、实际调用点和 W5 收窄目标。
+> **用途：** 记录 Workspace Terminal 主 WebView 的最小权限、生产 CSP 与 W5 Release 验证证据。
 > **受众：** Tauri、Terminal、前端与安全维护者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **基线：** `main@9249915`（W3 implementation）。
+> **基线：** `main@b96d0e3`（W5 implementation）。
 
-## 当前证据
+## W5 结论
 
-`src-tauri/capabilities/default.json` 当前把以下能力直接授予 `main` WebView：
+W5 已关闭旧的宽权限基线：主 WebView 不再拥有通用 Shell execute/spawn/stdin/kill、Filesystem、HTTP 或 Notification 插件权限。`default` capability 只绑定本地 `main` window，并精确包含：
 
-- Shell：`open`、`execute`、`spawn`、`stdin-write`、`kill`。
-- Filesystem：默认能力以及 read/write/exists/mkdir/remove/rename。
-- HTTP：默认能力与任意 fetch。
-- Dialog、clipboard、notification 的当前业务权限。
+- `core:event:allow-listen` / `allow-unlisten`；
+- 仅用于安全外链的 `shell:allow-open`；
+- `dialog:allow-open` / `allow-save`；
+- `clipboard-manager:allow-read-text` / `allow-write-text`；
+- 非终端自定义命令集合 `main-commands`；
+- 只含 `terminal_spawn/write/resize/kill/get_state` 的 `terminal-runtime`。
 
-`src-tauri/tauri.conf.json` 的生产 CSP 为 `null`。W0 特征测试
-`security_config_baseline_tests.rs` 固定了这一待收口状态，W5 应把断言改为最小权限目标。
+`build.rs` 把 102 个已注册 custom commands 固定到 Tauri AppManifest；静态测试验证 invoke handler、manifest 和 permission 三者集合一致，并确保 Terminal commands 不混入 `main-commands`。不存在通配 custom-command permission，也没有为其他 window/webview 授予 Terminal runtime。
 
-## 实际调用点
+## 插件与调用面
 
-| 插件能力 | React 直接调用 | Rust/自定义 command | W5 决策 |
-|---|---|---|---|
-| `shell:*` | 未发现 `@tauri-apps/plugin-shell` import | `fs_reveal_in_explorer` 使用 Rust `std::process::Command`，不依赖 WebView Shell permission | 删除 execute/spawn/stdin/kill；若保留外链打开，只授予窄 `open` scope |
-| `fs:*` | 未发现 `@tauri-apps/plugin-fs` import | Explorer 通过 `fs_*` commands 做 root containment、文本上限与二进制拒绝 | 删除主 WebView 通用 FS permissions，继续由窄 command 校验 |
-| `http:*` | 未发现 `@tauri-apps/plugin-http` import | Skills catalog、模型与 Sidecar 请求由 Rust/Sidecar 发起 | 删除主 WebView HTTP fetch；如后续发现例外，按精确域名另行审计 |
-| Dialog | Skills 导入/导出、设置备份、会话导出使用 | 路径仍须由 Rust command 重新校验 | 保留实际使用的 open/save 子权限 |
-| Clipboard | Workspace 文件节点复制使用 | — | 保留 read/write 前再次核对最小调用面 |
+| 能力 | W5 后 React / Rust 调用面 | 最终决定 |
+|---|---|---|
+| `shell:*` | React 只通过统一 helper 打开已校验的 HTTP(S) URL；`fs_reveal_in_explorer` 仍是 Rust command | 仅保留 `shell:allow-open`；删除 execute/spawn/stdin/kill |
+| `fs:*` | Explorer 只通过 `fs_*` commands 使用 root containment、文本上限与二进制拒绝 | 删除 WebView FS 插件、Cargo 依赖、初始化和 capability |
+| `http:*` | Skills catalog、模型与 Sidecar 请求由 Rust/Sidecar 发起 | 删除 WebView HTTP 插件、Cargo 依赖、初始化和 capability |
+| Notification | 没有已审计的 WebView 使用点 | 删除插件、Cargo 依赖、初始化和 capability |
+| Dialog | Skills 导入/导出、设置备份与会话导出 | 仅保留 open/save；业务 command 继续校验选择结果 |
+| Clipboard | Workspace 复制与 Terminal 原生复制/粘贴 | 保留 read/write text；粘贴按 CR 规范化后直接写入窄 Terminal IPC |
 
-W3 新增的终端不调用 `@tauri-apps/plugin-shell`：`terminal_spawn/write/resize/kill/get_state` 是自定义窄 command，window owner 由 Tauri request 派生，cwd/executable/argv/env 均不能由 WebView 指定。Rust `TerminalManager` 负责 PTY、背压、限额与进程树回收；`@xterm/xterm` 和 `@xterm/addon-fit` 仅作为 W4 的本地静态资源依赖。当前宽泛 shell/fs/http capability 仍未收口，不能因终端 IPC 已变窄而关闭 W5 阻断项。
+安全外链 helper 只接受长度受限、无控制字符、无 credentials 的 `http:` / `https:` URL。Markdown、About 与 provider 字段都使用该 helper；相对路径、恶意 scheme 和无效 URL 渲染为不可导航文本，不用 `window.open`，也不允许当前 WebView 导航离开本地应用。
 
-审计命令：
+## Terminal 授权边界
 
-```powershell
-rg -n "@tauri-apps/plugin-(shell|fs|http|dialog|clipboard)" src
-rg -n "tauri_plugin_(shell|fs|http)" src-tauri/src src-tauri/Cargo.toml
-```
+Terminal 不调用通用 Shell plugin execute/spawn。WebView 只能提交 Chat Session、workspace generation、rows/cols 与 allowlisted shell profile；window owner 从 Tauri request 派生，cwd、任意 executable、argv 和 env 不能由前端指定。
 
-## W5 生产 CSP 目标
+Rust `TerminalManager` 继续负责 PTY、ownership、背压、限额和进程树回收。事件名固定为 `terminal:output` 与 `terminal:exited`；前端在 spawn 前安装 listener，并用有界 pre-spawn queue 消除 spawn/event 竞态。xterm 输出只写字节 buffer，不使用 `innerHTML`、WebLinksAddon、link provider 或自动外链。
 
-生产配置应从以下约束起步，并以 release bundle 实测调整，不得用 `*`、远端脚本或
-`unsafe-eval` 解决兼容问题：
+Terminal 在 W5 后默认启用；`VITE_MISAKAX_WORKSPACE_TERMINAL=false|0` 和 `MISAKAX_WORKSPACE_TERMINAL=false|0` 只作为显式紧急 kill switch。UI 和 Rust 两侧必须同时允许，不能只绕过其中一层。
+
+## 生产 CSP
+
+当前生产 `csp` 是严格的本地资源策略：
 
 ```text
-default-src 'self';
+default-src 'self' customprotocol: asset:;
 script-src 'self';
 style-src 'self' 'unsafe-inline';
 font-src 'self' data:;
 img-src 'self' asset: http://asset.localhost blob: data:;
 connect-src 'self' ipc: http://ipc.localhost;
 worker-src 'self' blob:;
+child-src 'self' blob:;
 object-src 'none';
 base-uri 'none';
 frame-src 'none';
 form-action 'none'
 ```
 
-- Monaco/xterm worker 必须由 Vite 本地打包；仅在确有 blob worker 证据时保留 `blob:`。
-- Sidecar、模型和目录网络请求继续走 Rust/Sidecar，不把远端域名加入 WebView `connect-src`。
-- Vite HMR 的 localhost/WebSocket 例外只进入开发配置，不进入 release CSP。
-- W5 必须同时运行 XSS/OSC/title/link 测试、capability 静态测试和 `tauri build` bundle 检查。
+- 没有远端 script、`unsafe-eval`、任意 frame 或远端 connect origin。
+- xterm、Monaco 和字体/样式均来自 Vite 本地 bundle；Release `index.html` 的资源引用仅为本地 `/assets/...`。
+- Vite HMR 的 `http://localhost:1420` / `ws://localhost:1420` 只在 `devCsp` 生效，Release 运行时使用上面的生产 `csp`。
+- 审计边界：Tauri 会把同一配置结构中的非活动 `devCsp` 字面量编译进 Windows EXE，因此二进制字符串扫描仍能看到 localhost（本次 EXE 计数：HTTP 8、WebSocket 1）。这不代表 Release 激活了开发策略；退出门是活动 production CSP、最终 capability、生成的前端资源和真实 Release 行为均通过。不得把“EXE 中没有 localhost 字面量”写成已满足事实。
 
-## Tool Logs 迁移决定
+## Release 证据
 
-Tool Logs 保留其诊断价值并继续作为聊天列内抽屉。W2 已把入口迁入消息
-`ToolActionsGroup` 的显式“工具日志”动作，并从 WorkspaceBar Terminal 图标解除绑定；
-`ToolLogsPanel` 与其 store 数据继续保留。Terminal toggle 已接入统一 panel action；W3
-PTY/窄 IPC 已完成，但 W4 xterm UI 与 W5 capability/CSP 收口前仍由默认关闭的 feature flag 隐藏。
+在 Windows 11 本机完成：
+
+```text
+npm test                                # 38 files / 271 tests
+cargo check --all-features              # passed
+cargo test --all-features -j1           # 73 lib tests + all integration/doc tests passed
+npm run build                            # passed; only the existing large-chunk warning
+npm run tauri build                      # passed; EXE + MSI + NSIS generated
+```
+
+产物与 SHA-256：
+
+| 产物 | 大小 | SHA-256 |
+|---|---:|---|
+| `misakax.exe` | 37,730,816 bytes | `61C8827977488ECFEC8F5351E66E38F684957F61B351D619634B4C59CEC83F36` |
+| `MisakaX_0.1.0_x64_en-US.msi` | 16,740,352 bytes | `8731A966E10AD275909B5F0501B9D08316E87956109868EB0C1208B7E32A21C8` |
+| `MisakaX_0.1.0_x64-setup.exe` | 13,082,858 bytes | `89B2EBE69A35CF4768B0E08E29C18D41E465C3A05DFC06B71460668FFD0D450E` |
+
+未设置 feature flag 的 Release EXE 默认显示 Terminal；真实 UI 路径成功启动 PowerShell，显示工作区 prompt，并通过原生 clipboard paste 输出 `RELEASE-W5-OK`、中文宽字符与 ANSI 颜色。关闭验证应用后确认其进程树归零。产物是本地未签名验证包，不替代 W6 的三平台签名/发布矩阵。
+
+## 回归命令
+
+```powershell
+rg -n "@tauri-apps/plugin-(shell|fs|http|notification)" src
+rg -n "tauri_plugin_(fs|http|notification)" src-tauri/src src-tauri/Cargo.toml
+cargo test --all-features -j1
+npm test
+npm run build
+npm run tauri build
+```
+
+## Tool Logs 决定
+
+Tool Logs 继续作为聊天列内抽屉，入口位于消息 `ToolActionsGroup` 的明确“工具日志”动作，不与 Workspace Terminal 图标复用。Terminal toggle 使用统一 WorkspacePanel action；W5 已解除安全门，W6 只继续记录跨平台与压力发布证据。
