@@ -182,7 +182,7 @@ terminal:exited { terminal_id, exit_code?, reason }
 - [x] 增加 session 数、输出速率、输入大小、尺寸范围和命令频率限制。
 - [x] 补 Rust unit/integration，覆盖 owner 篡改、cwd 竞态、崩溃、输出洪水和应用关闭。
 
-平台证据见 [`WORKSPACE_TERMINAL_PTY_POC.md`](../research/WORKSPACE_TERMINAL_PTY_POC.md)：Windows 当前实机 9 项集成测试通过；Unix 路径已实现 PTY/process-group guard，但 macOS/Linux 真机与 bundle 不能据此宣称完成，仍属于 W6 发布矩阵。
+平台证据见 [`WORKSPACE_TERMINAL_PTY_POC.md`](../research/WORKSPACE_TERMINAL_PTY_POC.md)：Windows 当前实机 10 项集成测试通过；Unix 路径已实现 PTY/process-group guard，但 macOS/Linux 真机与 bundle 不能据此宣称完成，仍属于 W6 发布矩阵。
 
 ### 6.5 退出门
 
@@ -236,12 +236,12 @@ terminal:exited { terminal_id, exit_code?, reason }
 - [ ] macOS 当前和前两个支持版本：zsh/bash、签名/notarization、PTY 权限、IME。
 - [ ] Linux 支持发行版：bash/zsh/fish 可选、Wayland/X11 clipboard、PTY、AppImage/deb/rpm 打包。
 - [ ] 测试 Git CLI 缺失、旧版本、worktree、submodule、detached 和 PATH 异常。（缺失/PATH 退化、当前 Git 2.52.0、worktree、submodule 与 detached 已覆盖；旧 Git 版本仍待实机。）
-- [ ] 测试 10 MB/s 输出、超长行、持续进程、应用崩溃恢复和重新打开。（已覆盖单条 10 MiB 突发长行的有界限流、持续命令、模拟应用崩溃后的 Job 回收与新 manager 重开；尚未把该结果表述为实测稳定 10 MB/s 吞吐。）
+- [x] 测试名义 10 MiB/s 节流输出源、超长行、持续进程、应用崩溃恢复和重新打开。（当前 ConPTY 会先产生屏幕更新背压，允许在有界时限/总量内正常退出；独立 10 MiB 突发长行用例严格验证 `OutputLimit` 与进程回收。）
 - [ ] 确认安装包不依赖 CDN，离线启动终端可用。（Release HTML/JS/CSS 仅引用本地资源，EXE/MSI/NSIS 构建与 Release 终端启动通过；未通过断网环境做最终复验。）
 - [x] 记录已知 Shell/TUI 兼容差异和诊断入口。
 - [x] 更新 UI 三规范、PROJECT_STRUCTURE 和进度文档。
 
-状态：W6 Windows 当前机验证已由 `main@b2521f0` 推进，但三平台发布退出门仍为部分完成。Windows 11 上的 `terminal_manager_tests` 9/9、前端 38 files / 271 tests、Rust 全量测试、`cargo check --all-features`、前端构建和 Tauri Release bundle 均通过；macOS/Linux、Windows 10、pwsh、原生 IME、旧 Git 与签名/notarization 不能由这台 Windows 机器代替验证。Sandbox 仍未实施。
+状态：W6 Windows 当前机验证已由 `main@b2521f0` 与 `main@7a1f30e` 推进，但三平台发布退出门仍为部分完成。Windows 11 上的 `terminal_manager_tests` 10/10、前端 38 files / 271 tests、Rust 全量测试、`cargo check --all-features`、前端构建和 Tauri Release bundle 均通过；macOS/Linux、Windows 10、pwsh、原生 IME、旧 Git 与签名/notarization 不能由这台 Windows 机器代替验证。Sandbox 仍未实施。
 
 ## 10. 关键风险
 

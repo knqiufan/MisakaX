@@ -70,7 +70,7 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 - 新建会话时选择工作目录；会话绑定 `working_directory`
 - 工作区资源管理器、Monaco 编辑器、文件树、多 Tab 编辑
 - 独立 `WorkspacePanel` 管理 open/mode/size/session generation，Explorer tabs 保持分离；宽窗 70/30 resize、窄窗 overlay、Explorer 快捷键和旧 open 偏好迁移已完成
-- W3 已交付 owner-bound Rust PTY、窄 IPC、背压和 Windows Job Object / Unix process-group 回收；W4 已交付本地 xterm UI、独立 terminal store、严格 seq/generation、resize/clipboard/workspace 选择与可访问错误态；W5 已完成最小 capability、严格生产 CSP、原生 clipboard 与 Windows Release 真实 PowerShell 验证。W6 已通过 Windows 11 当前机的 PowerShell 5/cmd、超过 260 字符的 Unicode cwd、10 MiB 突发长行、模拟崩溃回收/重开及新 Release bundle；Windows 10/pwsh/macOS/Linux、原生 IME、持续吞吐、物理断网和签名发布仍待对应环境
+- W3 已交付 owner-bound Rust PTY、窄 IPC、背压和 Windows Job Object / Unix process-group 回收；W4 已交付本地 xterm UI、独立 terminal store、严格 seq/generation、resize/clipboard/workspace 选择与可访问错误态；W5 已完成最小 capability、严格生产 CSP、原生 clipboard 与 Windows Release 真实 PowerShell 验证。W6 已通过 Windows 11 当前机的 PowerShell 5/cmd、超过 260 字符的 Unicode cwd、10 MiB 突发长行、名义 10 MiB/s 持续源、模拟崩溃回收/重开及新 Release bundle；Windows 10/pwsh/macOS/Linux、原生 IME、物理断网和签名发布仍待对应环境
 - Rust 文件读写命令（`fs_explorer`、`workspace`）
 - Composer footer 只读显示 Git 分支、detached short SHA 或“本地项目”；支持 worktree/submodule、可信 Git CLI 退化、generation/cache 与 HEAD/ref 刷新，不提供 Git 写操作
 

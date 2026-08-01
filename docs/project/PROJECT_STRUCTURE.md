@@ -145,7 +145,7 @@ MisakaX/
 | `locales/` | i18n（zh-CN / en） |
 | `hooks/` | `use-stream-listener`、`use-ipc`、`use-sidecar-status`、`use-workspace-context` |
 | `styles/terminal.css` | xterm token 背景、内边距与窄滚动条；不依赖远端样式 |
-| `__tests__/` | Vitest 单元测试，含 TerminalPanel/terminal-store 的 StrictMode、事件顺序、输入、clipboard、resize 与工作区切换覆盖；Rust `terminal_manager_tests` 另覆盖真实 PTY、长 Unicode cwd、突发输出、崩溃回收和重开 |
+| `__tests__/` | Vitest 单元测试，含 TerminalPanel/terminal-store 的 StrictMode、事件顺序、输入、clipboard、resize 与工作区切换覆盖；Rust `terminal_manager_tests` 另覆盖真实 PTY、长 Unicode cwd、突发/持续输出、崩溃回收和重开 |
 
 ---
 

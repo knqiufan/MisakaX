@@ -3,7 +3,7 @@
 > **用途：** 作为本轮 Skills/安全检查/Git 标识/终端/Sandbox/最终架构审查的单一进度台账。
 > **受众：** 项目负责人、开发、测试、安全和后续接手者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **代码基线：** `main@b2521f0`。
+> **代码基线：** `main@7a1f30e`。
 > **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；Skills S0–S3、S5 与 Workspace W0–W5 实现已闭环，S4 因依赖 Sandbox helper 按用户范围明确延期，Sandbox 本身暂不实施；W6 已完成 Windows 11 当前机的长路径、shell、压力、崩溃恢复与 Release bundle 证据，Windows 10/pwsh/macOS/Linux/原生 IME/签名发布仍待对应环境验证。
 
 ---
@@ -322,11 +322,11 @@
 
 ### 2026-08-01 Workspace W6 Windows 当前机验证
 
-- 状态：实现提交 `b2521f0`；Windows 11 当前机验证已完成，W6 总体仍为 🟡。Sandbox 未实施。
+- 状态：实现提交 `b2521f0`，持续输出测试提交 `7a1f30e`；Windows 11 当前机验证已完成，W6 总体仍为 🟡。Sandbox 未实施。
 - 环境：Windows 11 Pro 10.0.26200 x64、Windows PowerShell 5、cmd、Git 2.52.0.windows.1；`pwsh` 与 WSL 未安装，因此不把 fallback 测试记作 pwsh 或 Linux 实机通过。
 - shell/长路径：普通 profile 与 ConPTY resize/Unicode/ANSI/TUI 回归继续通过；PowerShell 5 可进入超过 260 字符且含中文的 canonical cwd。请求 cmd 进入该 cwd 返回稳定 `shell_workspace_path`，请求缺失的 pwsh 安全回退到 Windows PowerShell 并记录 fallback reason。
-- 压力/崩溃：10 MiB 单条突发长行在降低后的 256 KiB/s 测试阈值下触发 `OutputLimit`、有界输出并回收进程；独立测试 helper 被强制终止后，`KILL_ON_JOB_CLOSE` 回收 grandchild，新 manager 可执行 `W6_REOPEN_OK`。这不是持续 10 MB/s 吞吐测量。
-- 自动化：`terminal_manager_tests` 9/9（2.08 s）；前端 38 files / 271 tests；`cargo check --all-features`、`cargo test --all-features -j1`（73 lib tests 及全部 integration/doc tests）、`npm run build`、`npm run tauri build`、`git diff --check` 全部通过。仅保留既有 jsdom Canvas 与 Vite 大 chunk 警告。
+- 压力/崩溃：10 MiB 单条突发长行在降低后的 256 KiB/s 测试阈值下触发 `OutputLimit`、有界输出并回收进程；名义 10 MiB/s 节流源在 ConPTY 背压下于 20 秒/32 MiB 边界内正常退出或限流并归零。独立测试 helper 被强制终止后，`KILL_ON_JOB_CLOSE` 回收 grandchild，新 manager 可执行 `W6_REOPEN_OK`；不把源速率误写成 manager 实收吞吐。
+- 自动化：`terminal_manager_tests` 10/10（6.72 s）；前端 38 files / 271 tests；`cargo check --all-features`、`cargo test --all-features -j1`（73 lib tests 及全部 integration/doc tests）、`npm run build`、`npm run tauri build`、`git diff --check` 全部通过。仅保留既有 jsdom Canvas 与 Vite 大 chunk 警告。
 - Release 实机：未设置 feature flag 的 `misaka-x.exe` 显示真实工作区 PowerShell prompt，并输出 `W6_RELEASE_OK`、`W6_SUSTAINED_OK`；验证实例的已核对绝对路径进程树已归零。`dist/index.html` 只引用本地资源，但未断开主机网络，所以物理断网启动仍待验证。
 - 新产物：EXE 37,701,632 bytes / SHA-256 `94413D63F73E2DFFE25260D7581F5F8CC91FCA7569A504A0D86F19E974BE8E24`；MSI 16,744,448 bytes / `0CF296194A71A1A66D452DE33D1BCCF902D3A7114060FA2E77B4977A44755FDA`；NSIS 13,088,974 bytes / `17F6F3F094224F9F87743B75ED433F008103F04FF9783A44432D196F4A74DC02`。
 - 未覆盖：Windows 10、真实 pwsh、macOS/Linux、原生 IME、旧 Git、物理断网、系统休眠恢复、代码签名/notarization 与三平台正式 installer；Windows 结果不得外推。
