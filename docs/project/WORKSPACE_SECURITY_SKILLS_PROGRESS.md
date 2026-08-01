@@ -3,8 +3,8 @@
 > **用途：** 作为本轮 Skills/安全检查/Git 标识/终端/Sandbox/最终架构审查的单一进度台账。
 > **受众：** 项目负责人、开发、测试、安全和后续接手者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **代码基线：** `main@f41d858`。
-> **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；`DEVELOPMENT_STATUS.md` 中关于 Phase 5 Skills 尚未开始的描述已落后于当前代码，最终架构阶段需统一修订。
+> **代码基线：** `main@789676d`。
+> **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；Skills S0–S3、S5 已闭环，S4 因依赖 Sandbox helper 按用户范围明确延期，Sandbox 本身暂不实施。
 
 ---
 
@@ -27,8 +27,8 @@
 | 外部 Skill 启用/禁用 | ✅ | 来源与开关持久化、默认禁用且不改原目录；发现/文件变化会扫描，hash/规则/策略失效时转 stale |
 | composer Skill 选择过滤 | ✅ | 仅展示 `effective_active` 来源，发送 stable ID；失效事件会移除 chip 并非阻塞提示 |
 | 详情按需文件浏览 | ✅ | summary/tree/read-file 已拆分；文件正文仅在用户选择后按 200 KiB 分段读取 |
-| Skills 迁入 Settings/MCP 下方 | ✅ | Settings 导航顺序为 MCP → Skills；旧 `skills` route 仅保留兼容重定向 |
-| Skills 安全检查 | ✅ | 内置离线引擎、quarantine、versioned policy、finding/审批/rescan/export 与统一 Gate 已闭环；Sandbox deep scanner 按范围延后 |
+| Skills 迁入 Settings/MCP 下方 | ✅ | Settings 导航顺序为 MCP → Skills；旧 `skills` route/title/nav/page wrapper 已删除 |
+| Skills 安全检查 | ✅ | 内置离线引擎、quarantine、versioned policy、finding/审批/rescan/export、升级批量扫描与统一 Gate 已闭环；Sandbox deep scanner 按范围延后 |
 | Git/本地项目 badge | ⬜ | 无 Git service/DTO/UI |
 | 嵌入式终端 | ⬜ | 现有 Terminal 图标实际打开 Tool Logs；无 xterm/PTY |
 | Tauri 终端安全收口 | ⛔ | 主 WebView shell/fs/http 权限偏宽且 CSP 为空，终端上线前必须修复 |
@@ -42,7 +42,7 @@
 
 - `src-tauri/src/services/skills/installer.rs`
   - 可列出受管 Skills，并将 Codex/Claude/Cursor 外部目录同步为稳定 source；所有来源的开关状态均持久化。
-  - `get_detail` 全文接口只保留兼容；生产 Settings UI 使用 summary/tree/read-file 按需接口。
+  - 单一 `skill_sources` inventory 与 stable-ID 查询已经取代旧 `skills` dual-write/slug fallback；生产 Settings UI 只使用 summary/tree/read-file 按需接口。
   - 受管发布在文件替换与 SQLite transaction 任一步失败时回滚；发布入口要求安全模块签发的 `ApprovedArtifactId`。
 - `src-tauri/src/services/skills/archive.rs`
   - 已限制 ZIP/解压大小、文件数、压缩比、路径穿越、绝对/反斜杠路径、重复项和符号链接。
@@ -51,6 +51,7 @@
   - 扫描器按 archive/content/manifest/secret/command/permission/policy 职责拆分，只读且从不执行目标 Skill。
   - 2 并发队列、取消/超时/progress、启动恢复、90 天历史清理、500 MiB quarantine/7 天过期和文件 watcher debounce 已落地。
   - balanced-v1 将 Critical/High block、Medium review、Low/Info warnings；engine error/timeout fail closed。
+  - v13 首次升级任务会持久化逐 source 状态、顺序扫描所有健康 `unscanned` source、恢复中断项并支持仅重试失败项；扫描前始终禁用注入。
 - `src-tauri/src/services/skills/manifest.rs`
   - 已校验 YAML frontmatter、名称/描述等基础规范。
 - `src-tauri/src/commands/skills.rs`
@@ -60,19 +61,18 @@
 - `src/__tests__/composer-skills.test.ts`、`skills-components.test.tsx`、`skills-page-selection.test.tsx`
   - 已存在部分 composer/Skill UI 测试，可作为新特征测试起点。
 
-### 3.2 详情和路由差距
+### 3.2 S5 旧路径清理证据
 
-- `src/components/skills/SkillDetailPanel.tsx` 当前在文件结构之前渲染整份 `skill_markdown`，文件行不可按需打开预览。
-- `src/lib/ipc/skills.ts` 的详情类型携带全文，没有独立 summary/list-files/read-file API。
-- `src/pages/SkillsPage.tsx` 是独立页面；`src/stores/app-store.ts` 存在独立 `{ page: "skills" }`。
-- `src/pages/settings/SettingsPage.tsx` 的 tab 目前不含 Skills，导航顺序没有 MCP -> Skills。
+- `skills_get_detail`、全文 `SkillDetail.skill_markdown`、旧 `SkillRepo`/`skills` table、`find_id_or_legacy_slug` 与全部 Skills 休眠 feature flags 已从生产代码删除。
+- 独立 `SkillsPage`、`{ page: "skills" }`、标题和导航分支已删除，入口只有 Settings → Skills。
+- v13 将旧 `legacy_allowed`/待审批来源统一转为禁用的 `unscanned`，建立可恢复的迁移扫描状态，删除旧 `skills` table 与 `skill_sources.risk_json`；scan summary 是安全事实来源。
+- 历史消息的 stable ID/slug/hash 快照继续可读；外部目录只读且迁移/卸载不修改其内容。
 
-### 3.3 禁用闭环差距
+### 3.3 禁用与会话闭环证据
 
-- 受管 Skill 的 DB `enabled=false` 能影响前端和 Rust selection。
-- `agent/app/agent.py` 仍把全局 `settings.skills_dir` 作为 `/skills/` 挂载并传给 Agent。
-- `agent/app/workspace_backend.py` 管理挂载和逻辑路径，但没有消费 per-session activation view。
-- 因而当前不能证明“disabled Skill 不会被自动注入/发现”；这是 P1 的第一优先级阻断项。
+- Rust 在每次 Agent 请求前生成并发送带 generation 的 activation view；过期 generation 在挂载前被拒绝。
+- Python 只消费逐项只读 activation mount，不接收全局 Skills 目录、slug 推导宿主路径或 Skills 专用 `LocalShellBackend` fallback。
+- enable、selection、composer chip、消息发送与 Sidecar mount 共用 stable ID、effective-active 与扫描 Gate；禁用/变化事件会使旧选择失效。
 
 ### 3.4 Workspace 与 Terminal 差距
 
@@ -113,11 +113,11 @@
 |---|---:|---|---|
 | M0 调研与方案 | ✅ | 仓库审计、官方资料调研、总体架构、UI、分项计划、总执行指导、进度台账 | 文档 review 通过 |
 | M1 契约与回归基线 | ✅ | S0/W0 特征测试、稳定 DTO/error/event、默认关闭 feature flags、capability/CSP 审计 | 进入 S1/W1 前保持基线测试绿色 |
-| M2 Skills 闭环 | 🟡 | S0–S3 完成：稳定来源、按需文件、只读挂载、quarantine/内置扫描/统一 Gate | S4 Sandbox deep scanner 延后；S5 存量迁移与旧路径清理 |
+| M2 Skills 闭环 | ✅ | S0–S3、S5 完成：稳定来源、按需文件、只读挂载、quarantine/内置扫描/统一 Gate、存量迁移与旧路径清理 | S4 Sandbox deep scanner 由用户范围明确延期，不阻塞当前 Skills 交付 |
 | M3 工作区体验 | 🟡 | W0 行为/安全基线完成；Explorer/resize 基础可复用 | Git/local badge、WorkspacePanel、三平台 PTY、CSP/IPC 收窄 |
 | M4 Sandbox Spike | 📄 | 调研和 ADR | 三平台 filesystem/network/process attack fixtures 通过 |
 | M5 Sandbox 默认化 | ⬜ | 逻辑 guard/审批可复用 | Agent/Skill/MCP 无 host Shell fallback，严格模式发布 gate |
-| M6 安全强化 | 🟡 | S3 内置离线扫描、恶意/良性 corpus、审批与 stale 生命周期 | S4 deep scanner（Sandbox 延后）、S5 存量 rescan、独立安全 review |
+| M6 安全强化 | 🟡 | S3 内置离线扫描、恶意/良性 corpus、审批与 stale 生命周期；S5 存量 rescan 完成 | S4 deep scanner（Sandbox 延后）、独立安全 review |
 | M7 架构审查 | ⬜ | 已有计划 | 热点拆分、旧路径清理、功能/性能/安全无回退 |
 
 ## 6. 建议执行顺序
@@ -161,7 +161,7 @@
 - [x] 执行 Skills S2，迁入 Settings 并关闭详情首载全文的 B-03。
 - [x] 执行 Skills S3，交付 quarantine、内置离线扫描、finding/policy/审批和强制安装 Gate，关闭 B-02/B-04。
 - [ ] Skills S4 — DEFERRED(Sandbox)：第三方 deep scanner 必须在 read-only/offline Sandbox helper 中验证；按用户范围暂不实现，不以宿主直接运行替代。
-- [ ] 执行 Skills S5，完成存量扫描迁移和旧生产旁路清理。
+- [x] 执行 Skills S5，完成存量扫描迁移和旧生产旁路清理。
 - [ ] 执行 Workspace W1/W2，交付只读工作区标识与 panel 容器。
 - [ ] Sandbox B0–B7：按用户当前范围暂不实施；未获得新指令前不启动 Spike 或生产执行链改造。
 
@@ -226,3 +226,17 @@
 - 特性开关：S0 Skills flags 仍默认 false 且未参与生产分支；S3 是单一生产 Gate。S5 必须删除休眠 flags 或实现真实可验证回滚，不能把当前 flags 记作可用 rollout。
 - 回滚：代码回滚到 `3fa8f6c`；数据库使用同目录 `.pre-v12.sqlite3` 恢复。quarantine/外部源不被回滚删除，外部目录从未被修改。
 - 下一步：S4 依赖 Sandbox helper 的第三方深度扫描按用户范围延后；继续 Skills S5，完成存量迁移/兼容清理，再进入 Workspace W1–W6。
+
+### 2026-08-01 Skills S5 存量迁移与旧路径清理
+
+- 状态：已完成并推送；实现提交 `789676d`。S4 仍因 Sandbox helper 依赖而按用户范围延期。
+- 完成 TODO：Skills S5 全部 10 项；v13 新增持久化升级扫描 aggregate/item 状态，升级前自动生成可恢复 v12 备份。
+- 迁移证据：旧 `legacy_allowed`/`pending_user`/`user_allowed` source 统一转为禁用 `unscanned`；启动后顺序扫描全部健康未扫描 source，持久化总数/当前项/失败项，重启恢复 running 项并可仅重试失败项；扫描中删除 source 会重算进度而不悬挂。
+- 单一事实源：删除旧 `SkillRepo`、`skills` table、dual-write、slug fallback、`risk_json` 与兼容裁决；`skill_sources` + scan summary 是唯一 inventory/安全状态来源，stable-ID 消息快照继续可读。
+- 生产清理：删除 `skills_get_detail`/全文 DTO、独立 `SkillsPage` 与 route/title/nav wrapper、5 个无生产分支的 Skills flags；Settings 是唯一入口。Python 保持逐项只读 activation view，整目录与 Skills 专用 shell fallback 均不存在。
+- UI/规范：Settings 顶部显示紧凑的持久迁移进度/失败恢复提示和失败项重试；仅 passed/warnings/approved 可启用。Skills UI 设计与三份全局 UI 规范已同步入口、banner、按钮、i18n/a11y 规则。
+- 测试证据：前端 full 33 files / 248 tests；Rust `cargo test --all-features -j1` 全量 0 失败，v13 migrations 19/19，最新迁移恢复/删除边界 2/2；Python full 121 passed；`npm run build`、TypeScript、`cargo check`、`cargo fmt --check`、`git diff --check` 通过。Vite 仅有既有大 chunk 警告。
+- 环境差异：仅 Windows 实机；Python 实际解释器非目标 3.11.x。外部目录不可写/activation 行为有跨平台逻辑测试，但 macOS/Linux 实机与打包不据此标完成。
+- 特性开关：S0 的 Skills 休眠 flags 已删除；安全 Gate 与 Settings/按需详情为单一生产实现，不存在可绕过 Gate 的旧回滚分支。
+- 回滚：代码回滚到 `89dc716`；数据库用同目录 `.pre-v13.sqlite3` 恢复 v12。回滚不删除 quarantine 或用户外部目录，外部目录从未被迁移写入。
+- 下一步：Workspace Terminal W1，交付只读 workspace identity/Git context；Sandbox 继续排除。

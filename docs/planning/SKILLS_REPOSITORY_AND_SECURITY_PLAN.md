@@ -276,16 +276,18 @@ PoC 评价：三平台打包、Nuitka 兼容、启动/扫描耗时、内存、�
 
 ### 9.1 TODO
 
-- [ ] 首次升级扫描所有已知受管/外部 source，展示批量进度和失败恢复。
-- [ ] 宽限期内存量设为 `unscanned`，不自动注入；保留用户手动查看/删除能力。
-- [ ] 验证所有活跃会话已使用 activation generation。
-- [ ] 停止 dual-write slug-only selection，迁移历史消息并做完整性检查。
-- [ ] 删除 UI 和新 API 的 `skill_markdown` 字段；旧 command 经一个版本弃用后移除。
-- [ ] 删除独立 Skills route/title/nav 分支和不再使用的页面 wrapper。
-- [ ] 删除 Python 整目录挂载和生产 `LocalShellBackend` Skills fallback。
-- [ ] 清理旧 `risk_json` 的兼容读取或迁移到 scan summary。
-- [ ] 更新 README、PROJECT_STRUCTURE、DEVELOPMENT_STATUS 中已过时的 Skills 进度。
-- [ ] 完成升级/降级、数据库备份恢复和外部目录不可写测试。
+- [x] 首次升级扫描所有已知受管/外部 source，展示批量进度和失败恢复。
+- [x] 宽限期内存量设为 `unscanned`，不自动注入；保留用户手动查看/删除能力。
+- [x] 验证所有活跃会话已使用 activation generation。
+- [x] 停止 dual-write slug-only selection，迁移历史消息并做完整性检查。
+- [x] 删除 UI 和新 API 的 `skill_markdown` 字段；旧 command 经一个版本弃用后移除。
+- [x] 删除独立 Skills route/title/nav 分支和不再使用的页面 wrapper。
+- [x] 删除 Python 整目录挂载和生产 `LocalShellBackend` Skills fallback。
+- [x] 清理旧 `risk_json` 的兼容读取或迁移到 scan summary。
+- [x] 更新 README、PROJECT_STRUCTURE、DEVELOPMENT_STATUS 中已过时的 Skills 进度。
+- [x] 完成升级/降级、数据库备份恢复和外部目录不可写测试。
+
+> S5 范围说明：Skills 已不再向 Python 提供整目录或宿主路径 fallback；通用 Agent `LocalShellBackend` 属于 Sandbox B5 的宿主执行链，按当前用户范围延期，不能作为 Skills 发现/挂载旁路使用。S4 第三方 deep scanner 同样因必须依赖 Sandbox helper 而延期。
 
 ## 10. 测试矩阵
 
