@@ -2,8 +2,8 @@
 
 > **用途：** 固定 W3 的 PTY/xterm 依赖、跨平台进程模型、安全边界和当前平台验证证据。  
 > **受众：** Rust/Tauri、React、测试、安全与发布维护者。  
-> **最后审阅 / Last reviewed：** 2026-08-01  
-> **实现基线：** `main@7a1f30e`（W6 Windows 当前机验证）。
+> **最后审阅 / Last reviewed：** 2026-08-02
+> **实现基线：** `main@ed82bfb`（W6 Windows pwsh/离线补充验证）。
 
 ## 结论
 
@@ -50,7 +50,7 @@ backend session lookup + generation check
 
 | 平台 | W3 证据 | 当前结论 |
 |---|---|---|
-| Windows 11 / ConPTY | Windows 11 Pro 10.0.26200；`terminal_manager_tests` 10/10 覆盖 PowerShell 5、cmd、pwsh 缺失回退、resize、超过 260 字符的 Unicode cwd、10 MiB 突发长行、名义 10 MiB/s 节流源、Job/崩溃回收与重开；Release UI 输出 `W6_RELEASE_OK` / `W6_SUSTAINED_OK` | 🟡 当前机 W6 证据通过；Windows 10、pwsh、原生 IME 和签名发布未验证 |
+| Windows 11 / ConPTY | Windows 11 Pro 10.0.26200；`terminal_manager_tests` 10/10 覆盖 PowerShell 5、cmd、pwsh 缺失回退、resize、超过 260 字符的 Unicode cwd、10 MiB 突发长行、名义 10 MiB/s 节流源、Job/崩溃回收与重开；官方校验的 PowerShell 7.6.3 x64 便携包执行真实 pwsh 命令；Release UI 输出 `W6_RELEASE_OK` / `W6_SUSTAINED_OK` 并通过进程级离线解析失败启动 | 🟡 当前机 W6 证据通过；Windows 10、原生 IME 和签名发布未验证 |
 | macOS / PTY | `portable-pty 0.9.0` 官方支持；代码选择原生 PTY、验证 allowlisted `$SHELL` 并以 process group 清理 | 🟡 实现完成，真实 macOS 运行/打包证据留 W6 |
 | Linux / PTY | `portable-pty 0.9.0` 官方支持；与 macOS 共用 Unix PTY/process-group 路径 | 🟡 实现完成，真实 Linux 运行/打包证据留 W6 |
 
@@ -58,18 +58,18 @@ backend session lookup + generation check
 
 ## W6 Windows 当前机证据
 
-- 环境：Windows 11 Pro 10.0.26200（x64）、Windows PowerShell 5、cmd、Git 2.52.0.windows.1；`pwsh` 与 WSL 未安装。
-- 长路径：PowerShell 5 在超过 260 字符且含中文的工作区完成 round trip；请求 cmd 进入同一路径会以稳定诊断失败，避免在错误 cwd 启动。请求 pwsh 时本机安全回退到 Windows PowerShell 并返回 fallback reason。
+- 环境：Windows 11 Pro 10.0.26200（x64）、Windows PowerShell 5、cmd、Git 2.52.0.windows.1；系统未持久安装 `pwsh`，WSL 未安装；用户语言列表已安装 `zh-Hans-CN` Microsoft IME，但原生组合输入尚待人工实机确认。
+- Shell/长路径：PowerShell 5 在超过 260 字符且含中文的工作区完成 round trip；请求 cmd 进入同一路径会以稳定诊断失败，避免在错误 cwd 启动。系统缺少 pwsh 时安全回退到 Windows PowerShell 并返回 fallback reason；另下载 PowerShell 7.6.3 x64 官方便携包，SHA-256 `07DDB0D00B660459560EF82A9841DA7705B27CD5DCCA5A0D7B025A98ECA29ECA` 与发布值一致，在隔离临时目录以进程级 `ProgramFiles` 覆盖执行 `W6_PWSH_MAJOR=7` / `W6_PWSH_OK`，未安装软件或修改持久 PATH。
 - 压力/恢复：10 MiB 单条输出在测试用 256 KiB/s 限制下触发 `OutputLimit`，有界输出不超过 512 KiB，进程被回收；另以 512 KiB/50 ms、共 24 次的名义 10 MiB/s 源验证持续输出在 20 秒/32 MiB 边界内正常退出或限流并归零。Windows ConPTY 实测先产生屏幕更新背压，因此该用例验证的是 10 MiB/s 源压力与有界行为，不伪称 manager 实收稳定 10 MiB/s。独立 helper 模拟应用异常终止后，Job Object 回收 shell grandchild，新 manager 可重新启动并执行 `W6_REOPEN_OK`。
 - Release UI：本地未签名 `misaka-x.exe` 默认显示 Terminal，真实 PowerShell 工作区 prompt 可见，并连续输出 `W6_RELEASE_OK`、`W6_SUSTAINED_OK`；关闭窗口后对已核对的绝对路径进程树做归零确认。
-- 静态离线边界：`dist/index.html` 只引用本地 favicon、JS 与 CSS，未发现远端 `src`/`href` 或缺失的 `/assets`。本轮没有断开主机网络，因此只把“无 CDN 静态依赖”记为通过，不把“物理断网启动”记为通过。
+- 离线边界：`dist/index.html` 只引用本地 favicon、JS 与 CSS，未发现远端 `src`/`href` 或缺失的 `/assets`。Release 进程以 WebView2 `--host-resolver-rules="MAP * ~NOTFOUND, EXCLUDE localhost"` 启动，应用资源仍正常渲染，持久终端恢复并显示真实 `PS D:\\learn\\GitHub\\powermem>` 提示符；审计整个进程树时远端 TCP 连接为 0。该进程级网络失败模拟满足应用离线依赖验证，但不伪称物理断开主机网卡或修改防火墙。
 
 ## 已知 Shell/TUI 差异与诊断
 
 | 差异 | 行为 / 诊断 |
 |---|---|
 | Windows 长 cwd | PowerShell 使用 canonical `Set-Location -LiteralPath`；cmd 返回 `shell_workspace_path`，不回退到其他目录 |
-| pwsh 不存在 | 按可信顺序回退到 `powershell.exe`，状态包含 fallback reason；本轮没有 pwsh 实机行为证据 |
+| pwsh 不存在 | 按可信顺序回退到 `powershell.exe`，状态包含 fallback reason；W6 另以官方校验的 7.6.3 便携包验证真实 pwsh 命令路径，不改变系统安装状态 |
 | ConPTY DSR | 无头测试必须先回复 `ESC[1;1R`；真实 xterm 自动处理 |
 | 输出过载 | manager 以有界 channel、批处理和字节率限制停止进程；面板只显示稳定退出/错误态，不记录原始输入输出 |
 | Unix TUI | process-group 路径已实现，但 macOS/Linux 的 shell、IME、alternate screen、clipboard 与 bundle 仍需各自真机记录 |
@@ -85,6 +85,7 @@ backend session lookup + generation check
 
 ```text
 cargo test --all-features --test terminal_manager_tests  # 10 passed (6.72 s)
+cargo test --test terminal_manager_tests windows_profiles_and_long_unicode_workspace_round_trip -- --exact  # 系统 PowerShell 5 fallback 与便携 pwsh 7.6.3 各 1 passed
 cargo test terminal --lib                                # 4 passed
 cargo test --all-features -j 1                           # 全量通过
 npm test -- --run                                        # 38 files / 271 tests
@@ -100,7 +101,7 @@ W6 Release 产物：`misaka-x.exe` 37,701,632 bytes / SHA-256 `94413D63F73E2DFFE
 
 - W4：已由 `main@2a5b112` 交付 xterm UI、Fit/ResizeObserver、输入输出/exit、seq 丢弃、复制粘贴、工作区切换选择和可访问错误态。
 - W5：已由 `main@b96d0e3` 删除主 WebView 通用 shell/fs/http 权限，配置生产 CSP、精确 command authorization 与 XSS/OSC/link 测试，并通过 Windows Release 真实 shell UI 复验。
-- W6：Windows 11 当前机长路径/压力/崩溃恢复证据已补；Windows 10、pwsh、macOS/Linux 真机、三平台签名 bundle、原生 IME/睡眠恢复与持续吞吐矩阵仍是上线门。
+- W6：Windows 11 当前机长路径/压力/崩溃恢复、真实 pwsh 7.6.3 与进程级离线启动证据已补；Windows 10、macOS/Linux 真机、三平台签名 bundle、原生 IME/睡眠恢复矩阵仍是上线门。
 - Sandbox：本 PoC 是明确标注的“本机权限”用户终端，不是 Agent Sandbox，也没有实现或改变 Sandbox provider。
 
 ## 一手资料
@@ -111,3 +112,4 @@ W6 Release 产物：`misaka-x.exe` 37,701,632 bytes / SHA-256 `94413D63F73E2DFFE
 - [`@xterm/xterm 6.0.0`](https://www.npmjs.com/package/@xterm/xterm/v/6.0.0)
 - [`@xterm/addon-fit 0.11.0`](https://www.npmjs.com/package/@xterm/addon-fit/v/0.11.0)
 - [xterm.js security guide](https://xtermjs.org/docs/guides/security/)
+- [PowerShell 7.6.3 官方发布与资产校验值](https://github.com/PowerShell/PowerShell/releases/tag/v7.6.3)

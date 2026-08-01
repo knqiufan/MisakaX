@@ -2,7 +2,7 @@
 
 > **用途：** 在 composer 下方增加 Git/本地项目标识，并将 WorkspaceBar 的日志图标替换为右侧嵌入式终端入口。
 > **受众：** React、Rust/Tauri、测试和安全维护者。
-> **最后审阅 / Last reviewed：** 2026-08-01
+> **最后审阅 / Last reviewed：** 2026-08-02
 > **规划基线：** `main@fa24bd7`。
 > **关联：** [总体架构](../architecture/WORKSPACE_SKILLS_SECURITY_ARCHITECTURE.md) · [UI 设计](../design/SKILLS_WORKSPACE_TERMINAL_UI_DESIGN.md) · [沙箱选型](../architecture/SANDBOX_TECH_SELECTION.md)
 
@@ -204,11 +204,11 @@ terminal:exited { terminal_id, exit_code?, reason }
 - [x] 工作区切换时提供“在新工作区重启/保留旧终端”，记录明确选择。
 - [x] Shell exit 显示 code/reason 和重启按钮；不无限自动重启。
 - [x] 实现清屏、复制、粘贴、focus restore 和快捷键冲突测试。
-- [ ] 为 IME、中文、Emoji、宽字符、ANSI 色、滚动、TUI alternate screen 做实机测试。（Windows ConPTY 自动化覆盖字节/ANSI/TUI，W5 Release UI 覆盖真实 prompt、中文/宽字符、ANSI 与 panel 保活；W6 又覆盖长 Unicode cwd 与突发长行。原生 IME、Emoji、长时滚动和 macOS/Linux 矩阵仍待实机。）
+- [ ] 为 IME、中文、Emoji、宽字符、ANSI 色、滚动、TUI alternate screen 做实机测试。（Windows ConPTY 自动化覆盖字节/ANSI/TUI，W5 Release UI 覆盖真实 prompt、中文/宽字符、ANSI 与 panel 保活；W6 又覆盖长 Unicode cwd 与突发长行。Windows 11 已确认安装 `zh-Hans-CN` Microsoft IME，但受桌面自动化安全边界限制，尚未把原生组合输入记为通过；Emoji、长时滚动和 macOS/Linux 矩阵仍待实机。）
 - [x] 终端输出不进入普通 screen-reader live stream；退出/错误使用独立 live region。
 - [x] panel 隐藏/显示和 React StrictMode 下不重复 spawn。
 
-状态：W4 实现已由 `main@2a5b112` 交付；W5 已解除 capability 上线门，并在 Windows Release UI 补齐真实 PowerShell prompt、中文/宽字符、ANSI 与 panel 保活证据。W6 当前机已补突发长行、长路径和崩溃恢复；原生 IME、持续吞吐和 macOS/Linux 仍由 W6 负责。
+状态：W4 实现已由 `main@2a5b112` 交付；W5 已解除 capability 上线门，并在 Windows Release UI 补齐真实 PowerShell prompt、中文/宽字符、ANSI 与 panel 保活证据。W6 当前机已补突发长行、长路径、名义 10 MiB/s 源、崩溃恢复和 PowerShell 7 便携版真实命令；原生 IME 与 macOS/Linux 仍由 W6 负责。
 
 ## 8. Phase W5：Tauri 能力与 CSP 收窄
 
@@ -232,16 +232,16 @@ terminal:exited { terminal_id, exit_code?, reason }
 
 ### 9.1 TODO
 
-- [ ] Windows 10/11：PowerShell 5、pwsh、cmd、ConPTY resize、长路径、中文路径、Job cleanup。（Windows 11 Pro 10.0.26200 已实测 PowerShell 5、cmd、resize、超过 260 字符的 Unicode 路径、Job cleanup 与应用崩溃回收；本机没有 pwsh，Windows 10 尚无实机证据。）
+- [ ] Windows 10/11：PowerShell 5、pwsh、cmd、ConPTY resize、长路径、中文路径、Job cleanup。（Windows 11 Pro 10.0.26200 已实测 PowerShell 5、cmd、resize、超过 260 字符的 Unicode 路径、Job cleanup 与应用崩溃回收；另以官方 SHA-256 校验的 PowerShell 7.6.3 x64 便携包和进程级 `ProgramFiles` 覆盖执行真实 pwsh 命令，未安装软件或修改持久 PATH。Windows 10 尚无实机证据。）
 - [ ] macOS 当前和前两个支持版本：zsh/bash、签名/notarization、PTY 权限、IME。
 - [ ] Linux 支持发行版：bash/zsh/fish 可选、Wayland/X11 clipboard、PTY、AppImage/deb/rpm 打包。
 - [ ] 测试 Git CLI 缺失、旧版本、worktree、submodule、detached 和 PATH 异常。（缺失/PATH 退化、当前 Git 2.52.0、worktree、submodule 与 detached 已覆盖；旧 Git 版本仍待实机。）
 - [x] 测试名义 10 MiB/s 节流输出源、超长行、持续进程、应用崩溃恢复和重新打开。（当前 ConPTY 会先产生屏幕更新背压，允许在有界时限/总量内正常退出；独立 10 MiB 突发长行用例严格验证 `OutputLimit` 与进程回收。）
-- [ ] 确认安装包不依赖 CDN，离线启动终端可用。（Release HTML/JS/CSS 仅引用本地资源，EXE/MSI/NSIS 构建与 Release 终端启动通过；未通过断网环境做最终复验。）
+- [x] 确认安装包不依赖 CDN，离线启动终端可用。（Release HTML/JS/CSS 仅引用本地资源；Windows Release 在 WebView2 进程级 `MAP * ~NOTFOUND, EXCLUDE localhost` 解析失败条件下仍完成资源渲染、恢复终端并显示真实 PowerShell 工作区 prompt，进程树无远端 TCP 连接。该证据不等同于修改主机网卡/防火墙。）
 - [x] 记录已知 Shell/TUI 兼容差异和诊断入口。
 - [x] 更新 UI 三规范、PROJECT_STRUCTURE 和进度文档。
 
-状态：W6 Windows 当前机验证已由 `main@b2521f0` 与 `main@7a1f30e` 推进，但三平台发布退出门仍为部分完成。Windows 11 上的 `terminal_manager_tests` 10/10、前端 38 files / 271 tests、Rust 全量测试、`cargo check --all-features`、前端构建和 Tauri Release bundle 均通过；macOS/Linux、Windows 10、pwsh、原生 IME、旧 Git 与签名/notarization 不能由这台 Windows 机器代替验证。Sandbox 仍未实施。
+状态：W6 Windows 当前机验证已由 `main@b2521f0`、`main@7a1f30e` 与 `main@ed82bfb` 推进，但三平台发布退出门仍为部分完成。Windows 11 上的 `terminal_manager_tests` 10/10、PowerShell 7.6.3 便携版真实命令、进程级离线解析失败启动、前端 38 files / 271 tests、Rust 全量测试、`cargo check --all-features`、前端构建和 Tauri Release bundle 均通过；macOS/Linux、Windows 10、原生 IME、旧 Git 与签名/notarization 不能由这台 Windows 机器代替验证。Sandbox 仍未实施。
 
 ## 10. 关键风险
 

@@ -2,9 +2,9 @@
 
 > **用途：** 作为本轮 Skills/安全检查/Git 标识/终端/Sandbox/最终架构审查的单一进度台账。
 > **受众：** 项目负责人、开发、测试、安全和后续接手者。
-> **最后审阅 / Last reviewed：** 2026-08-01
-> **代码基线：** `main@7a1f30e`。
-> **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；Skills S0–S3、S5 与 Workspace W0–W5 实现已闭环，S4 因依赖 Sandbox helper 按用户范围明确延期，Sandbox 本身暂不实施；W6 已完成 Windows 11 当前机的长路径、shell、压力、崩溃恢复与 Release bundle 证据，Windows 10/pwsh/macOS/Linux/原生 IME/签名发布仍待对应环境验证。
+> **最后审阅 / Last reviewed：** 2026-08-02
+> **代码基线：** `main@ed82bfb`。
+> **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；Skills S0–S3、S5 与 Workspace W0–W5 实现已闭环，S4 因依赖 Sandbox helper 按用户范围明确延期，Sandbox 本身暂不实施；W6 已完成 Windows 11 当前机的长路径、shell、压力、崩溃恢复、真实 pwsh 7.6.3、进程级离线启动与 Release bundle 证据，Windows 10/macOS/Linux/原生 IME/签名发布仍待对应环境验证。
 
 ---
 
@@ -30,7 +30,7 @@
 | Skills 迁入 Settings/MCP 下方 | ✅ | Settings 导航顺序为 MCP → Skills；旧 `skills` route/title/nav/page wrapper 已删除 |
 | Skills 安全检查 | ✅ | 内置离线引擎、quarantine、versioned policy、finding/审批/rescan/export、升级批量扫描与统一 Gate 已闭环；Sandbox deep scanner 按范围延后 |
 | Git/本地项目 badge | ✅ | 只读 WorkspaceContext/Git provider、generation DTO/event、composer badge 与无路径诊断已闭环 |
-| 嵌入式终端 | 🟡 | W3–W5 已交付 owner-bound PTY、xterm UI 与最小 capability/CSP；W6 已通过 Windows 11 当前机的 PowerShell 5/cmd、超长 Unicode cwd、10 MiB 突发、崩溃回收/重开和 Release UI，跨平台、pwsh、原生 IME 与签名发布仍未闭环 |
+| 嵌入式终端 | 🟡 | W3–W5 已交付 owner-bound PTY、xterm UI 与最小 capability/CSP；W6 已通过 Windows 11 当前机的 PowerShell 5/cmd、官方便携 pwsh 7.6.3、超长 Unicode cwd、10 MiB 突发、崩溃回收/重开、离线解析失败启动和 Release UI，Windows 10/macOS/Linux、原生 IME 与签名发布仍未闭环 |
 | Tauri 终端安全收口 | ✅ | 通用 Shell execute/spawn/stdin/kill、FS/HTTP/Notification 权限已删除；生产 CSP、精确 custom-command manifest 与 Windows Release 审计通过 |
 | Agent OS Sandbox | ⛔ | 当前为逻辑路径 guard；Shell 在宿主直接执行并继承环境 |
 | 最终架构审查/重构 | ⬜ | 必须等其他功能和回归基线完成 |
@@ -120,7 +120,7 @@
 | M0 调研与方案 | ✅ | 仓库审计、官方资料调研、总体架构、UI、分项计划、总执行指导、进度台账 | 文档 review 通过 |
 | M1 契约与回归基线 | ✅ | S0/W0 特征测试、稳定 DTO/error/event、默认关闭 feature flags、capability/CSP 审计 | 进入 S1/W1 前保持基线测试绿色 |
 | M2 Skills 闭环 | ✅ | S0–S3、S5 完成：稳定来源、按需文件、只读挂载、quarantine/内置扫描/统一 Gate、存量迁移与旧路径清理 | S4 Sandbox deep scanner 由用户范围明确延期，不阻塞当前 Skills 交付 |
-| M3 工作区体验 | 🟡 | W0–W5 完成；W6 Windows 11 当前机的 shell/长路径/突发输出/崩溃恢复/Release bundle 已验证 | Windows 10/pwsh、macOS/Linux、原生 IME、旧 Git、物理断网与签名/发布验证 |
+| M3 工作区体验 | 🟡 | W0–W5 完成；W6 Windows 11 当前机的 shell/长路径/突发输出/崩溃恢复/真实 pwsh/离线解析失败/Release bundle 已验证 | Windows 10、macOS/Linux、原生 IME、旧 Git、休眠恢复与签名/发布验证 |
 | M4 Sandbox Spike | 📄 | 调研和 ADR | 三平台 filesystem/network/process attack fixtures 通过 |
 | M5 Sandbox 默认化 | ⬜ | 逻辑 guard/审批可复用 | Agent/Skill/MCP 无 host Shell fallback，严格模式发布 gate |
 | M6 安全强化 | 🟡 | S3 内置离线扫描、恶意/良性 corpus、审批与 stale 生命周期；S5 存量 rescan 完成 | S4 deep scanner（Sandbox 延后）、独立安全 review |
@@ -320,14 +320,14 @@
 - 回滚：代码回滚到 `38506da` 会重新关闭入口并恢复旧权限/CSP 基线，不会修改用户工作区内容或数据库；不建议在生产安全边界上部分回滚。
 - 下一步：Workspace W6，补充 Windows shell/长路径/压力/离线/诊断证据，并在可用设备上分别验证 macOS/Linux 与签名/发布矩阵。Sandbox 继续排除。
 
-### 2026-08-01 Workspace W6 Windows 当前机验证
+### 2026-08-01–02 Workspace W6 Windows 当前机验证
 
-- 状态：实现提交 `b2521f0`，持续输出测试提交 `7a1f30e`；Windows 11 当前机验证已完成，W6 总体仍为 🟡。Sandbox 未实施。
-- 环境：Windows 11 Pro 10.0.26200 x64、Windows PowerShell 5、cmd、Git 2.52.0.windows.1；`pwsh` 与 WSL 未安装，因此不把 fallback 测试记作 pwsh 或 Linux 实机通过。
-- shell/长路径：普通 profile 与 ConPTY resize/Unicode/ANSI/TUI 回归继续通过；PowerShell 5 可进入超过 260 字符且含中文的 canonical cwd。请求 cmd 进入该 cwd 返回稳定 `shell_workspace_path`，请求缺失的 pwsh 安全回退到 Windows PowerShell 并记录 fallback reason。
+- 状态：实现提交 `b2521f0`，持续输出测试提交 `7a1f30e`，pwsh 真实命令测试提交 `ed82bfb`；Windows 11 当前机验证已完成，W6 总体仍为 🟡。Sandbox 未实施。
+- 环境：Windows 11 Pro 10.0.26200 x64、Windows PowerShell 5、cmd、Git 2.52.0.windows.1；系统未持久安装 `pwsh`，WSL 未安装；已确认 `zh-Hans-CN` Microsoft IME 存在，但原生组合输入受桌面自动化安全边界限制，仍需人工实机确认。
+- shell/长路径：普通 profile 与 ConPTY resize/Unicode/ANSI/TUI 回归继续通过；PowerShell 5 可进入超过 260 字符且含中文的 canonical cwd。请求 cmd 进入该 cwd 返回稳定 `shell_workspace_path`，请求缺失的 pwsh 安全回退到 Windows PowerShell 并记录 fallback reason。官方 PowerShell 7.6.3 x64 便携包经 SHA-256 核对后，在隔离临时目录以进程级 `ProgramFiles` 覆盖执行真实 `W6_PWSH_MAJOR=7` / `W6_PWSH_OK`，未安装软件或修改持久 PATH。
 - 压力/崩溃：10 MiB 单条突发长行在降低后的 256 KiB/s 测试阈值下触发 `OutputLimit`、有界输出并回收进程；名义 10 MiB/s 节流源在 ConPTY 背压下于 20 秒/32 MiB 边界内正常退出或限流并归零。独立测试 helper 被强制终止后，`KILL_ON_JOB_CLOSE` 回收 grandchild，新 manager 可执行 `W6_REOPEN_OK`；不把源速率误写成 manager 实收吞吐。
-- 自动化：`terminal_manager_tests` 10/10（6.72 s）；前端 38 files / 271 tests；`cargo check --all-features`、`cargo test --all-features -j1`（73 lib tests 及全部 integration/doc tests）、`npm run build`、`npm run tauri build`、`git diff --check` 全部通过。仅保留既有 jsdom Canvas 与 Vite 大 chunk 警告。
-- Release 实机：未设置 feature flag 的 `misaka-x.exe` 显示真实工作区 PowerShell prompt，并输出 `W6_RELEASE_OK`、`W6_SUSTAINED_OK`；验证实例的已核对绝对路径进程树已归零。`dist/index.html` 只引用本地资源，但未断开主机网络，所以物理断网启动仍待验证。
+- 自动化：`terminal_manager_tests` 10/10（本轮 5.81 s）；增强后的 Windows profile 用例在系统 PowerShell 5 fallback 与官方便携 pwsh 7.6.3 两种进程环境下均通过；前端 38 files / 271 tests；`cargo check --all-features`、`cargo test --all-features -j1`（73 lib tests 及全部 integration/doc tests）、`npm run build`、`npm run tauri build`、`git diff --check` 全部通过。仅保留既有 jsdom Canvas 与 Vite 大 chunk 警告。
+- Release 实机：未设置 feature flag 的 `misaka-x.exe` 显示真实工作区 PowerShell prompt，并输出 `W6_RELEASE_OK`、`W6_SUSTAINED_OK`；验证实例的已核对绝对路径进程树已归零。进程级 WebView2 DNS 失败规则 `MAP * ~NOTFOUND, EXCLUDE localhost` 下，Release 仍渲染本地资源、恢复终端并显示真实 prompt，整个进程树远端 TCP 连接为 0；未修改主机网卡或防火墙。
 - 新产物：EXE 37,701,632 bytes / SHA-256 `94413D63F73E2DFFE25260D7581F5F8CC91FCA7569A504A0D86F19E974BE8E24`；MSI 16,744,448 bytes / `0CF296194A71A1A66D452DE33D1BCCF902D3A7114060FA2E77B4977A44755FDA`；NSIS 13,088,974 bytes / `17F6F3F094224F9F87743B75ED433F008103F04FF9783A44432D196F4A74DC02`。
-- 未覆盖：Windows 10、真实 pwsh、macOS/Linux、原生 IME、旧 Git、物理断网、系统休眠恢复、代码签名/notarization 与三平台正式 installer；Windows 结果不得外推。
+- 未覆盖：Windows 10、macOS/Linux、原生 IME 组合输入、旧 Git、物理网卡断开、系统休眠恢复、代码签名/notarization 与三平台正式 installer；Windows 结果不得外推。真实 pwsh 与应用级离线依赖已通过，不以更强的物理断网措辞替代已记录的进程级证据。
 - 下一步：在对应 runner/设备上补齐上述矩阵；当前代码无需为未验证平台伪造完成标记。Sandbox 与依赖它的 S4 deep scanner 继续排除。
