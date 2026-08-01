@@ -119,6 +119,30 @@ jobs:
         with:
           workspaces: src-tauri
 
+      - name: Report runner and shell inventory (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          uname -a
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            sw_vers
+          else
+            cat /etc/os-release
+          fi
+          for shell in zsh bash sh fish; do
+            command -v "$shell" || true
+          done
+
+      - name: Report runner and shell inventory (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-CimInstance Win32_OperatingSystem |
+            Select-Object Caption, Version, OSArchitecture |
+            Format-List
+          Get-Command powershell, pwsh, cmd -ErrorAction SilentlyContinue |
+            Select-Object Name, Source, Version |
+            Format-Table -AutoSize
+
       - name: Run real PTY integration tests
         working-directory: src-tauri
         env:
