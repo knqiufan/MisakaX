@@ -8,7 +8,7 @@
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-08-01（v28）
+**最后审阅 / Last reviewed:** 2026-08-01（v29）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -168,9 +168,11 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 ### 4.3.z.3 WorkspacePanel 容器
 
 - 右侧只存在一个 `WorkspacePanel`，`explorer/terminal` 是 mode 而非两套互斥侧栏。Panel store 不得接管 Explorer tabs/file state 或 Terminal process/output state，只协调 open/mode/size 与当前 session/generation。
-- `open/mode/size` 可持久化；session/generation 不得持久化。切任务、工作区或 mode 时，迟到 generation 不能覆盖新绑定；已访问 Terminal 槽隐藏而不卸载，避免未来重复 spawn。
+- `open/mode/size` 可持久化；session/generation 不得持久化。切任务、工作区或 mode 时，迟到 generation 不能覆盖新绑定；已访问 Terminal 槽隐藏而不卸载，避免重复 spawn。
 - 宽屏用百分比 split panel，窄屏用右侧 overlay，禁止继续压缩聊天可读列；overlay 必须能通过 Escape 和面板关闭按钮退出。
-- Terminal rollout flag 在 PTY、xterm 与 W5 安全门完成前保持默认关闭。Tool Logs 使用消息工具组内的明确日志操作打开聊天列抽屉，不得借用 Terminal 图标。
+- Terminal process/output 必须由独立 store 与 Rust manager 持有；output 只接受当前 terminal/session/generation 且严格递增的 seq，`exited.last_seq` 是排空边界。React StrictMode 探测、mode 隐藏/恢复和快速重复打开不得生成第二个 shell。
+- xterm 只加载本地静态资源，主题由现有 token 映射；禁止 `innerHTML`、自动链接打开和远端资源。终端标题固定标注“本机权限”，只展示 shell 与工作区 basename；持续输出不进入 live region，只有退出/错误由独立状态通知。
+- Terminal rollout flag 在 W5 capability/CSP 安全门完成前保持默认关闭。Tool Logs 使用消息工具组内的明确日志操作打开聊天列抽屉，不得借用 Terminal 图标。
 
 ### 4.4 空页面与占位符 (Empty States)
 - 空页面设计应具有**引导性**。

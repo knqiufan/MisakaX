@@ -3,8 +3,8 @@
 > **用途：** 作为本轮 Skills/安全检查/Git 标识/终端/Sandbox/最终架构审查的单一进度台账。
 > **受众：** 项目负责人、开发、测试、安全和后续接手者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **代码基线：** `main@9249915`。
-> **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；Skills S0–S3、S5 与 Workspace W0–W3 已闭环，S4 因依赖 Sandbox helper 按用户范围明确延期，Sandbox 本身暂不实施。
+> **代码基线：** `main@2a5b112`。
+> **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；Skills S0–S3、S5 与 Workspace W0–W4 实现已闭环，S4 因依赖 Sandbox helper 按用户范围明确延期，Sandbox 本身暂不实施；Terminal 稳定入口仍由 W5 capability/CSP 上线门阻断。
 
 ---
 
@@ -30,7 +30,7 @@
 | Skills 迁入 Settings/MCP 下方 | ✅ | Settings 导航顺序为 MCP → Skills；旧 `skills` route/title/nav/page wrapper 已删除 |
 | Skills 安全检查 | ✅ | 内置离线引擎、quarantine、versioned policy、finding/审批/rescan/export、升级批量扫描与统一 Gate 已闭环；Sandbox deep scanner 按范围延后 |
 | Git/本地项目 badge | ✅ | 只读 WorkspaceContext/Git provider、generation DTO/event、composer badge 与无路径诊断已闭环 |
-| 嵌入式终端 | 🟡 | W3 已交付 owner-bound Rust PTY、窄 IPC、背压和进程树回收；W4 xterm UI 与 W5 安全收口尚未完成，入口继续默认关闭 |
+| 嵌入式终端 | 🟡 | W3 owner-bound PTY 与 W4 xterm UI/生命周期已交付；W5 安全收口和其后的真实 shell UI 复验尚未完成，入口继续默认关闭 |
 | Tauri 终端安全收口 | ⛔ | 主 WebView shell/fs/http 权限偏宽且 CSP 为空，终端上线前必须修复 |
 | Agent OS Sandbox | ⛔ | 当前为逻辑路径 guard；Shell 在宿主直接执行并继承环境 |
 | 最终架构审查/重构 | ⬜ | 必须等其他功能和回归基线完成 |
@@ -80,12 +80,12 @@
 - `src/components/chat/composer/WorkspaceContextBadge.tsx` 与 `src/hooks/use-workspace-context.ts` 已交付 composer Git/本地标识，快速工作区切换会丢弃旧请求/旧 generation，诊断 tooltip 不暴露绝对路径。
 - `src/stores/workspace-panel-store.ts` 独立管理 open/mode/size/session/generation，只持久化 UI 偏好；旧 Explorer open 偏好一次性迁移，Explorer tabs/activePath 仍归原 store。
 - `src/pages/ChatPage.tsx` 已用单一 `WorkspacePanel` 包裹既有 `WorkspaceExplorer`；宽窗为 70/30 百分比分栏，窄窗为不挤压聊天列的右侧 overlay。
-- `src/components/chat/workspace/WorkspaceBar.tsx` 的 Explorer/Terminal 使用同一 mode action、pressed/tooltip/快捷键；Terminal 入口在 W3/W4 完成前受默认关闭的 feature flag 隔离。
+- `src/components/chat/workspace/WorkspaceBar.tsx` 的 Explorer/Terminal 使用同一 mode action、pressed/tooltip/快捷键；Terminal 入口在 W5 capability/CSP 上线门解除前受默认关闭的 feature flag 隔离。
 - Tool Logs 已迁到消息 `ToolActionsGroup` 的明确日志按钮，仍打开 ChatView 内原聚合抽屉，不再借用 Terminal 图标或右轨。
 - `src-tauri/src/services/terminal/` 已实现 `TerminalManager`、可信 shell 解析、window + Chat Session + workspace generation ownership、限额/背压、结构化 output/exited 事件和 Windows Job Object / Unix process-group 回收；spawn 不接受 cwd、任意 executable、argv 或 env。
-- `src/lib/ipc/terminal.ts` 只暴露 spawn/write/resize/kill/get-state 窄接口；输出使用 base64 二进制载荷和递增 seq，W4 UI 必须按 terminal/generation/seq 丢弃迟到事件。
-- `WorkspacePanel` 会保持访问过的 Terminal 内容槽挂载；实际 process/output 生命周期归 Rust manager，W4 的独立前端状态不能写回 panel 偏好 store。
-- manifests 已锁定 `portable-pty = 0.9.0`、`@xterm/xterm = 6.0.0` 与 `@xterm/addon-fit = 0.11.0`；xterm UI 尚待 W4，Sandbox 依赖仍未加入。W1 Git 上下文继续使用受控系统 Git CLI，不引入 Git crate。
+- `src/lib/ipc/terminal.ts` 只暴露 spawn/write/resize/kill/get-state 窄接口；输出使用 base64 二进制载荷和递增 seq，W4 UI 已按 terminal/generation/seq 丢弃迟到事件并以 `last_seq` 排空退出。
+- `WorkspacePanel` 会保持访问过的 Terminal 内容槽挂载；实际 process/output 生命周期归 Rust manager 与独立 `terminal-store`，不能写回 panel 偏好 store。
+- manifests 已锁定 `portable-pty = 0.9.0`、`@xterm/xterm = 6.0.0` 与 `@xterm/addon-fit = 0.11.0`；本地 xterm UI 已落地，Sandbox 依赖仍未加入。W1 Git 上下文继续使用受控系统 Git CLI，不引入 Git crate。
 
 ### 3.5 Sandbox 与 Tauri 安全差距
 
@@ -119,7 +119,7 @@
 | M0 调研与方案 | ✅ | 仓库审计、官方资料调研、总体架构、UI、分项计划、总执行指导、进度台账 | 文档 review 通过 |
 | M1 契约与回归基线 | ✅ | S0/W0 特征测试、稳定 DTO/error/event、默认关闭 feature flags、capability/CSP 审计 | 进入 S1/W1 前保持基线测试绿色 |
 | M2 Skills 闭环 | ✅ | S0–S3、S5 完成：稳定来源、按需文件、只读挂载、quarantine/内置扫描/统一 Gate、存量迁移与旧路径清理 | S4 Sandbox deep scanner 由用户范围明确延期，不阻塞当前 Skills 交付 |
-| M3 工作区体验 | 🟡 | W0–W3 完成：行为/安全基线、只读 Git/local badge、统一 WorkspacePanel、owner-bound PTY/窄 IPC、背压和进程树回收 | xterm UI、CSP/capability 收窄与三平台发布验证 |
+| M3 工作区体验 | 🟡 | W0–W4 完成：行为/安全基线、只读 Git/local badge、统一 WorkspacePanel、owner-bound PTY/窄 IPC、xterm UI 与生命周期 | CSP/capability 收窄、真实 shell UI 复验与三平台发布验证 |
 | M4 Sandbox Spike | 📄 | 调研和 ADR | 三平台 filesystem/network/process attack fixtures 通过 |
 | M5 Sandbox 默认化 | ⬜ | 逻辑 guard/审批可复用 | Agent/Skill/MCP 无 host Shell fallback，严格模式发布 gate |
 | M6 安全强化 | 🟡 | S3 内置离线扫描、恶意/良性 corpus、审批与 stale 生命周期；S5 存量 rescan 完成 | S4 deep scanner（Sandbox 延后）、独立安全 review |
@@ -170,7 +170,8 @@
 - [x] 执行 Workspace W1，交付只读工作区标识、可信 Git provider 与缓存/刷新闭环。
 - [x] 执行 Workspace W2，交付独立 WorkspacePanel 容器、统一 panel actions 与 Tool Logs 新入口。
 - [x] 执行 Workspace W3，交付 owner-bound Rust PTY/TerminalManager 与窄 IPC；继续保持 Terminal rollout 默认关闭。
-- [ ] 执行 Workspace W4，交付 xterm UI、事件顺序/生命周期、复制粘贴、resize 与工作区切换选择。
+- [x] 执行 Workspace W4，交付 xterm UI、事件顺序/生命周期、复制粘贴、resize 与工作区切换选择；真实 shell UI 复验在 W5 capability 解锁后完成。
+- [ ] 执行 Workspace W5，删除主 WebView 通用权限、配置生产 CSP 与 custom command authorization，并解除 B-05。
 - [ ] Sandbox B0–B7：按用户当前范围暂不实施；未获得新指令前不启动 Spike 或生产执行链改造。
 
 ## 10. 实施记录
@@ -288,3 +289,15 @@
 - 全量回归：`cargo nextest run --all-features --profile ci` 在并发编译阶段受 Windows page file（OS 1455 / `0xc000012d`）限制；按仓库指南回退 `cargo test --all-features -j 1` 后 72 个 unit 及全部 integration/doc tests 通过，未执行 `cargo clean`。
 - 回滚：代码回滚到 `f93bf61`；本阶段无数据库迁移，不修改用户工作区内容。显式 kill、window destroyed、会话删除与应用退出均会清理终端进程树。
 - 下一步：Workspace Terminal W4，接入 xterm/FitAddon、严格 seq/generation 消费、resize/输入/退出/工作区切换 UI；随后 W5 才能解除 B-05。Sandbox 继续排除。
+
+### 2026-08-01 Workspace W4 xterm UI 与生命周期
+
+- 状态：实现已完成并推送；提交 `2a5b112`。Terminal feature flag 继续默认关闭，Sandbox 未实施。
+- UI/生命周期：新增本地打包的 `TerminalPanel`、FitAddon、token 主题和独立 `terminal-store`；panel mode 隐藏保活，真正关闭延迟一个 StrictMode probe tick 后终止 shell。重复 start 按 chat session/generation 去重，显式支持 restart/stop。
+- 协议证据：listener 在 spawn 前就绪；output 仅接收当前 aggregate/terminal/generation 与递增 seq，`exited.last_seq` 排空后进入退出态。base64 输出写入 xterm 字节 buffer；UTF-8 `onData` 与 raw `onBinary` 分片串行发送，ResizeObserver 100 ms debounce 后只传 cols/rows。
+- UI/安全：固定显示“终端 · 本机权限”，只展示工作区 basename；清屏/复制/粘贴/收起使用 28px ghost 工具按钮。工作区切换必须选择重启或保留；exit/error 就地显示并提供显式重试。未引入 `innerHTML`、WebLinksAddon、link provider 或自动外链，持续输出不进入 live region。
+- 测试证据：前端全量 37 files / 267 tests，`npx tsc --noEmit`、`npm run build`、`git diff --check` 通过；定向覆盖 StrictMode 去重、迟到 seq/generation、exit 排空、workspace 选择、二进制/UTF-8 输入、clipboard、resize 和链接禁用。Vite 仅有既有大 chunk 警告。
+- Windows 桌面证据：feature flag 临时开启后，Terminal 入口、标题、toolbar、xterm focus 区和 PTY 启动失败/重试态均真实渲染；当前 `terminal_spawn` 被尚未实施的 W5 Tauri capability 拒绝，因此不把 prompt/Unicode/ANSI/保活记为已验证。该结果确认 B-05 是真实上线门，而非文档性清理。
+- 环境差异：W3 已验证 Windows ConPTY Unicode/ANSI/alternate screen 与进程树；原生 IME、完整 Windows UI shell 路径和 macOS/Linux 实机仍未据此标完成。
+- 回滚：代码回滚到 `2366ce6`；本阶段无数据库迁移，不修改工作区文件。回滚不影响 W3 manager 中已建立的应用退出/会话删除 cleanup。
+- 下一步：Workspace W5，先配置最小 custom-command capability、移除通用 shell/fs/http 并建立生产 CSP；随后回到同一 Windows UI 路径补齐真实 shell、Unicode/ANSI、resize 和 mode 保活证据。Sandbox 继续排除。

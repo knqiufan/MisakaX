@@ -68,7 +68,7 @@ backend session lookup + generation check
 cargo test --test terminal_manager_tests                 # 5 passed
 cargo test terminal --lib                                # 4 passed
 cargo test --all-features -j 1                           # 全量通过
-npm test                                                 # 35 files / 260 tests
+npm test                                                 # W4 基线：37 files / 267 tests
 npm run build                                            # 通过；仅既有大 chunk 警告
 ```
 
@@ -76,7 +76,7 @@ npm run build                                            # 通过；仅既有大
 
 ## 尚未由 W3 解除的上线门
 
-- W4：真正的 xterm UI、Fit/ResizeObserver、输入输出/exit、seq 丢弃、复制粘贴、工作区切换选择和可访问性。
+- W4：已由 `main@2a5b112` 交付 xterm UI、Fit/ResizeObserver、输入输出/exit、seq 丢弃、复制粘贴、工作区切换选择和可访问错误态；真实 shell UI 路径须待 W5 capability 解锁后复验。
 - W5：删除主 WebView 通用 shell/fs/http 权限、配置生产 CSP 和 command authorization/XSS/OSC/link 测试。
 - W6：macOS/Linux 真机、三平台 bundle、IME/TUI/睡眠恢复与性能矩阵。
 - Sandbox：本 PoC 是明确标注的“本机权限”用户终端，不是 Agent Sandbox，也没有实现或改变 Sandbox provider。

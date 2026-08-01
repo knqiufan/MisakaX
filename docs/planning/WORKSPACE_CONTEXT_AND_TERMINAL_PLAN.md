@@ -195,18 +195,20 @@ terminal.exited { terminal_id, exit_code?, reason }
 
 ### 7.1 TODO
 
-- [ ] 实现 `TerminalPanel`，按主题 token 创建/销毁 xterm instance。
-- [ ] 使用 Fit addon，ResizeObserver debounce 后发送 cols/rows；避免像素尺寸直接传后端。
-- [ ] 连接 input/output/exit；二进制/UTF-8 分片在协议层正确处理。
-- [ ] 不用 `innerHTML` 处理标题、链接、selection 或终端衍生数据。
-- [ ] 默认禁用或严格验证 terminal link provider；外部链接需走现有安全打开流程。
-- [ ] 标题固定显示“本机权限”，Shell/cwd 使用非敏感摘要。
-- [ ] 工作区切换时提供“在新工作区重启/保留旧终端”，记录明确选择。
-- [ ] Shell exit 显示 code/reason 和重启按钮；不无限自动重启。
-- [ ] 实现清屏、复制、粘贴、focus restore 和快捷键冲突测试。
-- [ ] 为 IME、中文、Emoji、宽字符、ANSI 色、滚动、TUI alternate screen 做实机测试。
-- [ ] 终端输出不进入普通 screen-reader live stream；退出/错误使用独立 live region。
-- [ ] panel 隐藏/显示和 React StrictMode 下不重复 spawn。
+- [x] 实现 `TerminalPanel`，按主题 token 创建/销毁 xterm instance。
+- [x] 使用 Fit addon，ResizeObserver debounce 后发送 cols/rows；避免像素尺寸直接传后端。
+- [x] 连接 input/output/exit；二进制/UTF-8 分片在协议层正确处理。
+- [x] 不用 `innerHTML` 处理标题、链接、selection 或终端衍生数据。
+- [x] 默认禁用或严格验证 terminal link provider；外部链接需走现有安全打开流程。
+- [x] 标题固定显示“本机权限”，Shell/cwd 使用非敏感摘要。
+- [x] 工作区切换时提供“在新工作区重启/保留旧终端”，记录明确选择。
+- [x] Shell exit 显示 code/reason 和重启按钮；不无限自动重启。
+- [x] 实现清屏、复制、粘贴、focus restore 和快捷键冲突测试。
+- [ ] 为 IME、中文、Emoji、宽字符、ANSI 色、滚动、TUI alternate screen 做实机测试。（W3 已覆盖 Windows ConPTY 字节/ANSI/TUI；W4 桌面面板已验证错误态，真实 shell 路径受 W5 ACL 上线门阻断，原生 IME 与三平台矩阵留 W6。）
+- [x] 终端输出不进入普通 screen-reader live stream；退出/错误使用独立 live region。
+- [x] panel 隐藏/显示和 React StrictMode 下不重复 spawn。
+
+状态：W4 实现已由 `main@2a5b112` 交付；前端自动化、生产构建与 Windows 桌面错误/重试态通过。真实 PTY 端到端启动必须先完成 W5 custom command capability，随后补记 Windows Unicode/ANSI/resize/保活证据；原生 IME 和 macOS/Linux 仍由 W6 负责。
 
 ## 8. Phase W5：Tauri 能力与 CSP 收窄
 
