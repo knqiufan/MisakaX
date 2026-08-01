@@ -5,6 +5,6 @@ mod types;
 
 pub use manager::TerminalManager;
 pub use types::{
-    TerminalDomainEvent, TerminalExitReason, TerminalKillReason, TerminalLimits, TerminalOwner,
-    TerminalServiceError, TerminalSpawnRequest, TerminalState,
+    TerminalDomainEvent, TerminalExitReason, TerminalExitedPayload, TerminalKillReason,
+    TerminalLimits, TerminalOwner, TerminalServiceError, TerminalSpawnRequest, TerminalState,
 };

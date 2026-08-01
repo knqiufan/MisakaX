@@ -10,7 +10,6 @@ use base64::Engine;
 use portable_pty::{native_pty_system, ChildKiller, MasterPty, PtySize};
 
 use crate::contracts::DomainEvent;
-use crate::services::workspace::strip_windows_verbatim_prefix;
 
 use super::process_tree::ProcessTreeGuard;
 use super::shell::resolve_shell;
@@ -216,11 +215,10 @@ impl TerminalManager {
                 pixel_height: 0,
             })
             .map_err(|_| TerminalServiceError::SpawnFailed("pty_open"))?;
-        // Windows canonicalization adds a `\\?\` prefix. Keep it for
-        // identity validation, then pass the equivalent display-form cwd to
-        // the shell so PowerShell does not render a verbose provider path.
-        let shell_cwd = strip_windows_verbatim_prefix(&canonical_cwd);
-        let command = shell.command(&shell_cwd);
+        // Keep the canonical path for identity validation. The shell adapter
+        // uses a readable display path for ordinary workspaces and a fixed
+        // startup Set-Location command for Windows paths beyond MAX_PATH.
+        let command = shell.command(&canonical_cwd)?;
         let mut child = pair
             .slave
             .spawn_command(command)

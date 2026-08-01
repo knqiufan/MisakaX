@@ -3,6 +3,9 @@ use std::path::{Path, PathBuf};
 
 use portable_pty::CommandBuilder;
 
+#[cfg(windows)]
+use crate::services::workspace::strip_windows_verbatim_prefix;
+
 use super::types::{ShellFallbackReason, TerminalServiceError};
 
 #[derive(Debug, Clone)]
@@ -15,14 +18,53 @@ pub struct ResolvedShell {
 }
 
 impl ResolvedShell {
-    pub fn command(&self, cwd: &Path) -> CommandBuilder {
+    pub fn command(&self, cwd: &Path) -> Result<CommandBuilder, TerminalServiceError> {
         let mut command = CommandBuilder::new(&self.executable);
         command.args(&self.args);
+        #[cfg(windows)]
+        configure_windows_working_directory(&mut command, &self.shell_name, cwd)?;
+        #[cfg(not(windows))]
         command.cwd(cwd);
         for key in protected_environment_keys() {
             command.env_remove(key);
         }
-        command
+        Ok(command)
+    }
+}
+
+#[cfg(windows)]
+fn configure_windows_working_directory(
+    command: &mut CommandBuilder,
+    shell_name: &str,
+    canonical_cwd: &Path,
+) -> Result<(), TerminalServiceError> {
+    use std::os::windows::ffi::OsStrExt;
+
+    let display_cwd = strip_windows_verbatim_prefix(canonical_cwd);
+    if display_cwd.as_os_str().encode_wide().count() < 248 {
+        command.cwd(display_cwd);
+        return Ok(());
+    }
+
+    if matches!(shell_name, "pwsh" | "powershell") {
+        // CreateProcessW still caps lpCurrentDirectory at MAX_PATH. Start the
+        // profile-free shell from the drive/share root, then synchronously move
+        // into the already-canonicalized workspace before showing a prompt.
+        let launch_cwd = display_cwd
+            .ancestors()
+            .last()
+            .unwrap_or(display_cwd.as_path());
+        command.cwd(launch_cwd);
+        let quoted = canonical_cwd.to_string_lossy().replace('\'', "''");
+        command.arg("-NoExit");
+        command.arg("-Command");
+        command.arg(format!("Set-Location -LiteralPath '{quoted}'"));
+        Ok(())
+    } else {
+        // cmd.exe cannot use an extended-length path as its current directory.
+        // Fail closed with a stable diagnostic rather than silently starting
+        // outside the requested workspace.
+        Err(TerminalServiceError::SpawnFailed("shell_workspace_path"))
     }
 }
 

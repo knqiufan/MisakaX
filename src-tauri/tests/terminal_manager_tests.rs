@@ -89,18 +89,60 @@ fn spawn(
     cwd: &std::path::Path,
     chat: &str,
 ) -> misaka_x_lib::services::terminal::TerminalState {
+    spawn_profile(manager, cwd, chat, "auto")
+}
+
+fn spawn_profile(
+    manager: &Arc<TerminalManager>,
+    cwd: &std::path::Path,
+    chat: &str,
+    profile: &str,
+) -> misaka_x_lib::services::terminal::TerminalState {
     let state = manager
         .spawn(TerminalSpawnRequest {
             owner: owner(chat),
             cwd: cwd.to_path_buf(),
             rows: 24,
             cols: 80,
-            shell_profile: Some("auto".to_string()),
+            shell_profile: Some(profile.to_string()),
         })
         .expect("PTY should spawn");
     // A real xterm replies only after parsing ConPTY's initial DSR request.
     std::thread::sleep(Duration::from_millis(300));
     state
+}
+
+fn collect_until_exit(
+    events_rx: &mpsc::Receiver<TerminalDomainEvent>,
+    deadline: Instant,
+) -> (
+    Vec<u8>,
+    misaka_x_lib::services::terminal::TerminalExitedPayload,
+) {
+    let mut output = Vec::new();
+    let mut exit = None;
+    while Instant::now() < deadline && exit.is_none() {
+        match events_rx.recv_timeout(Duration::from_millis(250)) {
+            Ok(TerminalDomainEvent::Output(event)) => {
+                let chunk = base64::engine::general_purpose::STANDARD
+                    .decode(event.payload.data_base64)
+                    .unwrap();
+                output.extend(chunk);
+            }
+            Ok(TerminalDomainEvent::Exited(event)) => exit = Some(event.payload),
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(error) => panic!("event stream closed: {error}"),
+        }
+    }
+    let exit = exit.unwrap_or_else(|| {
+        let tail_start = output.len().saturating_sub(1024);
+        panic!(
+            "terminal should exit; captured_bytes={}; tail={:?}",
+            output.len(),
+            String::from_utf8_lossy(&output[tail_start..])
+        )
+    });
+    (output, exit)
 }
 
 fn shell_line(shell_name: &str, powershell: &str, cmd: &str, unix: &str) -> String {
@@ -120,6 +162,16 @@ fn with_terminal_handshake(line: String) -> Vec<u8> {
     let mut input = Vec::new();
     input.extend_from_slice(line.as_bytes());
     input
+}
+
+#[cfg(windows)]
+struct VerbatimDirGuard(std::path::PathBuf);
+
+#[cfg(windows)]
+impl Drop for VerbatimDirGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
 }
 
 #[test]
@@ -153,28 +205,7 @@ fn conpty_round_trip_resize_unicode_owner_tamper_and_exit_code() {
         )
         .unwrap();
 
-    let deadline = Instant::now() + Duration::from_secs(10);
-    let mut output = Vec::new();
-    let mut exit = None;
-    while Instant::now() < deadline && exit.is_none() {
-        match events_rx.recv_timeout(Duration::from_millis(250)) {
-            Ok(TerminalDomainEvent::Output(event)) => {
-                let chunk = base64::engine::general_purpose::STANDARD
-                    .decode(event.payload.data_base64)
-                    .unwrap();
-                output.extend(chunk);
-            }
-            Ok(TerminalDomainEvent::Exited(event)) => exit = Some(event.payload),
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
-            Err(error) => panic!("event stream closed: {error}"),
-        }
-    }
-    let exit = exit.unwrap_or_else(|| {
-        panic!(
-            "terminal should exit; captured={:?}",
-            String::from_utf8_lossy(&output)
-        )
-    });
+    let (output, exit) = collect_until_exit(&events_rx, Instant::now() + Duration::from_secs(10));
     assert_eq!(exit.exit_code, Some(7));
     assert_eq!(exit.reason, TerminalExitReason::ProcessExited);
     assert!(exit.last_seq >= 1);
@@ -186,6 +217,87 @@ fn conpty_round_trip_resize_unicode_owner_tamper_and_exit_code() {
         assert!(output.contains("W3_TUI"));
     }
     assert_eq!(manager.active_count(), 0);
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_profiles_and_long_unicode_workspace_round_trip() {
+    let base = tempfile::tempdir().unwrap();
+    let mut long_cwd = base.path().to_path_buf();
+    for index in 0..7 {
+        long_cwd.push(format!("中文路径段{index}{}", "x".repeat(32)));
+    }
+    let verbatim_cwd = std::path::PathBuf::from(format!(r"\\?\{}", long_cwd.display()));
+    std::fs::create_dir_all(&verbatim_cwd).expect("create a >MAX_PATH Unicode workspace");
+    let _long_path_guard = VerbatimDirGuard(verbatim_cwd.clone());
+    assert!(long_cwd.as_os_str().len() > 260);
+
+    let manager = Arc::new(TerminalManager::default());
+    let (events_tx, events_rx) = mpsc::channel();
+    manager.start(move |event| events_tx.send(event).unwrap(), |_| {});
+    let state = spawn_profile(&manager, &verbatim_cwd, "long-powershell", "powershell");
+    assert_eq!(state.shell_name, "powershell");
+    manager
+        .write(
+            &state.terminal_id,
+            &owner("long-powershell"),
+            &with_terminal_handshake(shell_line(
+                &state.shell_name,
+                "Write-Output \"W6_PS_MAJOR=$($PSVersionTable.PSVersion.Major)\"; Write-Output 'W6_LONG_UNICODE_OK'; exit 0",
+                "echo W6_LONG_UNICODE_OK & exit 0",
+                "printf 'W6_LONG_UNICODE_OK\\n'; exit 0",
+            )),
+        )
+        .unwrap();
+    let (output, exit) = collect_until_exit(&events_rx, Instant::now() + Duration::from_secs(12));
+    assert_eq!(exit.exit_code, Some(0));
+    let output = String::from_utf8_lossy(&output);
+    assert!(output.contains("W6_PS_MAJOR=5"));
+    assert!(output.contains("W6_LONG_UNICODE_OK"));
+
+    let cmd_long_path = Arc::new(TerminalManager::default());
+    let result = cmd_long_path.spawn(TerminalSpawnRequest {
+        owner: owner("cmd-long-path"),
+        cwd: verbatim_cwd.clone(),
+        rows: 24,
+        cols: 80,
+        shell_profile: Some("cmd".to_string()),
+    });
+    assert!(matches!(
+        result,
+        Err(TerminalServiceError::SpawnFailed("shell_workspace_path"))
+    ));
+    assert_eq!(cmd_long_path.active_count(), 0);
+
+    let manager = Arc::new(TerminalManager::default());
+    let (events_tx, events_rx) = mpsc::channel();
+    manager.start(move |event| events_tx.send(event).unwrap(), |_| {});
+    let state = spawn_profile(&manager, base.path(), "cmd-profile", "cmd");
+    assert_eq!(state.shell_name, "cmd");
+    manager
+        .write(
+            &state.terminal_id,
+            &owner("cmd-profile"),
+            &with_terminal_handshake(shell_line(
+                &state.shell_name,
+                "Write-Output 'W6_CMD_OK'; exit 0",
+                "echo W6_CMD_OK & exit 0",
+                "printf 'W6_CMD_OK\\n'; exit 0",
+            )),
+        )
+        .unwrap();
+    let (output, exit) = collect_until_exit(&events_rx, Instant::now() + Duration::from_secs(10));
+    assert_eq!(exit.exit_code, Some(0));
+    assert!(String::from_utf8_lossy(&output).contains("W6_CMD_OK"));
+
+    let manager = Arc::new(TerminalManager::default());
+    manager.start(|_| {}, |_| {});
+    let fallback = spawn_profile(&manager, base.path(), "pwsh-fallback", "pwsh");
+    if fallback.shell_name != "pwsh" {
+        assert_eq!(fallback.shell_name, "powershell");
+        assert!(fallback.fallback_reason.is_some());
+    }
+    manager.shutdown();
 }
 
 #[test]
@@ -240,6 +352,151 @@ fn output_flood_is_rate_limited_and_process_is_stopped() {
     }
     assert_eq!(reason, Some(TerminalExitReason::OutputLimit));
     assert_eq!(manager.active_count(), 0);
+}
+
+#[test]
+fn ten_mibibyte_long_line_is_bounded_and_reaps_the_process() {
+    let cwd = tempfile::tempdir().unwrap();
+    let mut limits = TerminalLimits::default();
+    limits.max_output_bytes_per_second = 256 * 1024;
+    let manager = Arc::new(TerminalManager::new(limits));
+    let (events_tx, events_rx) = mpsc::channel();
+    manager.start(move |event| events_tx.send(event).unwrap(), |_| {});
+    let state = spawn(&manager, cwd.path(), "ten-mib-long-line");
+    let line = shell_line(
+        &state.shell_name,
+        "$line = 'x' * (10 * 1024 * 1024); [Console]::Out.Write($line)",
+        "powershell -NoLogo -NoProfile -Command \"$line = 'x' * (10 * 1024 * 1024); [Console]::Out.Write($line)\"",
+        "head -c 10485760 /dev/zero | tr '\\0' x",
+    );
+    let started = Instant::now();
+    manager
+        .write(
+            &state.terminal_id,
+            &owner("ten-mib-long-line"),
+            &with_terminal_handshake(line),
+        )
+        .unwrap();
+
+    let (output, exit) = collect_until_exit(&events_rx, started + Duration::from_secs(20));
+    assert_eq!(exit.reason, TerminalExitReason::OutputLimit);
+    assert!(
+        output.len() <= 512 * 1024,
+        "bounded output should stop near the 256 KiB/s test limit, got {} bytes",
+        output.len()
+    );
+    assert!(started.elapsed() < Duration::from_secs(20));
+    assert_eq!(manager.active_count(), 0);
+}
+
+#[cfg(windows)]
+#[test]
+fn crash_helper_process_holds_terminal_job() {
+    if std::env::var_os("MISAKAX_W6_TERMINAL_CRASH_HELPER").is_none() {
+        return;
+    }
+    let cwd = std::path::PathBuf::from(
+        std::env::var_os("MISAKAX_W6_TERMINAL_CRASH_CWD").expect("helper cwd"),
+    );
+    let pid_file = std::path::PathBuf::from(
+        std::env::var_os("MISAKAX_W6_TERMINAL_CRASH_PID").expect("helper pid file"),
+    );
+    let manager = Arc::new(TerminalManager::default());
+    manager.start(|_| {}, |_| {});
+    let state = spawn(&manager, &cwd, "crash-helper");
+    let quoted = pid_file.to_string_lossy().replace('\'', "''");
+    let line = shell_line(
+        &state.shell_name,
+        &format!(
+            "$p = Start-Process -FilePath powershell.exe -ArgumentList '-NoLogo','-NoProfile','-Command','Start-Sleep -Seconds 60' -PassThru; Set-Content -LiteralPath '{quoted}' -Value $p.Id -NoNewline"
+        ),
+        &format!(
+            "powershell -NoLogo -NoProfile -Command \"$p=Start-Process powershell.exe -ArgumentList '-NoLogo','-NoProfile','-Command','Start-Sleep 60' -PassThru; Set-Content -LiteralPath '{quoted}' -Value $p.Id -NoNewline\""
+        ),
+        "sleep 60",
+    );
+    manager
+        .write(
+            &state.terminal_id,
+            &owner("crash-helper"),
+            &with_terminal_handshake(line),
+        )
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(15);
+    while !pid_file.exists() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert!(pid_file.exists(), "helper grandchild pid should be written");
+    loop {
+        std::thread::sleep(Duration::from_secs(1));
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn abrupt_app_termination_reaps_job_and_a_new_manager_can_reopen() {
+    use std::process::{Command, Stdio};
+
+    let cwd = tempfile::tempdir().unwrap();
+    let pid_file = cwd.path().join("crash-grandchild.pid");
+    let current_test = std::env::current_exe().expect("current integration test executable");
+    let mut helper = Command::new(current_test)
+        .arg("--exact")
+        .arg("crash_helper_process_holds_terminal_job")
+        .arg("--nocapture")
+        .env("MISAKAX_W6_TERMINAL_CRASH_HELPER", "1")
+        .env("MISAKAX_W6_TERMINAL_CRASH_CWD", cwd.path())
+        .env("MISAKAX_W6_TERMINAL_CRASH_PID", &pid_file)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn crash helper test process");
+
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while !pid_file.exists() && Instant::now() < deadline {
+        if let Some(status) = helper.try_wait().expect("poll crash helper") {
+            panic!("crash helper exited before pid handoff: {status}");
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let grandchild_pid = std::fs::read_to_string(&pid_file)
+        .expect("crash helper grandchild pid file")
+        .trim()
+        .parse::<u32>()
+        .expect("numeric crash grandchild pid");
+    assert!(process_exists(grandchild_pid));
+
+    helper.kill().expect("terminate helper like an app crash");
+    helper.wait().expect("reap crash helper");
+    let deadline = Instant::now() + Duration::from_secs(8);
+    while process_exists(grandchild_pid) && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert!(
+        !process_exists(grandchild_pid),
+        "KILL_ON_JOB_CLOSE must reap the grandchild after abrupt app termination"
+    );
+
+    let manager = Arc::new(TerminalManager::default());
+    let (events_tx, events_rx) = mpsc::channel();
+    manager.start(move |event| events_tx.send(event).unwrap(), |_| {});
+    let state = spawn(&manager, cwd.path(), "reopened-after-crash");
+    manager
+        .write(
+            &state.terminal_id,
+            &owner("reopened-after-crash"),
+            &with_terminal_handshake(shell_line(
+                &state.shell_name,
+                "Write-Output 'W6_REOPEN_OK'; exit 0",
+                "echo W6_REOPEN_OK & exit 0",
+                "printf 'W6_REOPEN_OK\\n'; exit 0",
+            )),
+        )
+        .unwrap();
+    let (output, exit) = collect_until_exit(&events_rx, Instant::now() + Duration::from_secs(10));
+    assert_eq!(exit.exit_code, Some(0));
+    assert!(String::from_utf8_lossy(&output).contains("W6_REOPEN_OK"));
 }
 
 #[test]
