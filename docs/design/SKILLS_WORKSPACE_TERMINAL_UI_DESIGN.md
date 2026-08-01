@@ -3,7 +3,7 @@
 > **用途：** 定义 Skills 设置页、按需文件预览、安全报告、输入框下方工作区标识和右侧终端的交互规范。
 > **受众：** 产品、UI/UX、React、Rust IPC 和测试维护者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **状态：** 增量实施中；S1–S3、S5 与 Workspace W1–W5 已落地，独立 Skills 路径和旧全文/双写兼容面已删除；Sandbox 隔离的 S4 可选深度扫描器按用户范围延后，Terminal 跨平台、压力与发布验证由 W6 继续实施。
+> **状态：** 增量实施中；S1–S3、S5 与 Workspace W1–W5 已落地，独立 Skills 路径和旧全文/双写兼容面已删除；Sandbox 隔离的 S4 可选深度扫描器按用户范围延后。W6 已完成 Windows 11 当前机的 shell、长路径、突发输出、崩溃恢复与 Release bundle 证据，其他平台/IME/签名发布仍待对应环境。
 > **上位规范：** [`frontend-ui-guidelines.md`](./frontend-ui-guidelines.md)、[`shell-and-workspace-ui-spec.md`](./shell-and-workspace-ui-spec.md)、[`button-menu-design-spec.md`](./button-menu-design-spec.md)。
 
 ---
@@ -197,6 +197,8 @@ W1 落地约束：
 - 复制/粘贴使用 Tauri 原生 clipboard text permission，不触发浏览器 permission prompt；粘贴把 LF/CRLF 规范化为 CR 后直接写入窄 Terminal IPC。多行/疑似危险命令确认属于后续增强，首期不启用终端自动链接执行。
 - output 只接受当前 terminal/session/workspace generation 且严格递增的 seq；收到 `terminal:exited.last_seq` 后先排空对应输出再进入退出态，之后丢弃迟到事件。listener 必须在 spawn 前安装，并使用有界 pre-spawn queue 处理 spawn/event 竞态；StrictMode 探测与重复打开不得重复 spawn。
 - xterm 只消费 base64 解码后的字节并通过其 buffer API 渲染；禁止 `innerHTML`、`dangerouslySetInnerHTML`、WebLinksAddon、任意 link provider 和 `window.open`。输入按 UTF-8/onBinary 两条路径串行分片写入。
+- Windows 超长工作区由后端按 shell 能力处理：PowerShell 安全进入 canonical extended-length cwd；cmd 无法支持时以稳定诊断失败。前端不得构造 `cd`、切换 cwd、自动换 shell 或把完整绝对路径写进错误区。
+- 诊断区显示本地化原因、短错误 ID 与显式重试/重启；持续突发输出只受有界背压与退出态约束，不逐字符播报，也不复制原始输出到 Toast。
 
 ### 7.3 视觉与动效
 

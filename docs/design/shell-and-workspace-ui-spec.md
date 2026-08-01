@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口混合壳结构、任务侧栏、对话页顶栏、设置页与工作区布局语义。 |
 | **受众** | 负责 `AppShell`、`UnifiedTopBar`、`SessionPanel`、`SettingsSidebar`、`ChatPage`、`WorkspaceBar`、`SettingsPage` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-08-01（v30） |
+| **最后审阅** | 2026-08-01（v31） |
 
 ## 相关文档
 
@@ -141,7 +141,7 @@ Sidecar 状态**不**放在底栏（见 §1 / 关于页）。
 
 - 高度约 TopBar 量级：`min-h-10`，`px-3 py-1.5`，底边 `border-border/40`，表面 `bg-background`（无重 blur / 大图标槽）。
 - 图标操作：`ghost` + `size-7`；Explorer / Terminal **当前打开 mode** 用 `variant="secondary"`，再次点击同 mode 关闭，点击另一 mode 打开并切换。
-- Explorer/Terminal 统一传递 `WorkspacePanelMode` action，禁止分别维护两套 open boolean。无工作目录时不执行 toggle；Terminal 在 W5 安全门完成前由默认关闭的 feature flag 隐藏。
+- Explorer/Terminal 统一传递 `WorkspacePanelMode` action，禁止分别维护两套 open boolean。无工作目录时不执行 toggle；W5 后 Terminal 默认启用，仅在前后端显式 `false|0` 紧急 kill switch 生效时隐藏。
 - Tooltip 使用准确动词与快捷键：Explorer 为 `Ctrl/Cmd+Shift+E`，Terminal 为 `Ctrl/Cmd+反引号`；两者必须有 `aria-pressed`、`aria-keyshortcuts` 与 focus-visible ring。
 - Tool Logs：与 WorkspacePanel **语义解耦**；入口固定为消息内工具组的日志按钮，挂载仍是 WorkspaceBar 下方聊天列抽屉（`max-h-[min(40vh,320px)]`），头 `h-10` + 11px uppercase + 关闭 X。
 - 控件细节见 [button-menu-design-spec.md](./button-menu-design-spec.md)。
@@ -224,7 +224,7 @@ Provider 目录网格仅 `md:grid-cols-2`。Appearance 主题分段：`rounded-m
 
 - Panel store 只管理 `open/mode/size/sessionId/workspaceGeneration`，且只持久化 `open/mode/size`；Explorer tabs/activePath 与 Terminal session/output 分属各自 store/manager。
 - 旧 Explorer store 的 `open` 只迁移一次到新 panel key；迁移不得带走或清除 tabs。任务/工作区切换立即更新 runtime session/generation，旧 generation 不得覆盖新绑定。
-- Explorer 与访问过的 Terminal 内容槽在 mode 隐藏时保留；切 mode 只改变可见性。Terminal 在 W5 capability/CSP 上线门解除前必须保持 rollout flag 默认关闭，不能把 ACL 错误态当成功能入口。
+- Explorer 与访问过的 Terminal 内容槽在 mode 隐藏时保留；切 mode 只改变可见性。Terminal 默认入口必须同时服从前后端安全 gate；显式 kill switch 关闭时不渲染空动作。
 
 ### 5.1 表面与头
 
@@ -246,6 +246,7 @@ Provider 目录网格仅 `md:grid-cols-2`。Appearance 主题分段：`rounded-m
 - Terminal 与 Explorer 共用右栏表面和 resize handle；标题固定为“终端 · 本机权限”，副信息只显示 shell 与工作区 basename，不展示完整 cwd、环境变量或命令历史。
 - 工具栏按顺序提供清屏、复制、粘贴、收起，均为 `ghost size-7`；无 selection 时复制 disabled。退出/错误在面板底部就地显示，提供显式重启/重试，不无限自动重启。
 - xterm/FitAddon 只从本地 bundle 加载；ResizeObserver 100 ms debounce 后仅发送 cols/rows。输入按 UTF-8/raw binary 分片串行写入，输出按 terminal/session/generation/seq 门控，禁止把终端数据写入 DOM HTML。
+- Windows extended-length cwd 由后端 shell adapter 处理：PowerShell 可进入 canonical 路径，cmd 不支持时返回稳定诊断。UI 只能显示工作区 basename、shell、可本地化原因和短错误 ID，不得暴露完整路径、拼装 `cd` 命令或暗示已在错误目录启动。
 - Explorer/Terminal 切换保留存活 session 与滚动内容；真正关闭面板终止其 shell。工作区变化且旧 shell 存活时必须询问“在新工作区重启”或“保留旧终端”，禁止静默 `cd`。
 - 终端链接默认不激活、不打开外部程序；持续输出不进入普通 screen-reader live stream，退出/错误使用独立 live region。
 

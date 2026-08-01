@@ -1,6 +1,6 @@
 # MisakaX 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-08-01（v17）
+**最后审阅 / Last reviewed:** 2026-08-01（v18）
 
 > 主色已切换为 **charcoal**（非冷蓝强调色）。文中若仍出现历史「蓝调」示例，以实现侧 CSS 变量与 [frontend-ui-guidelines.md](./frontend-ui-guidelines.md) 为准。
 >
@@ -571,6 +571,7 @@ Hover:    transform=none, shadow=none, brightness(1)  [150ms]
 - W5 后 Terminal 默认启用；只有前后端显式 `false|0` 紧急 kill switch 关闭时不渲染按钮。不得显示可点击的“即将推出”空动作，也不得把可预见的 ACL 拒绝暴露给稳定入口。
 - Tool Logs 不再占 WorkspaceBar Terminal 图标。消息工具组的日志入口使用 `ScrollText` 语义图标、`ghost icon-xs/size-7`、明确“打开工具日志”名称；它是独立 button，不能嵌套进 Collapsible trigger，点击不得顺带改变消息工具组展开态。
 - TerminalPanel 工具栏使用 `ghost size-7` 的清屏、复制、粘贴、收起按钮，顺序固定且均有 Tooltip/`aria-label`；复制在无 selection 时 disabled，粘贴在 clipboard 不可用时 disabled。按钮不缩放、不发光，失败反馈进入面板状态条而非 Toast 风暴。
+- Shell profile 不支持当前工作区（例如 cmd 无法进入 Windows extended-length cwd）时，保留工具栏与显式“重试/重新启动”动作，在面板状态条显示本地化稳定原因和短错误 ID；不得新增“仍在其他目录启动”按钮、自动改选 shell、泄漏完整路径或重复 Toast。
 - 所有来自 Markdown、About、provider 或终端衍生内容的外链，只能在通过长度、控制字符、credentials 与 HTTP(S) scheme 校验后调用原生 `shell open`；禁止 `window.open` 和当前 WebView 导航。相对路径、恶意 scheme 与无效 URL 保持不可导航文本，不渲染伪按钮或空 tooltip。
 
 ---

@@ -182,7 +182,7 @@ terminal:exited { terminal_id, exit_code?, reason }
 - [x] 增加 session 数、输出速率、输入大小、尺寸范围和命令频率限制。
 - [x] 补 Rust unit/integration，覆盖 owner 篡改、cwd 竞态、崩溃、输出洪水和应用关闭。
 
-平台证据见 [`WORKSPACE_TERMINAL_PTY_POC.md`](../research/WORKSPACE_TERMINAL_PTY_POC.md)：Windows 当前实机 5 项集成测试通过；Unix 路径已实现 PTY/process-group guard，但 macOS/Linux 真机与 bundle 不能据此宣称完成，仍属于 W6 发布矩阵。
+平台证据见 [`WORKSPACE_TERMINAL_PTY_POC.md`](../research/WORKSPACE_TERMINAL_PTY_POC.md)：Windows 当前实机 9 项集成测试通过；Unix 路径已实现 PTY/process-group guard，但 macOS/Linux 真机与 bundle 不能据此宣称完成，仍属于 W6 发布矩阵。
 
 ### 6.5 退出门
 
@@ -204,11 +204,11 @@ terminal:exited { terminal_id, exit_code?, reason }
 - [x] 工作区切换时提供“在新工作区重启/保留旧终端”，记录明确选择。
 - [x] Shell exit 显示 code/reason 和重启按钮；不无限自动重启。
 - [x] 实现清屏、复制、粘贴、focus restore 和快捷键冲突测试。
-- [ ] 为 IME、中文、Emoji、宽字符、ANSI 色、滚动、TUI alternate screen 做实机测试。（W3 已覆盖 Windows ConPTY 字节/ANSI/TUI；W5 Windows Release UI 已覆盖真实 prompt、中文/宽字符、ANSI 与 panel 保活，原生 IME、Emoji、滚动压力和 macOS/Linux 矩阵留 W6。）
+- [ ] 为 IME、中文、Emoji、宽字符、ANSI 色、滚动、TUI alternate screen 做实机测试。（Windows ConPTY 自动化覆盖字节/ANSI/TUI，W5 Release UI 覆盖真实 prompt、中文/宽字符、ANSI 与 panel 保活；W6 又覆盖长 Unicode cwd 与突发长行。原生 IME、Emoji、长时滚动和 macOS/Linux 矩阵仍待实机。）
 - [x] 终端输出不进入普通 screen-reader live stream；退出/错误使用独立 live region。
 - [x] panel 隐藏/显示和 React StrictMode 下不重复 spawn。
 
-状态：W4 实现已由 `main@2a5b112` 交付；W5 已解除 capability 上线门，并在 Windows Release UI 补齐真实 PowerShell prompt、中文/宽字符、ANSI 与 panel 保活证据。原生 IME、压力矩阵和 macOS/Linux 仍由 W6 负责。
+状态：W4 实现已由 `main@2a5b112` 交付；W5 已解除 capability 上线门，并在 Windows Release UI 补齐真实 PowerShell prompt、中文/宽字符、ANSI 与 panel 保活证据。W6 当前机已补突发长行、长路径和崩溃恢复；原生 IME、持续吞吐和 macOS/Linux 仍由 W6 负责。
 
 ## 8. Phase W5：Tauri 能力与 CSP 收窄
 
@@ -232,14 +232,16 @@ terminal:exited { terminal_id, exit_code?, reason }
 
 ### 9.1 TODO
 
-- [ ] Windows 10/11：PowerShell 5、pwsh、cmd、ConPTY resize、长路径、中文路径、Job cleanup。
+- [ ] Windows 10/11：PowerShell 5、pwsh、cmd、ConPTY resize、长路径、中文路径、Job cleanup。（Windows 11 Pro 10.0.26200 已实测 PowerShell 5、cmd、resize、超过 260 字符的 Unicode 路径、Job cleanup 与应用崩溃回收；本机没有 pwsh，Windows 10 尚无实机证据。）
 - [ ] macOS 当前和前两个支持版本：zsh/bash、签名/notarization、PTY 权限、IME。
 - [ ] Linux 支持发行版：bash/zsh/fish 可选、Wayland/X11 clipboard、PTY、AppImage/deb/rpm 打包。
-- [ ] 测试 Git CLI 缺失、旧版本、worktree、submodule、detached 和 PATH 异常。
-- [ ] 测试 10 MB/s 输出、超长行、持续进程、应用崩溃恢复和重新打开。
-- [ ] 确认安装包不依赖 CDN，离线启动终端可用。
-- [ ] 记录已知 Shell/TUI 兼容差异和诊断入口。
-- [ ] 更新 UI 三规范、PROJECT_STRUCTURE 和进度文档。
+- [ ] 测试 Git CLI 缺失、旧版本、worktree、submodule、detached 和 PATH 异常。（缺失/PATH 退化、当前 Git 2.52.0、worktree、submodule 与 detached 已覆盖；旧 Git 版本仍待实机。）
+- [ ] 测试 10 MB/s 输出、超长行、持续进程、应用崩溃恢复和重新打开。（已覆盖单条 10 MiB 突发长行的有界限流、持续命令、模拟应用崩溃后的 Job 回收与新 manager 重开；尚未把该结果表述为实测稳定 10 MB/s 吞吐。）
+- [ ] 确认安装包不依赖 CDN，离线启动终端可用。（Release HTML/JS/CSS 仅引用本地资源，EXE/MSI/NSIS 构建与 Release 终端启动通过；未通过断网环境做最终复验。）
+- [x] 记录已知 Shell/TUI 兼容差异和诊断入口。
+- [x] 更新 UI 三规范、PROJECT_STRUCTURE 和进度文档。
+
+状态：W6 Windows 当前机验证已由 `main@b2521f0` 推进，但三平台发布退出门仍为部分完成。Windows 11 上的 `terminal_manager_tests` 9/9、前端 38 files / 271 tests、Rust 全量测试、`cargo check --all-features`、前端构建和 Tauri Release bundle 均通过；macOS/Linux、Windows 10、pwsh、原生 IME、旧 Git 与签名/notarization 不能由这台 Windows 机器代替验证。Sandbox 仍未实施。
 
 ## 10. 关键风险
 

@@ -3,8 +3,8 @@
 > **用途：** 作为本轮 Skills/安全检查/Git 标识/终端/Sandbox/最终架构审查的单一进度台账。
 > **受众：** 项目负责人、开发、测试、安全和后续接手者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **代码基线：** `main@b96d0e3`。
-> **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；Skills S0–S3、S5 与 Workspace W0–W5 实现已闭环，S4 因依赖 Sandbox helper 按用户范围明确延期，Sandbox 本身暂不实施；Terminal 已解除 W5 安全门并完成 Windows Release 真实 shell 验证，W6 仍需跨平台与压力发布矩阵。
+> **代码基线：** `main@b2521f0`。
+> **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；Skills S0–S3、S5 与 Workspace W0–W5 实现已闭环，S4 因依赖 Sandbox helper 按用户范围明确延期，Sandbox 本身暂不实施；W6 已完成 Windows 11 当前机的长路径、shell、压力、崩溃恢复与 Release bundle 证据，Windows 10/pwsh/macOS/Linux/原生 IME/签名发布仍待对应环境验证。
 
 ---
 
@@ -30,7 +30,7 @@
 | Skills 迁入 Settings/MCP 下方 | ✅ | Settings 导航顺序为 MCP → Skills；旧 `skills` route/title/nav/page wrapper 已删除 |
 | Skills 安全检查 | ✅ | 内置离线引擎、quarantine、versioned policy、finding/审批/rescan/export、升级批量扫描与统一 Gate 已闭环；Sandbox deep scanner 按范围延后 |
 | Git/本地项目 badge | ✅ | 只读 WorkspaceContext/Git provider、generation DTO/event、composer badge 与无路径诊断已闭环 |
-| 嵌入式终端 | 🟡 | W3–W5 已交付 owner-bound PTY、xterm UI、最小 capability/CSP 与 Windows Release 真实 shell；默认入口已启用，macOS/Linux、原生 IME 与压力矩阵留 W6 |
+| 嵌入式终端 | 🟡 | W3–W5 已交付 owner-bound PTY、xterm UI 与最小 capability/CSP；W6 已通过 Windows 11 当前机的 PowerShell 5/cmd、超长 Unicode cwd、10 MiB 突发、崩溃回收/重开和 Release UI，跨平台、pwsh、原生 IME 与签名发布仍未闭环 |
 | Tauri 终端安全收口 | ✅ | 通用 Shell execute/spawn/stdin/kill、FS/HTTP/Notification 权限已删除；生产 CSP、精确 custom-command manifest 与 Windows Release 审计通过 |
 | Agent OS Sandbox | ⛔ | 当前为逻辑路径 guard；Shell 在宿主直接执行并继承环境 |
 | 最终架构审查/重构 | ⬜ | 必须等其他功能和回归基线完成 |
@@ -82,7 +82,7 @@
 - `src/pages/ChatPage.tsx` 已用单一 `WorkspacePanel` 包裹既有 `WorkspaceExplorer`；宽窗为 70/30 百分比分栏，窄窗为不挤压聊天列的右侧 overlay。
 - `src/components/chat/workspace/WorkspaceBar.tsx` 的 Explorer/Terminal 使用同一 mode action、pressed/tooltip/快捷键；W5 后 Terminal 默认启用，前后端只保留 `false|0` 显式紧急 kill switch，不渲染不可用空动作。
 - Tool Logs 已迁到消息 `ToolActionsGroup` 的明确日志按钮，仍打开 ChatView 内原聚合抽屉，不再借用 Terminal 图标或右轨。
-- `src-tauri/src/services/terminal/` 已实现 `TerminalManager`、可信 shell 解析、window + Chat Session + workspace generation ownership、限额/背压、`terminal:output` / `terminal:exited` 事件和 Windows Job Object / Unix process-group 回收；spawn 不接受 cwd、任意 executable、argv 或 env。
+- `src-tauri/src/services/terminal/` 已实现 `TerminalManager`、可信 shell 解析、window + Chat Session + workspace generation ownership、限额/背压、`terminal:output` / `terminal:exited` 事件和 Windows Job Object / Unix process-group 回收；spawn 不接受 cwd、任意 executable、argv 或 env。Windows 超长 canonical cwd 由 PowerShell 安全 `Set-Location -LiteralPath`，cmd 无法支持时以 `shell_workspace_path` 失败关闭。
 - `src/lib/ipc/terminal.ts` 只暴露 spawn/write/resize/kill/get-state 窄接口；输出使用 base64 二进制载荷和递增 seq，W4 UI 已按 terminal/generation/seq 丢弃迟到事件并以 `last_seq` 排空退出。
 - `WorkspacePanel` 会保持访问过的 Terminal 内容槽挂载；实际 process/output 生命周期归 Rust manager 与独立 `terminal-store`，不能写回 panel 偏好 store。
 - manifests 已锁定 `portable-pty = 0.9.0`、`@xterm/xterm = 6.0.0` 与 `@xterm/addon-fit = 0.11.0`；本地 xterm UI 已落地，Sandbox 依赖仍未加入。W1 Git 上下文继续使用受控系统 Git CLI，不引入 Git crate。
@@ -120,7 +120,7 @@
 | M0 调研与方案 | ✅ | 仓库审计、官方资料调研、总体架构、UI、分项计划、总执行指导、进度台账 | 文档 review 通过 |
 | M1 契约与回归基线 | ✅ | S0/W0 特征测试、稳定 DTO/error/event、默认关闭 feature flags、capability/CSP 审计 | 进入 S1/W1 前保持基线测试绿色 |
 | M2 Skills 闭环 | ✅ | S0–S3、S5 完成：稳定来源、按需文件、只读挂载、quarantine/内置扫描/统一 Gate、存量迁移与旧路径清理 | S4 Sandbox deep scanner 由用户范围明确延期，不阻塞当前 Skills 交付 |
-| M3 工作区体验 | 🟡 | W0–W5 完成：只读 Git/local badge、统一 WorkspacePanel、owner-bound PTY/窄 IPC、xterm UI、最小 capability/CSP 与 Windows Release 真实 shell | W6 macOS/Linux、原生 IME、压力与签名/发布验证 |
+| M3 工作区体验 | 🟡 | W0–W5 完成；W6 Windows 11 当前机的 shell/长路径/突发输出/崩溃恢复/Release bundle 已验证 | Windows 10/pwsh、macOS/Linux、原生 IME、旧 Git、物理断网与签名/发布验证 |
 | M4 Sandbox Spike | 📄 | 调研和 ADR | 三平台 filesystem/network/process attack fixtures 通过 |
 | M5 Sandbox 默认化 | ⬜ | 逻辑 guard/审批可复用 | Agent/Skill/MCP 无 host Shell fallback，严格模式发布 gate |
 | M6 安全强化 | 🟡 | S3 内置离线扫描、恶意/良性 corpus、审批与 stale 生命周期；S5 存量 rescan 完成 | S4 deep scanner（Sandbox 延后）、独立安全 review |
@@ -314,8 +314,20 @@
 - Rollout：前端 `VITE_MISAKAX_WORKSPACE_TERMINAL` 与后端 `MISAKAX_WORKSPACE_TERMINAL` 默认启用，只有 `false|0` 显式关闭；两侧 gate 必须同时通过。
 - 自动化证据：前端全量 38 files / 271 tests；Rust `cargo check --all-features` 与串行 `cargo test --all-features -j1` 通过（73 lib tests 及全部 integration/doc tests，security 5/5、Windows Terminal 5/5）；`npm run build`、`npm run tauri build`、`git diff --check` 通过。Vite 仅有既有大 chunk 警告。
 - Windows Release 实机：未设置 feature flag 的 EXE 默认显示 Terminal；首次打开显示真实 PowerShell 工作区 prompt，原生粘贴成功执行 `RELEASE-W5-OK`、中文宽字符与 ANSI 颜色；关闭后验证进程树归零。开发态也通过普通 cwd、中文和 ANSI 路径。
-- Release 产物：`misakax.exe` SHA-256 `61C8827977488ECFEC8F5351E66E38F684957F61B351D619634B4C59CEC83F36`；MSI `8731A966E10AD275909B5F0501B9D08316E87956109868EB0C1208B7E32A21C8`；NSIS `89B2EBE69A35CF4768B0E08E29C18D41E465C3A05DFC06B71460668FFD0D450E`。
+- Release 产物：`misaka-x.exe` SHA-256 `61C8827977488ECFEC8F5351E66E38F684957F61B351D619634B4C59CEC83F36`；MSI `8731A966E10AD275909B5F0501B9D08316E87956109868EB0C1208B7E32A21C8`；NSIS `89B2EBE69A35CF4768B0E08E29C18D41E465C3A05DFC06B71460668FFD0D450E`。
 - 审计边界：Tauri 会把同一配置中的非活动 `devCsp` 字面量编译进 Windows EXE，所以字符串扫描仍可看到 localhost；Release 运行时使用严格 production CSP，前端 bundle 无远端资源。不得把“二进制完全没有 dev origin 字符串”误记为已验证。
 - 环境差异：本阶段仅证明 Windows 11 当前机与本地未签名 installer；不宣称 Windows 10、macOS/Linux、原生 IME、签名/notarization 或压力矩阵完成。
 - 回滚：代码回滚到 `38506da` 会重新关闭入口并恢复旧权限/CSP 基线，不会修改用户工作区内容或数据库；不建议在生产安全边界上部分回滚。
 - 下一步：Workspace W6，补充 Windows shell/长路径/压力/离线/诊断证据，并在可用设备上分别验证 macOS/Linux 与签名/发布矩阵。Sandbox 继续排除。
+
+### 2026-08-01 Workspace W6 Windows 当前机验证
+
+- 状态：实现提交 `b2521f0`；Windows 11 当前机验证已完成，W6 总体仍为 🟡。Sandbox 未实施。
+- 环境：Windows 11 Pro 10.0.26200 x64、Windows PowerShell 5、cmd、Git 2.52.0.windows.1；`pwsh` 与 WSL 未安装，因此不把 fallback 测试记作 pwsh 或 Linux 实机通过。
+- shell/长路径：普通 profile 与 ConPTY resize/Unicode/ANSI/TUI 回归继续通过；PowerShell 5 可进入超过 260 字符且含中文的 canonical cwd。请求 cmd 进入该 cwd 返回稳定 `shell_workspace_path`，请求缺失的 pwsh 安全回退到 Windows PowerShell 并记录 fallback reason。
+- 压力/崩溃：10 MiB 单条突发长行在降低后的 256 KiB/s 测试阈值下触发 `OutputLimit`、有界输出并回收进程；独立测试 helper 被强制终止后，`KILL_ON_JOB_CLOSE` 回收 grandchild，新 manager 可执行 `W6_REOPEN_OK`。这不是持续 10 MB/s 吞吐测量。
+- 自动化：`terminal_manager_tests` 9/9（2.08 s）；前端 38 files / 271 tests；`cargo check --all-features`、`cargo test --all-features -j1`（73 lib tests 及全部 integration/doc tests）、`npm run build`、`npm run tauri build`、`git diff --check` 全部通过。仅保留既有 jsdom Canvas 与 Vite 大 chunk 警告。
+- Release 实机：未设置 feature flag 的 `misaka-x.exe` 显示真实工作区 PowerShell prompt，并输出 `W6_RELEASE_OK`、`W6_SUSTAINED_OK`；验证实例的已核对绝对路径进程树已归零。`dist/index.html` 只引用本地资源，但未断开主机网络，所以物理断网启动仍待验证。
+- 新产物：EXE 37,701,632 bytes / SHA-256 `94413D63F73E2DFFE25260D7581F5F8CC91FCA7569A504A0D86F19E974BE8E24`；MSI 16,744,448 bytes / `0CF296194A71A1A66D452DE33D1BCCF902D3A7114060FA2E77B4977A44755FDA`；NSIS 13,088,974 bytes / `17F6F3F094224F9F87743B75ED433F008103F04FF9783A44432D196F4A74DC02`。
+- 未覆盖：Windows 10、真实 pwsh、macOS/Linux、原生 IME、旧 Git、物理断网、系统休眠恢复、代码签名/notarization 与三平台正式 installer；Windows 结果不得外推。
+- 下一步：在对应 runner/设备上补齐上述矩阵；当前代码无需为未验证平台伪造完成标记。Sandbox 与依赖它的 S4 deep scanner 继续排除。
