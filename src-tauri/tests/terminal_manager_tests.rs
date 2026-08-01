@@ -389,6 +389,50 @@ fn ten_mibibyte_long_line_is_bounded_and_reaps_the_process() {
     assert_eq!(manager.active_count(), 0);
 }
 
+#[test]
+fn nominal_ten_mibibytes_per_second_source_is_bounded_and_reaped() {
+    let cwd = tempfile::tempdir().unwrap();
+    let manager = Arc::new(TerminalManager::default());
+    let (events_tx, events_rx) = mpsc::channel();
+    manager.start(move |event| events_tx.send(event).unwrap(), |_| {});
+    let state = spawn(&manager, cwd.path(), "ten-mib-per-second");
+    let line = shell_line(
+        &state.shell_name,
+        "$chunk = 'x' * (512 * 1024); 1..24 | ForEach-Object { [Console]::Out.Write($chunk); Start-Sleep -Milliseconds 50 }; exit 0",
+        "powershell -NoLogo -NoProfile -Command \"$chunk = 'x' * (512 * 1024); 1..24 | ForEach-Object { [Console]::Out.Write($chunk); Start-Sleep -Milliseconds 50 }\" & exit 0",
+        "i=0; while [ $i -lt 24 ]; do head -c 524288 /dev/zero | tr '\\0' x; sleep 0.05; i=$((i + 1)); done; exit 0",
+    );
+    let started = Instant::now();
+    manager
+        .write(
+            &state.terminal_id,
+            &owner("ten-mib-per-second"),
+            &with_terminal_handshake(line),
+        )
+        .unwrap();
+
+    let (output, exit) = collect_until_exit(&events_rx, started + Duration::from_secs(20));
+    assert!(matches!(
+        exit.reason,
+        TerminalExitReason::OutputLimit | TerminalExitReason::ProcessExited
+    ));
+    if exit.reason == TerminalExitReason::ProcessExited {
+        assert_eq!(exit.exit_code, Some(0));
+    }
+    assert!(
+        output.len() >= 1024 * 1024,
+        "the paced source should exercise sustained output, got {} bytes",
+        output.len()
+    );
+    assert!(
+        output.len() <= 32 * 1024 * 1024,
+        "PTY transformation and buffering should remain bounded, got {} bytes",
+        output.len()
+    );
+    assert!(started.elapsed() < Duration::from_secs(20));
+    assert_eq!(manager.active_count(), 0);
+}
+
 #[cfg(windows)]
 #[test]
 fn crash_helper_process_holds_terminal_job() {
