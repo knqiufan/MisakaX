@@ -3,7 +3,7 @@
 > **用途：** 记录 Workspace Terminal 上线前的主 WebView 权限基线、实际调用点和 W5 收窄目标。
 > **受众：** Tauri、Terminal、前端与安全维护者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **基线：** `main@fa24bd7`（W0 working tree）。
+> **基线：** `main@9249915`（W3 implementation）。
 
 ## 当前证据
 
@@ -26,6 +26,8 @@
 | `http:*` | 未发现 `@tauri-apps/plugin-http` import | Skills catalog、模型与 Sidecar 请求由 Rust/Sidecar 发起 | 删除主 WebView HTTP fetch；如后续发现例外，按精确域名另行审计 |
 | Dialog | Skills 导入/导出、设置备份、会话导出使用 | 路径仍须由 Rust command 重新校验 | 保留实际使用的 open/save 子权限 |
 | Clipboard | Workspace 文件节点复制使用 | — | 保留 read/write 前再次核对最小调用面 |
+
+W3 新增的终端不调用 `@tauri-apps/plugin-shell`：`terminal_spawn/write/resize/kill/get_state` 是自定义窄 command，window owner 由 Tauri request 派生，cwd/executable/argv/env 均不能由 WebView 指定。Rust `TerminalManager` 负责 PTY、背压、限额与进程树回收；`@xterm/xterm` 和 `@xterm/addon-fit` 仅作为 W4 的本地静态资源依赖。当前宽泛 shell/fs/http capability 仍未收口，不能因终端 IPC 已变窄而关闭 W5 阻断项。
 
 审计命令：
 
@@ -62,5 +64,5 @@ form-action 'none'
 
 Tool Logs 保留其诊断价值并继续作为聊天列内抽屉。W2 已把入口迁入消息
 `ToolActionsGroup` 的显式“工具日志”动作，并从 WorkspaceBar Terminal 图标解除绑定；
-`ToolLogsPanel` 与其 store 数据继续保留。Terminal toggle 已接入统一 panel action，但在
-W3/W4 的 PTY/xterm 完成前由默认关闭的 feature flag 隐藏。
+`ToolLogsPanel` 与其 store 数据继续保留。Terminal toggle 已接入统一 panel action；W3
+PTY/窄 IPC 已完成，但 W4 xterm UI 与 W5 capability/CSP 收口前仍由默认关闭的 feature flag 隐藏。

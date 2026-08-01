@@ -3,7 +3,7 @@
 > **用途：** 定义 Skills 仓库、安全检查、设置集成、Git 上下文、嵌入终端和 Agent 沙箱的统一目标架构与实施顺序。
 > **受众：** 全体项目维护者、架构师、前端/Rust/Python/测试与安全工程师。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **规划基线：** `main@fa24bd7`。
+> **规划基线：** `main@9249915`（Skills S5 / Workspace W3 已实现，后续阶段仍按本文边界推进）。
 > **范围说明：** 本文是本次需求的总规划与架构设计；分项 TODO 见 `docs/planning/` 的关联计划。
 
 ---
@@ -276,6 +276,8 @@ type WorkspacePanelState = {
 - `terminal_spawn` 只接受会话/workspace ID、rows/cols 和允许的 shell profile，不接受任意 cwd。
 - PTY 启动 cwd 由后端从当前会话工作区解析，输出通过带 session ownership 的事件流发送。
 - 工作区变化时提示关闭/重启旧终端，默认不悄悄把一个正在运行的 Shell 改到新目录。
+- 当前实现以随机 terminal ID 绑定 window label + Chat Session + workspace generation；output 使用 base64 + 递增 seq 和有界背压，exited 以 `last_seq` 封口。Windows Job Object 与 Unix process group 负责 child/grandchild 回收，失败时拒绝 spawn 而不是降级成只杀父进程。
+- 本机终端继承必要的用户开发环境，但移除 MisakaX/Sandbox/Tauri signing/内部 bridge secret；它始终标记为“本机权限”，不得复用未来 Sandbox profile 的安全文案。
 
 ## 11. Sandbox 与执行链
 
@@ -329,6 +331,9 @@ type DomainEvent<T> = {
 - `GIT_NOT_AVAILABLE`
 - `TERMINAL_SESSION_NOT_FOUND`
 - `TERMINAL_SESSION_OWNERSHIP_MISMATCH`
+- `TERMINAL_INVALID_REQUEST`
+- `TERMINAL_LIMIT_EXCEEDED`
+- `TERMINAL_SPAWN_FAILED`
 - `SANDBOX_UNAVAILABLE`
 - `SANDBOX_SETUP_REQUIRED`
 - `SANDBOX_POLICY_DENIED`

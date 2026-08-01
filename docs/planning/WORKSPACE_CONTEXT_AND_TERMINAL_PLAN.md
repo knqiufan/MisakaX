@@ -169,23 +169,27 @@ terminal.exited { terminal_id, exit_code?, reason }
 
 ### 6.4 TODO
 
-- [ ] 做 `portable-pty` 三平台 PoC，验证 ConPTY、resize、Unicode、颜色、TUI、进程退出和许可证。
-- [ ] 在锁定 manifests 中加入确定版本的 xterm/fit/PTY 依赖。
-- [ ] 实现 `TerminalManager`、随机 ID、ownership、session limits、output seq 和 cleanup。
-- [ ] command 只接受 rows/cols/profile/session generation；后端解析 cwd。
-- [ ] output 通道增加背压/批处理和最大缓冲，慢前端不能耗尽内存。
-- [ ] 输入/resize/kill 校验 window + chat session + workspace generation ownership。
-- [ ] 应用退出、窗口关闭、会话删除和明确关闭面板时按策略终止进程树。
-- [ ] Windows 使用 Job Object 或等价手段回收子进程；Unix 使用 process group/session。
-- [ ] 实现 Shell profile 探测和可诊断 fallback。
-- [ ] 实现结构化 `terminal.output/exited` 事件和迟到 seq 丢弃。
-- [ ] 增加 session 数、输出速率、输入大小、尺寸范围和命令频率限制。
-- [ ] 补 Rust unit/integration，覆盖 owner 篡改、cwd 竞态、崩溃、输出洪水和应用关闭。
+- [x] 做 `portable-pty` 三平台 API/进程模型 PoC，验证 Windows ConPTY、resize、Unicode、颜色、TUI、进程退出和许可证；macOS/Linux 真实运行矩阵留 W6。
+- [x] 在锁定 manifests 中加入确定版本的 xterm/fit/PTY 依赖。
+- [x] 实现 `TerminalManager`、随机 ID、ownership、session limits、output seq 和 cleanup。
+- [x] command 只接受 rows/cols/profile/session generation；后端解析 cwd。
+- [x] output 通道增加背压/批处理和最大缓冲，慢前端不能耗尽内存。
+- [x] 输入/resize/kill 校验 window + chat session + workspace generation ownership。
+- [x] 应用退出、窗口关闭、会话删除和明确关闭面板时按策略终止进程树。
+- [x] Windows 使用 Job Object 或等价手段回收子进程；Unix 使用 process group/session。
+- [x] 实现 Shell profile 探测和可诊断 fallback。
+- [x] 实现结构化 `terminal.output/exited` 事件和迟到 seq 丢弃边界（W4 UI 按 generation/seq 消费）。
+- [x] 增加 session 数、输出速率、输入大小、尺寸范围和命令频率限制。
+- [x] 补 Rust unit/integration，覆盖 owner 篡改、cwd 竞态、崩溃、输出洪水和应用关闭。
+
+平台证据见 [`WORKSPACE_TERMINAL_PTY_POC.md`](../research/WORKSPACE_TERMINAL_PTY_POC.md)：Windows 当前实机 5 项集成测试通过；Unix 路径已实现 PTY/process-group guard，但 macOS/Linux 真机与 bundle 不能据此宣称完成，仍属于 W6 发布矩阵。
 
 ### 6.5 退出门
 
 - WebView 不能指定工作区外 cwd 或任意 host executable。
 - 关闭应用后测试确认没有遗留 child/grandchild。
+
+状态：已由 `main@9249915` 满足 W3 实现退出门；Windows Job Object 实机确认 shell/grandchild 均被回收，三平台发布退出门仍由 W6 负责。
 
 ## 7. Phase W4：xterm UI 与生命周期
 

@@ -41,7 +41,7 @@ MisakaX/
 
 | 文件 | 用途 |
 |------|------|
-| `Cargo.toml` | Rust 项目的依赖声明文件。定义了 Tauri 2.x 核心、7 个 Tauri 插件（shell / fs / http / notification / updater / dialog / clipboard-manager）、rusqlite（SQLite 数据库）、sqlite-vec（向量搜索）、tokio（异步运行时）、serde（序列化）等全部依赖 |
+| `Cargo.toml` | Rust 项目的依赖声明文件。定义了 Tauri 2.x 核心、7 个 Tauri 插件、rusqlite/sqlite-vec、tokio、serde，以及锁定的 `portable-pty`/平台进程树依赖等 |
 | `Cargo.lock` | 依赖版本锁定文件，确保编译可复现 |
 | `build.rs` | Rust 构建脚本。调用 `tauri_build::build()` 生成 Tauri 所需的上下文代码和 `OUT_DIR` 环境变量 |
 | `tauri.conf.json` | Tauri 应用的主配置文件。包含应用名称（MisakaX）、窗口大小（1280x800）、图标路径、构建命令等 |
@@ -99,6 +99,7 @@ MisakaX/
 | `chat.rs` | `send_message`、`stop_generation`、`regenerate_message`、`get_messages` |
 | `session.rs` | 会话 CRUD、搜索、导入导出、工作目录 |
 | `workspace.rs` | 工作目录浏览、最近目录、按会话读取只读 Workspace/Git context |
+| `terminal.rs` | owner-bound PTY spawn/write/resize/kill/get-state 窄 command；不接收 cwd、任意 executable/argv/env |
 | `fs_explorer.rs` | 工作区文件读写、在资源管理器中Reveal |
 | `mcp.rs` | MCP Server 连接、工具调用、权限审批 |
 | `sidecar.rs` | Sidecar 状态查询、重启 |
@@ -114,6 +115,7 @@ MisakaX/
 | `mcp_bridge.rs` | MCP 桥接（供 Agent / Tool 复用） |
 | `skills/` | 多来源 registry、安装/文件提供器、quarantine、离线 scanner、policy、migration 与 watcher |
 | `workspace/` | canonical workspace、只读 `VcsProvider`/Git CLI、single-flight cache、generation 与 HEAD/ref watcher |
+| `terminal/` | `TerminalManager`、可信 shell profile、限额/背压、output/exited 事件、Windows Job Object 与 Unix process-group 回收 |
 
 ---
 
@@ -130,7 +132,7 @@ MisakaX/
 | `pages/` | `ChatPage`、`SettingsPage`；Skills 领域 UI 位于 Settings，Knowledge / Dashboard 仍为占位 |
 | `components/skills/` | Skills 仓库双栏、按需文件预览、安全报告、迁移进度与安装/卸载 Dialog |
 | `stores/` | Zustand：`chat-store`、`settings-store`、`theme-store`、独立 `workspace-panel-store` 与 `workspace-explorer-store` 等 |
-| `lib/ipc/` | Tauri IPC 封装（chat、session、mcp、settings…） |
+| `lib/ipc/` | Tauri IPC 封装（chat、session、mcp、settings、workspace、terminal…） |
 | `lib/providers/` | Provider 目录与 catalog |
 | `locales/` | i18n（zh-CN / en） |
 | `hooks/` | `use-stream-listener`、`use-ipc`、`use-sidecar-status`、`use-workspace-context` |

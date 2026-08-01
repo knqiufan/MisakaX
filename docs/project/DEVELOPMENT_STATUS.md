@@ -70,11 +70,11 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 - 新建会话时选择工作目录；会话绑定 `working_directory`
 - 工作区资源管理器、Monaco 编辑器、文件树、多 Tab 编辑
 - 独立 `WorkspacePanel` 管理 open/mode/size/session generation，Explorer tabs 保持分离；宽窗 70/30 resize、窄窗 overlay、Explorer 快捷键和旧 open 偏好迁移已完成
-- Terminal 入口与 mode 生命周期已建立但仍受默认关闭的 feature flag 隔离，真实 PTY/xterm 尚待 W3/W4；Tool Logs 已迁入消息工具组并继续打开聊天列抽屉
+- W3 已交付 owner-bound Rust PTY、窄 IPC、背压、事件顺序边界和 Windows Job Object / Unix process-group 回收；xterm UI 尚待 W4，capability/CSP 收口尚待 W5，入口继续受默认关闭的 feature flag 隔离
 - Rust 文件读写命令（`fs_explorer`、`workspace`）
 - Composer footer 只读显示 Git 分支、detached short SHA 或“本地项目”；支持 worktree/submodule、可信 Git CLI 退化、generation/cache 与 HEAD/ref 刷新，不提供 Git 写操作
 
-**关键路径：** `src/components/chat/workspace/`、`src/components/chat/composer/WorkspaceContextBadge.tsx`、`src-tauri/src/commands/workspace.rs`、`src-tauri/src/services/workspace/`
+**关键路径：** `src/components/chat/workspace/`、`src/components/chat/composer/WorkspaceContextBadge.tsx`、`src/lib/ipc/terminal.ts`、`src-tauri/src/commands/{workspace,terminal}.rs`、`src-tauri/src/services/{workspace,terminal}/`
 
 ### 3.3 设置与 Provider
 
@@ -123,8 +123,8 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 
 | 范围 | 数量 | 运行命令 |
 |------|------|----------|
-| 前端 Vitest | 20 个测试文件 | `npm test` |
-| Rust 集成测试 | 31 个测试文件 | 日常：`cargo test --test <name>`；提交前：`cargo nextest run --all-features --profile ci`（或 `cargo test`） |
+| 前端 Vitest | 35 个测试文件 / 260 tests | `npm test` |
+| Rust 集成测试 | 37 个测试文件 | 日常：`cargo test --test <name>`；提交前：`cargo nextest run --all-features --profile ci`（或 `cargo test`） |
 
 > Rust 日常构建/测试依赖增量编译，**不要**在每次 `cargo test` 前执行 `cargo clean`。日常改代码优先 `cargo check` + 精准 `--test`（映射表见优化指南 §4.2）；Cursor hook `.cursor/hooks/post-edit-test.sh` 已按映射自动选择测试。仅在链接异常、切分支后编译诡异失败等情况下按需 `cargo clean`。见 [`docs/guides/rust-build-test-optimization.md`](../guides/rust-build-test-optimization.md)。
 
