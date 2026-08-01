@@ -126,14 +126,14 @@ Explorer 自己的 tabs/activePath 继续由原 store 管理。Panel store 不�
 
 ### 5.2 TODO
 
-- [ ] 用 `WorkspacePanel` 包裹当前右侧 `WorkspaceExplorer`，不改变 Explorer API。
-- [ ] 将 open/size/mode 与 explorer tabs 分离，增加 store migration 测试。
-- [ ] WorkspaceBar Explorer/Terminal 按钮统一通过 panel actions 切换。
-- [ ] 终端图标替换现有 Tool Logs action；把 Tool Logs 移到已决定的新入口。
-- [ ] 实现 active/hover/focus/tooltip/快捷键，遵循 button-menu spec。
-- [ ] mode 切换保持 Explorer tabs，隐藏 Terminal 时保持或暂停渲染而不丢 session。
-- [ ] 小窗口/最小宽度下定义自动关闭/overlay 策略，避免挤坏对话区。
-- [ ] 补 resize、持久化、会话切换和快速 toggle 的 UI 测试。
+- [x] 用 `WorkspacePanel` 包裹当前右侧 `WorkspaceExplorer`，不改变 Explorer API。
+- [x] 将 open/size/mode 与 explorer tabs 分离，增加 store migration 测试。
+- [x] WorkspaceBar Explorer/Terminal 按钮统一通过 panel actions 切换。
+- [x] 终端图标替换现有 Tool Logs action；把 Tool Logs 移到已决定的新入口。
+- [x] 实现 active/hover/focus/tooltip/快捷键，遵循 button-menu spec。
+- [x] mode 切换保持 Explorer tabs，隐藏 Terminal 时保持或暂停渲染而不丢 session。
+- [x] 小窗口/最小宽度下定义自动关闭/overlay 策略，避免挤坏对话区。
+- [x] 补 resize、持久化、会话切换和快速 toggle 的 UI 测试。
 
 ## 6. Phase W3：Rust PTY 与窄 IPC
 

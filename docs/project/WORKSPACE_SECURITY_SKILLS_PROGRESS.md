@@ -3,7 +3,7 @@
 > **用途：** 作为本轮 Skills/安全检查/Git 标识/终端/Sandbox/最终架构审查的单一进度台账。
 > **受众：** 项目负责人、开发、测试、安全和后续接手者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **代码基线：** `main@0675b24`。
+> **代码基线：** `main@4e30c10`。
 > **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；Skills S0–S3、S5 已闭环，S4 因依赖 Sandbox helper 按用户范围明确延期，Sandbox 本身暂不实施。
 
 ---
@@ -30,7 +30,7 @@
 | Skills 迁入 Settings/MCP 下方 | ✅ | Settings 导航顺序为 MCP → Skills；旧 `skills` route/title/nav/page wrapper 已删除 |
 | Skills 安全检查 | ✅ | 内置离线引擎、quarantine、versioned policy、finding/审批/rescan/export、升级批量扫描与统一 Gate 已闭环；Sandbox deep scanner 按范围延后 |
 | Git/本地项目 badge | ✅ | 只读 WorkspaceContext/Git provider、generation DTO/event、composer badge 与无路径诊断已闭环 |
-| 嵌入式终端 | ⬜ | 现有 Terminal 图标实际打开 Tool Logs；无 xterm/PTY |
+| 嵌入式终端 | 🟡 | WorkspacePanel/Terminal mode、入口与隐藏保活契约已完成；xterm/PTY 尚未实施且入口默认关闭 |
 | Tauri 终端安全收口 | ⛔ | 主 WebView shell/fs/http 权限偏宽且 CSP 为空，终端上线前必须修复 |
 | Agent OS Sandbox | ⛔ | 当前为逻辑路径 guard；Shell 在宿主直接执行并继承环境 |
 | 最终架构审查/重构 | ⬜ | 必须等其他功能和回归基线完成 |
@@ -78,10 +78,11 @@
 
 - `src-tauri/src/services/workspace/` 已提供只读 Git provider、可信可执行文件解析、结构化 argv、超时/取消/输出上限、single-flight/TTL/watcher/generation；普通分支、detached、worktree、submodule、bare 与非 Git 均有真实 Git fixture。
 - `src/components/chat/composer/WorkspaceContextBadge.tsx` 与 `src/hooks/use-workspace-context.ts` 已交付 composer Git/本地标识，快速工作区切换会丢弃旧请求/旧 generation，诊断 tooltip 不暴露绝对路径。
-- `src/components/chat/workspace/WorkspaceBar.tsx` 已使用 Terminal 图标，但 action 打开的是 Tool Logs，不是 PTY。
-- `src/components/chat/ChatView.tsx` 持有 Tool Logs drawer 状态。
-- `src/pages/ChatPage.tsx` 右侧只渲染 `WorkspaceExplorer`。
-- `src/components/chat/workspace/WorkspaceExplorer.tsx` 已有文件树和 Monaco，可复用 panel shell。
+- `src/stores/workspace-panel-store.ts` 独立管理 open/mode/size/session/generation，只持久化 UI 偏好；旧 Explorer open 偏好一次性迁移，Explorer tabs/activePath 仍归原 store。
+- `src/pages/ChatPage.tsx` 已用单一 `WorkspacePanel` 包裹既有 `WorkspaceExplorer`；宽窗为 70/30 百分比分栏，窄窗为不挤压聊天列的右侧 overlay。
+- `src/components/chat/workspace/WorkspaceBar.tsx` 的 Explorer/Terminal 使用同一 mode action、pressed/tooltip/快捷键；Terminal 入口在 W3/W4 完成前受默认关闭的 feature flag 隔离。
+- Tool Logs 已迁到消息 `ToolActionsGroup` 的明确日志按钮，仍打开 ChatView 内原聚合抽屉，不再借用 Terminal 图标或右轨。
+- `WorkspacePanel` 会保持访问过的 Terminal 内容槽挂载；实际 terminal session/process/output 仍应由 W3/W4 的独立 store/manager 管理。
 - `package.json` 无 xterm 依赖，`src-tauri/Cargo.toml` 无 PTY/Sandbox 依赖；W1 Git 上下文使用受控系统 Git CLI，不引入 Git crate。
 
 ### 3.5 Sandbox 与 Tauri 安全差距
@@ -116,7 +117,7 @@
 | M0 调研与方案 | ✅ | 仓库审计、官方资料调研、总体架构、UI、分项计划、总执行指导、进度台账 | 文档 review 通过 |
 | M1 契约与回归基线 | ✅ | S0/W0 特征测试、稳定 DTO/error/event、默认关闭 feature flags、capability/CSP 审计 | 进入 S1/W1 前保持基线测试绿色 |
 | M2 Skills 闭环 | ✅ | S0–S3、S5 完成：稳定来源、按需文件、只读挂载、quarantine/内置扫描/统一 Gate、存量迁移与旧路径清理 | S4 Sandbox deep scanner 由用户范围明确延期，不阻塞当前 Skills 交付 |
-| M3 工作区体验 | 🟡 | W0/W1 完成：行为/安全基线、只读 Git/local badge、缓存/刷新/generation；Explorer/resize 基础可复用 | WorkspacePanel、三平台 PTY、CSP/IPC 收窄 |
+| M3 工作区体验 | 🟡 | W0–W2 完成：行为/安全基线、只读 Git/local badge、统一 WorkspacePanel、Tool Logs 新入口、窄窗/持久化/快捷键 | 三平台 PTY/xterm、CSP/IPC 收窄与发布验证 |
 | M4 Sandbox Spike | 📄 | 调研和 ADR | 三平台 filesystem/network/process attack fixtures 通过 |
 | M5 Sandbox 默认化 | ⬜ | 逻辑 guard/审批可复用 | Agent/Skill/MCP 无 host Shell fallback，严格模式发布 gate |
 | M6 安全强化 | 🟡 | S3 内置离线扫描、恶意/良性 corpus、审批与 stale 生命周期；S5 存量 rescan 完成 | S4 deep scanner（Sandbox 延后）、独立安全 review |
@@ -165,7 +166,8 @@
 - [ ] Skills S4 — DEFERRED(Sandbox)：第三方 deep scanner 必须在 read-only/offline Sandbox helper 中验证；按用户范围暂不实现，不以宿主直接运行替代。
 - [x] 执行 Skills S5，完成存量扫描迁移和旧生产旁路清理。
 - [x] 执行 Workspace W1，交付只读工作区标识、可信 Git provider 与缓存/刷新闭环。
-- [ ] 执行 Workspace W2，交付独立 WorkspacePanel 容器、统一 panel actions 与 Tool Logs 新入口。
+- [x] 执行 Workspace W2，交付独立 WorkspacePanel 容器、统一 panel actions 与 Tool Logs 新入口。
+- [ ] 执行 Workspace W3，交付 owner-bound Rust PTY/TerminalManager 与窄 IPC；继续保持 Terminal rollout 默认关闭。
 - [ ] Sandbox B0–B7：按用户当前范围暂不实施；未获得新指令前不启动 Spike 或生产执行链改造。
 
 ## 10. 实施记录
@@ -257,3 +259,17 @@
 - 架构说明：service 通过事件/任务回调与 Tauri 解耦，避免 Windows 测试二进制被 GUI manifest/ComCtl v6 加载条件影响，同时生产 setup 仍由 AppHandle adapter 注入事件与异步任务。
 - 回滚：代码回滚到 `4800a10`；本阶段无数据库迁移，也不修改工作区文件或 Git 元数据。
 - 下一步：Workspace Terminal W2，建立独立 panel state/container，替换 Terminal/Tool Logs 入口并保持 Explorer 状态；Sandbox 继续排除。
+
+### 2026-08-01 Workspace W2 WorkspacePanel 容器
+
+- 状态：已完成并推送；实现提交 `4e30c10`，未引入 PTY/xterm，Sandbox 未实施。
+- 完成 TODO：Workspace Terminal W2 全部 8 项。现有 `WorkspaceExplorer` 的 props/API 未改变，外层由 `WorkspacePanel` 统一协调 explorer/terminal mode。
+- 状态证据：新增独立 `workspace-panel-store`，runtime 持有 open/mode/size/sessionId/workspaceGeneration，只持久化 open/mode/size；Explorer store 删除 open 并继续独立拥有 tabs/activePath/file state。旧 `misakax:workspace-explorer.state.open` 仅在新 key 不存在时迁移一次，成功后删除旧键。
+- 生命周期证据：同 mode 快速 toggle 关闭/重开，跨 mode 自动打开并切换；切任务接受新 session/generation，同一绑定拒绝倒退 generation，工作目录切换用 generation 0 先清除旧所有权。访问过的 Terminal slot 切回 Explorer 后保持挂载，为 W4 避免重复 spawn 建立契约，实际 process/output 不进入 panel store。
+- UI/入口证据：WorkspaceBar Explorer/Terminal 共用单一 mode action，具备 secondary pressed state、hover/focus、准确 Tooltip、`aria-pressed`、`aria-keyshortcuts`；快捷键为 `Ctrl/Cmd+Shift+E` 和 `Ctrl/Cmd+反引号`。Tool Logs 已迁入消息 `ToolActionsGroup` 的独立 `ScrollText` 按钮，继续打开聊天列抽屉且不联动分组折叠。
+- 响应式证据：宽窗使用 `react-resizable-panels` 百分比布局，默认 70/30、panel 18%–55%，拖动结束后持久化；视口 `<= 960px` 改为右侧 `min(88%, 520px)` overlay，不挤压聊天列，并支持 Escape/标题关闭按钮。
+- Rollout 证据：Terminal mode shell 已接线但 `workspaceTerminal` flag 默认关闭；W3/W4 完成前稳定入口不显示半成品 Terminal。内部 fallback 明确为 runtime disabled，不伪装成可用 PTY。
+- 测试证据：前端 full 34 files / 257 tests；W2 定向与 W1 context/flags 合计 15/15。覆盖 legacy migration、resize clamp/persistence、Explorer tabs 分离、session/generation、rapid toggle、Terminal hidden mount、Tool Logs 新入口、active/ARIA/shortcut 与窄窗策略；`npm run build`、`npx tsc --noEmit`、`git diff --check` 通过，Vite 仅有既有大 chunk 警告。
+- 环境差异：本阶段为前端容器/状态契约，只在 Windows WebView 开发环境验证；真实 PTY、ConPTY/Unix PTY、IME/TUI 与 macOS/Linux 实机不据此标完成。
+- 回滚：代码回滚到 `fe7a2ad`；无数据库迁移。若需恢复旧 UI 偏好，可删除 `misakax:workspace-panel`，但回滚不会修改 Explorer 文件或工作区内容。
+- 下一步：Workspace Terminal W3，先做 `portable-pty` 锁定版本 PoC，再实现 owner-bound TerminalManager、窄 IPC、背压与进程树 cleanup；Sandbox 继续排除。
