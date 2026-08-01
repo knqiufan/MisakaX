@@ -186,8 +186,7 @@ function installedSkill(overrides: Partial<InstalledSkill> = {}): InstalledSkill
     effective_rank: 400,
     conflict: false,
     disabled_reason: null,
-    security_state: "legacy_allowed",
-    risk: noRisk(),
+    security_state: "passed",
     installed_at: "2026-07-23T00:00:00Z",
     updated_at: "2026-07-23T00:00:00Z",
     ...overrides,
@@ -242,7 +241,6 @@ function remoteDetailWithoutPreview(): RemoteSkillDetail {
     risk: noRisk(),
     manifest: null,
     files: [],
-    skill_markdown: null,
   };
 }
 

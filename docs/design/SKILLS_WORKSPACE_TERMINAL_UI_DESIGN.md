@@ -3,7 +3,7 @@
 > **用途：** 定义 Skills 设置页、按需文件预览、安全报告、输入框下方工作区标识和右侧终端的交互规范。
 > **受众：** 产品、UI/UX、React、Rust IPC 和测试维护者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **状态：** 增量实施中；S1 稳定身份/激活闭环、S2 Settings/按需文件预览与 S3 内置隔离扫描/安全 findings 已落地；Sandbox 隔离的可选深度扫描器按用户范围延后，Workspace/Terminal 由 W1–W6 继续实施。
+> **状态：** 增量实施中；S1–S3 与 S5 已落地，独立 Skills 路径和旧全文/双写兼容面已删除；Sandbox 隔离的 S4 可选深度扫描器按用户范围延后，Workspace/Terminal 由 W1–W6 继续实施。
 > **上位规范：** [`frontend-ui-guidelines.md`](./frontend-ui-guidelines.md)、[`shell-and-workspace-ui-spec.md`](./shell-and-workspace-ui-spec.md)、[`button-menu-design-spec.md`](./button-menu-design-spec.md)。
 
 ---
@@ -29,7 +29,7 @@ Skills
 关于
 ```
 
-Skills 紧邻 MCP 下方，使用与其他设置项相同的图标尺寸、选中背景、键盘焦点和 tooltip 规则。旧独立 Skills 入口移除；历史深链重定向后保持选中 Settings > Skills。
+Skills 紧邻 MCP 下方，使用与其他设置项相同的图标尺寸、选中背景、键盘焦点和 tooltip 规则。旧独立 Skills route/title/nav/page wrapper 均已删除；所有入口直接打开 Settings > Skills。
 
 Skills tab 需要宽内容模式，但 Settings 的导航和顶部栏不变化。宽度只由 tab descriptor 声明，不能在组件内用负 margin 逃出容器。
 
@@ -75,6 +75,12 @@ Skills tab 需要宽内容模式，但 Settings 的导航和顶部栏不变化�
 - `scanning`、`blocked`、`stale`、`unhealthy` 时 Switch disabled。旁边原因可点击进入安全 tab，不用 disabled tooltip 承载全部信息。
 - 外部 Skill 与受管 Skill 都允许禁用；外部文件仍留在原目录。
 - 对 `review_required` 的人工批准是独立动作，不能通过反复点击 Switch 绕过。
+
+### 4.3 首次升级扫描
+
+- v13 将旧豁免 source 先显示为 `unscanned + disabled`；用户仍可进入详情、查看文件或删除受管 Skill，但不得在迁移完成前注入对话。
+- toolbar 下方的紧凑状态条显示 `completed / total` 与线性进度，并通过 `role="status"`、`aria-live="polite"` 汇报；完成且无错误后移除。
+- 失败状态显示失败数和 `size="xs"` outline“重试失败项”。重启恢复和重试使用后端持久化 item 状态，不用前端内存推断，也不提供跳过 Gate 的操作。
 
 ## 5. Skill 详情
 

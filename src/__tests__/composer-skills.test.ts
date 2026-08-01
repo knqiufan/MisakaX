@@ -64,14 +64,7 @@ describe("composer Skill segments", () => {
       effective_rank: 400,
       conflict: false,
       disabled_reason: null,
-      security_state: "legacy_allowed",
-      risk: {
-        has_scripts: false,
-        has_binary_files: false,
-        has_allowed_tools: false,
-        remote_scan_status: null,
-        notes: [],
-      },
+      security_state: "passed",
       installed_at: "",
       updated_at: "",
     };

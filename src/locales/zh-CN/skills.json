@@ -140,6 +140,9 @@
   "notScannedHelp": "当前策略下尚无已完成的扫描记录。",
   "scanPrivacyOffline": "内置扫描完全离线。VirusTotal hash 查询、文件上传和云 LLM 分析均默认关闭，未来启用时必须单独征得同意。",
   "scanExported": "扫描报告已导出",
+  "migrationScanning": "正在保护存量 Skills：已扫描 {{completed}} / {{total}}",
+  "migrationCompletedWithErrors": "存量 Skill 扫描完成，{{count}} 项失败",
+  "retryFailedMigrationScans": "重试失败项",
   "severity": {
     "all": "全部",
     "critical": "严重",

@@ -9,7 +9,7 @@ pub mod security;
 pub mod types;
 
 pub use types::{
-    RemoteSearchPage, RemoteSkill, RemoteSkillDetail, SkillDetail, SkillFileEntry, SkillFileNode,
-    SkillFilePage, SkillFilePreview, SkillInstallResult, SkillRecord, SkillRiskReport,
-    SkillScanSummary, SkillSummary,
+    RemoteSearchPage, RemoteSkill, RemoteSkillDetail, SkillFileEntry, SkillFileNode, SkillFilePage,
+    SkillFilePreview, SkillInstallResult, SkillRecord, SkillRiskReport, SkillScanSummary,
+    SkillSummary,
 };

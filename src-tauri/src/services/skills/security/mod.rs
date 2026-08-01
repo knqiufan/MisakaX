@@ -1,5 +1,6 @@
 pub mod analyzers;
 pub mod archive_validator;
+pub mod migration;
 pub mod policy;
 pub mod quarantine;
 pub mod scanner;
@@ -646,7 +647,7 @@ mod tests {
     use crate::db::migrations::run_migrations;
     use crate::db::repository::{SkillSecurityRepo, SkillSourceRepo};
     use crate::services::skills::registry::artifact_hash;
-    use crate::services::skills::types::{SkillFinding, SkillRecord, SkillRiskReport};
+    use crate::services::skills::types::{SkillFinding, SkillRecord};
 
     use super::{
         approve_scan, ensure_scan_allows, export_scan, mark_source_artifact_revoked,
@@ -683,7 +684,6 @@ mod tests {
             conflict: false,
             disabled_reason: None,
             security_state: "unscanned".to_string(),
-            risk: SkillRiskReport::default(),
             installed_at: String::new(),
             updated_at: String::new(),
         };
@@ -768,7 +768,6 @@ mod tests {
             conflict: false,
             disabled_reason: None,
             security_state: "passed".to_string(),
-            risk: SkillRiskReport::default(),
             installed_at: String::new(),
             updated_at: String::new(),
         };

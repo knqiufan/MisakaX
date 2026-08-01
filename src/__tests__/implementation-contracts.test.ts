@@ -9,13 +9,8 @@ import type {
 } from "@/lib/ipc/contracts";
 
 describe("implementation contracts", () => {
-  it("keeps S0/W0 feature switches disabled by default", () => {
+  it("keeps remaining workspace feature switches disabled by default", () => {
     expect(readFeatureFlags({})).toEqual({
-      skillsSettingsTabV2: false,
-      skillsLazyFilePreview: false,
-      skillsSecurityGate: false,
-      skillsActivationView: false,
-      skillsDeepScanner: false,
       workspaceContextBadge: false,
       workspaceTerminal: false,
       narrowWebviewCapabilities: false,
@@ -25,12 +20,9 @@ describe("implementation contracts", () => {
   it("only enables explicit true values", () => {
     const flags = readFeatureFlags({
       VITE_MISAKAX_WORKSPACE_TERMINAL: "TRUE",
-      VITE_MISAKAX_SKILLS_SECURITY_GATE: "1",
-      VITE_MISAKAX_SKILLS_SETTINGS_TAB_V2: "yes",
     });
     expect(flags.workspaceTerminal).toBe(true);
-    expect(flags.skillsSecurityGate).toBe(true);
-    expect(flags.skillsSettingsTabV2).toBe(false);
+    expect(flags.workspaceContextBadge).toBe(false);
   });
 
   it("freezes the cross-layer wire values", () => {

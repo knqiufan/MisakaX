@@ -269,7 +269,10 @@ impl SkillSecurityRepo {
                  user_enabled = CASE WHEN ?3 THEN 0 ELSE user_enabled END,
                  disabled_reason = CASE
                     WHEN ?3 THEN ?2
-                    WHEN disabled_reason IN ('unscanned', 'stale', 'review_required', 'blocked', 'scan_error')
+                    WHEN disabled_reason IN (
+                        'unscanned', 'stale', 'review_required', 'blocked',
+                        'scan_error', 'migration_scan_required'
+                    )
                       THEN NULL
                     ELSE disabled_reason
                  END,

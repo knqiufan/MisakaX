@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { save as dialogSave } from "@tauri-apps/plugin-dialog";
+import { listen } from "@tauri-apps/api/event";
 import { Download, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import type {
   RemoteSkill,
   RemoteSkillDetail,
   SkillFilePage,
+  SkillMigrationStatus,
   SkillSummary,
 } from "@/lib/ipc";
 import { useTranslation } from "react-i18next";
@@ -50,6 +52,7 @@ export function SkillsSettingsFeature() {
   const [remoteInstallTarget, setRemoteInstallTarget] = useState<RemoteSkill | null>(null);
   const [pendingSkillIds, setPendingSkillIds] = useState<Set<string>>(() => new Set());
   const detailRequestId = useRef(0);
+  const migration = useSkillMigrationStatus(inventory.refresh);
 
   useRemoteSearch(view, source, query, setRemote, setRemoteLoading);
   const selectedKey = selection
@@ -153,6 +156,7 @@ export function SkillsSettingsFeature() {
         onModelScope={() => setModelScopeOpen(true)}
         onRefresh={refresh}
       />
+      <MigrationStatusBanner status={migration.status} onRetry={migration.retry} />
       <SkillsContent
         view={view}
         query={query}
@@ -310,12 +314,9 @@ function DetailActions({
     return <RemoteActions detail={detail} onInstall={onInstall} />;
   }
   const skill = detail.skill;
-  const canEnable = skill.health === "healthy" && [
-    "legacy_allowed",
-    "passed",
-    "warnings",
-    "approved",
-  ].includes(skill.security_state);
+  const canEnable =
+    skill.health === "healthy" &&
+    ["passed", "warnings", "approved"].includes(skill.security_state);
   return (
     <>
       <label className="flex min-h-8 cursor-pointer items-center gap-2 rounded-lg px-1 text-xs text-muted-foreground">
@@ -340,6 +341,70 @@ function DetailActions({
         </>
       ) : null}
     </>
+  );
+}
+
+function useSkillMigrationStatus(refreshInventory: () => Promise<void>) {
+  const [status, setStatus] = useState<SkillMigrationStatus | null>(null);
+  useEffect(() => {
+    void skillsIpc
+      .getMigrationStatus()
+      .then((value) => {
+        if (value) setStatus(value);
+      })
+      .catch(() => undefined);
+    const unlisten = listen<SkillMigrationStatus>("skills:migration-progress", (event) => {
+      setStatus(event.payload);
+      void refreshInventory();
+    });
+    return () => {
+      void unlisten.then((dispose) => dispose());
+    };
+  }, [refreshInventory]);
+
+  const retry = useCallback(async () => {
+    try {
+      const next = await skillsIpc.retryMigrationScan();
+      setStatus(next);
+    } catch (error) {
+      toast.error(String(error));
+    }
+  }, []);
+  return { status, retry };
+}
+
+function MigrationStatusBanner({
+  status,
+  onRetry,
+}: {
+  status: SkillMigrationStatus | null;
+  onRetry: () => Promise<void>;
+}) {
+  const { t } = useTranslation("skills");
+  if (!status || status.state === "completed") return null;
+  const progress = status.total === 0 ? 100 : Math.round((status.completed / status.total) * 100);
+  return (
+    <div
+      className="mx-3 mt-3 flex min-h-10 items-center gap-3 rounded-lg border border-border/70 bg-muted/35 px-3 py-2 text-xs"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="min-w-0 flex-1">
+        <p className="font-medium text-foreground">
+          {status.state === "completed_with_errors"
+            ? t("migrationCompletedWithErrors", { count: status.failed })
+            : t("migrationScanning", { completed: status.completed, total: status.total })}
+        </p>
+        <div className="mt-1 h-1 overflow-hidden rounded-full bg-border" aria-hidden="true">
+          <div className="h-full bg-primary transition-[width] duration-150" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+      {status.state === "completed_with_errors" ? (
+        <Button size="xs" variant="outline" onClick={() => void onRetry()}>
+          {t("retryFailedMigrationScans")}
+        </Button>
+      ) : null}
+    </div>
   );
 }
 

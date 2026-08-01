@@ -1,6 +1,6 @@
 # MisakaX 项目结构说明
 
-> **最后审阅 / Last reviewed:** 2026-07-06  
+> **最后审阅 / Last reviewed:** 2026-08-01
 > **开发进度与续做入口：** 见同目录 [`DEVELOPMENT_STATUS.md`](./DEVELOPMENT_STATUS.md)（Phase 3 主体完成 → **Phase 4 DeepAgents 迁移** 为下一步）。
 
 ## 顶层目录
@@ -85,9 +85,9 @@ MisakaX/
 | 文件 / 目录 | 用途 |
 |-------------|------|
 | `mod.rs` | SQLite 初始化、WAL、sqlite-vec 加载、运行迁移 |
-| `migrations.rs` | Schema **v1–v6**（sessions、messages、MCP、tool_permissions、custom_models 等） |
+| `migrations.rs` | Schema **v1–v13**；v11 stable SkillId/activation，v12 scan/finding/approval，v13 存量扫描与旧表清理 |
 | `models.rs` | Session / Message / RouterConfig 等数据模型 |
-| `repository/` | `session_repo`、`message_repo`、`router_config_repo`、`mcp_server_repo`、`workspace_repo`、`tool_permission_repo`、`custom_model_repo`、`settings_repo` |
+| `repository/` | 会话、消息、Provider、MCP、Workspace、Settings，以及 `skill_source_repo` / `skill_security_repo`；Skills 只写 `skill_sources` |
 
 ### `src-tauri/src/commands/`
 
@@ -102,6 +102,7 @@ MisakaX/
 | `fs_explorer.rs` | 工作区文件读写、在资源管理器中Reveal |
 | `mcp.rs` | MCP Server 连接、工具调用、权限审批 |
 | `sidecar.rs` | Sidecar 状态查询、重启 |
+| `skills.rs` | Skills inventory、按需文件、扫描/审批、stable SkillId 开关、v13 迁移状态与失败重试 |
 
 ### `src-tauri/src/services/`
 
@@ -111,6 +112,7 @@ MisakaX/
 | `mcp/` | rmcp `McpManager`、配置加载、类型定义 |
 | `sidecar_client.rs` | Rust → Sidecar HTTP 客户端 |
 | `mcp_bridge.rs` | MCP 桥接（供 Agent / Tool 复用） |
+| `skills/` | 多来源 registry、安装/文件提供器、quarantine、离线 scanner、policy、migration 与 watcher |
 
 ---
 
@@ -124,7 +126,8 @@ MisakaX/
 | `components/layout/` | `AppShell`、`Sidebar`、`ContentArea` |
 | `components/chat/` | `ChatView`、会话、Composer、工作区、Monaco 编辑 |
 | `components/ui/` | shadcn/ui 组件 |
-| `pages/` | `ChatPage`、`SettingsPage`；Skills / Knowledge / Dashboard 为占位 |
+| `pages/` | `ChatPage`、`SettingsPage`；Skills 领域 UI 位于 Settings，Knowledge / Dashboard 仍为占位 |
+| `components/skills/` | Skills 仓库双栏、按需文件预览、安全报告、迁移进度与安装/卸载 Dialog |
 | `stores/` | Zustand：`chat-store`、`settings-store`、`theme-store` 等 |
 | `lib/ipc/` | Tauri IPC 封装（chat、session、mcp、settings…） |
 | `lib/providers/` | Provider 目录与 catalog |

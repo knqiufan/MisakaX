@@ -14,8 +14,8 @@ use crate::services::skills::installer;
 use crate::services::skills::security;
 use crate::services::skills::types::{
     InstallSource, RemoteSearchPage, RemoteSkill, RemoteSkillDetail, SkillActivationView,
-    SkillApprovalOperation, SkillApprovalRecord, SkillDetail, SkillFilePage, SkillFilePreview,
-    SkillFinding, SkillFindingPage, SkillRecord, SkillRiskReport, SkillScanOperation,
+    SkillApprovalOperation, SkillApprovalRecord, SkillFilePage, SkillFilePreview, SkillFinding,
+    SkillFindingPage, SkillMigrationStatus, SkillRecord, SkillRiskReport, SkillScanOperation,
     SkillScanSummary, SkillSummary,
 };
 use crate::AppState;
@@ -34,12 +34,6 @@ pub fn skills_get_activation_view(
 ) -> SkillCommandResult<SkillActivationView> {
     let conn = state.db.lock().map_err(skill_command_error)?;
     crate::services::skills::registry::activation_view(&conn, None).map_err(skill_command_error)
-}
-
-#[tauri::command]
-pub fn skills_get_detail(state: State<'_, AppState>, slug: String) -> Result<SkillDetail, String> {
-    let conn = state.db.lock().map_err(|error| error.to_string())?;
-    installer::get_detail(&conn, &slug).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -347,15 +341,31 @@ pub fn skills_get_scan_privacy_defaults() -> serde_json::Value {
 }
 
 #[tauri::command]
+pub fn skills_get_migration_status(app: AppHandle) -> SkillCommandResult<SkillMigrationStatus> {
+    security::migration::status(&app).map_err(skill_command_error)
+}
+
+#[tauri::command]
+pub fn skills_retry_migration_scan(app: AppHandle) -> SkillCommandResult<SkillMigrationStatus> {
+    security::migration::retry(app).map_err(skill_command_error)
+}
+
+#[tauri::command]
 pub fn skills_export_installed(
     state: State<'_, AppState>,
-    slug: String,
+    skill_id: String,
     destination: String,
 ) -> Result<(), String> {
     let conn = state.db.lock().map_err(|error| error.to_string())?;
-    let detail = installer::get_detail(&conn, &slug).map_err(|error| error.to_string())?;
+    installer::list_installed(&conn).map_err(|error| error.to_string())?;
+    let skill = crate::db::repository::SkillSourceRepo::find(&conn, &skill_id)
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "Skill is not installed".to_string())?;
+    if skill.is_external {
+        return Err("External Skill sources cannot be exported as managed packages".to_string());
+    }
     export_skill_dir(
-        &PathBuf::from(detail.skill.installed_path),
+        &PathBuf::from(skill.installed_path),
         &PathBuf::from(destination),
     )
     .map_err(|error| error.to_string())
@@ -382,12 +392,12 @@ pub async fn skills_download_remote(
 pub fn skills_set_enabled(
     app: AppHandle,
     state: State<'_, AppState>,
-    identifier: String,
+    skill_id: String,
     enabled: bool,
 ) -> SkillCommandResult<()> {
     let conn = state.db.lock().map_err(skill_command_error)?;
     let (skill_id, generation) =
-        installer::set_enabled(&conn, &identifier, enabled).map_err(skill_command_error)?;
+        installer::set_enabled(&conn, &skill_id, enabled).map_err(skill_command_error)?;
     emit_change(
         &app,
         if enabled { "enabled" } else { "disabled" },
@@ -401,11 +411,11 @@ pub fn skills_set_enabled(
 pub fn skills_uninstall(
     app: AppHandle,
     state: State<'_, AppState>,
-    identifier: String,
+    skill_id: String,
 ) -> Result<(), String> {
     let conn = state.db.lock().map_err(|error| error.to_string())?;
     let (skill_id, generation) =
-        installer::uninstall(&conn, &identifier).map_err(|error| error.to_string())?;
+        installer::uninstall(&conn, &skill_id).map_err(|error| error.to_string())?;
     emit_change(&app, "uninstalled", &skill_id, Some(generation));
     Ok(())
 }

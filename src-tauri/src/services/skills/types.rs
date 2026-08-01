@@ -44,17 +44,16 @@ pub struct SkillRecord {
     pub conflict: bool,
     #[serde(default)]
     pub disabled_reason: Option<String>,
-    /// S1 deliberately distinguishes legacy/user acknowledgement from the
-    /// scan decisions introduced by S3.
+    /// Activation is always backed by the current scan decision. Migrated or
+    /// newly discovered sources remain disabled while this is `unscanned`.
     #[serde(default = "default_security_state")]
     pub security_state: String,
-    pub risk: SkillRiskReport,
     pub installed_at: String,
     pub updated_at: String,
 }
 
 fn default_security_state() -> String {
-    "legacy_allowed".to_string()
+    "unscanned".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,6 +193,16 @@ pub struct SkillScanOperation {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillMigrationStatus {
+    pub state: String,
+    pub total: u64,
+    pub completed: u64,
+    pub failed: u64,
+    pub current_skill_id: Option<String>,
+    pub last_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillApprovalRecord {
     pub approval_id: String,
     pub artifact_hash: String,
@@ -213,14 +222,6 @@ pub struct SkillApprovalRecord {
 pub struct SkillApprovalOperation {
     pub approval: SkillApprovalRecord,
     pub operation: SkillScanOperation,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SkillDetail {
-    pub skill: SkillRecord,
-    pub manifest: SkillManifest,
-    pub files: Vec<SkillFileNode>,
-    pub skill_markdown: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -248,7 +249,6 @@ pub struct RemoteSkillDetail {
     pub manifest: Option<SkillManifest>,
     #[serde(default)]
     pub files: Vec<SkillFileNode>,
-    pub skill_markdown: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

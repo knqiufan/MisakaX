@@ -183,7 +183,6 @@ pub fn run() {
             commands::mcp::mcp_reset_permission,
             commands::skills::skills_list_installed,
             commands::skills::skills_get_activation_view,
-            commands::skills::skills_get_detail,
             commands::skills::skills_get_summary,
             commands::skills::skills_list_files,
             commands::skills::skills_read_file,
@@ -198,6 +197,8 @@ pub fn run() {
             commands::skills::skills_revoke_approval,
             commands::skills::skills_export_scan,
             commands::skills::skills_get_scan_privacy_defaults,
+            commands::skills::skills_get_migration_status,
+            commands::skills::skills_retry_migration_scan,
             commands::skills::skills_inspect_archive,
             commands::skills::skills_install_archive,
             commands::skills::skills_search_remote,
@@ -214,6 +215,9 @@ pub fn run() {
             tracing::info!("MisakaX initialized successfully");
 
             tray::setup(app.handle())?;
+            if let Err(error) = services::skills::security::migration::start(app.handle().clone()) {
+                tracing::warn!(error = %error, "Failed to start Skill security migration scan");
+            }
             if let Err(error) = services::skills::security::watcher::start(app.handle().clone()) {
                 tracing::warn!(error = %error, "Failed to start Skill filesystem watcher");
             }

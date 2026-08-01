@@ -8,14 +8,13 @@ use sha2::{Digest, Sha256};
 use walkdir::WalkDir;
 
 use crate::config;
-use crate::db::repository::{SkillRepo, SkillSourceRepo};
+use crate::db::repository::SkillSourceRepo;
 
 use super::installer::discover_external_skills;
 use super::types::{MessageSkillSelection, SkillActivationMount, SkillActivationView, SkillRecord};
 
 /// A single activation gate shared by enable, message selection, and Sidecar
-/// mount construction. S3 extends this gate with scanner decisions; S1 never
-/// labels legacy/user acknowledgement as a successful scan.
+/// mount construction. Every active source must have a current allow decision.
 pub struct SkillSecurityGate;
 
 impl SkillSecurityGate {
@@ -26,9 +25,7 @@ impl SkillSecurityGate {
         if !Path::new(&record.installed_path).join("SKILL.md").is_file() {
             bail!("Skill '{}' no longer contains SKILL.md", record.slug);
         }
-        if record.security_state != "legacy_allowed" {
-            super::security::ensure_scan_allows(conn, record)?;
-        }
+        super::security::ensure_scan_allows(conn, record)?;
         Ok(())
     }
 
@@ -39,7 +36,7 @@ impl SkillSecurityGate {
         }
         if !matches!(
             record.security_state.as_str(),
-            "legacy_allowed" | "passed" | "warnings" | "approved"
+            "passed" | "warnings" | "approved"
         ) {
             bail!("Skill '{}' is awaiting security approval", record.slug);
         }
@@ -54,9 +51,18 @@ impl SkillSecurityGate {
 }
 
 pub fn sync_inventory(conn: &Connection) -> Result<Vec<SkillRecord>> {
+    sync_inventory_with_scan(conn, true)
+}
+
+pub(crate) fn sync_inventory_without_scanning(conn: &Connection) -> Result<Vec<SkillRecord>> {
+    sync_inventory_with_scan(conn, false)
+}
+
+fn sync_inventory_with_scan(conn: &Connection, scan_external: bool) -> Result<Vec<SkillRecord>> {
     crate::db::repository::SkillSecurityRepo::expire_approvals(conn)?;
     let managed_root = config::skills_dir()?;
-    for mut record in SkillRepo::list(conn)? {
+    let registered = SkillSourceRepo::list(conn)?;
+    for mut record in registered.into_iter().filter(|record| !record.is_external) {
         let expected = managed_root.join(&record.slug);
         record.installed_path = expected.display().to_string();
         record.health = if expected.join("SKILL.md").is_file() {
@@ -80,7 +86,9 @@ pub fn sync_inventory(conn: &Connection) -> Result<Vec<SkillRecord>> {
         let (skill_id, _) =
             SkillSourceRepo::upsert_source(conn, &record, &record.installed_path, false)?;
         record.skill_id = skill_id;
-        super::security::ensure_external_scan(conn, &record)?;
+        if scan_external {
+            super::security::ensure_external_scan(conn, &record)?;
+        }
     }
     SkillSourceRepo::mark_missing_external_except(conn, &present)?;
     SkillSourceRepo::list(conn)
@@ -88,8 +96,8 @@ pub fn sync_inventory(conn: &Connection) -> Result<Vec<SkillRecord>> {
 
 pub fn set_enabled(conn: &Connection, identifier: &str, enabled: bool) -> Result<(String, u64)> {
     sync_inventory(conn)?;
-    let record = SkillSourceRepo::find_id_or_legacy_slug(conn, identifier)?
-        .context("Skill source is not registered")?;
+    let record =
+        SkillSourceRepo::find(conn, identifier)?.context("Skill source is not registered")?;
     if enabled {
         SkillSecurityGate::ensure_enableable(conn, &record)?;
     }
@@ -148,7 +156,7 @@ pub fn resolve_selection(
         if raw.is_empty() {
             bail!("Skill identifier cannot be empty");
         }
-        let record = SkillSourceRepo::find_id_or_legacy_slug(conn, raw)?
+        let record = SkillSourceRepo::find(conn, raw)?
             .with_context(|| format!("Selected Skill '{raw}' is not registered"))?;
         SkillSecurityGate::ensure_effective(conn, &record)?;
         let mount = view
@@ -227,7 +235,7 @@ mod tests {
 
     use crate::db::migrations::run_migrations;
     use crate::db::repository::{SkillSecurityRepo, SkillSourceRepo};
-    use crate::services::skills::types::{SkillRecord, SkillRiskReport};
+    use crate::services::skills::types::SkillRecord;
 
     use super::{activation_view_from_registry, artifact_hash, SkillSecurityGate};
 
@@ -259,8 +267,7 @@ mod tests {
             effective_rank: 400,
             conflict: false,
             disabled_reason: None,
-            security_state: "legacy_allowed".to_string(),
-            risk: SkillRiskReport::default(),
+            security_state: "passed".to_string(),
             installed_at: String::new(),
             updated_at: String::new(),
         };
@@ -305,7 +312,6 @@ mod tests {
             conflict: false,
             disabled_reason: Some("unscanned".to_string()),
             security_state: "unscanned".to_string(),
-            risk: SkillRiskReport::default(),
             installed_at: String::new(),
             updated_at: String::new(),
         };

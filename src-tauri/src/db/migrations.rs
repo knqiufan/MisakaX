@@ -66,6 +66,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         migrate_v12(conn)?;
     }
 
+    if current_version < 13 {
+        migrate_v13(conn)?;
+    }
+
     Ok(())
 }
 
@@ -573,6 +577,62 @@ fn migrate_v12(conn: &Connection) -> Result<()> {
     tx.commit()?;
 
     tracing::info!("Database migrated to version 12");
+    Ok(())
+}
+
+fn migrate_v13(conn: &Connection) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute_batch(
+        "
+        UPDATE skill_sources
+        SET user_enabled = 0,
+            security_state = 'unscanned',
+            disabled_reason = 'migration_scan_required',
+            current_scan_id = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE security_state IN ('legacy_allowed', 'pending_user', 'user_allowed');
+
+        CREATE TABLE skill_security_migration (
+            singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+            state TEXT NOT NULL CHECK(state IN (
+                'pending', 'running', 'completed', 'completed_with_errors'
+            )),
+            total INTEGER NOT NULL DEFAULT 0 CHECK(total >= 0),
+            completed INTEGER NOT NULL DEFAULT 0 CHECK(completed >= 0),
+            failed INTEGER NOT NULL DEFAULT 0 CHECK(failed >= 0),
+            current_skill_id TEXT,
+            last_error TEXT,
+            started_at DATETIME,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        INSERT INTO skill_security_migration(singleton, state, total)
+        SELECT 1,
+               CASE WHEN COUNT(*) = 0 THEN 'completed' ELSE 'pending' END,
+               COUNT(*)
+        FROM skill_sources
+        WHERE disabled_reason = 'migration_scan_required';
+
+        CREATE TABLE skill_security_migration_items (
+            skill_id TEXT PRIMARY KEY,
+            state TEXT NOT NULL CHECK(state IN ('pending', 'running', 'completed', 'failed')),
+            error TEXT,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (skill_id) REFERENCES skill_sources(skill_id) ON DELETE CASCADE
+        );
+        INSERT INTO skill_security_migration_items(skill_id, state)
+        SELECT skill_id, 'pending'
+        FROM skill_sources
+        WHERE disabled_reason = 'migration_scan_required';
+
+        DROP TABLE skills;
+        ALTER TABLE skill_sources DROP COLUMN risk_json;
+
+        INSERT INTO _schema_version (version) VALUES (13);
+        ",
+    )?;
+    tx.commit()?;
+
+    tracing::info!("Database migrated to version 13");
     Ok(())
 }
 

@@ -9,14 +9,11 @@ use sha2::{Digest, Sha256};
 use walkdir::WalkDir;
 
 use crate::config;
-use crate::db::repository::{SkillRepo, SkillSourceRepo};
+use crate::db::repository::SkillSourceRepo;
 
 use super::manifest::parse_manifest;
 use super::security::ApprovedArtifactId;
-use super::types::{
-    ArchiveInspection, InstallSource, SkillDetail, SkillFileNode, SkillInstallResult, SkillRecord,
-    SkillRiskReport,
-};
+use super::types::{ArchiveInspection, InstallSource, SkillInstallResult, SkillRecord};
 
 pub fn install_local_archive(
     conn: &Connection,
@@ -44,31 +41,13 @@ pub fn list_installed(conn: &Connection) -> Result<Vec<SkillRecord>> {
     super::registry::sync_inventory(conn)
 }
 
-pub fn get_detail(conn: &Connection, identifier: &str) -> Result<SkillDetail> {
-    super::registry::sync_inventory(conn)?;
-    let record = SkillSourceRepo::find_id_or_legacy_slug(conn, identifier)?
-        .context("Skill is not installed")?;
-    let skill_dir = skill_dir_for_record(&record)?;
-    let markdown =
-        fs::read_to_string(skill_dir.join("SKILL.md")).context("Cannot read SKILL.md")?;
-    let manifest = parse_manifest(&markdown)?;
-    let files = list_skill_files(&skill_dir)?;
-    Ok(SkillDetail {
-        skill: with_current_health(record, &config::skills_dir()?),
-        manifest,
-        files,
-        skill_markdown: markdown,
-    })
-}
-
 pub fn set_enabled(conn: &Connection, identifier: &str, enabled: bool) -> Result<(String, u64)> {
     super::registry::set_enabled(conn, identifier, enabled)
 }
 
 pub fn uninstall(conn: &Connection, identifier: &str) -> Result<(String, u64)> {
     super::registry::sync_inventory(conn)?;
-    let record = SkillSourceRepo::find_id_or_legacy_slug(conn, identifier)?
-        .context("Skill is not installed")?;
+    let record = SkillSourceRepo::find(conn, identifier)?.context("Skill is not installed")?;
     if record.is_external {
         bail!("External Skill sources are never modified or removed by MisakaX")
     }
@@ -76,13 +55,12 @@ pub fn uninstall(conn: &Connection, identifier: &str) -> Result<(String, u64)> {
     if skill_dir.exists() {
         fs::remove_dir_all(&skill_dir).context("Cannot remove installed skill files")?;
     }
-    SkillRepo::delete(conn, &record.slug)?;
     SkillSourceRepo::delete_source(conn, &record.skill_id)?;
     Ok((record.skill_id, SkillSourceRepo::generation(conn)?))
 }
 
-pub fn installed_selection(conn: &Connection, slugs: &[String]) -> Result<Vec<SkillRecord>> {
-    let (_, selections) = super::registry::resolve_selection(conn, slugs, None)?;
+pub fn installed_selection(conn: &Connection, identifiers: &[String]) -> Result<Vec<SkillRecord>> {
+    let (_, selections) = super::registry::resolve_selection(conn, identifiers, None)?;
     selections
         .iter()
         .map(|selection| {
@@ -90,29 +68,6 @@ pub fn installed_selection(conn: &Connection, slugs: &[String]) -> Result<Vec<Sk
                 .context("Selected Skill disappeared from the registry")
         })
         .collect()
-}
-
-#[cfg(test)]
-fn installed_selection_with(
-    conn: &Connection,
-    slugs: &[String],
-    root: &Path,
-    mut find_external: impl FnMut(&str) -> Result<Option<SkillRecord>>,
-) -> Result<Vec<SkillRecord>> {
-    let mut records = Vec::with_capacity(slugs.len());
-    for slug in slugs {
-        let record = match SkillRepo::find(conn, slug)? {
-            Some(record) => record,
-            None => {
-                find_external(slug)?.context(format!("Selected skill '{slug}' is not installed"))?
-            }
-        };
-        if !record.enabled || health_for_record(&record, &root) != "healthy" {
-            bail!("Selected skill '{}' is missing or corrupted", record.slug)
-        }
-        records.push(record);
-    }
-    Ok(records)
 }
 
 fn install_staged_skill(
@@ -128,7 +83,6 @@ fn install_staged_skill(
     let record = build_record(&target, &inspection, source, force_disabled);
     let transaction = conn.unchecked_transaction()?;
     let persisted = (|| -> Result<SkillRecord> {
-        SkillRepo::upsert(&transaction, &record)?;
         let mut current = record.clone();
         current.checksum = super::registry::artifact_hash(&target)?;
         let (skill_id, _) =
@@ -217,21 +171,8 @@ fn build_record(
         conflict: false,
         disabled_reason: force_disabled.then(|| "review_approved".to_string()),
         security_state: "unscanned".to_string(),
-        risk: merge_risk(&inspection.risk, &source.remote_risk),
         installed_at: String::new(),
         updated_at: String::new(),
-    }
-}
-
-fn merge_risk(archive: &SkillRiskReport, remote: &SkillRiskReport) -> SkillRiskReport {
-    let mut notes = archive.notes.clone();
-    notes.extend(remote.notes.iter().cloned());
-    SkillRiskReport {
-        has_scripts: archive.has_scripts || remote.has_scripts,
-        has_binary_files: archive.has_binary_files || remote.has_binary_files,
-        has_allowed_tools: archive.has_allowed_tools || remote.has_allowed_tools,
-        remote_scan_status: remote.remote_scan_status.clone(),
-        notes,
     }
 }
 
@@ -242,34 +183,6 @@ fn checked_skill_dir(record: &SkillRecord) -> Result<PathBuf> {
         bail!("Skill installation path is outside the managed skills directory")
     }
     Ok(expected)
-}
-
-fn skill_dir_for_record(record: &SkillRecord) -> Result<PathBuf> {
-    if record.is_external {
-        return external_skill_dir(record);
-    }
-    checked_skill_dir(record)
-}
-
-fn with_current_health(mut record: SkillRecord, root: &Path) -> SkillRecord {
-    record.health = health_for_record(&record, root);
-    record
-}
-
-fn health_for_record(record: &SkillRecord, root: &Path) -> String {
-    if record.is_external {
-        return external_skill_dir(record)
-            .ok()
-            .filter(|path| path.join("SKILL.md").is_file())
-            .map(|_| "healthy".to_string())
-            .unwrap_or_else(|| "missing".to_string());
-    }
-    let expected = root.join(&record.slug).join("SKILL.md");
-    if expected.is_file() && Path::new(&record.installed_path) == root.join(&record.slug) {
-        "healthy".to_string()
-    } else {
-        "missing".to_string()
-    }
 }
 
 const EXTERNAL_SKILL_LIMIT: usize = 250;
@@ -399,87 +312,20 @@ fn external_record(
         effective_active: false,
         effective_rank: crate::db::repository::skill_source_repo::source_rank(source, false),
         conflict: false,
-        disabled_reason: Some("pending_user".to_string()),
-        security_state: "pending_user".to_string(),
-        risk: SkillRiskReport {
-            notes: vec!["Discovered from another Agent's local Skills directory.".to_string()],
-            ..SkillRiskReport::default()
-        },
+        disabled_reason: Some("unscanned".to_string()),
+        security_state: "unscanned".to_string(),
         installed_at: String::new(),
         updated_at: String::new(),
     }
-}
-
-fn external_skill_dir(record: &SkillRecord) -> Result<PathBuf> {
-    let path = PathBuf::from(&record.installed_path);
-    let canonical = fs::canonicalize(&path)
-        .with_context(|| format!("Cannot resolve external Skill directory {}", path.display()))?;
-    let home = dirs::home_dir().context("Failed to resolve the home directory")?;
-    let root = match record.source_kind.as_str() {
-        "codex" => home.join(".codex").join("skills"),
-        "claude" => home.join(".claude").join("skills"),
-        "cursor" => home.join(".cursor").join("skills"),
-        _ => bail!("Unknown external Skill source '{}'", record.source_kind),
-    };
-    let canonical_root = fs::canonicalize(&root)
-        .with_context(|| format!("Cannot resolve external Skill root {}", root.display()))?;
-    if !canonical.starts_with(canonical_root) || !canonical.join("SKILL.md").is_file() {
-        bail!("External Skill path is outside its allowed source directory")
-    }
-    Ok(canonical)
-}
-
-fn list_skill_files(root: &Path) -> Result<Vec<SkillFileNode>> {
-    let mut files = Vec::new();
-    for entry in WalkDir::new(root).follow_links(false) {
-        let entry = entry.context("Cannot enumerate installed skill files")?;
-        if !entry.file_type().is_file() {
-            continue;
-        }
-        files.push(to_file_node(root, entry.path())?);
-    }
-    files.sort_by(|left, right| left.path.cmp(&right.path));
-    Ok(files)
-}
-
-fn to_file_node(root: &Path, path: &Path) -> Result<SkillFileNode> {
-    let relative = path
-        .strip_prefix(root)
-        .context("Skill file is outside its root")?;
-    let path_string = relative.to_string_lossy().replace('\\', "/");
-    let size = fs::metadata(path)
-        .context("Cannot inspect installed skill file")?
-        .len();
-    let kind = if path_string == "SKILL.md" {
-        "skill-manifest".to_string()
-    } else {
-        path.extension()
-            .and_then(|extension| extension.to_str())
-            .unwrap_or("file")
-            .to_string()
-    };
-    Ok(SkillFileNode {
-        path: path_string,
-        kind,
-        size_bytes: size,
-    })
 }
 
 #[cfg(test)]
 mod tests {
     use std::{fs, path::Path};
 
-    use rusqlite::Connection;
+    use crate::services::skills::types::SkillRecord;
 
-    use crate::{
-        db::{migrations::run_migrations, repository::SkillRepo},
-        services::skills::types::{SkillRecord, SkillRiskReport},
-    };
-
-    use super::{
-        discover_external_from_roots, discover_from_root, installed_selection_with,
-        merge_installed_sources,
-    };
+    use super::{discover_external_from_roots, discover_from_root, merge_installed_sources};
 
     #[test]
     fn discovers_only_valid_external_skill_directories() {
@@ -544,65 +390,6 @@ mod tests {
         assert_eq!(merged[0].source_kind, "managed");
     }
 
-    #[test]
-    fn managed_enable_disable_and_overwrite_behavior_is_stable() {
-        let conn = database();
-        let root = tempfile::tempdir().unwrap();
-        let first = record("demo-skill", "local", true, root.path());
-        SkillRepo::upsert(&conn, &first).unwrap();
-        SkillRepo::set_enabled(&conn, "demo-skill", false).unwrap();
-        assert!(
-            !SkillRepo::find(&conn, "demo-skill")
-                .unwrap()
-                .unwrap()
-                .enabled
-        );
-
-        let mut replacement = first;
-        replacement.description = "Replacement".to_string();
-        replacement.enabled = true;
-        SkillRepo::upsert(&conn, &replacement).unwrap();
-        let persisted = SkillRepo::find(&conn, "demo-skill").unwrap().unwrap();
-        assert_eq!(persisted.description, "Replacement");
-        assert!(persisted.enabled);
-    }
-
-    #[test]
-    fn installed_selection_rejects_disabled_and_corrupted_managed_skills() {
-        let conn = database();
-        let temporary = tempfile::tempdir().unwrap();
-        let root = temporary.path();
-        let skill_dir = root.join("demo-skill");
-        write_skill(root, "demo-skill", "Demo Skill");
-        let skill = record("demo-skill", "local", true, &skill_dir);
-        SkillRepo::upsert(&conn, &skill).unwrap();
-
-        let selected =
-            installed_selection_with(&conn, &["demo-skill".to_string()], root, |_| Ok(None))
-                .unwrap();
-        assert_eq!(selected.len(), 1);
-
-        SkillRepo::set_enabled(&conn, "demo-skill", false).unwrap();
-        assert!(
-            installed_selection_with(&conn, &["demo-skill".to_string()], root, |_| Ok(None),)
-                .is_err()
-        );
-
-        SkillRepo::set_enabled(&conn, "demo-skill", true).unwrap();
-        fs::remove_file(skill_dir.join("SKILL.md")).unwrap();
-        assert!(
-            installed_selection_with(&conn, &["demo-skill".to_string()], root, |_| Ok(None),)
-                .is_err()
-        );
-    }
-
-    fn database() -> Connection {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
-        run_migrations(&conn).unwrap();
-        conn
-    }
-
     fn write_skill(root: &Path, slug: &str, description: &str) {
         let directory = root.join(slug);
         fs::create_dir_all(&directory).unwrap();
@@ -636,8 +423,7 @@ mod tests {
             },
             conflict: false,
             disabled_reason: None,
-            security_state: "legacy_allowed".to_string(),
-            risk: SkillRiskReport::default(),
+            security_state: "passed".to_string(),
             installed_at: String::new(),
             updated_at: String::new(),
         }

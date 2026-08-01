@@ -140,6 +140,9 @@
   "notScannedHelp": "This artifact has no completed scan under the current policy.",
   "scanPrivacyOffline": "The built-in scan is offline. VirusTotal hash lookup, file upload, and cloud LLM analysis are all off by default and require separate future consent.",
   "scanExported": "Scan report exported",
+  "migrationScanning": "Securing existing Skills: {{completed}} of {{total}} scanned",
+  "migrationCompletedWithErrors": "Existing Skill scan finished with {{count}} failures",
+  "retryFailedMigrationScans": "Retry failed",
   "severity": {
     "all": "All",
     "critical": "Critical",

@@ -1,6 +1,6 @@
 # MisakaX 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-08-01（v12）
+**最后审阅 / Last reviewed:** 2026-08-01（v13）
 
 > 主色已切换为 **charcoal**（非冷蓝强调色）。文中若仍出现历史「蓝调」示例，以实现侧 CSS 变量与 [frontend-ui-guidelines.md](./frontend-ui-guidelines.md) 为准。
 >
@@ -1858,6 +1858,7 @@ Skills inventory 与详情头部的 Switch 还必须满足：
 - 批准/拒绝是 reason 输入后的并列动作：拒绝使用 outline，批准使用默认主按钮；输入不足、请求 pending 或 scan 已失效时两者 disabled，禁止用连续 Toast 代替就地状态。
 - “撤销批准”是可逆审计动作，使用 outline，不做 destructive 红色；删除 Skill/拒绝制品等不可逆动作仍遵循 Dialog 确认规则。
 - JSON/SARIF 导出使用带 Download 图标的 outline 小按钮；必须先打开系统保存对话框，取消保存不显示成功 Toast。
+- 存量扫描失败后的“重试失败项”使用 `size="xs"` outline Button，固定出现在迁移状态条右侧；只重试持久化 failed items，不提供“跳过扫描并启用”动作。
 
 ### 12.3 分段控件 (`.settings-segmented`)
 

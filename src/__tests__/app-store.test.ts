@@ -37,8 +37,8 @@ describe("useAppStore", () => {
     expect(useAppStore.getState().route).toEqual({ page: "notifications" });
   });
 
-  it("redirects the legacy Skills route into the Settings deep link", () => {
-    useAppStore.getState().navigate({ page: "skills" });
+  it("exposes Skills only through the Settings deep link", () => {
+    useAppStore.getState().navigate({ page: "settings", tab: "skills" });
     expect(useAppStore.getState().route).toEqual({
       page: "settings",
       tab: "skills",

@@ -162,7 +162,7 @@ fn test_migration_idempotent() {
             row.get(0)
         })
         .unwrap();
-    assert_eq!(version, 12);
+    assert_eq!(version, 13);
 }
 
 #[test]
@@ -212,11 +212,12 @@ fn test_v11_skill_fixture_survives_forward_idempotent_migration_and_rollback() {
     )
     .unwrap();
 
-    let enabled: i64 = conn
+    let (enabled, security_state): (i64, String) = conn
         .query_row(
-            "SELECT user_enabled FROM skill_sources WHERE slug = 'legacy-skill'",
+            "SELECT user_enabled, security_state FROM skill_sources
+             WHERE slug = 'legacy-skill'",
             [],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .unwrap();
     let (selected_id, slug_snapshot, hash_snapshot): (String, String, String) = conn
@@ -228,7 +229,8 @@ fn test_v11_skill_fixture_survives_forward_idempotent_migration_and_rollback() {
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
         .unwrap();
-    assert_eq!(enabled, 1);
+    assert_eq!(enabled, 0);
+    assert_eq!(security_state, "unscanned");
     assert_eq!(selected_id, stable_id);
     assert_eq!(slug_snapshot, "legacy-skill");
     assert_eq!(hash_snapshot, "abc123");
@@ -312,6 +314,90 @@ fn test_v12_upgrade_backup_restores_v11_without_security_tables() {
         .unwrap();
     assert_eq!(version, 11);
     assert_eq!(security_tables, 0);
+}
+
+#[test]
+fn test_v13_migrates_legacy_sources_and_preserves_a_restorable_v12_backup() {
+    let temporary = tempfile::tempdir().unwrap();
+    let db_path = temporary.path().join("misaka.db");
+    let conn = Connection::open(&db_path).unwrap();
+    conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+    run_migrations_to_v12(&conn);
+    conn.execute(
+        "INSERT INTO skills (
+            slug, name, description, source_kind, checksum, installed_path,
+            enabled, health, risk_json
+         ) VALUES ('legacy-v13', 'Legacy', 'Fixture', 'local', 'hash-v13',
+                   'C:/legacy-v13', 1, 'healthy', '{\"has_scripts\":true}')",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO skill_sources (
+            skill_id, slug, name, description, source_kind, source_locator,
+            artifact_hash, installed_path, is_managed, user_enabled, health,
+            security_state, effective_rank, risk_json
+         ) VALUES ('skill-v13', 'legacy-v13', 'Legacy', 'Fixture', 'managed',
+                   'C:/legacy-v13', 'hash-v13', 'C:/legacy-v13', 1, 1,
+                   'healthy', 'legacy_allowed', 400, '{}')",
+        [],
+    )
+    .unwrap();
+
+    let backup = backup_before_migration(&conn, &db_path, 13)
+        .unwrap()
+        .expect("v12 database should be backed up");
+    run_migrations(&conn).unwrap();
+
+    let migrated: (i64, String, String) = conn
+        .query_row(
+            "SELECT user_enabled, security_state, disabled_reason
+             FROM skill_sources WHERE skill_id = 'skill-v13'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!(
+        migrated,
+        (
+            0,
+            "unscanned".to_string(),
+            "migration_scan_required".to_string()
+        )
+    );
+    let old_tables: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'skills'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let old_risk_column: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('skill_sources') WHERE name = 'risk_json'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(old_tables, 0);
+    assert_eq!(old_risk_column, 0);
+    drop(conn);
+
+    let restored = Connection::open(backup).unwrap();
+    let version: i64 = restored
+        .query_row("SELECT MAX(version) FROM _schema_version", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    let legacy_enabled: i64 = restored
+        .query_row(
+            "SELECT user_enabled FROM skill_sources WHERE skill_id = 'skill-v13'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(version, 12);
+    assert_eq!(legacy_enabled, 1);
 }
 
 #[test]
@@ -517,14 +603,15 @@ fn test_migration_v6_injects_builtin_models_for_existing_router_configs() {
 fn run_migrations_to_v5(conn: &Connection) {
     run_migrations(conn).unwrap();
     conn.execute_batch(
-        "DROP TABLE skill_approvals;
+        "DROP TABLE skill_security_migration_items;
+         DROP TABLE skill_security_migration;
+         DROP TABLE skill_approvals;
          DROP TABLE skill_findings;
          DROP TABLE skill_scan_runs;
          DROP TABLE skill_artifacts;
          DROP TABLE message_skill_selections;
          DROP TABLE skill_activation_state;
-         DROP TABLE skill_sources;
-         DROP TABLE skills;",
+         DROP TABLE skill_sources;",
     )
     .unwrap();
     conn.execute("DELETE FROM _schema_version WHERE version >= 6", [])
@@ -552,6 +639,7 @@ fn run_migrations_to_v5(conn: &Connection) {
 
 fn run_migrations_to_v10(conn: &Connection) {
     run_migrations(conn).unwrap();
+    revert_v13(conn);
     conn.execute_batch(
         "DROP TABLE skill_approvals;
          DROP TABLE skill_findings;
@@ -579,6 +667,7 @@ fn run_migrations_to_v10(conn: &Connection) {
 
 fn run_migrations_to_v11(conn: &Connection) {
     run_migrations(conn).unwrap();
+    revert_v13(conn);
     conn.execute_batch(
         "DROP TABLE skill_approvals;
          DROP TABLE skill_findings;
@@ -587,6 +676,48 @@ fn run_migrations_to_v11(conn: &Connection) {
          DROP INDEX idx_skill_sources_current_scan;
          ALTER TABLE skill_sources DROP COLUMN current_scan_id;
          DELETE FROM _schema_version WHERE version = 12;",
+    )
+    .unwrap();
+}
+
+fn run_migrations_to_v12(conn: &Connection) {
+    run_migrations(conn).unwrap();
+    revert_v13(conn);
+}
+
+fn revert_v13(conn: &Connection) {
+    conn.execute_batch(
+        "DROP TABLE skill_security_migration_items;
+         DROP TABLE skill_security_migration;
+         ALTER TABLE skill_sources ADD COLUMN risk_json TEXT NOT NULL DEFAULT '{}';
+         CREATE TABLE skills (
+            slug TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            version TEXT,
+            source_kind TEXT NOT NULL,
+            source_ref TEXT,
+            source_url TEXT,
+            checksum TEXT NOT NULL,
+            installed_path TEXT NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            health TEXT NOT NULL DEFAULT 'healthy',
+            risk_json TEXT NOT NULL DEFAULT '{}',
+            installed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+         );
+         INSERT INTO skills (
+            slug, name, description, version, source_kind, source_ref,
+            source_url, checksum, installed_path, enabled, health,
+            risk_json, installed_at, updated_at
+         )
+         SELECT slug, name, description, version, source_kind, source_ref,
+                source_url, artifact_hash, installed_path, user_enabled, health,
+                '{}', installed_at, updated_at
+         FROM skill_sources WHERE is_managed = 1;
+         CREATE INDEX idx_skills_enabled
+         ON skills(enabled, health, updated_at DESC);
+         DELETE FROM _schema_version WHERE version = 13;",
     )
     .unwrap();
 }

@@ -115,11 +115,6 @@ pub struct DomainEvent<T> {
 /// Feature switches start disabled so S0/W0 preserve the established behavior.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct FeatureFlags {
-    pub skills_settings_tab_v2: bool,
-    pub skills_lazy_file_preview: bool,
-    pub skills_security_gate: bool,
-    pub skills_activation_view: bool,
-    pub skills_deep_scanner: bool,
     pub workspace_context_badge: bool,
     pub workspace_terminal: bool,
     pub narrow_webview_capabilities: bool,
@@ -137,11 +132,6 @@ impl FeatureFlags {
             })
         };
         Self {
-            skills_settings_tab_v2: enabled("MISAKAX_SKILLS_SETTINGS_TAB_V2"),
-            skills_lazy_file_preview: enabled("MISAKAX_SKILLS_LAZY_FILE_PREVIEW"),
-            skills_security_gate: enabled("MISAKAX_SKILLS_SECURITY_GATE"),
-            skills_activation_view: enabled("MISAKAX_SKILLS_ACTIVATION_VIEW"),
-            skills_deep_scanner: enabled("MISAKAX_SKILLS_DEEP_SCANNER"),
             workspace_context_badge: enabled("MISAKAX_WORKSPACE_CONTEXT_BADGE"),
             workspace_terminal: enabled("MISAKAX_WORKSPACE_TERMINAL"),
             narrow_webview_capabilities: enabled("MISAKAX_NARROW_WEBVIEW_CAPABILITIES"),
@@ -176,7 +166,7 @@ mod tests {
             (name == "MISAKAX_WORKSPACE_TERMINAL").then(|| "TRUE".to_string())
         });
         assert!(flags.workspace_terminal);
-        assert!(!flags.skills_security_gate);
+        assert!(!flags.workspace_context_badge);
     }
 
     #[test]

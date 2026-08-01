@@ -272,7 +272,6 @@ fn parse_remote_detail(
         risk,
         manifest: None,
         files: Vec::new(),
-        skill_markdown: None,
     })
 }
 

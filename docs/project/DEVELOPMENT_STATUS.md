@@ -2,7 +2,7 @@
 
 > **用途：** 记录代码库真实进度，标明「从哪里继续开发」。  
 > **受众：** 维护者、协作者、AI 辅助开发。  
-> **最后审阅 / Last reviewed:** 2026-07-09
+> **最后审阅 / Last reviewed:** 2026-08-01
 
 ---
 
@@ -27,7 +27,7 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 | **Phase 2** | Rig 过渡对话、流式管线、工作目录 | ✅ 完成 | ~95% | [PHASE_2_DETAILED_PLAN.md](../planning/PHASE_2_DETAILED_PLAN.md) |
 | **Phase 3** | Sidecar 预热、MCP、会话高级管理 | 🟡 **代码关门，待实机复验** | ~95% | [PHASE_3_REMAINING_TODO.md](../planning/PHASE_3_REMAINING_TODO.md) |
 | **Phase 4** | DeepAgents 全对话迁移 + PowerMem | ⏸️ 待 Phase 3 | ~5% | [PHASE_4_DETAILED_PLAN.md](../planning/PHASE_4_DETAILED_PLAN.md) |
-| **Phase 5** | Skills + 知识库 RAG | ❌ 未开始 | ~0% | 总体规划 §8 |
+| **Phase 5** | Skills + 知识库 RAG | 🟡 Skills 已交付，RAG 待实施 | ~50% | 总体规划 §8 |
 | **Phase 6** | 打磨、Dashboard、打包、发布 | ❌ 未开始 | ~0% | 总体规划 §9 |
 | **Phase B** | Buddy 桌面伴侣 | ❌ 未开始 | ~0% | 总体规划 §10 |
 
@@ -40,7 +40,7 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 | **M1** 核心可用 | Rig 对话 + 工作目录 + 会话管理 | ✅ 已达成 |
 | **M2** 基础设施就绪 | Sidecar 预热 + MCP 全链路 | 🟡 代码路径就绪，待 UI/实机复验记录 |
 | **M3** Agent 平台 | DeepAgents 接管对话 | ⏸️ Phase 4（Phase 3 完成后） |
-| **M4** 知识增强 | Skills + 知识库 | ❌ Phase 5 |
+| **M4** 知识增强 | Skills + 知识库 | 🟡 Skills 已交付，知识库待实施 |
 | **M5** 发布就绪 | 跨平台打包 + 打磨 | ❌ Phase 6 |
 
 ---
@@ -75,7 +75,7 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 
 ### 3.3 设置与 Provider
 
-- 设置页五 Tab：通用 / 模型 / MCP / 外观 / 关于
+- 设置页六 Tab：通用 / 模型 / MCP / Skills / 外观 / 关于
 - Provider CRUD、API Key **AES-GCM 加密**、自定义模型、连接测试、拉取模型列表
 - 主题（明 / 暗 / 跟随系统）、中 / 英文 i18n
 
@@ -96,7 +96,17 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 | Rust | `src-tauri/src/services/mcp/manager.rs`、`src-tauri/src/commands/mcp.rs` |
 | 前端 | `src/pages/settings/McpSettings.tsx`、`src/components/chat/ToolApprovalDialog.tsx` |
 
-### 3.5 Sidecar 预热（尚未参与对话）
+### 3.5 Skills 仓库与扫描 Gate
+
+- Settings > Skills 是唯一入口；独立 route、title/nav 分支和页面 wrapper 已删除。
+- 受管与外部 source 使用 stable SkillId、activation generation 和历史消息 hash snapshot；禁用/未扫描 source 不会进入 Sidecar mount。
+- summary/tree/read-file 按需加载，全文 detail command 已删除；扫描结论来自 v12 scan/finding/approval 表，不再读取旧 `risk_json`。
+- Schema v13 首次升级将旧 source 设为 `unscanned + disabled`，批量扫描进度持久化，应用中断可恢复，失败项可重试；升级前保留 `.pre-v13.sqlite3`。
+- Codex / Claude / Cursor 外部目录只读；Sandbox 依赖的第三方深度 scanner（S4）按当前范围延后。
+
+**关键路径：** `src/components/skills/`、`src-tauri/src/services/skills/`、`agent/app/agent.py`
+
+### 3.6 Sidecar 预热（尚未参与对话）
 
 - 应用启动可自动预热 Python Sidecar（`auto_start_sidecar` in config）
 - 健康检查、`SidecarStatusBadge` 状态展示
@@ -106,7 +116,7 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 
 **关键路径：** `src-tauri/src/sidecar.rs`、`src-tauri/src/services/sidecar_client.rs`、`agent/app/routers/`
 
-### 3.6 测试覆盖
+### 3.7 测试覆盖
 
 | 范围 | 数量 | 运行命令 |
 |------|------|----------|
@@ -137,11 +147,10 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 | PowerMem 长期记忆 | 依赖未安装（optional） | `agent/pyproject.toml` `[project.optional-dependencies]` |
 | 记忆管理 UI | 无 | Phase 4 Sprint 5 |
 
-### 4.3 Phase 5+ 占位页面
+### 4.3 其余占位页面
 
 以下页面为 `EmptyState` + `comingSoon`，数据库表已预留但无业务逻辑：
 
-- `src/pages/SkillsPage.tsx`
 - `src/pages/KnowledgePage.tsx`
 - `src/pages/DashboardPage.tsx`
 - `src/pages/NotificationsPage.tsx`
@@ -205,7 +214,7 @@ npm run tauri dev
 
 ### 路线 C：Phase 5 垂直切片（Phase 4 之后）
 
-- **Skills：** 从 `~/.misakax/skills/` 发现 + Settings / Chat Skill 选择器打通
+- **Skills：** 已完成多来源发现、Settings/Chat 选择、扫描 Gate 与存量迁移；S4 随 Sandbox 另行实施
 - **知识库：** `knowledge_docs` + sqlite-vec 向量表 + `KnowledgePage` 最小 RAG
 
 ---
@@ -217,7 +226,7 @@ npm run tauri dev
 | 前端 TS/TSX | ~160+ 文件 |
 | Rust 源码 | 47 个 `.rs`（`src-tauri/src/`） |
 | Tauri Commands | ~50+（见 `src-tauri/src/lib.rs` `invoke_handler`） |
-| DB Schema | **v6**（`src-tauri/src/db/migrations.rs`） |
+| DB Schema | **v13**（`src-tauri/src/db/migrations.rs`） |
 | UI 设计规范 | `docs/design/frontend-ui-guidelines.md` 等 3 份 |
 
 ---
@@ -232,7 +241,7 @@ React 前端 ✅
 Tauri Rust ✅
   ├── chat ──▶ Rig ──▶ LLM API          ← 当前对话路径
   ├── MCP (rmcp) ──▶ MCP Servers
-  ├── SQLite v6
+  ├── SQLite v13
   └── SidecarManager ──▶ Python :9527
                               ├── /health ✅
                               └── /agent/* ❌ 501（Phase 4）

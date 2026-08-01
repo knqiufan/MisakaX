@@ -15,7 +15,7 @@
 MisakaX 是一个开源的桌面 AI Agent 客户端，采用三层架构设计：
 
 - **Rust 后端** — 数据库、文件系统、MCP 协议、LLM 调用（当前对话走 Rig 过渡后端）
-- **React 前端** — 会话管理、流式对话 UI、工作目录、Provider / MCP 设置
+- **React 前端** — 会话管理、流式对话 UI、工作目录、Provider / MCP / Skills 设置
 - **Python Sidecar** — Sidecar 预热与健康检查已就绪；DeepAgents + PowerMem 对话编排（Phase 4 规划中）
 
 > **开发状态：** Phase 3 代码关门（~95%），**请先补齐最终 UI/实机复验记录再进入 Phase 4**。  
@@ -26,14 +26,14 @@ MisakaX 是一个开源的桌面 AI Agent 客户端，采用三层架构设计�
 ### 基础设施（Phase 0）
 
 - 跨平台桌面应用框架（Tauri 2.x，Windows / macOS / Linux）
-- SQLite 数据库 Schema 迁移至 **v6**（WAL、FTS5、sqlite-vec 扩展加载）
+- SQLite 数据库 Schema 迁移至 **v13**（WAL、FTS5、sqlite-vec、Skills 扫描与迁移状态）
 - 配置管理（`~/.misakax/config.yaml`）
 - Tauri 插件（fs、http、shell、dialog、clipboard、notification）
 
 ### UI 与设置（Phase 1）
 
 - AppShell 主布局、侧边栏导航、Zustand 路由
-- 设置页（通用 / 模型 / MCP / 外观 / 关于）
+- 设置页（通用 / 模型 / MCP / Skills / 外观 / 关于）
 - Provider API Key CRUD + **加密存储**
 - 主题切换（明 / 暗 / 跟随系统）、中 / 英文 i18n
 
@@ -50,10 +50,17 @@ MisakaX 是一个开源的桌面 AI Agent 客户端，采用三层架构设计�
 - Sidecar 自动预热、健康检查、前端状态指示
 - Tool Call UI、MCP 设置页
 
+### Skills 仓库与安全门
+
+- Settings > Skills 统一管理受管、Codex、Claude 与 Cursor 来源；启用和消息选择使用 stable SkillId + activation generation
+- 按需 summary、文件树和分段预览；普通详情不传输整份 `SKILL.md`
+- ZIP quarantine、离线静态扫描、findings、审批/撤销、JSON/SARIF 导出和强制激活 Gate
+- Schema v13 首次升级会禁用旧豁免 source、持久化显示批量扫描进度并支持失败重试；外部目录只读
+
 ### 尚未实现
 
 - DeepAgents 全对话接管（Sidecar `/agent/*` 当前为 501 占位）
-- PowerMem 长期记忆、Skills 系统、知识库 RAG
+- PowerMem 长期记忆、知识库 RAG、Sandbox 隔离的可选 Skills 深度扫描器
 - Dashboard、通知中心、Buddy 桌面伴侣
 
 ## 技术架构
@@ -65,7 +72,7 @@ MisakaX 是一个开源的桌面 AI Agent 客户端，采用三层架构设计�
 │  → Vite 6 开发服务器 (:1420)                   │
 ├────────────────────────────────────────────────┤
 │  Tauri 2.x (Rust)                              │
-│  - SQLite (WAL) v6 + sqlite-vec + FTS5         │
+│  - SQLite (WAL) v13 + sqlite-vec + FTS5        │
 │  - LLM: rig-core（过渡）+ rmcp（MCP）          │
 │  - 配置 (~/.misakax/config.yaml)               │
 ├────────────────────────────────────────────────┤
@@ -83,7 +90,7 @@ MisakaX 是一个开源的桌面 AI Agent 客户端，采用三层架构设计�
 | 前端 | React 19 + TypeScript + Vite 6 | Zustand 状态、react-i18next |
 | UI | Tailwind CSS v4 + shadcn/ui | 设计规范见 `docs/design/` |
 | 后端 | Rust (tokio, rusqlite, rig-core, rmcp) | ~50+ Tauri Commands |
-| 数据库 | SQLite + sqlite-vec + FTS5 | Schema v6 |
+| 数据库 | SQLite + sqlite-vec + FTS5 | Schema v13 |
 | 过渡对话 | rig-core 0.36 | Phase 4 后退役为降级路径 |
 | Agent 编排 | DeepAgents（Phase 4） | 替换 Rig 直调 |
 | 记忆引擎 | PowerMem（Phase 4） | Sidecar optional 依赖 |
@@ -152,13 +159,13 @@ misaka-x/
 │   │   ├── chat/                  # 对话、会话、工作区、Composer
 │   │   ├── layout/                # AppShell、Sidebar
 │   │   └── ui/                    # shadcn/ui
-│   ├── pages/                     # Chat、Settings、Skills 等
+│   ├── pages/                     # Chat、Settings、Knowledge 等
 │   ├── stores/                    # Zustand（chat、settings、theme…）
 │   ├── lib/ipc/                   # Tauri IPC 封装
 │   └── locales/                   # i18n（zh-CN / en）
 ├── src-tauri/src/
 │   ├── commands/                  # chat, session, mcp, settings…
-│   ├── db/                        # migrations (v6), repository
+│   ├── db/                        # migrations (v13), repository
 │   ├── services/
 │   │   ├── llm/                   # Rig Provider、流式、工厂
 │   │   └── mcp/                   # rmcp Manager
@@ -189,7 +196,7 @@ misaka-x/
 | Phase 2 | Rig 过渡对话、流式渲染、工作目录 | ✅ |
 | Phase 3 | Sidecar 预热、MCP、会话高级管理 | 🟡 **代码关门，待实机复验** |
 | Phase 4 | DeepAgents 全对话迁移 + PowerMem | ⏸️ Phase 3 完成后 |
-| Phase 5 | Skills + 知识库 RAG | 未开始 |
+| Phase 5 | Skills + 知识库 RAG | 🟡 Skills 已交付；RAG 未开始 |
 | Phase 6 | Dashboard、打包、跨平台发布 | 未开始 |
 
 **续做指南：** [`PHASE_3_REMAINING_TODO.md`](docs/planning/PHASE_3_REMAINING_TODO.md)
@@ -199,9 +206,9 @@ misaka-x/
 ```
 ~/.misakax/
 ├── config.yaml           # 全局配置（主题、语言、sidecar_port 等）
-├── data/misaka.db        # SQLite（Schema v6）
+├── data/misaka.db        # SQLite（Schema v13）
 ├── mcp.json              # MCP Server 配置（可选）
-├── skills/               # 用户 Skills（Phase 5）
+├── skills/               # 受管 Skills（启用前必须通过扫描 Gate）
 ├── managed/skills/
 ├── plugins/
 ├── models/

@@ -197,7 +197,6 @@ function InstalledListItem({
 }) {
   const { t } = useTranslation("skills");
   const healthy = skill.health === "healthy" && [
-    "legacy_allowed",
     "passed",
     "warnings",
     "approved",

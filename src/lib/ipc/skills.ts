@@ -4,7 +4,6 @@ import type {
   RemoteSearchPage,
   RemoteSkillDetail,
   SkillArchiveInspection,
-  SkillDetail,
   SkillActivationView,
   SkillFilePage,
   SkillFilePreview,
@@ -16,6 +15,7 @@ import type {
   SkillApprovalOperation,
   SkillScanPrivacyDefaults,
   SkillSummary,
+  SkillMigrationStatus,
 } from "./types";
 
 export const skillsIpc = {
@@ -23,9 +23,6 @@ export const skillsIpc = {
 
   getActivationView: () =>
     invoke<SkillActivationView>("skills_get_activation_view"),
-
-  getDetail: (slug: string) =>
-    invoke<SkillDetail>("skills_get_detail", { slug }),
 
   getSummary: (skillId: string) =>
     invoke<SkillSummary>("skills_get_summary", { skillId }),
@@ -84,6 +81,12 @@ export const skillsIpc = {
   getScanPrivacyDefaults: () =>
     invoke<SkillScanPrivacyDefaults>("skills_get_scan_privacy_defaults"),
 
+  getMigrationStatus: () =>
+    invoke<SkillMigrationStatus>("skills_get_migration_status"),
+
+  retryMigrationScan: () =>
+    invoke<SkillMigrationStatus>("skills_retry_migration_scan"),
+
   inspectArchive: (path: string) =>
     invoke<SkillArchiveInspection>("skills_inspect_archive", { path }),
 
@@ -102,8 +105,8 @@ export const skillsIpc = {
   importModelScope: (reference: string) =>
     invoke<SkillScanOperation>("skills_import_modelscope", { reference }),
 
-  exportInstalled: (slug: string, destination: string) =>
-    invoke<void>("skills_export_installed", { slug, destination }),
+  exportInstalled: (skillId: string, destination: string) =>
+    invoke<void>("skills_export_installed", { skillId, destination }),
 
   downloadRemote: (
     provider: string,
@@ -118,9 +121,9 @@ export const skillsIpc = {
       destination,
     }),
 
-  setEnabled: (identifier: string, enabled: boolean) =>
-    invoke<void>("skills_set_enabled", { identifier, enabled }),
+  setEnabled: (skillId: string, enabled: boolean) =>
+    invoke<void>("skills_set_enabled", { skillId, enabled }),
 
-  uninstall: (identifier: string) =>
-    invoke<void>("skills_uninstall", { identifier }),
+  uninstall: (skillId: string) =>
+    invoke<void>("skills_uninstall", { skillId }),
 };

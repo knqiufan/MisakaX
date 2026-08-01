@@ -61,6 +61,13 @@ const STANDARD_RISK_NOTES = new Set([
   "This skill includes binary assets; inspect them before use.",
   "This skill declares allowed tools that require a runtime review.",
 ]);
+const EMPTY_RISK_REPORT: SkillRiskReport = {
+  has_scripts: false,
+  has_binary_files: false,
+  has_allowed_tools: false,
+  remote_scan_status: null,
+  notes: [],
+};
 
 export function SkillDetailPanel({
   detail,
@@ -173,7 +180,7 @@ export function SkillDetailPanel({
             <div className="space-y-5 p-4 pb-8">
               <SecurityPanel
                 skillId={installed ? detail.skill.skill_id : null}
-                risk={installed ? detail.skill.risk : detail.risk}
+                risk={installed ? EMPTY_RISK_REPORT : detail.risk}
                 scanSummary={scanSummary}
                 loading={scanLoading}
                 remote={!installed}

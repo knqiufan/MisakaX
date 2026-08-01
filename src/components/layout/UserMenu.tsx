@@ -59,7 +59,7 @@ export function UserMenu() {
           {t("settings")}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => navigate({ page: "skills" })}>
+        <DropdownMenuItem onClick={() => navigate({ page: "settings", tab: "skills" })}>
           <Sparkles className="mr-2 h-4 w-4" />
           {t("skills")}
         </DropdownMenuItem>

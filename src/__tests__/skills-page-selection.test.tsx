@@ -9,9 +9,12 @@ const mocks = vi.hoisted(() => ({
   readFile: vi.fn(),
   refresh: vi.fn(),
   searchRemote: vi.fn(),
+  getMigrationStatus: vi.fn(),
+  retryMigrationScan: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn() }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn().mockResolvedValue(vi.fn()) }));
 
 vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
@@ -80,6 +83,8 @@ vi.mock("@/components/skills/useSkillsInventory", () => ({
 vi.mock("@/lib/ipc", () => ({
   skillsIpc: {
     getSummary: mocks.getSummary,
+    getMigrationStatus: mocks.getMigrationStatus,
+    retryMigrationScan: mocks.retryMigrationScan,
     listFiles: mocks.listFiles,
     readFile: mocks.readFile,
     getRemoteDetail: vi.fn(),
@@ -99,9 +104,19 @@ describe("Skills Settings detail selection", () => {
     mocks.readFile.mockReset();
     mocks.refresh.mockReset();
     mocks.searchRemote.mockReset();
+    mocks.getMigrationStatus.mockReset();
+    mocks.retryMigrationScan.mockReset();
     mocks.refresh.mockResolvedValue(undefined);
     mocks.searchRemote.mockResolvedValue({ items: [] });
     mocks.listFiles.mockResolvedValue(filePageFixture());
+    mocks.getMigrationStatus.mockResolvedValue({
+      state: "completed",
+      total: 0,
+      completed: 0,
+      failed: 0,
+      current_skill_id: null,
+      last_error: null,
+    });
   });
 
   it("clears a loaded installed detail when switching to Discover", async () => {
@@ -132,6 +147,31 @@ describe("Skills Settings detail selection", () => {
 
     expect(screen.getByTestId("detail-state").textContent).toBe("empty");
   });
+
+  it("shows persisted migration failures and retries only failed items", async () => {
+    mocks.getMigrationStatus.mockResolvedValue({
+      state: "completed_with_errors",
+      total: 3,
+      completed: 3,
+      failed: 1,
+      current_skill_id: null,
+      last_error: "fixture",
+    });
+    mocks.retryMigrationScan.mockResolvedValue({
+      state: "pending",
+      total: 3,
+      completed: 2,
+      failed: 0,
+      current_skill_id: null,
+      last_error: null,
+    });
+
+    render(<SkillsSettingsFeature />);
+    const retry = await screen.findByRole("button", { name: "retryFailedMigrationScans" });
+    fireEvent.click(retry);
+    await waitFor(() => expect(mocks.retryMigrationScan).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("migrationScanning")).toBeTruthy();
+  });
 });
 
 function detailFixture(): SkillSummary {
@@ -155,14 +195,7 @@ function detailFixture(): SkillSummary {
       effective_rank: 400,
       conflict: false,
       disabled_reason: null,
-      security_state: "legacy_allowed",
-      risk: {
-        has_scripts: false,
-        has_binary_files: false,
-        has_allowed_tools: false,
-        remote_scan_status: null,
-        notes: [],
-      },
+      security_state: "passed",
       installed_at: "2026-07-23T00:00:00Z",
       updated_at: "2026-07-23T00:00:00Z",
     },

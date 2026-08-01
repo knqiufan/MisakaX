@@ -69,7 +69,7 @@ export type {
   SkillApprovalRecord,
   SkillApprovalOperation,
   SkillScanPrivacyDefaults,
-  SkillDetail,
+  SkillMigrationStatus,
   RemoteSkill,
   RemoteSkillDetail,
   RemoteSearchPage,

@@ -38,8 +38,8 @@ pub struct SkillFileProvider {
 
 impl SkillFileProvider {
     pub fn from_registered(conn: &Connection, identifier: &str) -> Result<(Self, SkillRecord)> {
-        let record = SkillSourceRepo::find_id_or_legacy_slug(conn, identifier)?
-            .context("Skill source is not registered")?;
+        let record =
+            SkillSourceRepo::find(conn, identifier)?.context("Skill source is not registered")?;
         let root = registered_root(&record)?;
         Ok((
             Self {
@@ -271,8 +271,8 @@ pub fn get_summary(conn: &Connection, identifier: &str) -> Result<SkillSummary> 
 }
 
 pub fn get_scan_summary(conn: &Connection, identifier: &str) -> Result<SkillScanSummary> {
-    let record = SkillSourceRepo::find_id_or_legacy_slug(conn, identifier)?
-        .context("Skill source is not registered")?;
+    let record =
+        SkillSourceRepo::find(conn, identifier)?.context("Skill source is not registered")?;
     crate::db::repository::SkillSecurityRepo::scan_summary(
         conn,
         &record.skill_id,

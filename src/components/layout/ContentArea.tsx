@@ -1,7 +1,6 @@
 import { useAppStore } from "@/stores/app-store";
 import {
   ChatPage,
-  SkillsPage,
   KnowledgePage,
   DashboardPage,
   NotificationsPage,
@@ -14,8 +13,6 @@ export function ContentArea() {
   switch (route.page) {
     case "chat":
       return <ChatPage />;
-    case "skills":
-      return <SkillsPage />;
     case "knowledge":
       return <KnowledgePage />;
     case "dashboard":

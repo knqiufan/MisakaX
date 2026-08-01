@@ -274,8 +274,7 @@ export interface InstalledSkill {
   effective_rank: number;
   conflict: boolean;
   disabled_reason: string | null;
-  security_state: "legacy_allowed" | "pending_user" | "user_allowed" | string;
-  risk: SkillRiskReport;
+  security_state: "unscanned" | "passed" | "warnings" | "approved" | string;
   installed_at: string;
   updated_at: string;
 }
@@ -390,6 +389,15 @@ export interface SkillScanOperation {
   installed_skill: InstalledSkill | null;
 }
 
+export interface SkillMigrationStatus {
+  state: "pending" | "running" | "completed" | "completed_with_errors";
+  total: number;
+  completed: number;
+  failed: number;
+  current_skill_id: string | null;
+  last_error: string | null;
+}
+
 export interface SkillApprovalRecord {
   approval_id: string;
   artifact_hash: string;
@@ -417,13 +425,6 @@ export interface SkillScanPrivacyDefaults {
   network_used_by_builtin_scan: false;
 }
 
-export interface SkillDetail {
-  skill: InstalledSkill;
-  manifest: SkillManifest;
-  files: SkillFileNode[];
-  skill_markdown: string;
-}
-
 export interface RemoteSkill {
   provider: "skillhub" | "clawhub" | "modelscope" | string;
   slug: string;
@@ -444,7 +445,6 @@ export interface RemoteSkillDetail {
   risk: SkillRiskReport;
   manifest: SkillManifest | null;
   files: SkillFileNode[];
-  skill_markdown: string | null;
 }
 
 export interface RemoteSearchPage {

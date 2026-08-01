@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口混合壳结构、任务侧栏、对话页顶栏、设置页与工作区布局语义。 |
 | **受众** | 负责 `AppShell`、`UnifiedTopBar`、`SessionPanel`、`SettingsSidebar`、`ChatPage`、`WorkspaceBar`、`SettingsPage` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-08-01（v26） |
+| **最后审阅** | 2026-08-01（v27） |
 
 ## 相关文档
 
@@ -186,7 +186,7 @@ Provider 目录网格仅 `md:grid-cols-2`。Appearance 主题分段：`rounded-m
 
 ### 4.4 Settings > Skills 仓库
 
-- Skills 是 Settings 第四个分区，固定置于 MCP 与 Appearance 之间，沿用 `SettingsSidebar`、`UnifiedTopBar` 与 resize gutter；旧独立 Skills route 在一个兼容周期内只重定向到 `{ page: "settings", tab: "skills" }`。
+- Skills 是 Settings 第四个分区，固定置于 MCP 与 Appearance 之间，沿用 `SettingsSidebar`、`UnifiedTopBar` 与 resize gutter；独立 Skills route/title/nav/page wrapper 已移除，所有入口直接导航到 `{ page: "settings", tab: "skills" }`。
 - Settings 内容槽为 Skills 使用 `wide` + `max-w-6xl`，同时保持 `h-full min-h-0 overflow-hidden`；禁止新增第二套侧边栏、网页式 Hero 或 feature 内负 margin。
 - 顶部固定信息层级为标题/短说明、已安装/在线发现切换、搜索、来源筛选与「上传安装」主操作；列表与详情在宽屏为紧凑双列，在窄宽度自然纵向排列。
 - 在线与已安装详情共用固定头部和 `文件 / 安全 / 概览` tabs。普通远端详情只取仓库元数据，不自动下载或解包制品；本地文件也只在用户点击后按相对路径读取。
@@ -202,6 +202,7 @@ Provider 目录网格仅 `md:grid-cols-2`。Appearance 主题分段：`rounded-m
 - 文件树默认可见但不默认选中文件，展示相对路径、类型和大小，目录按需展开并分页；未点击文件时正文读取次数必须为 0。文本源码按 200 KiB 分段显式继续加载；二进制/不支持编码显示 metadata 空态。远端未缓存制品必须解释“安装或显式扫描后检查”，不能暗中下载。
 - Security tab 的摘要、隐私契约、findings 和审批历史只在首次打开该 tab 后加载；findings 使用后端 cursor 分页，筛选变化必须丢弃旧页。JSON/SARIF 导出先走系统保存对话框，不在 WebView 中拼接下载链接。
 - `review_required` 就地显示原因输入与批准/拒绝；少于 3 个非空字符时动作 disabled。批准后的受管 Skill 仍为 disabled，已有有效批准跨详情重开/应用重启可恢复并可撤销；blocked 结论不能显示批准捷径。
+- 首次升级扫描状态条位于 toolbar 与双栏内容之间，宽度跟随 Skills 内容槽；pending/running 展示 `completed / total`，`completed_with_errors` 展示失败数与显式重试，completed 不占布局空间。
 
 ---
 
