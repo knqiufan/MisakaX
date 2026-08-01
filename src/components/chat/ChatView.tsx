@@ -286,6 +286,8 @@ export function ChatView({
           onSend={handleSend}
           onStop={handleStop}
           onPickWorkspaceFile={onToggleExplorer}
+          chatSessionId={session.id}
+          workingDirectory={session.working_directory}
         />
       </div>
       <ToolApprovalDialog

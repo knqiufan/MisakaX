@@ -28,6 +28,15 @@
   "selectDir": "Select directory",
   "switchDir": "Switch directory",
   "openExplorer": "Open workspace panel",
+  "notFound": "The workspace is unavailable.",
+  "gitUnavailable": "Git context is unavailable; showing a local project.",
+  "context": {
+    "loading": "Loading workspace context",
+    "localProject": "Local project",
+    "localHint": "This workspace is not a Git work tree.",
+    "gitUnavailable": "Git context is unavailable; showing a local project. Error ID: {{id}}",
+    "ariaLabel": "Workspace context: {{value}}"
+  },
   "explorer": {
     "title": "Workspace",
     "files": "Files",

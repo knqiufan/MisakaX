@@ -22,9 +22,10 @@ use db::repository::SessionRepo;
 use services::llm::StreamRegistry;
 use services::mcp::McpManager;
 use services::sidecar_client::SidecarClient;
+use services::workspace::{GitCliProvider, WorkspaceContextService};
 use sidecar::SidecarManager;
 use std::sync::{Arc, Mutex};
-use tauri::{Manager, RunEvent};
+use tauri::{Emitter, Manager, RunEvent};
 
 /// Application state shared across commands
 pub struct AppState {
@@ -37,6 +38,7 @@ pub struct AppState {
     pub stream_registry: StreamRegistry,
     /// MCP Server 管理器 — 管理所有 MCP Server 连接的生命周期
     pub mcp_manager: Arc<McpManager>,
+    pub workspace_context: Arc<WorkspaceContextService>,
     pub feature_flags: contracts::FeatureFlags,
 }
 
@@ -88,6 +90,9 @@ pub fn run() {
     let sidecar_client = SidecarClient::new(sidecar_port);
 
     let mcp_manager = Arc::new(McpManager::new());
+    let workspace_context = Arc::new(WorkspaceContextService::new(Arc::new(
+        GitCliProvider::default(),
+    )));
 
     let mcp_configs = {
         let config_root = config::config_dir().unwrap_or_default();
@@ -108,6 +113,7 @@ pub fn run() {
             sidecar_client,
             stream_registry: StreamRegistry::new(),
             mcp_manager: Arc::clone(&mcp_manager),
+            workspace_context: Arc::clone(&workspace_context),
             feature_flags: contracts::FeatureFlags::from_env(),
         })
         .manage(tray::TrayState::default())
@@ -152,6 +158,7 @@ pub fn run() {
             commands::workspace::remove_recent_directory,
             commands::workspace::list_workspace_preferences,
             commands::workspace::update_workspace_preference,
+            commands::workspace::workspace_get_context,
             commands::session::create_session,
             commands::session::list_sessions,
             commands::session::update_session,
@@ -210,11 +217,32 @@ pub fn run() {
             commands::skills::skills_set_enabled,
             commands::skills::skills_uninstall,
         ])
-        .on_window_event(tray::handle_window_event)
+        .on_window_event(|window, event| {
+            tray::handle_window_event(window, event);
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Focused(true)) {
+                window
+                    .app_handle()
+                    .state::<AppState>()
+                    .workspace_context
+                    .request_refresh_all();
+            }
+        })
         .setup(move |app| {
             tracing::info!("MisakaX initialized successfully");
 
             tray::setup(app.handle())?;
+            let workspace_event_app = app.handle().clone();
+            app.state::<AppState>().workspace_context.start(
+                move |event| {
+                    if let Err(error) = workspace_event_app.emit("workspace.context.changed", event)
+                    {
+                        tracing::warn!(error = %error, "Failed to emit workspace context event");
+                    }
+                },
+                |task| {
+                    tauri::async_runtime::spawn(task);
+                },
+            );
             if let Err(error) = services::skills::security::migration::start(app.handle().clone()) {
                 tracing::warn!(error = %error, "Failed to start Skill security migration scan");
             }

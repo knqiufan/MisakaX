@@ -64,6 +64,8 @@ interface MessageInputProps {
   onStop: () => void;
   disabled?: boolean;
   onPickWorkspaceFile?: () => void;
+  chatSessionId?: string | null;
+  workingDirectory?: string | null;
 }
 
 export function MessageInput({
@@ -71,6 +73,8 @@ export function MessageInput({
   onStop,
   disabled = false,
   onPickWorkspaceFile,
+  chatSessionId,
+  workingDirectory,
 }: MessageInputProps) {
   const { t } = useTranslation("chat");
   const { isStreaming, selectedModel } = useChatStore();
@@ -358,7 +362,11 @@ export function MessageInput({
         className="hidden"
         aria-hidden
       />
-      <ComposerFooter t={t} />
+      <ComposerFooter
+        t={t}
+        chatSessionId={chatSessionId}
+        workingDirectory={workingDirectory}
+      />
     </div>
   );
 }

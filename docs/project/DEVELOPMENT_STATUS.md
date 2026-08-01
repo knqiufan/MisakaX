@@ -70,8 +70,9 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 - 新建会话时选择工作目录；会话绑定 `working_directory`
 - 工作区资源管理器、Monaco 编辑器、文件树、多 Tab 编辑
 - Rust 文件读写命令（`fs_explorer`、`workspace`）
+- Composer footer 只读显示 Git 分支、detached short SHA 或“本地项目”；支持 worktree/submodule、可信 Git CLI 退化、generation/cache 与 HEAD/ref 刷新，不提供 Git 写操作
 
-**关键路径：** `src/components/chat/workspace/`、`src-tauri/src/commands/workspace.rs`
+**关键路径：** `src/components/chat/workspace/`、`src/components/chat/composer/WorkspaceContextBadge.tsx`、`src-tauri/src/commands/workspace.rs`、`src-tauri/src/services/workspace/`
 
 ### 3.3 设置与 Provider
 

@@ -1,4 +1,7 @@
 import { invoke } from "./invoke";
+import type { WorkspaceContext } from "./contracts";
+
+export const WORKSPACE_CONTEXT_CHANGED_EVENT = "workspace.context.changed";
 
 export interface DirectoryInfo {
   path: string;
@@ -24,6 +27,12 @@ export interface WorkspacePreference {
 }
 
 export const workspaceIpc = {
+  getContext: (chatSessionId: string, refresh = false) =>
+    invoke<WorkspaceContext>("workspace_get_context", {
+      chatSessionId,
+      refresh,
+    }),
+
   browseDirectory: (startPath?: string) =>
     invoke<string | null>("browse_directory", { startPath }),
 

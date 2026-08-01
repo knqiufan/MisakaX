@@ -8,7 +8,7 @@
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-08-01（v26）
+**最后审阅 / Last reviewed:** 2026-08-01（v27）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -157,6 +157,13 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - 内置扫描的隐私说明必须明确“离线且不上传”；任何未来会发送 hash、文件或内容的适配器都需在动作前独立确认，不得沿用内置扫描文案暗示已上传或已认证安全。
 - 存量安全迁移在 toolbar 下使用紧凑就地状态条和线性进度，不阻塞列表查看/删除；完成后自动消失，存在失败时保留失败数和“重试失败项”。状态须来自持久化 migration DTO 与事件，不能只存在于组件内存。
 - 具体布局、安全空态与 Switch 语义以 [Skills/Workspace/Terminal UI 设计](./SKILLS_WORKSPACE_TERMINAL_UI_DESIGN.md) 为准；本节只记录跨页面必须复用的实现约束。
+
+### 4.3.z.2 Composer 工作区上下文
+
+- 已绑定会话在 composer footer 左侧渲染只读 `WorkspaceContextBadge`，Model/MCP/Skill 与发送能力优先；窄宽度可只保留图标 + tooltip。badge 不得使用 Button、chevron 或空 menu 暗示尚不存在的 Git 操作。
+- Git 分支使用中间省略并在 tooltip 展示完整 ref；detached 必须显示 `detached:<short-sha>`。非 Git、Git 不可用、超时和查询错误统一显示“本地项目”，不得把绝对路径、stderr 或 PATH 候选放入 tooltip/屏幕共享区域。
+- 首次加载使用固定宽度 skeleton；刷新旧值标为 stale 但不阻塞输入。所有 response/event 必须核对 chat session 与 generation，快速切换后的旧结果直接丢弃。
+- 前端只调用固定 `workspace_get_context(chatSessionId, refresh)`，不得构造 Git 命令、传 cwd 或可执行文件。后端事件名固定为 `workspace.context.changed`；未来 provider action 只保留类型 seam，无 provider 时不渲染控件。
 
 ### 4.4 空页面与占位符 (Empty States)
 - 空页面设计应具有**引导性**。

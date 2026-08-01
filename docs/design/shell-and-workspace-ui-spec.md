@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口混合壳结构、任务侧栏、对话页顶栏、设置页与工作区布局语义。 |
 | **受众** | 负责 `AppShell`、`UnifiedTopBar`、`SessionPanel`、`SettingsSidebar`、`ChatPage`、`WorkspaceBar`、`SettingsPage` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-08-01（v27） |
+| **最后审阅** | 2026-08-01（v28） |
 
 ## 相关文档
 
@@ -144,6 +144,13 @@ Sidecar 状态**不**放在底栏（见 §1 / 关于页）。
 - Explorer：`onToggleExplorer` 必须真正开/关；无工作目录时可不传回调（按钮 disabled）。
 - Tool Logs：与 Explorer **语义解耦**；本期挂载为**聊天列内抽屉**（WorkspaceBar 下方，`max-h-[min(40vh,320px)]`），头 `h-10` + 11px uppercase + 关闭 X；开态传 `toolLogsOpen`。
 - 控件细节见 [button-menu-design-spec.md](./button-menu-design-spec.md)。
+
+### 3.3 Composer footer 工作区标识
+
+- `WorkspaceContextBadge` 位于 composer footer 左侧，和右侧 Model/MCP/Skill 控件共享一行但视觉优先级更低；使用 `h-6`、紧凑圆角表面、`text-[11px]` 与 `GitBranch`/硬盘语义图标。
+- 正常分支显示 ref；detached 显示 `detached:<short-sha>`；长 ref 中间省略。非 Git或查询退化均显示“本地项目”，路径仍只在既有 WorkspaceBar 展示，不复制到 badge tooltip。
+- badge 是状态文本而非操作按钮：无 hover 位移、无 chevron/menu、无 stage/commit/checkout 行为；小窗口优先隐藏文字、保留图标和可访问名称。
+- 首载 skeleton 保持稳定宽度；后台 focus/watcher 刷新不改变 composer 可输入性。具体 generation、诊断脱敏与 IPC 约束见 [Skills/Workspace/Terminal UI 设计 §6](./SKILLS_WORKSPACE_TERMINAL_UI_DESIGN.md#6-输入框下方工作区标识)。
 
 ---
 

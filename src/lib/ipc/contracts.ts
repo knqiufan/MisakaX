@@ -50,6 +50,13 @@ export type FindingSeverity = "info" | "low" | "medium" | "high" | "critical";
 
 export type WorkspaceKind = "git" | "local";
 
+export interface WorkspaceContextDiagnostic {
+  code: AppErrorCode;
+  message_key: string;
+  retryable: boolean;
+  correlation_id: string;
+}
+
 export interface WorkspaceContext {
   workspace_path: string;
   kind: WorkspaceKind;
@@ -57,6 +64,7 @@ export interface WorkspaceContext {
   branch: string | null;
   detached_head: string | null;
   generation: number;
+  diagnostic: WorkspaceContextDiagnostic | null;
 }
 
 export type WorkspacePanelMode = "explorer" | "terminal";

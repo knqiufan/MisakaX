@@ -43,6 +43,7 @@ MisakaX 是一个开源的桌面 AI Agent 客户端，采用三层架构设计�
 - 停止生成、重新生成、思维链展示、Token 统计、图片附件
 - 会话管理（分组 / 置顶 / 归档 / 搜索 / 导入导出）
 - **工作目录**绑定、资源管理器、Monaco 文件编辑
+- Composer footer 只读 Git/本地项目标识（分支、detached HEAD、worktree/submodule；无 Git 写操作）
 
 ### MCP 与 Sidecar（Phase 3，主体完成）
 

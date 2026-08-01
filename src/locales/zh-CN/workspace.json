@@ -28,6 +28,15 @@
   "selectDir": "选择目录",
   "switchDir": "切换目录",
   "openExplorer": "打开工作区面板",
+  "notFound": "工作区不可用。",
+  "gitUnavailable": "无法读取 Git 上下文，已显示为本地项目。",
+  "context": {
+    "loading": "正在读取工作区上下文",
+    "localProject": "本地项目",
+    "localHint": "此工作区不是 Git 工作树。",
+    "gitUnavailable": "无法读取 Git 上下文，已显示为本地项目。错误 ID：{{id}}",
+    "ariaLabel": "工作区上下文：{{value}}"
+  },
   "explorer": {
     "title": "工作区",
     "files": "文件",

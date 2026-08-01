@@ -8,6 +8,7 @@ mod tests {
     use misaka_x_lib::services::llm::StreamRegistry;
     use misaka_x_lib::services::mcp::McpManager;
     use misaka_x_lib::services::sidecar_client::SidecarClient;
+    use misaka_x_lib::services::workspace::{GitCliProvider, WorkspaceContextService};
     use misaka_x_lib::sidecar::SidecarManager;
     use misaka_x_lib::AppState;
     use rusqlite::Connection;
@@ -26,6 +27,9 @@ mod tests {
             sidecar_client: SidecarClient::new(9527),
             stream_registry: StreamRegistry::new(),
             mcp_manager: Arc::new(McpManager::new()),
+            workspace_context: Arc::new(WorkspaceContextService::new(Arc::new(
+                GitCliProvider::default(),
+            ))),
             feature_flags: FeatureFlags::default(),
         }
     }

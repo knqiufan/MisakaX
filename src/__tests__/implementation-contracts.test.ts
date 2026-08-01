@@ -11,7 +11,6 @@ import type {
 describe("implementation contracts", () => {
   it("keeps remaining workspace feature switches disabled by default", () => {
     expect(readFeatureFlags({})).toEqual({
-      workspaceContextBadge: false,
       workspaceTerminal: false,
       narrowWebviewCapabilities: false,
     });
@@ -22,7 +21,7 @@ describe("implementation contracts", () => {
       VITE_MISAKAX_WORKSPACE_TERMINAL: "TRUE",
     });
     expect(flags.workspaceTerminal).toBe(true);
-    expect(flags.workspaceContextBadge).toBe(false);
+    expect(flags.narrowWebviewCapabilities).toBe(false);
   });
 
   it("freezes the cross-layer wire values", () => {

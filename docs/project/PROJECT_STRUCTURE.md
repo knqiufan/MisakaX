@@ -98,7 +98,7 @@ MisakaX/
 | `models.rs` | 可用模型列表、自定义模型、拉取 Provider 模型 |
 | `chat.rs` | `send_message`、`stop_generation`、`regenerate_message`、`get_messages` |
 | `session.rs` | 会话 CRUD、搜索、导入导出、工作目录 |
-| `workspace.rs` | 工作目录浏览、最近目录 |
+| `workspace.rs` | 工作目录浏览、最近目录、按会话读取只读 Workspace/Git context |
 | `fs_explorer.rs` | 工作区文件读写、在资源管理器中Reveal |
 | `mcp.rs` | MCP Server 连接、工具调用、权限审批 |
 | `sidecar.rs` | Sidecar 状态查询、重启 |
@@ -113,6 +113,7 @@ MisakaX/
 | `sidecar_client.rs` | Rust → Sidecar HTTP 客户端 |
 | `mcp_bridge.rs` | MCP 桥接（供 Agent / Tool 复用） |
 | `skills/` | 多来源 registry、安装/文件提供器、quarantine、离线 scanner、policy、migration 与 watcher |
+| `workspace/` | canonical workspace、只读 `VcsProvider`/Git CLI、single-flight cache、generation 与 HEAD/ref watcher |
 
 ---
 
@@ -124,7 +125,7 @@ MisakaX/
 | `main.tsx` | React 入口 |
 | `index.css` | Tailwind CSS v4 + 设计 token |
 | `components/layout/` | `AppShell`、`Sidebar`、`ContentArea` |
-| `components/chat/` | `ChatView`、会话、Composer、工作区、Monaco 编辑 |
+| `components/chat/` | `ChatView`、会话、Composer、只读 WorkspaceContext badge、工作区、Monaco 编辑 |
 | `components/ui/` | shadcn/ui 组件 |
 | `pages/` | `ChatPage`、`SettingsPage`；Skills 领域 UI 位于 Settings，Knowledge / Dashboard 仍为占位 |
 | `components/skills/` | Skills 仓库双栏、按需文件预览、安全报告、迁移进度与安装/卸载 Dialog |
@@ -132,7 +133,7 @@ MisakaX/
 | `lib/ipc/` | Tauri IPC 封装（chat、session、mcp、settings…） |
 | `lib/providers/` | Provider 目录与 catalog |
 | `locales/` | i18n（zh-CN / en） |
-| `hooks/` | `use-stream-listener`、`use-ipc`、`use-sidecar-status` |
+| `hooks/` | `use-stream-listener`、`use-ipc`、`use-sidecar-status`、`use-workspace-context` |
 | `__tests__/` | Vitest 单元测试 |
 
 ---

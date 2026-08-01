@@ -79,6 +79,12 @@ export type {
   SkillActivationView,
 } from "./types";
 export type { DirectoryInfo, RecentDirectory, WorkspacePreference } from "./workspace";
+export type {
+  WorkspaceContext,
+  WorkspaceContextDiagnostic,
+  WorkspaceKind,
+  DomainEvent,
+} from "./contracts";
 export type { CreateSessionParams, UpdateSessionWorkingDirParams } from "./sessions";
 export type { ModelInfo, ProviderModels } from "./models";
 export type { SidecarStatus, SidecarStatusEvent } from "./sidecar";

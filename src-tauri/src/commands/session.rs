@@ -136,7 +136,10 @@ pub fn update_session(
 #[tauri::command]
 pub fn delete_session(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
-    SessionRepo::delete(&conn, &id).map_err(|e| e.to_string())
+    SessionRepo::delete(&conn, &id).map_err(|e| e.to_string())?;
+    drop(conn);
+    state.workspace_context.unbind_session(&id);
+    Ok(())
 }
 
 // ─── search_sessions Command ─────────────────────────────────────────
@@ -168,7 +171,8 @@ pub fn update_session_working_dir(
     .map_err(|e| e.to_string())?;
 
     record_directory_usage_internal(&conn, &workspace.path);
-
+    drop(conn);
+    state.workspace_context.unbind_session(&session_id);
     Ok(())
 }
 

@@ -3,7 +3,7 @@
 > **用途：** 定义 Skills 设置页、按需文件预览、安全报告、输入框下方工作区标识和右侧终端的交互规范。
 > **受众：** 产品、UI/UX、React、Rust IPC 和测试维护者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **状态：** 增量实施中；S1–S3 与 S5 已落地，独立 Skills 路径和旧全文/双写兼容面已删除；Sandbox 隔离的 S4 可选深度扫描器按用户范围延后，Workspace/Terminal 由 W1–W6 继续实施。
+> **状态：** 增量实施中；S1–S3、S5 与 Workspace W1 已落地，独立 Skills 路径和旧全文/双写兼容面已删除；Sandbox 隔离的 S4 可选深度扫描器按用户范围延后，WorkspacePanel/Terminal 由 W2–W6 继续实施。
 > **上位规范：** [`frontend-ui-guidelines.md`](./frontend-ui-guidelines.md)、[`shell-and-workspace-ui-spec.md`](./shell-and-workspace-ui-spec.md)、[`button-menu-design-spec.md`](./button-menu-design-spec.md)。
 
 ---
@@ -155,6 +155,12 @@ S3 落地约束：
 - 首期是只读 badge，不显示 chevron、不打开菜单、不响应提交/切分支。
 - 保留 `WorkspaceContextAction` 扩展接口，但没有 provider 时不渲染空按钮。
 - 窄宽度优先保留发送和模型控制；badge 可缩为图标 + tooltip，但不能与 Skill chip 混淆。
+
+W1 落地约束：
+
+- badge 的 cwd 只能由后端按 chat session 解析；前端不得传 Git argv、可执行文件或替代 cwd。`workspace_get_context` 返回的 generation 与 `workspace.context.changed` event 必须共同用于丢弃快速切换后的迟到结果。
+- Git 查询失败、可信 Git CLI 缺失、超时或输出越界一律退化为“本地项目”；tooltip 只显示稳定诊断和短 correlation ID，不显示绝对路径、stderr 或 PATH 候选。
+- 分支/ref watcher、窗口 focus 和未来 terminal-exit 刷新均需 debounce；重复查询使用 single-flight/cache，不能阻塞 composer 输入。只读 badge 是单一生产实现，不保留默认关闭但无回滚分支的休眠开关。
 
 ## 7. WorkspaceBar 与右侧终端
 

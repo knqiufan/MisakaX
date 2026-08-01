@@ -9,5 +9,6 @@ pub mod sidecar_sse;
 pub mod skills;
 pub mod thinking_capabilities;
 pub mod tool_call_record;
+pub mod workspace;
 
 pub use tool_call_record::ToolCallRecord;

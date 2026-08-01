@@ -18,12 +18,19 @@ import {
 } from "../model-selector/modelData";
 import { McpStatusPopover } from "./McpStatusPopover";
 import { SkillSelectorPopover } from "./SkillSelectorPopover";
+import { WorkspaceContextBadge } from "./WorkspaceContextBadge";
 
 interface ComposerFooterProps {
   t: (key: string) => string;
+  chatSessionId?: string | null;
+  workingDirectory?: string | null;
 }
 
-export function ComposerFooter({ t }: ComposerFooterProps) {
+export function ComposerFooter({
+  t,
+  chatSessionId,
+  workingDirectory,
+}: ComposerFooterProps) {
   const {
     modelsVersion,
     selectedModel,
@@ -79,7 +86,12 @@ export function ComposerFooter({ t }: ComposerFooterProps) {
     : t("composer.researchOff");
 
   return (
-    <div className="mt-2 flex items-center gap-2 pl-10">
+    <div className="mt-2 flex min-w-0 items-center gap-2 pl-10">
+      <WorkspaceContextBadge
+        chatSessionId={chatSessionId}
+        workingDirectory={workingDirectory}
+      />
+      <span className="min-w-0 flex-1" aria-hidden />
       <ModelSelector
         models={flatModels}
         selectedModel={selectedModel}

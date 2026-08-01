@@ -1,6 +1,6 @@
 # MisakaX 按钮与菜单 UI 设计规范
 
-**最后审阅 / Last reviewed:** 2026-08-01（v13）
+**最后审阅 / Last reviewed:** 2026-08-01（v14）
 
 > 主色已切换为 **charcoal**（非冷蓝强调色）。文中若仍出现历史「蓝调」示例，以实现侧 CSS 变量与 [frontend-ui-guidelines.md](./frontend-ui-guidelines.md) 为准。
 >
@@ -567,6 +567,12 @@ Hover:    transform=none, shadow=none, brightness(1)  [150ms]
 ---
 
 ## 5. Composer 编辑器按钮
+
+### 5.0 工作区上下文 badge（非按钮）
+
+- `WorkspaceContextBadge` 使用紧凑状态表面（`h-6 px-2 rounded-full text-[11px]`），但语义上是只读文本，禁止套用 `Button`、`aria-pressed`、chevron 或 hover/active 位移。
+- Tooltip 只补充完整 branch/detached 文案或脱敏诊断；不得显示绝对 cwd、Git stderr、PATH 或可点击命令。错误 ID 只显示短 correlation ID。
+- 未来 `WorkspaceContextAction` 若真的有 provider，再按本规范新增独立按钮/menu；没有 action 时不得渲染空 trigger。窄宽度隐藏 badge 文本时必须保留图标、`aria-label` 与 tooltip。
 
 ### 5.1 操作按钮 (`.composer-action`)
 
