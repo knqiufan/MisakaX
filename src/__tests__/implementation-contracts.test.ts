@@ -9,18 +9,18 @@ import type {
 } from "@/lib/ipc/contracts";
 
 describe("implementation contracts", () => {
-  it("keeps remaining workspace feature switches disabled by default", () => {
+  it("enables the terminal after the W5 gate while keeping the narrow-capability flag dormant", () => {
     expect(readFeatureFlags({})).toEqual({
-      workspaceTerminal: false,
+      workspaceTerminal: true,
       narrowWebviewCapabilities: false,
     });
   });
 
-  it("only enables explicit true values", () => {
+  it("keeps an explicit terminal kill switch", () => {
     const flags = readFeatureFlags({
-      VITE_MISAKAX_WORKSPACE_TERMINAL: "TRUE",
+      VITE_MISAKAX_WORKSPACE_TERMINAL: "false",
     });
-    expect(flags.workspaceTerminal).toBe(true);
+    expect(flags.workspaceTerminal).toBe(false);
     expect(flags.narrowWebviewCapabilities).toBe(false);
   });
 

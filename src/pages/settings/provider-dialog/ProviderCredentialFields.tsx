@@ -2,6 +2,7 @@ import { Eye, EyeOff, ExternalLink, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { handleExternalLinkClick } from "@/lib/external-links";
 import { VENDOR_CATALOG, type VendorId } from "@/lib/providers/catalog";
 import { FormField } from "./FormField";
 
@@ -30,6 +31,7 @@ export function ProviderCredentialFields(props: ProviderCredentialFieldsProps) {
               href={meta.homepage}
               rel="noreferrer"
               target="_blank"
+              onClick={(event) => handleExternalLinkClick(event, meta.homepage!)}
             >
               <span className="truncate">{meta.homepage}</span>
               <ExternalLink className="size-3.5 shrink-0" />
@@ -51,6 +53,7 @@ export function ProviderCredentialFields(props: ProviderCredentialFieldsProps) {
               href={meta.apiKeyUrl}
               rel="noreferrer"
               target="_blank"
+              onClick={(event) => handleExternalLinkClick(event, meta.apiKeyUrl!)}
             >
               {t("providers.apiKey.get", "Get API Key")}
               <ExternalLink className="size-3" />

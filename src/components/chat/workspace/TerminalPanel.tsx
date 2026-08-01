@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import {
+  readText as readClipboardText,
+  writeText as writeClipboardText,
+} from "@tauri-apps/plugin-clipboard-manager";
 import { Terminal as XtermTerminal, type ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import {
@@ -47,6 +51,7 @@ const DEFAULT_ROWS = 24;
 const DEFAULT_COLS = 80;
 const RESIZE_DEBOUNCE_MS = 100;
 const INPUT_CHUNK_BYTES = 16 * 1024;
+const MAX_PENDING_EVENTS = 128;
 
 interface TerminalPanelProps {
   active: boolean;
@@ -69,6 +74,8 @@ export function TerminalPanel({
   const fitAddonRef = useRef<FitAddon | null>(null);
   const inputQueueRef = useRef(Promise.resolve());
   const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingOutputRef = useRef<TerminalOutputEvent[]>([]);
+  const pendingExitRef = useRef<TerminalExitedEvent[]>([]);
   const [xtermReady, setXtermReady] = useState(false);
   const [listenersReady, setListenersReady] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
@@ -175,7 +182,7 @@ export function TerminalPanel({
       }
       if (paste) {
         void readClipboard().then((text) => {
-          if (text) terminal.paste(text);
+          if (text) queueInput(encodeTerminalText(normalizeTerminalPaste(text)));
         });
         return false;
       }
@@ -220,7 +227,17 @@ export function TerminalPanel({
     void Promise.all([
       listen<TerminalOutputEvent>(TERMINAL_OUTPUT_EVENT, (event) => {
         const accepted = useTerminalStore.getState().acceptOutput(event.payload);
-        if (!accepted) return;
+        if (!accepted) {
+          const runtime = useTerminalStore.getState();
+          if (
+            runtime.status === "starting" &&
+            runtime.session === null &&
+            pendingOutputRef.current.length < MAX_PENDING_EVENTS
+          ) {
+            pendingOutputRef.current.push(event.payload);
+          }
+          return;
+        }
         try {
           terminalRef.current?.write(
             decodeTerminalBase64(event.payload.payload.data_base64),
@@ -230,7 +247,17 @@ export function TerminalPanel({
         }
       }),
       listen<TerminalExitedEvent>(TERMINAL_EXITED_EVENT, (event) => {
-        useTerminalStore.getState().acceptExit(event.payload);
+        const accepted = useTerminalStore.getState().acceptExit(event.payload);
+        if (!accepted) {
+          const runtime = useTerminalStore.getState();
+          if (
+            runtime.status === "starting" &&
+            runtime.session === null &&
+            pendingExitRef.current.length < MAX_PENDING_EVENTS
+          ) {
+            pendingExitRef.current.push(event.payload);
+          }
+        }
       }),
     ])
       .then(([outputUnlisten, exitUnlisten]) => {
@@ -259,6 +286,25 @@ export function TerminalPanel({
       unlistenExit?.();
     };
   }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    const pendingOutput = pendingOutputRef.current.splice(0);
+    for (const event of pendingOutput) {
+      if (!useTerminalStore.getState().acceptOutput(event)) continue;
+      try {
+        terminalRef.current?.write(
+          decodeTerminalBase64(event.payload.data_base64),
+        );
+      } catch {
+        // Invalid protocol data is discarded and never interpreted as DOM.
+      }
+    }
+    const pendingExit = pendingExitRef.current.splice(0);
+    for (const event of pendingExit) {
+      useTerminalStore.getState().acceptExit(event);
+    }
+  }, [session]);
 
   useEffect(() => {
     if (!active || !xtermReady || !listenersReady || workspaceGeneration <= 0) {
@@ -309,6 +355,8 @@ export function TerminalPanel({
 
   useEffect(() => {
     setRetainedTargetKey(null);
+    pendingOutputRef.current = [];
+    pendingExitRef.current = [];
   }, [targetKey]);
 
   const handleCopy = useCallback(async () => {
@@ -321,7 +369,9 @@ export function TerminalPanel({
   const handlePaste = useCallback(async () => {
     const text = await readClipboard();
     if (!text) return;
-    terminalRef.current?.paste(text);
+    await useTerminalStore
+      .getState()
+      .writeBytes(encodeTerminalText(normalizeTerminalPaste(text)));
     terminalRef.current?.focus();
   }, []);
 
@@ -540,6 +590,10 @@ export function encodeTerminalText(value: string): Uint8Array {
   return new TextEncoder().encode(value);
 }
 
+function normalizeTerminalPaste(value: string): string {
+  return value.replace(/\r?\n/g, "\r");
+}
+
 export function binaryStringToBytes(value: string): Uint8Array {
   return Uint8Array.from(value, (character) => character.charCodeAt(0) & 0xff);
 }
@@ -583,17 +637,15 @@ function readTerminalTheme(host: HTMLElement): ITheme {
 }
 
 function clipboardAvailable(): boolean {
-  return typeof navigator !== "undefined" && Boolean(navigator.clipboard);
+  return true;
 }
 
 async function writeClipboard(value: string): Promise<void> {
-  if (!navigator.clipboard) return;
-  await navigator.clipboard.writeText(value).catch(() => undefined);
+  await writeClipboardText(value).catch(() => undefined);
 }
 
 async function readClipboard(): Promise<string> {
-  if (!navigator.clipboard) return "";
-  return navigator.clipboard.readText().catch(() => "");
+  return readClipboardText().catch(() => "");
 }
 
 function shortId(value: string): string {

@@ -1,8 +1,8 @@
 import { invoke } from "./invoke";
 import type { DomainEvent, TerminalSessionId } from "./contracts";
 
-export const TERMINAL_OUTPUT_EVENT = "terminal.output";
-export const TERMINAL_EXITED_EVENT = "terminal.exited";
+export const TERMINAL_OUTPUT_EVENT = "terminal:output";
+export const TERMINAL_EXITED_EVENT = "terminal:exited";
 
 export type ShellFallbackReason =
   | "requested_unavailable"

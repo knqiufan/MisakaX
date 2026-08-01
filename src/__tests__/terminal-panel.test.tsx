@@ -2,6 +2,13 @@ import { StrictMode, type ReactNode } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const clipboardHarness = vi.hoisted(() => ({
+  readText: vi.fn<() => Promise<string>>(),
+  writeText: vi.fn<(value: string) => Promise<void>>(),
+}));
+
+vi.mock("@tauri-apps/plugin-clipboard-manager", () => clipboardHarness);
+
 const harness = vi.hoisted(() => ({
   instances: [] as Array<Record<string, any>>,
   listeners: new Map<string, (event: { payload: unknown }) => void>(),
@@ -73,8 +80,8 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 
 vi.mock("@/lib/ipc/terminal", () => ({
-  TERMINAL_OUTPUT_EVENT: "terminal.output",
-  TERMINAL_EXITED_EVENT: "terminal.exited",
+  TERMINAL_OUTPUT_EVENT: "terminal:output",
+  TERMINAL_EXITED_EVENT: "terminal:exited",
   terminalIpc: {
     spawn: harness.spawn,
     writeBytes: harness.writeBytes,
@@ -153,13 +160,8 @@ describe("Workspace W4 TerminalPanel", () => {
         disconnect() {}
       },
     });
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: {
-        readText: vi.fn().mockResolvedValue(""),
-        writeText: vi.fn().mockResolvedValue(undefined),
-      },
-    });
+    clipboardHarness.readText.mockReset().mockResolvedValue("");
+    clipboardHarness.writeText.mockReset().mockResolvedValue(undefined);
   });
 
   it("spawns once in StrictMode, disables link activation, and gates binary output", async () => {
@@ -188,15 +190,15 @@ describe("Workspace W4 TerminalPanel", () => {
       .activate({ preventDefault });
     expect(preventDefault).toHaveBeenCalledOnce();
 
-    await waitFor(() => expect(harness.listeners.has("terminal.output")).toBe(true));
+    await waitFor(() => expect(harness.listeners.has("terminal:output")).toBe(true));
     act(() => {
-      harness.listeners.get("terminal.output")?.({
+      harness.listeners.get("terminal:output")?.({
         payload: outputEvent(1, 4, "5L2g5aW9"),
       });
-      harness.listeners.get("terminal.output")?.({
+      harness.listeners.get("terminal:output")?.({
         payload: outputEvent(1, 4, "aWdub3JlZA=="),
       });
-      harness.listeners.get("terminal.output")?.({
+      harness.listeners.get("terminal:output")?.({
         payload: outputEvent(2, 3, "c3RhbGU="),
       });
     });
@@ -206,6 +208,41 @@ describe("Workspace W4 TerminalPanel", () => {
       Array.from(new TextEncoder().encode("你好")),
     );
     expect(screen.getByText("PowerShell · Misaka-Tauri")).toBeTruthy();
+  });
+
+  it("replays bounded output that races the spawn response", async () => {
+    let resolveSpawn!: (session: typeof SESSION) => void;
+    harness.spawn.mockReturnValue(
+      new Promise<typeof SESSION>((resolve) => {
+        resolveSpawn = resolve;
+      }),
+    );
+
+    render(
+      <TerminalPanel
+        active
+        chatSessionId="chat-1"
+        workspaceGeneration={4}
+        workingDir="D:/code/Misaka-Tauri"
+        onClose={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(harness.spawn).toHaveBeenCalledOnce());
+    await waitFor(() => expect(harness.listeners.has("terminal:output")).toBe(true));
+    const terminal = harness.instances[harness.instances.length - 1];
+
+    act(() => {
+      harness.listeners.get("terminal:output")?.({
+        payload: outputEvent(1, 4, encodeBase64("initial prompt")),
+      });
+    });
+    expect(terminal.write).not.toHaveBeenCalled();
+
+    act(() => resolveSpawn(SESSION));
+    await waitFor(() => expect(terminal.write).toHaveBeenCalledOnce());
+    expect(new TextDecoder().decode(terminal.write.mock.calls[0][0])).toBe(
+      "initial prompt",
+    );
   });
 
   it("announces exit and requires an explicit workspace switch decision", async () => {
@@ -219,10 +256,10 @@ describe("Workspace W4 TerminalPanel", () => {
       />,
     );
     await waitFor(() => expect(harness.spawn).toHaveBeenCalledOnce());
-    await waitFor(() => expect(harness.listeners.has("terminal.exited")).toBe(true));
+    await waitFor(() => expect(harness.listeners.has("terminal:exited")).toBe(true));
 
     act(() => {
-      harness.listeners.get("terminal.exited")?.({ payload: exitEvent(0, 7) });
+      harness.listeners.get("terminal:exited")?.({ payload: exitEvent(0, 7) });
     });
     expect(screen.getAllByText("Exited 7").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "terminal.restart" })).toBeTruthy();
@@ -272,7 +309,7 @@ describe("Workspace W4 TerminalPanel", () => {
     act(() => terminal.selectionHandler?.());
     fireEvent.click(screen.getByRole("button", { name: "terminal.copySelection" }));
     await waitFor(() =>
-      expect(navigator.clipboard.writeText).toHaveBeenCalledWith("selected text"),
+      expect(clipboardHarness.writeText).toHaveBeenCalledWith("selected text"),
     );
 
     terminal.hasSelection.mockReturnValue(false);
@@ -284,9 +321,14 @@ describe("Workspace W4 TerminalPanel", () => {
       } as KeyboardEvent),
     ).toBe(true);
 
-    vi.mocked(navigator.clipboard.readText).mockResolvedValue("pasted text");
+    clipboardHarness.readText.mockResolvedValue("pasted text");
     fireEvent.click(screen.getByRole("button", { name: "terminal.paste" }));
-    await waitFor(() => expect(terminal.paste).toHaveBeenCalledWith("pasted text"));
+    await waitFor(() => expect(harness.writeBytes).toHaveBeenCalledTimes(3));
+    expect(
+      new TextDecoder().decode(
+        harness.writeBytes.mock.calls[2][1] as Uint8Array,
+      ),
+    ).toBe("pasted text");
 
     const host = screen.getByTestId("workspace-terminal").querySelector(
       ".misaka-terminal-viewport",
@@ -305,7 +347,48 @@ describe("Workspace W4 TerminalPanel", () => {
       { timeout: 500 },
     );
   });
+
+  it("keeps shell, workspace, OSC, and HTML-shaped output out of the DOM", async () => {
+    harness.spawn.mockResolvedValue({
+      ...SESSION,
+      shell_name: "<img src=x onerror=alert(1)>",
+    });
+    render(
+      <TerminalPanel
+        active
+        chatSessionId="chat-1"
+        workspaceGeneration={4}
+        workingDir="D:/code/<svg onload=alert(1)>"
+        onClose={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(harness.spawn).toHaveBeenCalledOnce());
+    await waitFor(() => expect(harness.listeners.has("terminal:output")).toBe(true));
+
+    const payload =
+      "\u001b]0;<img src=x onerror=alert(1)>\u0007" +
+      "\u001b]8;;javascript:alert(1)\u0007click\u001b]8;;\u0007";
+    act(() => {
+      harness.listeners.get("terminal:output")?.({
+        payload: outputEvent(1, 4, encodeBase64(payload)),
+      });
+    });
+
+    const terminal = harness.instances[harness.instances.length - 1];
+    expect(terminal.write).toHaveBeenCalledWith(expect.any(Uint8Array));
+    expect(document.querySelector("img[src='x'], svg[onload], script")).toBeNull();
+    expect(
+      screen.getByText("<img src=x onerror=alert(1)> · <svg onload=alert(1)>")
+    ).toBeTruthy();
+  });
 });
+
+function encodeBase64(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
 
 function outputEvent(seq: number, generation: number, data: string) {
   return {

@@ -4,6 +4,7 @@ import { ExternalLink, Download, Upload } from "lucide-react";
 import { save as dialogSave, open as dialogOpen } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { handleExternalLinkClick } from "@/lib/external-links";
 import { Badge } from "@/components/ui/badge";
 import { MisakaLogo } from "@/components/brand/MisakaLogo";
 import {
@@ -119,6 +120,9 @@ export function AboutSettings() {
               href="https://github.com"
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(event) =>
+                handleExternalLinkClick(event, "https://github.com")
+              }
             >
               <ExternalLink className="mr-1.5 size-3.5" />
               GitHub

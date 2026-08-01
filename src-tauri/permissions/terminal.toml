@@ -1,0 +1,10 @@
+[[permission]]
+identifier = "terminal-runtime"
+description = "Allows the main bundled UI to control only owner-bound Workspace Terminal sessions."
+commands.allow = [
+  "terminal_spawn",
+  "terminal_write",
+  "terminal_resize",
+  "terminal_kill",
+  "terminal_get_state",
+]

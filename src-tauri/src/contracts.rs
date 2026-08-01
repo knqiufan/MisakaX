@@ -124,11 +124,21 @@ pub struct DomainEvent<T> {
     pub payload: T,
 }
 
-/// Feature switches start disabled so S0/W0 preserve the established behavior.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+/// Workspace Terminal ships after the W5 gate, with an explicit environment
+/// kill switch retained for emergency rollback.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FeatureFlags {
     pub workspace_terminal: bool,
     pub narrow_webview_capabilities: bool,
+}
+
+impl Default for FeatureFlags {
+    fn default() -> Self {
+        Self {
+            workspace_terminal: true,
+            narrow_webview_capabilities: false,
+        }
+    }
 }
 
 impl FeatureFlags {
@@ -137,14 +147,16 @@ impl FeatureFlags {
     }
 
     fn from_lookup(mut lookup: impl FnMut(&str) -> Option<String>) -> Self {
-        let mut enabled = |name| {
-            lookup(name).is_some_and(|value| {
+        let workspace_terminal = !lookup("MISAKAX_WORKSPACE_TERMINAL").is_some_and(|value| {
+            matches!(value.trim().to_ascii_lowercase().as_str(), "0" | "false")
+        });
+        let narrow_webview_capabilities = lookup("MISAKAX_NARROW_WEBVIEW_CAPABILITIES")
+            .is_some_and(|value| {
                 matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true")
-            })
-        };
+            });
         Self {
-            workspace_terminal: enabled("MISAKAX_WORKSPACE_TERMINAL"),
-            narrow_webview_capabilities: enabled("MISAKAX_NARROW_WEBVIEW_CAPABILITIES"),
+            workspace_terminal,
+            narrow_webview_capabilities,
         }
     }
 }
@@ -170,12 +182,13 @@ mod tests {
     }
 
     #[test]
-    fn feature_flags_default_to_legacy_behavior_and_require_explicit_true() {
-        assert_eq!(FeatureFlags::default(), FeatureFlags::from_lookup(|_| None));
+    fn terminal_defaults_on_after_w5_and_retains_an_explicit_kill_switch() {
+        let defaults = FeatureFlags::from_lookup(|_| None);
+        assert_eq!(defaults, FeatureFlags::default());
         let flags = FeatureFlags::from_lookup(|name| {
-            (name == "MISAKAX_WORKSPACE_TERMINAL").then(|| "TRUE".to_string())
+            (name == "MISAKAX_WORKSPACE_TERMINAL").then(|| "false".to_string())
         });
-        assert!(flags.workspace_terminal);
+        assert!(!flags.workspace_terminal);
         assert!(!flags.narrow_webview_capabilities);
     }
 

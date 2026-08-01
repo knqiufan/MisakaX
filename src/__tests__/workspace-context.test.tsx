@@ -154,7 +154,7 @@ describe("WorkspaceContextBadge", () => {
     });
     expect(screen.queryByText("late-first")).toBeNull();
 
-    const listener = mocks.listeners.get("workspace.context.changed");
+    const listener = mocks.listeners.get("workspace:context:changed");
     expect(listener).toBeDefined();
     const staleEvent: DomainEvent<WorkspaceContext> = {
       eventId: "event-stale",

@@ -86,10 +86,30 @@ pub trait VcsProvider: Send + Sync {
     ) -> Result<Option<VcsContext>, VcsDiagnostic>;
 }
 
-pub fn strip_windows_verbatim_prefix(path: &Path) -> PathBuf {
+pub(crate) fn strip_windows_verbatim_prefix(path: &Path) -> PathBuf {
     let value = path.to_string_lossy();
+    if let Some(unc) = value.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{unc}"));
+    }
     value
         .strip_prefix(r"\\?\")
         .map(PathBuf::from)
         .unwrap_or_else(|| path.to_path_buf())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn strips_windows_verbatim_drive_and_unc_prefixes() {
+        assert_eq!(
+            strip_windows_verbatim_prefix(Path::new(r"\\?\C:\work\repo")),
+            PathBuf::from(r"C:\work\repo")
+        );
+        assert_eq!(
+            strip_windows_verbatim_prefix(Path::new(r"\\?\UNC\server\share\repo")),
+            PathBuf::from(r"\\server\share\repo")
+        );
+    }
 }

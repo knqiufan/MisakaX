@@ -1,4 +1,5 @@
 import type { Components } from "streamdown";
+import { handleExternalLinkClick, normalizeExternalUrl } from "@/lib/external-links";
 import { cn } from "@/lib/utils";
 import { MarkdownCode } from "./MarkdownCode";
 import { MarkdownTable } from "./MarkdownTable";
@@ -93,18 +94,28 @@ export const CHAT_MARKDOWN_COMPONENTS: Components = {
     <hr className={cn("my-6 border-border/50", className)} {...props} />
   ),
   a: ({ href, children, className, ...props }) => {
-    const external = typeof href === "string" && /^https?:/i.test(href);
+    const external = typeof href === "string" ? normalizeExternalUrl(href) : null;
+    if (!external) {
+      if (typeof href === "string" && href.startsWith("#")) {
+        return (
+          <a href={href} className={cn("underline underline-offset-4", className)} {...props}>
+            {children}
+          </a>
+        );
+      }
+      return <span className={className}>{children}</span>;
+    }
     return (
       <a
-        href={href}
+        href={external}
         className={cn(
           "text-primary underline underline-offset-4 decoration-primary/30 hover:decoration-primary",
           className
         )}
-        {...(external
-          ? { target: "_blank", rel: "noopener noreferrer" }
-          : {})}
         {...props}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(event) => handleExternalLinkClick(event, external)}
       >
         {children}
       </a>

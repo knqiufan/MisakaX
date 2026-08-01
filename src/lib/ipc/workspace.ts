@@ -1,7 +1,7 @@
 import { invoke } from "./invoke";
 import type { WorkspaceContext } from "./contracts";
 
-export const WORKSPACE_CONTEXT_CHANGED_EVENT = "workspace.context.changed";
+export const WORKSPACE_CONTEXT_CHANGED_EVENT = "workspace:context:changed";
 
 export interface DirectoryInfo {
   path: string;

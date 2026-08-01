@@ -106,9 +106,6 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(AppState {
@@ -253,7 +250,7 @@ pub fn run() {
             let workspace_event_app = app.handle().clone();
             app.state::<AppState>().workspace_context.start(
                 move |event| {
-                    if let Err(error) = workspace_event_app.emit("workspace.context.changed", event)
+                    if let Err(error) = workspace_event_app.emit("workspace:context:changed", event)
                     {
                         tracing::warn!(error = %error, "Failed to emit workspace context event");
                     }
@@ -267,12 +264,12 @@ pub fn run() {
             app.state::<AppState>().terminal_manager.start(
                 move |event| match event {
                     TerminalDomainEvent::Output(event) => {
-                        if let Err(error) = terminal_event_app.emit("terminal.output", event) {
+                        if let Err(error) = terminal_event_app.emit("terminal:output", event) {
                             tracing::warn!(error = %error, "Failed to emit terminal output event");
                         }
                     }
                     TerminalDomainEvent::Exited(event) => {
-                        if let Err(error) = terminal_event_app.emit("terminal.exited", event) {
+                        if let Err(error) = terminal_event_app.emit("terminal:exited", event) {
                             tracing::warn!(error = %error, "Failed to emit terminal exit event");
                         }
                     }
