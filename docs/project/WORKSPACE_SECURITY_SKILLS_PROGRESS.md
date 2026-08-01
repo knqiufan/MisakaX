@@ -3,7 +3,7 @@
 > **用途：** 作为本轮 Skills/安全检查/Git 标识/终端/Sandbox/最终架构审查的单一进度台账。
 > **受众：** 项目负责人、开发、测试、安全和后续接手者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **代码基线：** `main@e118d63`。
+> **代码基线：** `main@f41d858`。
 > **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；`DEVELOPMENT_STATUS.md` 中关于 Phase 5 Skills 尚未开始的描述已落后于当前代码，最终架构阶段需统一修订。
 
 ---
@@ -22,13 +22,13 @@
 
 | 能力 | 当前状态 | 判断 |
 |---|---:|---|
-| Skills 基础 inventory/本地与远端安装 | 🟡 | 主流程已存在；仅有归档级风险检查，未经过完整 Security Gate |
+| Skills 基础 inventory/本地与远端安装 | ✅ | 本地、远端与外部发现统一经过 quarantine/扫描/策略 Gate；发布只接受不可伪造的 ApprovedArtifactId |
 | 受管 Skill 启用/禁用 | ✅ | stable ID、统一 Gate、activation generation 与 Python 只读逐项挂载已闭环 |
-| 外部 Skill 启用/禁用 | 🟡 | 来源与开关已持久化、默认禁用且不改原目录；S3 扫描裁决仍待实现 |
+| 外部 Skill 启用/禁用 | ✅ | 来源与开关持久化、默认禁用且不改原目录；发现/文件变化会扫描，hash/规则/策略失效时转 stale |
 | composer Skill 选择过滤 | ✅ | 仅展示 `effective_active` 来源，发送 stable ID；失效事件会移除 chip 并非阻塞提示 |
 | 详情按需文件浏览 | ✅ | summary/tree/read-file 已拆分；文件正文仅在用户选择后按 200 KiB 分段读取 |
 | Skills 迁入 Settings/MCP 下方 | ✅ | Settings 导航顺序为 MCP → Skills；旧 `skills` route 仅保留兼容重定向 |
-| Skills 安全检查 | 🟡 | 有安全解包和脚本/二进制布尔标注；无 quarantine、多引擎、policy、finding、rescan |
+| Skills 安全检查 | ✅ | 内置离线引擎、quarantine、versioned policy、finding/审批/rescan/export 与统一 Gate 已闭环；Sandbox deep scanner 按范围延后 |
 | Git/本地项目 badge | ⬜ | 无 Git service/DTO/UI |
 | 嵌入式终端 | ⬜ | 现有 Terminal 图标实际打开 Tool Logs；无 xterm/PTY |
 | Tauri 终端安全收口 | ⛔ | 主 WebView shell/fs/http 权限偏宽且 CSP 为空，终端上线前必须修复 |
@@ -41,17 +41,20 @@
 ### 3.1 Skills 已有能力
 
 - `src-tauri/src/services/skills/installer.rs`
-  - 可列出数据库受管 Skills，并发现 Codex/Claude/Cursor 外部目录。
-  - 受管 Skill 可 `set_enabled`；外部记录不是 DB 实体，当前总是构造为 enabled。
-  - `get_detail` 会读取完整 `SKILL.md` 并列举文件。
-  - `installed_selection` 对受管 Skill 再检查 enabled/healthy。
+  - 可列出受管 Skills，并将 Codex/Claude/Cursor 外部目录同步为稳定 source；所有来源的开关状态均持久化。
+  - `get_detail` 全文接口只保留兼容；生产 Settings UI 使用 summary/tree/read-file 按需接口。
+  - 受管发布在文件替换与 SQLite transaction 任一步失败时回滚；发布入口要求安全模块签发的 `ApprovedArtifactId`。
 - `src-tauri/src/services/skills/archive.rs`
   - 已限制 ZIP/解压大小、文件数、压缩比、路径穿越、绝对/反斜杠路径、重复项和符号链接。
-  - 已计算 hash，并识别常见脚本/二进制扩展；尚非语义/行为安全扫描。
+  - 归档验证与语义分析已拆分；嵌套归档、MIME、Unicode/ADS/设备名和 ZIP bomb 均有回归测试。
+- `src-tauri/src/services/skills/security/`
+  - 扫描器按 archive/content/manifest/secret/command/permission/policy 职责拆分，只读且从不执行目标 Skill。
+  - 2 并发队列、取消/超时/progress、启动恢复、90 天历史清理、500 MiB quarantine/7 天过期和文件 watcher debounce 已落地。
+  - balanced-v1 将 Critical/High block、Medium review、Low/Info warnings；engine error/timeout fail closed。
 - `src-tauri/src/services/skills/manifest.rs`
   - 已校验 YAML frontmatter、名称/描述等基础规范。
 - `src-tauri/src/commands/skills.rs`
-  - list/detail/install/export/download/set_enabled/uninstall 等 commands 已注册。
+  - 除 inventory/file/install 外，已注册 findings、审批/拒绝/撤销、重新扫描/取消、JSON/SARIF 导出和隐私契约 commands；安全错误使用稳定 code/correlation ID。
 - `src/components/chat/composer/MessageInput.tsx` 与 `SkillSelectorPopover.tsx`
   - 已按 enabled/healthy 过滤并支持 Skill 选择。
 - `src/__tests__/composer-skills.test.ts`、`skills-components.test.tsx`、`skills-page-selection.test.tsx`
@@ -110,11 +113,11 @@
 |---|---:|---|---|
 | M0 调研与方案 | ✅ | 仓库审计、官方资料调研、总体架构、UI、分项计划、总执行指导、进度台账 | 文档 review 通过 |
 | M1 契约与回归基线 | ✅ | S0/W0 特征测试、稳定 DTO/error/event、默认关闭 feature flags、capability/CSP 审计 | 进入 S1/W1 前保持基线测试绿色 |
-| M2 Skills 闭环 | 🟡 | S0/S1 完成：稳定来源、全来源持久开关、activation view、只读 Sidecar 挂载 | S2 lazy files/Settings；S3 强制扫描 Gate |
+| M2 Skills 闭环 | 🟡 | S0–S3 完成：稳定来源、按需文件、只读挂载、quarantine/内置扫描/统一 Gate | S4 Sandbox deep scanner 延后；S5 存量迁移与旧路径清理 |
 | M3 工作区体验 | 🟡 | W0 行为/安全基线完成；Explorer/resize 基础可复用 | Git/local badge、WorkspacePanel、三平台 PTY、CSP/IPC 收窄 |
 | M4 Sandbox Spike | 📄 | 调研和 ADR | 三平台 filesystem/network/process attack fixtures 通过 |
 | M5 Sandbox 默认化 | ⬜ | 逻辑 guard/审批可复用 | Agent/Skill/MCP 无 host Shell fallback，严格模式发布 gate |
-| M6 安全强化 | ⬜ | 基础 archive checks | 深度扫描、存量 rescan、恶意样本、独立安全 review |
+| M6 安全强化 | 🟡 | S3 内置离线扫描、恶意/良性 corpus、审批与 stale 生命周期 | S4 deep scanner（Sandbox 延后）、S5 存量 rescan、独立安全 review |
 | M7 架构审查 | ⬜ | 已有计划 | 热点拆分、旧路径清理、功能/性能/安全无回退 |
 
 ## 6. 建议执行顺序
@@ -131,9 +134,9 @@
 | 编号 | 类型 | 内容 | 处理阶段 |
 |---|---|---|---|
 | B-01 | 安全 | ✅ S1 已解除：Python 不再挂载整目录，只读取 generation-stamped activation view | 已关闭 |
-| B-02 | 安全 | 外部 Skill 已有稳定身份和持久开关；quarantine/扫描裁决仍缺失 | M2 / S3 |
+| B-02 | 安全 | ✅ S3 已解除：外部 Skill 发现/变更统一扫描，裁决、审批、stale 与持久开关闭环 | 已关闭 |
 | B-03 | UX/API | ✅ S2 已解除：详情首载不再返回正文，文件树与预览独立滚动并按需分段读取 | 已关闭 |
-| B-04 | 安全 | 所有安装入口缺统一 Security Gate/quarantine | M2 / S3 |
+| B-04 | 安全 | ✅ S3 已解除：本地/远端/外部入口统一 Security Gate；发布需要 `ApprovedArtifactId` | 已关闭 |
 | B-05 | 安全 | 主 WebView 通用 Shell 权限 + CSP null | M3 上线门 |
 | B-06 | 安全 | Agent Shell 宿主执行和环境继承 | M4-M5 |
 | B-07 | 选型 | Windows strong sandbox 需 UAC setup/专用用户/firewall 的产品接受度 | M4 Spike review |
@@ -156,6 +159,9 @@
 - [x] 从 [`SKILLS_REPOSITORY_AND_SECURITY_PLAN.md`](../planning/SKILLS_REPOSITORY_AND_SECURITY_PLAN.md) 的 S0 与 [`WORKSPACE_CONTEXT_AND_TERMINAL_PLAN.md`](../planning/WORKSPACE_CONTEXT_AND_TERMINAL_PLAN.md) 的 W0 建立回归基线。
 - [x] 执行 Skills S1，关闭 disabled Skill 仍被全目录挂载的 B-01。
 - [x] 执行 Skills S2，迁入 Settings 并关闭详情首载全文的 B-03。
+- [x] 执行 Skills S3，交付 quarantine、内置离线扫描、finding/policy/审批和强制安装 Gate，关闭 B-02/B-04。
+- [ ] Skills S4 — DEFERRED(Sandbox)：第三方 deep scanner 必须在 read-only/offline Sandbox helper 中验证；按用户范围暂不实现，不以宿主直接运行替代。
+- [ ] 执行 Skills S5，完成存量扫描迁移和旧生产旁路清理。
 - [ ] 执行 Workspace W1/W2，交付只读工作区标识与 panel 容器。
 - [ ] Sandbox B0–B7：按用户当前范围暂不实施；未获得新指令前不启动 Spike 或生产执行链改造。
 
@@ -202,3 +208,21 @@
 - 风险/阻断：B-03 已关闭；B-02/B-04 的 quarantine、多引擎扫描与统一安装 Security Gate 仍由 S3 负责；B-05 仍待 Workspace W5。
 - 回滚：代码回滚到 `9f1c235`；本阶段无数据库或外部 Skill 目录变更。若回滚，新 UI/API 与安全文件读取提供器会整体退出。
 - 下一步：Skills S3，建立 artifact/scan/finding/approval 数据模型、quarantine 与所有入口统一 Security Gate；继续排除 Sandbox 实施。
+
+### 2026-08-01 Skills S3 隔离扫描与强制安装门
+
+- 状态：已完成；实现提交 `f41d858`，Sandbox helper/deep scanner 未实施。
+- 完成 TODO：Skills S3 全部 16 项；v12 新增 artifact/scan/finding/approval、索引和 `skill_sources.current_scan_id`，升级前自动生成可恢复 v11 备份。
+- Gate 证据：本地 ZIP、SkillHub/ClawHub/ModelScope 远端 ZIP 与 Codex/Claude/Cursor external discover 均进入同一扫描服务；安装器发布只接受安全模块在 allow/审计批准后签发的 `ApprovedArtifactId`，旧 install command 不再接收任意暂存目录。
+- 隔离/一致性：500 MiB quarantine、7 天过期、90 天非当前扫描历史清理；启动把 queued/scanning 恢复为 fail-closed error。发布使用原子目录替换 + SQLite transaction，任一步失败恢复旧目录和 DB。
+- 内置扫描：只读、不执行目标 Skill；拆为 archive/content/manifest/secret/command/permission/policy。`balanced-v1` 固定 Critical/High block、Medium review、Low/Info warnings；2 并发、15 秒队列预算、8 秒扫描预算、取消/progress/restart recovery 已验证。
+- 生命周期：artifact hash、内置引擎版本、policy 版本、审批到期/撤销和 source revocation 会转 stale 并禁用；500 ms watcher 自动 reconcile，启用/选择/挂载仍同步校验 hash 与 activation generation。
+- UI/隐私：Security tab 按需加载 summary、cursor findings 与审批历史；支持严重度过滤、脱敏证据、修复建议、实时进度/取消、重新扫描、理由审批/拒绝/撤销、JSON/SARIF 保存。内置扫描网络、VT hash、文件上传和云 LLM 均为 false；不存在绕过同意的上传代码路径。
+- 安全语料：Windows persistence、Linux download-exec、macOS persistence、Prompt Injection、credential access/exfiltration、obfuscation 和良性 fixture；另有 traversal/ADS/设备名/Unicode、symlink/junction、ZIP bomb、嵌套 archive/MIME、长行/文件数/超时/取消测试。三平台脚本是静态语料覆盖，不等同 macOS/Linux 实机验证。
+- 测试证据：前端 full 33 files / 247 tests passed；Rust `cargo test --all-features -j 1` 全量通过，S3 定向 security 15、migration 18、corpus 4 均通过；Python 120 passed / 1 skipped；`npm run build`、`cargo check`、`cargo fmt --check`、`git diff --check` 通过。普通 `cargo test` 因仓库既有 `fs_explorer_tests` 需要 `test-private` 无法编译，按项目规定用 all-features 全量命令验证。
+- 性能证据：500 文件/长行/扫描预算用例在 security lib suite 总执行 `< 1 s`；Windows `--all-features` 全量首次链接约 4–7.5 分钟，测试执行本身不足 1 秒；Vite 仍只有既有大 chunk 警告。
+- 环境差异：本次仅 Windows 实机；Python 实际解释器 3.13.9，非目标 3.11.x。macOS/Linux 打包和实机扫描/terminal 验证不得据此标完成。
+- 规范同步：`SKILLS_WORKSPACE_TERMINAL_UI_DESIGN.md` 与三份全局 UI 规范已加入 findings、审批恢复/撤销、进度取消、隐私与导出规则；`ui-ux-pro-max` skill 的本地脚本缺失，改按已读取规范人工落实键盘、ARIA 与性能要求。
+- 特性开关：S0 Skills flags 仍默认 false 且未参与生产分支；S3 是单一生产 Gate。S5 必须删除休眠 flags 或实现真实可验证回滚，不能把当前 flags 记作可用 rollout。
+- 回滚：代码回滚到 `3fa8f6c`；数据库使用同目录 `.pre-v12.sqlite3` 恢复。quarantine/外部源不被回滚删除，外部目录从未被修改。
+- 下一步：S4 依赖 Sandbox helper 的第三方深度扫描按用户范围延后；继续 Skills S5，完成存量迁移/兼容清理，再进入 Workspace W1–W6。
