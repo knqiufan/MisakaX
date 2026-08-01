@@ -3,7 +3,7 @@
 > **用途：** 作为本轮 Skills/安全检查/Git 标识/终端/Sandbox/最终架构审查的单一进度台账。
 > **受众：** 项目负责人、开发、测试、安全和后续接手者。
 > **最后审阅 / Last reviewed：** 2026-08-01
-> **代码基线：** `main@14a048a`。
+> **代码基线：** `main@e118d63`。
 > **重要说明：** 本文按实际代码审计记录，不把“已有 UI 外壳”计作完整功能；`DEVELOPMENT_STATUS.md` 中关于 Phase 5 Skills 尚未开始的描述已落后于当前代码，最终架构阶段需统一修订。
 
 ---
@@ -26,8 +26,8 @@
 | 受管 Skill 启用/禁用 | ✅ | stable ID、统一 Gate、activation generation 与 Python 只读逐项挂载已闭环 |
 | 外部 Skill 启用/禁用 | 🟡 | 来源与开关已持久化、默认禁用且不改原目录；S3 扫描裁决仍待实现 |
 | composer Skill 选择过滤 | ✅ | 仅展示 `effective_active` 来源，发送 stable ID；失效事件会移除 chip 并非阻塞提示 |
-| 详情按需文件浏览 | ⬜ | 当前直接读取并在文件树前展示完整 `SKILL.md` |
-| Skills 迁入 Settings/MCP 下方 | ⬜ | 当前仍为独立 `skills` route |
+| 详情按需文件浏览 | ✅ | summary/tree/read-file 已拆分；文件正文仅在用户选择后按 200 KiB 分段读取 |
+| Skills 迁入 Settings/MCP 下方 | ✅ | Settings 导航顺序为 MCP → Skills；旧 `skills` route 仅保留兼容重定向 |
 | Skills 安全检查 | 🟡 | 有安全解包和脚本/二进制布尔标注；无 quarantine、多引擎、policy、finding、rescan |
 | Git/本地项目 badge | ⬜ | 无 Git service/DTO/UI |
 | 嵌入式终端 | ⬜ | 现有 Terminal 图标实际打开 Tool Logs；无 xterm/PTY |
@@ -132,7 +132,7 @@
 |---|---|---|---|
 | B-01 | 安全 | ✅ S1 已解除：Python 不再挂载整目录，只读取 generation-stamped activation view | 已关闭 |
 | B-02 | 安全 | 外部 Skill 已有稳定身份和持久开关；quarantine/扫描裁决仍缺失 | M2 / S3 |
-| B-03 | UX/API | 详情 DTO 自动携带全文，长内容挤压文件树 | M2 / S2 |
+| B-03 | UX/API | ✅ S2 已解除：详情首载不再返回正文，文件树与预览独立滚动并按需分段读取 | 已关闭 |
 | B-04 | 安全 | 所有安装入口缺统一 Security Gate/quarantine | M2 / S3 |
 | B-05 | 安全 | 主 WebView 通用 Shell 权限 + CSP null | M3 上线门 |
 | B-06 | 安全 | Agent Shell 宿主执行和环境继承 | M4-M5 |
@@ -155,6 +155,7 @@
 - [ ] 对本轮文档完成团队 review，确认 Windows UAC setup、存量未扫描 Skill 默认禁用和云扫描隐私三项产品决策。
 - [x] 从 [`SKILLS_REPOSITORY_AND_SECURITY_PLAN.md`](../planning/SKILLS_REPOSITORY_AND_SECURITY_PLAN.md) 的 S0 与 [`WORKSPACE_CONTEXT_AND_TERMINAL_PLAN.md`](../planning/WORKSPACE_CONTEXT_AND_TERMINAL_PLAN.md) 的 W0 建立回归基线。
 - [x] 执行 Skills S1，关闭 disabled Skill 仍被全目录挂载的 B-01。
+- [x] 执行 Skills S2，迁入 Settings 并关闭详情首载全文的 B-03。
 - [ ] 执行 Workspace W1/W2，交付只读工作区标识与 panel 容器。
 - [ ] Sandbox B0–B7：按用户当前范围暂不实施；未获得新指令前不启动 Spike 或生产执行链改造。
 
@@ -186,3 +187,18 @@
 - 风险/阻断：B-01 已解除；B-02 缩小为扫描与 quarantine 缺口；B-05 仍待 Workspace W5。
 - 回滚：代码回滚到 `663c8bb`；数据库用同目录 `.pre-v11.sqlite3` 备份恢复，外部 Skill 原目录从未移动或删除。
 - 下一步：Skills S2，迁入 Settings 并实现 summary/tree/read-file 按需详情；同时可启动 Workspace W1/W2。
+
+### 2026-08-01 Skills S2 Settings 与按需文件详情
+
+- 状态：已完成；实现提交 `e118d63`。
+- 完成 TODO：Skills S2 全部 15 项；无数据库迁移；Sandbox 未实施。
+- API 证据：新增 `skills_get_summary`、`skills_list_files`、`skills_read_file`、`skills_get_scan_summary`；普通远端详情只读取仓库元数据，不自动下载或解包归档；旧 `skills_get_detail` 仅保留一版兼容且新 UI 不再调用。
+- 文件边界：后端只接受稳定 Skill ID 与相对路径；拒绝绝对路径、穿越、ADS、设备名、符号链接/junction/reparse point，并执行 canonical containment 与打开前后快照校验。单段 200 KiB、单文件预览总量 2 MiB、并发读取 8；二进制或不支持编码只返回元数据。
+- UI 证据：Skills 已迁入 Settings 的 MCP 下方；宽屏为列表/详情双栏，窄屏为单列切换；固定详情头下提供 Files/Security/Overview，默认 Files。首选 Skill 只请求 summary 与根文件页，点击文件后才请求正文；树支持 roving focus 与方向键导航，晚到响应按 generation/path 丢弃。
+- 测试证据：前端 full 33 files / 243 tests passed；Rust `cargo test --features test-private -j 1` 全量通过，file-provider 单元/安全/竞态/预算与 Windows junction 用例绿色；`npm run build`、`cargo check`、`cargo fmt --check`、`git diff --check` 通过。Vite 仅保留既有大 chunk 警告。
+- 性能证据：测试固定 500 项树首屏预算 `< 1000 ms`；Rust 固定 500 项目录列举 `< 200 ms`，100 次 summary 读取 P95 `< 150 ms`；summary 响应正文传输量为 0。
+- 文档同步：更新 Skills/Workspace Terminal UI 设计及三份全局前端规范，补充 Settings 顺序、双层滚动、惰性预览、Switch/Tab/Tree 键盘语义与禁止远端自动下载规则。
+- 特性开关：S0 的 `skills_settings_tab_v2=false`、`skills_lazy_file_preview=false` 契约仍保留但当前未参与路由分支；S2 安全文件提供器与 Settings 路由为单一生产实现。S5 需明确删除这些休眠开关或补齐真正可验证的回滚路径，不能将其误报为可用回滚开关。
+- 风险/阻断：B-03 已关闭；B-02/B-04 的 quarantine、多引擎扫描与统一安装 Security Gate 仍由 S3 负责；B-05 仍待 Workspace W5。
+- 回滚：代码回滚到 `9f1c235`；本阶段无数据库或外部 Skill 目录变更。若回滚，新 UI/API 与安全文件读取提供器会整体退出。
+- 下一步：Skills S3，建立 artifact/scan/finding/approval 数据模型、quarantine 与所有入口统一 Security Gate；继续排除 Sandbox 实施。
