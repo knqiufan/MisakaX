@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口混合壳结构、任务侧栏、对话页顶栏、设置页与工作区布局语义。 |
 | **受众** | 负责 `AppShell`、`UnifiedTopBar`、`SessionPanel`、`SettingsSidebar`、`ChatPage`、`WorkspaceBar`、`SettingsPage` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-08-01（v31） |
+| **最后审阅** | 2026-08-07（v32） |
 
 ## 相关文档
 
@@ -86,7 +86,8 @@ Session / Settings 左栏 / Main 使用 `--sidebar`、`--border`、`--background
 
 固定在任务列表底部（`shrink-0`），仅保留一个 `UserMenu` 触发器，行形与 Quick actions 一致（`h-9 rounded-xl text-[13px]`）。
 
-- 用户菜单顺序：禁用的个人中心 → 通知（保留未读徽标）→ Settings → 分隔线 → 技能 / 知识库 / 仪表盘 → 分隔线 → 禁用的退出。
+- 用户菜单顺序：禁用的个人中心 → 通知（保留未读徽标）→ Settings → 分隔线 → 知识库 / 仪表盘 → 分隔线 → 禁用的退出。
+- Skills **不得**出现在用户菜单中；唯一入口为 Settings → Skills（见 §6 / [frontend-ui-guidelines.md](./frontend-ui-guidelines.md)）。
 - 通知与 Settings **不得**作为底栏独立行重复出现。
 
 Sidecar 状态**不**放在底栏（见 §1 / 关于页）。

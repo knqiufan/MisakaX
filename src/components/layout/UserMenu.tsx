@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 import {
   User,
   LogOut,
-  Sparkles,
   BookOpen,
   LayoutDashboard,
   Bell,
@@ -59,10 +58,6 @@ export function UserMenu() {
           {t("settings")}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => navigate({ page: "settings", tab: "skills" })}>
-          <Sparkles className="mr-2 h-4 w-4" />
-          {t("skills")}
-        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => navigate({ page: "knowledge" })}>
           <BookOpen className="mr-2 h-4 w-4" />
           {t("knowledge")}

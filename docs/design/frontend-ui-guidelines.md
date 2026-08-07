@@ -8,7 +8,7 @@
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-08-01（v31）
+**最后审阅 / Last reviewed:** 2026-08-07（v32）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -147,7 +147,7 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 
 ### 4.3.z.1 Skills 设置与按需文件预览
 
-- Skills 的唯一入口是 `Settings > Skills`；不得恢复 `{ page: "skills" }`、独立 title/nav 分支或页面 wrapper。领域 UI 必须由 `SkillsSettingsFeature` 承载。
+- Skills 的唯一入口是 `Settings > Skills`；不得恢复 `{ page: "skills" }`、独立 title/nav 分支或页面 wrapper，也不得在 `UserMenu` / 任务侧栏底栏重复暴露 Skills 入口。领域 UI 必须由 `SkillsSettingsFeature` 承载。
 - 选中已安装 Skill 的首屏只允许请求 summary 与目录页，`body_bytes_transferred` 必须为 0；没有明确选择文件前不得调用 `skills_read_file`，也不得默认读取或渲染 `SKILL.md`。
 - 详情固定使用 `文件 / 安全 / 概览` 顺序并默认文件；安全摘要只在首次打开安全 tab 时按需加载。文件树与预览各自滚动，窄宽度改为上下两区，不让长文件撑高 Settings 根页面。
 - 文件树使用标准 tree ARIA 与 roving focus；支持方向键、Home/End、Enter/Space。所有异步目录页、预览段和扫描摘要都必须核对稳定 `skill_id` 与 generation，迟到结果直接丢弃。
