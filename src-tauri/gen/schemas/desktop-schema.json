@@ -393,10 +393,52 @@
           "markdownDescription": "Enables the add_custom_model command without any pre-configured scope."
         },
         {
+          "description": "Enables the append_content_block command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-append-content-block",
+          "markdownDescription": "Enables the append_content_block command without any pre-configured scope."
+        },
+        {
           "description": "Enables the archive_session command without any pre-configured scope.",
           "type": "string",
           "const": "allow-archive-session",
           "markdownDescription": "Enables the archive_session command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the artifact_delete_or_expire command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-artifact-delete-or-expire",
+          "markdownDescription": "Enables the artifact_delete_or_expire command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the artifact_export command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-artifact-export",
+          "markdownDescription": "Enables the artifact_export command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the artifact_get_metadata command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-artifact-get-metadata",
+          "markdownDescription": "Enables the artifact_get_metadata command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the artifact_get_preview command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-artifact-get-preview",
+          "markdownDescription": "Enables the artifact_get_preview command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the artifact_read_preview_base64 command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-artifact-read-preview-base64",
+          "markdownDescription": "Enables the artifact_read_preview_base64 command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the artifact_register command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-artifact-register",
+          "markdownDescription": "Enables the artifact_register command without any pre-configured scope."
         },
         {
           "description": "Enables the backfill_session_workspaces command without any pre-configured scope.",
@@ -499,6 +541,12 @@
           "type": "string",
           "const": "allow-get-app-config",
           "markdownDescription": "Enables the get_app_config command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_message_blocks command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-message-blocks",
+          "markdownDescription": "Enables the get_message_blocks command without any pre-configured scope."
         },
         {
           "description": "Enables the get_messages command without any pre-configured scope.",
@@ -1011,10 +1059,52 @@
           "markdownDescription": "Denies the add_custom_model command without any pre-configured scope."
         },
         {
+          "description": "Denies the append_content_block command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-append-content-block",
+          "markdownDescription": "Denies the append_content_block command without any pre-configured scope."
+        },
+        {
           "description": "Denies the archive_session command without any pre-configured scope.",
           "type": "string",
           "const": "deny-archive-session",
           "markdownDescription": "Denies the archive_session command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the artifact_delete_or_expire command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-artifact-delete-or-expire",
+          "markdownDescription": "Denies the artifact_delete_or_expire command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the artifact_export command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-artifact-export",
+          "markdownDescription": "Denies the artifact_export command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the artifact_get_metadata command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-artifact-get-metadata",
+          "markdownDescription": "Denies the artifact_get_metadata command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the artifact_get_preview command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-artifact-get-preview",
+          "markdownDescription": "Denies the artifact_get_preview command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the artifact_read_preview_base64 command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-artifact-read-preview-base64",
+          "markdownDescription": "Denies the artifact_read_preview_base64 command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the artifact_register command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-artifact-register",
+          "markdownDescription": "Denies the artifact_register command without any pre-configured scope."
         },
         {
           "description": "Denies the backfill_session_workspaces command without any pre-configured scope.",
@@ -1117,6 +1207,12 @@
           "type": "string",
           "const": "deny-get-app-config",
           "markdownDescription": "Denies the get_app_config command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_message_blocks command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-message-blocks",
+          "markdownDescription": "Denies the get_message_blocks command without any pre-configured scope."
         },
         {
           "description": "Denies the get_messages command without any pre-configured scope.",

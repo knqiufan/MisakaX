@@ -102,6 +102,14 @@ const COMMANDS: &[&str] = &[
     "skills_download_remote",
     "skills_set_enabled",
     "skills_uninstall",
+    "artifact_register",
+    "artifact_get_metadata",
+    "artifact_get_preview",
+    "artifact_read_preview_base64",
+    "artifact_export",
+    "artifact_delete_or_expire",
+    "append_content_block",
+    "get_message_blocks",
 ];
 
 fn main() {
