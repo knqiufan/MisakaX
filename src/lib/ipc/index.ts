@@ -4,6 +4,7 @@ export { routerConfigsIpc } from "./router-configs";
 export { workspaceIpc } from "./workspace";
 export { sessionsIpc } from "./sessions";
 export { chatIpc } from "./chat";
+export { artifactsIpc } from "./artifacts";
 export { modelsIpc } from "./models";
 export { sidecarIpc } from "./sidecar";
 export { mcpIpc } from "./mcp";

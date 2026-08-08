@@ -7,7 +7,7 @@ use crate::db::models::{ExportData, ExportSession, ImportResult, MessageSearchRe
 use crate::db::repository::{
     ArtifactRepo, MessageBlockRepo, MessageRepo, SessionRepo, WorkspaceRepo,
 };
-use crate::services::artifacts::RetentionState;
+use crate::services::artifacts::{ArtifactService, ContentSafetyPolicy, RetentionState};
 use crate::AppState;
 
 pub const WORKSPACE_KIND_DEFAULT: &str = "default";
@@ -140,6 +140,14 @@ pub fn update_session(
 pub async fn delete_session(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let _binding_guard = state.workspace_terminal_guard.lock().await;
     let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let artifact_service = ArtifactService::new(
+        config::artifacts_dir().map_err(|e| e.to_string())?,
+        ContentSafetyPolicy::default(),
+    )
+    .map_err(|e| e.to_string())?;
+    artifact_service
+        .expire_session(&conn, &id)
+        .map_err(|e| e.to_string())?;
     SessionRepo::delete(&conn, &id).map_err(|e| e.to_string())?;
     drop(conn);
     state.terminal_manager.kill_chat_session(&id);

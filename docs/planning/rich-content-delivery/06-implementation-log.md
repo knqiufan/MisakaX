@@ -3,7 +3,7 @@
 > **用途：** 记录实际实施、验证、决策变更、风险与下一步，保证人类和 AI Agent 接手时可追溯。
 > **受众：** 所有实施者与评审者。
 > **最后审阅 / Last reviewed：** 2026-08-09
-> **状态：** R0 已提交并推送，但远程仓库未报告可查询的 CI；按阶段门禁阻塞。R1–R4 的本地改动不得推送或标记完成，直到维护者提供并通过 R0 的远程验证方式。
+> **状态：** R0 已通过远程全量 CI。R1 ArtifactService 后端交付已完成本地验证，待提交、推送与远程 CI；R2–R4 仍未开始阶段提交。
 
 ---
 
@@ -20,8 +20,8 @@
 
 | 阶段 | 状态 | 负责人 | 开始 | 完成 | 证据/备注 |
 |---|---|---|---|---|---|
-| R0 契约/安全基线 | 远程 CI 未配置，阻塞 | 当前实施者 | 2026-08-09 | — | `6012b1d` 已推送；迁移/双读/默认关闭 flag/安全测试已完成，本地 pass；GitHub API 未报告 check run 或 workflow run |
-| R1 ArtifactService/图片/下载 | 本地实现完成，待门禁 | 当前实施者 | 2026-08-09 | 2026-08-09 | 窄 IPC + 原生保存对话框；未引入宽 URI scope；未 commit/push/CI |
+| R0 契约/安全基线 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `b1ed884`；[CI #31271639940](https://github.com/knqiufan/MisakaX/actions/runs/31271639940) 的 8 项检查全绿 |
+| R1 ArtifactService/图片/下载 | 本地验证完成，待门禁 | 当前实施者 | 2026-08-09 | — | 受限 ArtifactService、窄 IPC、原生保存与会话过期清理；待 commit/push/CI |
 | R2 文件预览 | 本地实现完成，待门禁 | 当前实施者 | 2026-08-09 | 2026-08-09 | 本地只读预览、资源上限和下载回退；未 commit/push/CI |
 | R3 图表 | 本地实现完成，待门禁 | 当前实施者 | 2026-08-09 | 2026-08-09 | 受限 spec、ARIA、表格与 CSV 产物导出；未 commit/push/CI |
 | R4 地图 | 本地实现完成，待门禁 | 当前实施者 | 2026-08-09 | 2026-08-09 | 仅本地 GeoJSON/no tiles；R4b 未开始；未 commit/push/CI |
@@ -119,6 +119,17 @@
 - **远程 CI：** 上述运行的 Windows 作业失败使 Tauri Build 跳过；本地已复现该测试集通过，等待下一次远程全矩阵验证。
 - **风险/回滚：** 只增加 Windows 测试初始化等待 700ms；不改变运行时代码、用户终端行为或安全边界。
 - **下一步：** 推送并等待 R0 全部远程检查通过。
+
+### 2026-08-09 — R1：ArtifactService 后端与窄 IPC
+
+- **范围：** 提供应用私有 content-addressed artifact store、magic/MIME/尺寸/配额校验、原子写入、会话归属、过期清理、预览元数据、原生保存对话框与窄 Tauri IPC。重型预览 renderer、图表和地图仍留待 R2–R4。
+- **代码审查：** Artifact 路径只由 Rust 从 application data 目录解析；写入在 session 存在性校验后才执行；导出使用原生 dialog 并验证写出哈希；未添加 WebView FS/HTTP/Shell permission 或 URL/path 入口。会话删除前过期所属 artifact，保留数据库审计记录。
+- **验证：** `cargo fmt --check` → pass；`cargo check` → pass；`cargo test --lib artifact` → 7 passed / 0 failed。
+- **未验证：** R1 不接入重型前端 renderer；图像放大/通用文件 preview 将由 R2 覆盖。
+- **Git：** 待提交（仅 R1 后端及 IPC 文件）。
+- **远程 CI：** 待当前 R1 提交推送后运行。
+- **风险/回滚：** 关闭 rich-content feature flags 可保持旧消息路径；删除 artifact 数据前会先将记录标为 expired，并只删除无 active 引用的字节文件。
+- **下一步：** 提交、推送并等待远程 CI 全绿后，开始 R2。
 
 ## 后续记录模板
 

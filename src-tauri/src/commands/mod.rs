@@ -1,3 +1,4 @@
+pub mod artifacts;
 pub mod chat;
 pub mod fs_explorer;
 pub mod mcp;
