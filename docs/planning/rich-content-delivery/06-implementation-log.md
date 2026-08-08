@@ -100,6 +100,16 @@
 - **风险/回滚：** 该 lint 修复不改变 SQL placeholder 数量或顺序；若需要回退，可单独还原 CI 触发和两个 iterator 表达式。
 - **下一步：** 推送 R0 修复并等待所有远程 required checks 全绿，再开始 R1。
 
+### 2026-08-09 — R0：迁移夹具回退与全量回归
+
+- **范围：** 修复 R0 migration v14 对既有迁移夹具和备份测试的影响；未改变生产 schema、R1–R4 服务、renderer、依赖或 UI。
+- **代码审查：** 第二轮 CI 的 Rust 作业通过 Clippy 后，在 `test_migration_idempotent` 暴露硬编码的 v13 版本断言。进一步全量回归确认测试辅助函数在构造 v5/v10/v11/v12 fixture 时没有移除 v14 表和 schema 记录，导致重复建表、跳过前移和备份未生成。新增 `revert_v14`，在各旧版本辅助路径先删除 v14 的表、索引和版本记录；该函数仅用于测试夹具，真实迁移仍为前向单向执行。
+- **验证：** 隔离 target directory 中 `cargo test --all-features --test db_migrations_tests` → 19 passed / 0 failed；`cargo nextest run --all-features --profile ci` → 439 passed / 0 skipped；`cargo fmt --check` → pass；`cargo clippy --all-targets --all-features -- -D warnings` → pass。
+- **Git：** 本条记录随 R0 migration fixture 修复提交推送。
+- **远程 CI：** [CI #31269092419](https://github.com/knqiufan/MisakaX/actions/runs/31269092419) 的前端和三平台 Terminal Runtime 成功；Rust nextest 在 v14 fixture 兼容性失败，Tauri Build 被依赖关系跳过。已完成本地全量修复，等待下一次远程运行。
+- **风险/回滚：** 只改变测试辅助代码和版本断言；可独立回退，不影响用户数据库。
+- **下一步：** 推送并等待 R0 的完整远程 CI 全绿。
+
 ## 后续记录模板
 
 ```markdown

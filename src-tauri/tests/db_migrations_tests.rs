@@ -162,7 +162,7 @@ fn test_migration_idempotent() {
             row.get(0)
         })
         .unwrap();
-    assert_eq!(version, 13);
+    assert_eq!(version, 14);
 }
 
 #[test]
@@ -602,6 +602,7 @@ fn test_migration_v6_injects_builtin_models_for_existing_router_configs() {
 
 fn run_migrations_to_v5(conn: &Connection) {
     run_migrations(conn).unwrap();
+    revert_v14(conn);
     conn.execute_batch(
         "DROP TABLE skill_security_migration_items;
          DROP TABLE skill_security_migration;
@@ -639,6 +640,7 @@ fn run_migrations_to_v5(conn: &Connection) {
 
 fn run_migrations_to_v10(conn: &Connection) {
     run_migrations(conn).unwrap();
+    revert_v14(conn);
     revert_v13(conn);
     conn.execute_batch(
         "DROP TABLE skill_approvals;
@@ -667,6 +669,7 @@ fn run_migrations_to_v10(conn: &Connection) {
 
 fn run_migrations_to_v11(conn: &Connection) {
     run_migrations(conn).unwrap();
+    revert_v14(conn);
     revert_v13(conn);
     conn.execute_batch(
         "DROP TABLE skill_approvals;
@@ -682,7 +685,21 @@ fn run_migrations_to_v11(conn: &Connection) {
 
 fn run_migrations_to_v12(conn: &Connection) {
     run_migrations(conn).unwrap();
+    revert_v14(conn);
     revert_v13(conn);
+}
+
+fn revert_v14(conn: &Connection) {
+    conn.execute_batch(
+        "DROP INDEX IF EXISTS idx_artifacts_sha256;
+         DROP INDEX IF EXISTS idx_artifacts_origin_message;
+         DROP INDEX IF EXISTS idx_artifacts_session_retention;
+         DROP TABLE IF EXISTS artifacts;
+         DROP INDEX IF EXISTS idx_message_blocks_message_position;
+         DROP TABLE IF EXISTS message_blocks;
+         DELETE FROM _schema_version WHERE version = 14;",
+    )
+    .unwrap();
 }
 
 fn revert_v13(conn: &Connection) {
