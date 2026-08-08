@@ -90,6 +90,16 @@
 - **风险/回滚：** 该 R0 commit 可独立回滚；保留的 uncommitted R1–R4 本地改动不属于已通过门禁的交付。
 - **下一步：** 请仓库维护者配置或指定 R0 的 required CI 验证方式（以及需要的人工审批）；验证全绿后，更新本记录并再开始 R1 的阶段审查、测试、提交和推送。
 
+### 2026-08-09 — R0：启用分支 CI 并修复远程 Clippy
+
+- **范围：** 扩大现有 CI 的 push 触发范围至全部分支；修复 R0 两个 repository 的 Clippy 兼容性。未纳入 R1–R4 的服务、renderer、依赖或 UI 改动。
+- **代码审查：** CI 仍保留 `pull_request` 对 `main`/`master` 的限制，只有 `push` 触发扩展为 `"**"`，以便阶段分支得到同一套远程门禁。远程失败日志定位到 `artifact_repo.rs` 与 `message_block_repo.rs` 的 `repeat().take()`；替换为等价且不分配额外数据的 `std::iter::repeat_n()`。
+- **验证：** `cargo fmt --check` → pass；`cargo clippy --all-targets --all-features -- -D warnings` → pass；`cargo test --lib content` → 5 passed / 0 failed。
+- **Git：** `3064b81`（`ci: run phase checks on feature branches`）已推送并实际触发 CI；本条记录随 R0 Clippy 修复提交推送。
+- **远程 CI：** [CI #31268907752](https://github.com/knqiufan/MisakaX/actions/runs/31268907752) 证明新分支触发已生效。前端及三平台 Terminal Runtime 均成功；Rust 作业在 Clippy 阶段因上述两处 lint 失败，Tauri Build 因依赖失败被跳过。本地修复后等待下一次完整远程运行。
+- **风险/回滚：** 该 lint 修复不改变 SQL placeholder 数量或顺序；若需要回退，可单独还原 CI 触发和两个 iterator 表达式。
+- **下一步：** 推送 R0 修复并等待所有远程 required checks 全绿，再开始 R1。
+
 ## 后续记录模板
 
 ```markdown

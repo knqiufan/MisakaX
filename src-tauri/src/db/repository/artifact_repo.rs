@@ -61,8 +61,7 @@ impl ArtifactRepo {
         if session_ids.is_empty() {
             return Ok(Vec::new());
         }
-        let placeholders = std::iter::repeat("?")
-            .take(session_ids.len())
+        let placeholders = std::iter::repeat_n("?", session_ids.len())
             .collect::<Vec<_>>()
             .join(",");
         let sql = format!(
