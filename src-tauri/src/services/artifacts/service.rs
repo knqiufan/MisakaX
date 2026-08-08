@@ -37,6 +37,7 @@ impl ArtifactService {
         &self.policy
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn register_base64(
         &self,
         conn: &Connection,

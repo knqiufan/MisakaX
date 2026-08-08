@@ -131,6 +131,16 @@
 - **风险/回滚：** 关闭 rich-content feature flags 可保持旧消息路径；删除 artifact 数据前会先将记录标为 expired，并只删除无 active 引用的字节文件。
 - **下一步：** 提交、推送并等待远程 CI 全绿后，开始 R2。
 
+### 2026-08-09 — R1：远程 Clippy 兼容性修复
+
+- **范围：** 修复 [CI #31272376136](https://github.com/knqiufan/MisakaX/actions/runs/31272376136) 暴露的 R1 lint；未改变 ArtifactService 的输入、存储、访问控制或 IPC 行为。
+- **代码审查：** `limit_text` 改用 `enumerate` 保持相同的零起始行数上限；`register_base64` 与已有 `register_bytes` 一样声明窄入口的多参数例外，避免为迎合 lint 而弱化 IPC 的显式字段。初始 R1 commit 的前端与三平台 Terminal Runtime 均通过，Rust 仅在 Clippy 阶段失败。
+- **验证：** `cargo fmt --check` → pass；`cargo clippy --all-targets --all-features -- -D warnings` → pass；`cargo test --lib artifact` → 7 passed / 0 failed。
+- **Git：** `ab7f1ee` 已推送；本条记录随 R1 Clippy 修复提交推送。
+- **远程 CI：** 待修复提交推送后重新运行。
+- **风险/回滚：** 仅 lint 等价改动，可单独回退。
+- **下一步：** 等待 R1 required CI 全绿后进入 R2。
+
 ## 后续记录模板
 
 ```markdown

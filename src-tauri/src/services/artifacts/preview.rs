@@ -96,8 +96,7 @@ impl PreviewerRegistry {
 
 fn limit_text(value: &str, policy: &ContentSafetyPolicy) -> (String, bool) {
     let mut output = String::new();
-    let mut lines = 0usize;
-    for line in value.lines() {
+    for (lines, line) in value.lines().enumerate() {
         if lines == policy.max_text_preview_lines
             || output.len() + line.len() + 1 > policy.max_text_preview_chars
         {
@@ -105,7 +104,6 @@ fn limit_text(value: &str, policy: &ContentSafetyPolicy) -> (String, bool) {
         }
         output.push_str(line);
         output.push('\n');
-        lines += 1;
     }
     (output, false)
 }
