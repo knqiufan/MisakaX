@@ -110,6 +110,16 @@
 - **风险/回滚：** 只改变测试辅助代码和版本断言；可独立回退，不影响用户数据库。
 - **下一步：** 推送并等待 R0 的完整远程 CI 全绿。
 
+### 2026-08-09 — R0：Windows ConPTY CI 启动竞态修复
+
+- **范围：** 仅稳定现有 Windows Terminal Runtime 集成测试的首条握手时机，以完成 R0 的远程门禁；未改变终端服务或 R0 生产功能。
+- **代码审查：** [CI #31271436559](https://github.com/knqiufan/MisakaX/actions/runs/31271436559) 中 Rust、前端、macOS 与 Ubuntu 作业均成功，Windows 的 `windows_profiles_and_long_unicode_workspace_round_trip` 未收到首条 PowerShell 命令。日志表明 ConPTY 已启动但冷启动 PowerShell 尚未就绪。测试辅助函数只在 Windows 将既有 300ms 等待提升到 1 秒；命令、断言和超时覆盖均未放宽。
+- **验证：** `cargo test --all-features --test terminal_manager_tests -- --nocapture` → 10 passed / 0 failed；`cargo fmt --check` → pass；`cargo clippy --all-targets --all-features -- -D warnings` → pass。
+- **Git：** 本条记录随 CI 竞态修复提交推送。
+- **远程 CI：** 上述运行的 Windows 作业失败使 Tauri Build 跳过；本地已复现该测试集通过，等待下一次远程全矩阵验证。
+- **风险/回滚：** 只增加 Windows 测试初始化等待 700ms；不改变运行时代码、用户终端行为或安全边界。
+- **下一步：** 推送并等待 R0 全部远程检查通过。
+
 ## 后续记录模板
 
 ```markdown

@@ -108,7 +108,14 @@ fn spawn_profile(
         })
         .expect("PTY should spawn");
     // A real xterm replies only after parsing ConPTY's initial DSR request.
-    std::thread::sleep(Duration::from_millis(300));
+    // Windows PowerShell can still be initializing on a cold CI runner after
+    // the usual interactive delay, so leave enough time before the first
+    // handshake and command are written to the PTY.
+    std::thread::sleep(Duration::from_millis(if cfg!(windows) {
+        1_000
+    } else {
+        300
+    }));
     state
 }
 
