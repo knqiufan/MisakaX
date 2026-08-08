@@ -1,3 +1,5 @@
+use crate::services::artifacts::ArtifactRecord;
+use crate::services::content::ContentBlock;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,6 +55,8 @@ pub struct Message {
     #[serde(default = "default_message_status")]
     pub status: String,
     pub tool_calls: Option<String>,
+    #[serde(default)]
+    pub blocks: Vec<ContentBlock>,
     pub created_at: String,
 }
 
@@ -196,6 +200,8 @@ pub struct ExportData {
     pub exported_at: String,
     pub app: String,
     pub sessions: Vec<ExportSession>,
+    #[serde(default)]
+    pub artifact_manifest: Vec<ArtifactRecord>,
 }
 
 /// 单个会话的导出数据（含消息列表）

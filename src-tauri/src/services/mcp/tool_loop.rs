@@ -496,6 +496,7 @@ fn assistant_history_message(session_id: &str, content: &str) -> Message {
         attachments: None,
         status: "complete".to_string(),
         tool_calls: None,
+        blocks: Vec::new(),
         created_at: String::new(),
     }
 }

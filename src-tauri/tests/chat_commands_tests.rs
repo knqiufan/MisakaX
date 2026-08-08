@@ -134,6 +134,7 @@ mod agent_message_builders {
             attachments: None,
             status: "complete".to_string(),
             tool_calls: None,
+            blocks: Vec::new(),
             created_at: "now".to_string(),
         }
     }

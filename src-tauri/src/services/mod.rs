@@ -1,4 +1,6 @@
+pub mod artifacts;
 pub mod chat;
+pub mod content;
 pub mod llm;
 pub mod mcp;
 pub mod mcp_bridge;

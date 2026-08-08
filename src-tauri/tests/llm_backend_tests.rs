@@ -77,6 +77,7 @@ fn make_message(id: &str, role: &str, content: &str, attachments: Option<&str>) 
         attachments: attachments.map(|s| s.to_string()),
         status: "complete".to_string(),
         tool_calls: None,
+        blocks: Vec::new(),
         created_at: "2025-01-01T00:00:00".to_string(),
     }
 }

@@ -278,6 +278,7 @@ impl MessageRepo {
                 .get::<_, Option<String>>(8)?
                 .unwrap_or_else(|| "complete".to_string()),
             tool_calls: row.get(9)?,
+            blocks: Vec::new(),
             created_at: row.get(10)?,
         })
     }
