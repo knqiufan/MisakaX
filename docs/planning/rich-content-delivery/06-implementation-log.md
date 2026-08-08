@@ -3,7 +3,7 @@
 > **用途：** 记录实际实施、验证、决策变更、风险与下一步，保证人类和 AI Agent 接手时可追溯。
 > **受众：** 所有实施者与评审者。
 > **最后审阅 / Last reviewed：** 2026-08-09
-> **状态：** R0 已通过远程全量 CI。R1 ArtifactService 后端交付已完成本地验证，待提交、推送与远程 CI；R2–R4 仍未开始阶段提交。
+> **状态：** R0、R1 已通过远程全量 CI。R2–R4 尚未开始阶段提交；工作区中保留的后续候选实现不得视为已验收交付。
 
 ---
 
@@ -21,10 +21,10 @@
 | 阶段 | 状态 | 负责人 | 开始 | 完成 | 证据/备注 |
 |---|---|---|---|---|---|
 | R0 契约/安全基线 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `b1ed884`；[CI #31271639940](https://github.com/knqiufan/MisakaX/actions/runs/31271639940) 的 8 项检查全绿 |
-| R1 ArtifactService/图片/下载 | 本地验证完成，待门禁 | 当前实施者 | 2026-08-09 | — | 受限 ArtifactService、窄 IPC、原生保存与会话过期清理；待 commit/push/CI |
-| R2 文件预览 | 本地实现完成，待门禁 | 当前实施者 | 2026-08-09 | 2026-08-09 | 本地只读预览、资源上限和下载回退；未 commit/push/CI |
-| R3 图表 | 本地实现完成，待门禁 | 当前实施者 | 2026-08-09 | 2026-08-09 | 受限 spec、ARIA、表格与 CSV 产物导出；未 commit/push/CI |
-| R4 地图 | 本地实现完成，待门禁 | 当前实施者 | 2026-08-09 | 2026-08-09 | 仅本地 GeoJSON/no tiles；R4b 未开始；未 commit/push/CI |
+| R1 ArtifactService/图片/下载 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `53a079d`；[CI #31272842590](https://github.com/knqiufan/MisakaX/actions/runs/31272842590) 的 8 项检查全绿 |
+| R2 文件预览 | 未开始阶段门禁 | 待分配 | — | — | 候选工作区改动未提交、未验证、未推送 |
+| R3 图表 | 未开始阶段门禁 | 待分配 | — | — | 候选工作区改动未提交、未验证、未推送 |
+| R4 地图 | 未开始阶段门禁 | 待分配 | — | — | 候选工作区改动未提交、未验证、未推送；R4b 不在范围内 |
 | R5 Agent/Sidecar/MCP | 未开始 | 待分配 | — | — | 依赖 Phase 4 真正对话链路；通过阶段门禁后完成 |
 | R6 加固/发布 | 未开始 | 待分配 | — | — | 三平台/沙箱 gate；通过阶段门禁后完成 |
 
@@ -126,10 +126,10 @@
 - **代码审查：** Artifact 路径只由 Rust 从 application data 目录解析；写入在 session 存在性校验后才执行；导出使用原生 dialog 并验证写出哈希；未添加 WebView FS/HTTP/Shell permission 或 URL/path 入口。会话删除前过期所属 artifact，保留数据库审计记录。
 - **验证：** `cargo fmt --check` → pass；`cargo check` → pass；`cargo test --lib artifact` → 7 passed / 0 failed。
 - **未验证：** R1 不接入重型前端 renderer；图像放大/通用文件 preview 将由 R2 覆盖。
-- **Git：** 待提交（仅 R1 后端及 IPC 文件）。
-- **远程 CI：** 待当前 R1 提交推送后运行。
+- **Git：** `ab7f1ee`（后端/IPC）、`1181618`（Clippy）、`53a079d`（命令 manifest 与权限白名单）均已非强制推送至 `origin/codex/rich-content-r0-r4`。
+- **远程 CI：** [CI #31272842590](https://github.com/knqiufan/MisakaX/actions/runs/31272842590) 的 Rust、Frontend、三平台 Terminal Runtime 与三平台 Tauri Build 共 8 项检查全绿。
 - **风险/回滚：** 关闭 rich-content feature flags 可保持旧消息路径；删除 artifact 数据前会先将记录标为 expired，并只删除无 active 引用的字节文件。
-- **下一步：** 提交、推送并等待远程 CI 全绿后，开始 R2。
+- **下一步：** R1 已完成；可开始 R2 的独立阶段审查与实现收口。
 
 ### 2026-08-09 — R1：远程 Clippy 兼容性修复
 
@@ -137,9 +137,21 @@
 - **代码审查：** `limit_text` 改用 `enumerate` 保持相同的零起始行数上限；`register_base64` 与已有 `register_bytes` 一样声明窄入口的多参数例外，避免为迎合 lint 而弱化 IPC 的显式字段。初始 R1 commit 的前端与三平台 Terminal Runtime 均通过，Rust 仅在 Clippy 阶段失败。
 - **验证：** `cargo fmt --check` → pass；`cargo clippy --all-targets --all-features -- -D warnings` → pass；`cargo test --lib artifact` → 7 passed / 0 failed。
 - **Git：** `ab7f1ee` 已推送；本条记录随 R1 Clippy 修复提交推送。
-- **远程 CI：** 待修复提交推送后重新运行。
+- **远程 CI：** 修复后的运行先在 [CI #31272566088](https://github.com/knqiufan/MisakaX/actions/runs/31272566088) 通过 Clippy，但安全基线发现注册命令未同步至 Tauri AppManifest/权限白名单；补充修复后，最终 [CI #31272842590](https://github.com/knqiufan/MisakaX/actions/runs/31272842590) 8/8 成功。
 - **风险/回滚：** 仅 lint 等价改动，可单独回退。
-- **下一步：** 等待 R1 required CI 全绿后进入 R2。
+- **下一步：** R1 required CI 已全绿，可进入 R2。
+
+### 2026-08-09 — R1：命令清单/权限同步与阶段完成
+
+- **范围：** 将 R1 新注册的 artifact 与 content-block 命令同步至受控 AppManifest、`main-commands` 最小权限白名单及生成 schema；未引入通用 FS、HTTP 或 Shell 权限，也未混入 R2–R4 UI/依赖。
+- **代码审查：** 对照 `invoke_handler`、`build.rs` 和 `permissions/main.toml` 三处命令集合，确认 8 个 artifact/block 命令均为 Rust 窄接口，终端权限集不变。安全基线的集合一致性测试修复后通过。
+- **验证：** `cargo fmt --check` → pass；`cargo test --all-features --test security_config_baseline_tests` → 5 passed / 0 failed。
+- **未验证：** 未进行 R2–R4 的 preview/renderer 手工场景；这些内容未纳入 R1 提交。
+- **Git：** `53a079d`（`fix(rich-content): authorize r1 artifact commands`）已非强制推送至 `origin/codex/rich-content-r0-r4`。
+- **远程 CI：** [CI #31272842590](https://github.com/knqiufan/MisakaX/actions/runs/31272842590) completed/success；8 个 required 作业均成功，R1 阶段门禁已满足。
+- **风险/回滚：** 回滚 `53a079d` 会恢复安全基线拒绝行为，且不能保留 R1 的注册命令；正常回滚 R1 时应将服务和该权限提交一并回退。
+- **文档同步：** 本实施记录的阶段看板和 R1 证据更新。
+- **下一步：** 开始 R2；先把候选工作区改动收口为仅文件预览、图片展示与下载回退，再执行独立审查、测试、commit/push/CI。
 
 ## 后续记录模板
 
