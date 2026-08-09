@@ -88,6 +88,12 @@ pub fn db_path() -> Result<PathBuf> {
     Ok(config_dir()?.join("data").join("misaka.db"))
 }
 
+/// Application-owned binary storage for rich-content artifacts. This is kept
+/// outside workspaces, Skills and WebView data so only Rust resolves paths.
+pub fn artifacts_dir() -> Result<PathBuf> {
+    Ok(config_dir()?.join("data").join("artifacts"))
+}
+
 /// Get the skills directory path (~/.misakax/skills/)
 pub fn skills_dir() -> Result<PathBuf> {
     Ok(config_dir()?.join("skills"))
@@ -142,6 +148,7 @@ pub fn ensure_directories() -> Result<()> {
     let dirs = [
         root.clone(),
         root.join("data"),
+        root.join("data").join("artifacts"),
         root.join("skills"),
         root.join("managed").join("skills"),
         root.join("managed").join("skills-staging"),

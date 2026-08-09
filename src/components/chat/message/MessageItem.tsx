@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Check, Copy, RefreshCw, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Message, TokenUsage } from "@/lib/ipc";
+import { MessageContentBlocks } from "@/features/chat-content/MessageContentBlocks";
 import { MessageResponse } from "../markdown/MessageResponse";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolActionsGroup } from "./ToolActionsGroup";
@@ -189,7 +190,11 @@ function MessageBubble({
           ))}
         </div>
       ) : null}
-      <MessageResponse content={message.content} isStreaming={isStreaming} />
+      {message.blocks && message.blocks.length > 0 && !isStreaming ? (
+        <MessageContentBlocks blocks={message.blocks} sessionId={message.session_id} isStreaming={isStreaming} />
+      ) : (
+        <MessageResponse content={message.content} isStreaming={isStreaming} />
+      )}
     </div>
   );
 }

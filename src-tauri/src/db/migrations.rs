@@ -70,6 +70,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         migrate_v13(conn)?;
     }
 
+    if current_version < 14 {
+        migrate_v14(conn)?;
+    }
+
     Ok(())
 }
 
@@ -633,6 +637,62 @@ fn migrate_v13(conn: &Connection) -> Result<()> {
     tx.commit()?;
 
     tracing::info!("Database migrated to version 13");
+    Ok(())
+}
+
+fn migrate_v14(conn: &Connection) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute_batch(
+        "
+        CREATE TABLE message_blocks (
+            id TEXT PRIMARY KEY,
+            message_id TEXT NOT NULL,
+            position INTEGER NOT NULL CHECK(position >= 0),
+            kind TEXT NOT NULL,
+            schema_version INTEGER NOT NULL CHECK(schema_version > 0),
+            payload_json TEXT NOT NULL,
+            status TEXT NOT NULL,
+            fallback_json TEXT NOT NULL DEFAULT '{}',
+            generation INTEGER NOT NULL DEFAULT 0,
+            revision INTEGER NOT NULL DEFAULT 1,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+            UNIQUE(message_id, position)
+        );
+        CREATE INDEX idx_message_blocks_message_position
+        ON message_blocks(message_id, position);
+
+        CREATE TABLE artifacts (
+            artifact_id TEXT PRIMARY KEY,
+            owner_session_id TEXT NOT NULL,
+            origin_message_id TEXT,
+            origin_kind TEXT NOT NULL,
+            display_name TEXT NOT NULL,
+            media_type TEXT NOT NULL,
+            byte_size INTEGER NOT NULL CHECK(byte_size >= 0),
+            sha256 TEXT NOT NULL,
+            storage_key TEXT NOT NULL,
+            preview_state TEXT NOT NULL,
+            preview_artifact_id TEXT,
+            retention_state TEXT NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME,
+            FOREIGN KEY (owner_session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+            FOREIGN KEY (origin_message_id) REFERENCES messages(id) ON DELETE SET NULL
+        );
+        CREATE INDEX idx_artifacts_session_retention
+        ON artifacts(owner_session_id, retention_state, created_at DESC);
+        CREATE INDEX idx_artifacts_origin_message
+        ON artifacts(origin_message_id);
+        CREATE INDEX idx_artifacts_sha256
+        ON artifacts(sha256);
+
+        INSERT INTO _schema_version (version) VALUES (14);
+        ",
+    )?;
+    tx.commit()?;
+    tracing::info!("Database migrated to version 14");
     Ok(())
 }
 

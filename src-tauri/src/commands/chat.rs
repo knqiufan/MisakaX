@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
 use crate::db::models::Message;
-use crate::db::repository::{MessageRepo, SessionRepo};
+use crate::db::repository::{MessageBlockRepo, MessageRepo, SessionRepo};
 use crate::services::chat;
 use crate::services::llm::backend::MessageAttachment;
 use crate::services::llm::config::LlmConfig;
@@ -292,11 +292,28 @@ pub fn get_messages(
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let limit = limit.unwrap_or(50).min(200);
 
-    let messages = if let Some(ref bid) = before_id {
+    let mut messages = if let Some(ref bid) = before_id {
         MessageRepo::find_before(&db, &session_id, bid, limit)
     } else {
         MessageRepo::find_recent(&db, &session_id, limit)
-    };
+    }
+    .map_err(|error| error.to_string())?;
 
-    messages.map_err(|e| e.to_string())
+    if state.feature_flags.rich_content_render {
+        let ids = messages
+            .iter()
+            .map(|message| message.id.clone())
+            .collect::<Vec<_>>();
+        let blocks =
+            MessageBlockRepo::find_by_messages(&db, &ids).map_err(|error| error.to_string())?;
+        for message in &mut messages {
+            message.blocks = blocks
+                .iter()
+                .filter(|block| block.message_id == message.id)
+                .cloned()
+                .collect();
+        }
+    }
+
+    Ok(messages)
 }

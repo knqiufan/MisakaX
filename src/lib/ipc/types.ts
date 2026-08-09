@@ -202,6 +202,89 @@ export interface Message {
   status: MessageStatus;
   created_at: string;
   tool_calls?: ToolCall[];
+  /** Ordered R0 rich-content projection. Absent/empty preserves legacy Markdown rendering. */
+  blocks?: ContentBlock[];
+}
+
+export type ContentBlockKind =
+  | "markdown"
+  | "chart"
+  | "map"
+  | "artifact"
+  | "image"
+  | "notice"
+  | "unknown";
+
+export type ContentBlockStatus = "pending" | "ready" | "failed" | "unsupported";
+
+export interface BlockFallback {
+  title: string;
+  message_key: string;
+  params?: Record<string, string>;
+  artifact_id?: string | null;
+}
+
+export interface ContentBlock {
+  id: string;
+  message_id: string;
+  position: number;
+  schema_version: number;
+  kind: ContentBlockKind;
+  status: ContentBlockStatus;
+  payload: unknown;
+  fallback: BlockFallback;
+  generation: number;
+  revision: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ArtifactOrigin = "model" | "agent" | "mcp" | "skill" | "user" | "preview";
+export type ArtifactPreviewState = "none" | "queued" | "ready" | "failed" | "unsupported";
+export type ArtifactRetentionState = "active" | "expired" | "deleted";
+
+export interface ArtifactMetadata {
+  artifact_id: string;
+  display_name: string;
+  media_type: string;
+  byte_size: number;
+  sha256: string;
+  origin_kind: ArtifactOrigin;
+  preview_state: ArtifactPreviewState;
+  retention_state: ArtifactRetentionState;
+  created_at: string;
+  expires_at: string | null;
+}
+
+export type ArtifactPreviewKind =
+  | "text"
+  | "csv"
+  | "pdf"
+  | "spreadsheet"
+  | "document"
+  | "image"
+  | "download_only";
+
+export interface ArtifactPreview {
+  kind: ArtifactPreviewKind;
+  state: ArtifactPreviewState;
+  message_key: string | null;
+  text: string | null;
+  truncated: boolean;
+}
+
+export interface ArtifactRegisterRequest {
+  session_id: string;
+  origin_message_id?: string | null;
+  origin_kind: ArtifactOrigin;
+  display_name: string;
+  media_type: string;
+  bytes_base64: string;
+}
+
+export interface ArtifactExportOutcome {
+  status: "saved" | "cancelled";
+  file_name: string | null;
 }
 
 export interface TokenUsage {
@@ -513,6 +596,13 @@ export interface ExportData {
   exported_at: string;
   app: string;
   sessions: ExportSession[];
+  artifact_manifest?: ArtifactManifestRecord[];
+}
+
+export interface ArtifactManifestRecord extends ArtifactMetadata {
+  owner_session_id: string;
+  origin_message_id: string | null;
+  preview_artifact_id: string | null;
 }
 
 export interface ExportSession {

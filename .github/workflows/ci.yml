@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    # Phase-gated feature branches must receive the same remote validation as
+    # the protected integration branches before their next stage can begin.
+    branches: ["**"]
   pull_request:
     branches: [main, master]
 

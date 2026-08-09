@@ -108,7 +108,14 @@ fn spawn_profile(
         })
         .expect("PTY should spawn");
     // A real xterm replies only after parsing ConPTY's initial DSR request.
-    std::thread::sleep(Duration::from_millis(300));
+    // Windows PowerShell can still be initializing on a cold CI runner after
+    // the usual interactive delay, so leave enough time before the first
+    // handshake and command are written to the PTY.
+    std::thread::sleep(Duration::from_millis(if cfg!(windows) {
+        1_000
+    } else {
+        300
+    }));
     state
 }
 
@@ -635,15 +642,21 @@ fn shutdown_reaps_shell_and_grandchild_process_tree() {
         )
         .unwrap();
 
+    // Set-Content creates the file before the PID bytes are visible. On cold
+    // Windows CI workers, observing that short intermediate state is normal.
     let deadline = Instant::now() + Duration::from_secs(8);
-    while !pid_file.exists() && Instant::now() < deadline {
+    let pid = loop {
+        if let Ok(value) = std::fs::read_to_string(&pid_file) {
+            if let Ok(pid) = value.trim().parse::<u32>() {
+                break pid;
+            }
+        }
+        assert!(
+            Instant::now() < deadline,
+            "numeric grandchild pid was not written before the deadline"
+        );
         std::thread::sleep(Duration::from_millis(50));
-    }
-    let pid = std::fs::read_to_string(&pid_file)
-        .expect("grandchild pid file")
-        .trim()
-        .parse::<u32>()
-        .expect("numeric grandchild pid");
+    };
     assert!(process_exists(pid));
 
     manager.shutdown();

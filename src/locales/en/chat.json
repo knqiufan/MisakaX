@@ -108,5 +108,70 @@
   },
   "toolLogs": {
     "empty": "No tool calls yet"
+  },
+  "richContent": {
+    "blockUnavailable": "This rich result is unavailable. Its fallback content is still available.",
+    "download": "Download",
+    "artifact": {
+      "untitled": "Untitled artifact",
+      "loading": "Loading artifact…",
+      "unavailable": "Artifact is unavailable.",
+      "exportFailed": "Couldn't export the artifact."
+    },
+    "origin": {
+      "model": "Model",
+      "agent": "Agent",
+      "mcp": "MCP",
+      "skill": "Skill",
+      "user": "User",
+      "preview": "Preview"
+    },
+    "preview": {
+      "open": "Preview",
+      "loading": "Loading preview…",
+      "failed": "The preview couldn't be loaded.",
+      "downloadOnly": "This file can only be downloaded.",
+      "readOnly": "Preview is read-only.",
+      "truncated": "Preview is truncated for safety.",
+      "pdfPage": "PDF page preview",
+      "previousPage": "Previous",
+      "nextPage": "Next",
+      "page": "Page {{current}} of {{total}}"
+    },
+    "image": {
+      "untitled": "Untitled image",
+      "open": "Open image preview",
+      "previewAlt": "Image preview",
+      "zoomOut": "Zoom out",
+      "fit": "Fit",
+      "zoomIn": "Zoom in"
+    },
+    "chart": {
+      "toggleData": "Show or hide chart data",
+      "exportCsv": "Export CSV",
+      "exportFailed": "Couldn't export chart data.",
+      "localOnly": "Rendered from local, validated data.",
+      "fallbackData": "Chart unavailable; showing data instead.",
+      "visualization": "Chart visualization",
+      "metric": "Metric",
+      "series": "Series",
+      "x": "X",
+      "y": "Y"
+    },
+    "map": {
+      "copyCoordinates": "Copy GeoJSON",
+      "toggleFeatures": "Show or hide map features",
+      "resetView": "Reset map view",
+      "exportGeojson": "Export GeoJSON",
+      "copyFailed": "Couldn't copy the GeoJSON.",
+      "exportFailed": "Couldn't export the GeoJSON.",
+      "copied": "GeoJSON copied.",
+      "localOnly": "Rendered without remote map tiles.",
+      "fallbackFeatures": "Map unavailable; showing features instead.",
+      "visualization": "Map visualization",
+      "featureCount_one": "{{count}} feature",
+      "featureCount_other": "{{count}} features",
+      "featureListTruncated": "Showing the first 200 of {{count}} features."
+    }
   }
 }

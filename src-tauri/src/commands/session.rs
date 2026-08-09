@@ -4,7 +4,10 @@ use tauri::State;
 
 use crate::config;
 use crate::db::models::{ExportData, ExportSession, ImportResult, MessageSearchResult, Session};
-use crate::db::repository::{MessageRepo, SessionRepo, WorkspaceRepo};
+use crate::db::repository::{
+    ArtifactRepo, MessageBlockRepo, MessageRepo, SessionRepo, WorkspaceRepo,
+};
+use crate::services::artifacts::{ArtifactService, ContentSafetyPolicy, RetentionState};
 use crate::AppState;
 
 pub const WORKSPACE_KIND_DEFAULT: &str = "default";
@@ -137,6 +140,14 @@ pub fn update_session(
 pub async fn delete_session(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let _binding_guard = state.workspace_terminal_guard.lock().await;
     let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let artifact_service = ArtifactService::new(
+        config::artifacts_dir().map_err(|e| e.to_string())?,
+        ContentSafetyPolicy::default(),
+    )
+    .map_err(|e| e.to_string())?;
+    artifact_service
+        .expire_session(&conn, &id)
+        .map_err(|e| e.to_string())?;
     SessionRepo::delete(&conn, &id).map_err(|e| e.to_string())?;
     drop(conn);
     state.terminal_manager.kill_chat_session(&id);
@@ -266,7 +277,12 @@ pub fn export_sessions_to_file(
     let mut export_sessions = Vec::with_capacity(session_ids.len());
     for sid in session_ids {
         let session = SessionRepo::find_by_id(conn, sid).map_err(|e| e.to_string())?;
-        let messages = MessageRepo::find_recent(conn, sid, u32::MAX).map_err(|e| e.to_string())?;
+        let mut messages =
+            MessageRepo::find_recent(conn, sid, u32::MAX).map_err(|e| e.to_string())?;
+        for message in &mut messages {
+            message.blocks =
+                MessageBlockRepo::find_by_message(conn, &message.id).map_err(|e| e.to_string())?;
+        }
         export_sessions.push(ExportSession { session, messages });
     }
 
@@ -275,6 +291,8 @@ pub fn export_sessions_to_file(
         exported_at: chrono::Utc::now().to_rfc3339(),
         app: "MisakaX".to_string(),
         sessions: export_sessions,
+        artifact_manifest: ArtifactRepo::find_by_sessions(conn, session_ids)
+            .map_err(|e| e.to_string())?,
     };
 
     let json = serde_json::to_string_pretty(&export_data).map_err(|e| e.to_string())?;
@@ -321,6 +339,19 @@ pub fn import_sessions_from_file(
             continue;
         }
         imported += 1;
+    }
+
+    for mut artifact in data.artifact_manifest {
+        if artifact.owner_session_id.is_empty()
+            || ArtifactRepo::find_by_id(conn, &artifact.artifact_id).is_ok()
+        {
+            continue;
+        }
+        // A session export intentionally contains a manifest, not binary bytes.
+        // Imported records stay inspectable but cannot be read until a future
+        // import flow transfers verified content into the artifact store.
+        artifact.retention_state = RetentionState::Expired;
+        let _ = ArtifactRepo::insert(conn, &artifact);
     }
 
     Ok(ImportResult {
@@ -370,6 +401,9 @@ fn import_single_session(conn: &rusqlite::Connection, es: &ExportSession) -> Res
 
     for m in &es.messages {
         MessageRepo::import(conn, m).map_err(|e| e.to_string())?;
+        for block in &m.blocks {
+            MessageBlockRepo::insert(conn, block).map_err(|e| e.to_string())?;
+        }
     }
     Ok(())
 }

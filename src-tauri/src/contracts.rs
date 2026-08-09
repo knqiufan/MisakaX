@@ -18,6 +18,24 @@ pub enum AppErrorCode {
     SkillQuarantineQuota,
     SkillPathInvalid,
     FilePreviewTooLarge,
+    ArtifactNotFound,
+    ArtifactAccessDenied,
+    ArtifactTooLarge,
+    ArtifactStorageQuotaExceeded,
+    ArtifactTypeBlocked,
+    ArtifactHashMismatch,
+    ArtifactExportCancelled,
+    ArtifactExportFailed,
+    PreviewUnsupported,
+    PreviewParseFailed,
+    PreviewResourceLimit,
+    PreviewCancelled,
+    ContentBlockInvalid,
+    ContentBlockUnsupported,
+    ChartSpecInvalid,
+    MapSpecInvalid,
+    MapTileSourceUnavailable,
+    MapWebglUnavailable,
     WorkspaceNotFound,
     GitNotAvailable,
     TerminalSessionNotFound,
@@ -130,6 +148,8 @@ pub struct DomainEvent<T> {
 pub struct FeatureFlags {
     pub workspace_terminal: bool,
     pub narrow_webview_capabilities: bool,
+    pub rich_content_write: bool,
+    pub rich_content_render: bool,
 }
 
 impl Default for FeatureFlags {
@@ -137,6 +157,8 @@ impl Default for FeatureFlags {
         Self {
             workspace_terminal: true,
             narrow_webview_capabilities: false,
+            rich_content_write: false,
+            rich_content_render: false,
         }
     }
 }
@@ -154,9 +176,17 @@ impl FeatureFlags {
             .is_some_and(|value| {
                 matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true")
             });
+        let rich_content_write = lookup("MISAKAX_RICH_CONTENT_WRITE").is_some_and(|value| {
+            matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true")
+        });
+        let rich_content_render = lookup("MISAKAX_RICH_CONTENT_RENDER").is_some_and(|value| {
+            matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true")
+        });
         Self {
             workspace_terminal,
             narrow_webview_capabilities,
+            rich_content_write,
+            rich_content_render,
         }
     }
 }
