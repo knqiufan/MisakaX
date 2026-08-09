@@ -3,7 +3,7 @@
 > **用途：** 记录实际实施、验证、决策变更、风险与下一步，保证人类和 AI Agent 接手时可追溯。
 > **受众：** 所有实施者与评审者。
 > **最后审阅 / Last reviewed：** 2026-08-09
-> **状态：** R0–R3 已通过远程全量 CI。R4 地图已完成本地验证，待阶段提交、推送与远程 CI。
+> **状态：** R0–R4 已通过各自的远程全量 CI；R5、R6 尚未开始。
 
 ---
 
@@ -24,7 +24,7 @@
 | R1 ArtifactService/图片/下载 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `53a079d`；[CI #31272842590](https://github.com/knqiufan/MisakaX/actions/runs/31272842590) 的 8 项检查全绿 |
 | R2 文件预览 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `2e979e1`；[CI #31285793427](https://github.com/knqiufan/MisakaX/actions/runs/31285793427) 的 8 项检查全绿 |
 | R3 图表 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `ee6eea7`；[CI #31287278455](https://github.com/knqiufan/MisakaX/actions/runs/31287278455) 的 8 项检查全绿 |
-| R4 地图 | 本地验证完成，待门禁 | 当前实施者 | 2026-08-09 | — | 受限本地 GeoJSON、MapLibre fallback 与 ArtifactService 导出；待 commit/push/CI，R4b 不在范围内 |
+| R4 地图 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `0a64123`；[CI #31288007260](https://github.com/knqiufan/MisakaX/actions/runs/31288007260) 的 8 项检查全绿；R4b 不在范围内 |
 | R5 Agent/Sidecar/MCP | 未开始 | 待分配 | — | — | 依赖 Phase 4 真正对话链路；通过阶段门禁后完成 |
 | R6 加固/发布 | 未开始 | 待分配 | — | — | 三平台/沙箱 gate；通过阶段门禁后完成 |
 
@@ -207,11 +207,11 @@
 - **代码审查：** 核对 renderer registry 已指向 `MapBlockRenderer`，动态加载只发生在块渲染时；数据来源/attribution 位于卡片 header，视图可复位；WebGL/MapLibre 错误不会影响相邻块；Clipboard 使用 Tauri 插件；导出临时 artifact 在保存流程结束后 expire。命令已同时出现在 `invoke_handler`、AppManifest 和最小权限白名单，权限基线测试覆盖该集合。
 - **验证：** `cargo fmt --check` ⇒ pass；`cargo test --all-features --lib map` ⇒ 3 passed；`cargo test --all-features --lib artifact` ⇒ 8 passed；`cargo test --all-features --test security_config_baseline_tests` ⇒ 5 passed；`cargo clippy --all-targets --all-features -- -D warnings` ⇒ pass；`npm test -- --run` ⇒ 39 files / 273 passed；`npm run build` ⇒ pass（既有大动态 chunk warning）。
 - **未验证：** 未在三平台真实 GPU/WebGL、屏幕阅读器、窗口缩放或实际保存对话框中手工回归；JSDOM 的 canvas diagnostic 不影响测试 exit 0。远程 CI 尚未执行。
-- **Git：** 待以独立 R4a commit 推送至 `codex/rich-content-r0-r4`。
-- **远程 CI：** 待非强制 push 后触发并完成 8 项 required checks；在全绿前 R4 不标记完成。
+- **Git：** `0a641237c9f8cfe582d1809fdcb7424f495394ab`（`feat(rich-content): complete r4 local GeoJSON maps`）已非强制推送至 `origin/codex/rich-content-r0-r4`。
+- **远程 CI：** [CI #31288007260](https://github.com/knqiufan/MisakaX/actions/runs/31288007260) completed/success，Rust、Frontend、三平台 Terminal Runtime 与三平台 Tauri Build 共 8 项检查全绿；R4a 阶段门禁已满足。
 - **风险/回滚：** 回退 R4a commit 即恢复 `map` 的不可执行 notice fallback；不会放宽 CSP 或现有通用文件/网络能力。MapLibre bundle 增量仅在地图 renderer 动态加载时下载。
 - **文档同步：** `docs/design/frontend-ui-guidelines.md` §4.6.x.1；本实施记录。
-- **下一步：** 审查 R4a 暂存差异、提交、非强制推送并等待远程 CI 全绿；随后更新阶段看板与 R0–R4 交接文档。
+- **下一步：** 更新阶段看板与 R0–R4 交接文档；R4b 以及 R5/R6 必须另行立项并分别通过同一阶段门禁。
 
 ## 后续记录模板
 
