@@ -174,10 +174,20 @@
 - **验证：** `cargo fmt --check` → pass；`cargo clippy --all-targets --all-features -- -D warnings` → pass；`cargo test --all-features --lib chart` → 2 passed / 0 failed；`cargo test --all-features --test security_config_baseline_tests` → 5 passed / 0 failed；`npm run build` → pass（动态 chunk 大小 warning）；`npm test -- --run` → 38 files / 271 passed（JSDOM canvas diagnostic，exit 0）。
 - **未验证：** 未进行真实屏幕阅读器、手工深浅主题/窗口缩放或大量 series 的交互回归；R4 地图代码、MapLibre 依赖和 GeoJSON 导出未纳入暂存。
 - **Git：** 待提交；暂存范围为 R3 图表、CSV 导出、受控命令权限、ECharts 依赖与本记录。
-- **远程 CI：** 待 R3 commit 推送后运行。
+- **远程 CI：** 初始 [CI #31286615412](https://github.com/knqiufan/MisakaX/actions/runs/31286615412) 的 Rust、Frontend 与 Linux/macOS Terminal Runtime 成功；Windows Terminal Runtime 在 `shutdown_reaps_shell_and_grandchild_process_tree` 读到刚创建但尚为空的 PID 文件后失败，Tauri Build 因依赖失败被跳过。已完成当前阶段的测试竞态修复，等待新的完整运行。
 - **风险/回滚：** 回滚本阶段可恢复 chart→notice fallback；CSV 导出临时 artifact 会在客户端导出流程完成后 expire，不产生通用文件写入权限。
 - **文档同步：** R2 已同步的 `frontend-ui-guidelines.md` §4.6.x.1 对图表的通用规范继续适用；本实施记录补充实现证据。
 - **下一步：** 审查 R3 暂存差异、提交并等待 remote CI 全绿；之后才开始 R4。
+
+### 2026-08-09 — R3：Windows Terminal Runtime PID 文件竞态修复
+
+- **范围：** 修复 [CI #31286615412](https://github.com/knqiufan/MisakaX/actions/runs/31286615412) 暴露的既有 Windows 终端集成测试竞态；未改变图表、Tauri command、artifact 或运行时终端服务。
+- **代码审查：** 测试此前仅等待 PID 文件存在，但 PowerShell `Set-Content` 会先创建文件、后写入 PID。改为在 8 秒既有启动期限内等待可解析的数值 PID；子进程存在性、`manager.shutdown()`、进程回收及活跃数量断言保持不变，未放宽行为性验收。
+- **验证：** `cargo fmt --check` → pass；`cargo test --all-features --test terminal_manager_tests -- --nocapture` → 10 passed / 0 failed；`cargo clippy --all-targets --all-features -- -D warnings` → pass。
+- **Git：** 待提交为 R3 CI 修复。
+- **远程 CI：** 待推送后重新运行；R3 保持未完成。
+- **风险/回滚：** 仅测试同步调整；若需回退则恢复原有文件存在检查，但 Windows CI 可能复现空文件竞态。
+- **下一步：** 推送修复并等待 R3 全部远程 required checks 成功。
 
 ## 后续记录模板
 
