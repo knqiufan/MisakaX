@@ -377,7 +377,11 @@ fn detect_media_type(bytes: &[u8], declared: &str) -> Result<String> {
         }
     } else if is_safe_text(bytes) {
         match declared.as_str() {
-            "text/plain" | "text/markdown" | "application/json" | "text/csv" => declared.as_str(),
+            "text/plain"
+            | "text/markdown"
+            | "application/json"
+            | "application/geo+json"
+            | "text/csv" => declared.as_str(),
             _ => "text/plain",
         }
     } else {
@@ -555,6 +559,18 @@ mod tests {
                 b"<svg onload=alert(1)></svg>",
             )
             .is_err());
+    }
+
+    #[test]
+    fn preserves_safe_geojson_media_type() {
+        assert_eq!(
+            detect_media_type(
+                br#"{"type":"FeatureCollection","features":[]}"#,
+                "application/geo+json",
+            )
+            .unwrap(),
+            "application/geo+json"
+        );
     }
 
     #[test]

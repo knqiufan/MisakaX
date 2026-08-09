@@ -3,7 +3,7 @@
 > **用途：** 记录实际实施、验证、决策变更、风险与下一步，保证人类和 AI Agent 接手时可追溯。
 > **受众：** 所有实施者与评审者。
 > **最后审阅 / Last reviewed：** 2026-08-09
-> **状态：** R0、R1、R2 已通过远程全量 CI。R3 图表已完成本地验证，待阶段提交、推送与远程 CI；R4 尚未开始阶段提交。
+> **状态：** R0–R3 已通过远程全量 CI。R4 地图已完成本地验证，待阶段提交、推送与远程 CI。
 
 ---
 
@@ -23,8 +23,8 @@
 | R0 契约/安全基线 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `b1ed884`；[CI #31271639940](https://github.com/knqiufan/MisakaX/actions/runs/31271639940) 的 8 项检查全绿 |
 | R1 ArtifactService/图片/下载 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `53a079d`；[CI #31272842590](https://github.com/knqiufan/MisakaX/actions/runs/31272842590) 的 8 项检查全绿 |
 | R2 文件预览 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `2e979e1`；[CI #31285793427](https://github.com/knqiufan/MisakaX/actions/runs/31285793427) 的 8 项检查全绿 |
-| R3 图表 | 本地验证完成，待门禁 | 当前实施者 | 2026-08-09 | — | 受限 ChartSpec、ECharts richText、可访问数据表和 ArtifactService CSV 导出；待 commit/push/CI |
-| R4 地图 | 未开始阶段门禁 | 待分配 | — | — | 候选工作区改动未提交、未验证、未推送；R4b 不在范围内 |
+| R3 图表 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `ee6eea7`；[CI #31287278455](https://github.com/knqiufan/MisakaX/actions/runs/31287278455) 的 8 项检查全绿 |
+| R4 地图 | 本地验证完成，待门禁 | 当前实施者 | 2026-08-09 | — | 受限本地 GeoJSON、MapLibre fallback 与 ArtifactService 导出；待 commit/push/CI，R4b 不在范围内 |
 | R5 Agent/Sidecar/MCP | 未开始 | 待分配 | — | — | 依赖 Phase 4 真正对话链路；通过阶段门禁后完成 |
 | R6 加固/发布 | 未开始 | 待分配 | — | — | 三平台/沙箱 gate；通过阶段门禁后完成 |
 
@@ -198,6 +198,20 @@
 - **远程 CI：** 前序 R3 运行 [CI #31286802359](https://github.com/knqiufan/MisakaX/actions/runs/31286802359) 已 8/8 成功；本接线修复仍须重新完成完整远程 CI，故 R3 暂不标记为完成。
 - **风险/回滚：** 回退本 commit 即恢复 `chart` 的不可执行 notice fallback；不会影响 R0–R2 或 R4 候选改动。
 - **下一步：** 审查该独立切片、非强制推送并等待全部远程检查成功后再继续 R4。
+
+### 2026-08-09 — R4a：受限本地 GeoJSON 地图与导出
+
+- **范围：** 启用 `map` 块的 MapLibre renderer、要素列表/复制/GeoJSON 导出和局部降级；只使用内嵌的空数据源 style 及已持久化的 GeoJSON。R4b 的远程瓦片、provider registry、网络代理、隐私提示和 CSP 扩展均不在范围内。
+- **修改：** 新增防御性 MapSpec parser（10,000 要素/marker、24 properties、512 字符标签、有限且有界坐标）；地图加载失败时展示要素列表，最多渲染 200 条列表项；增加 `map_export_geojson` Rust command、受管 artifact 导出、窄 IPC、AppManifest/权限/schema 同步、MapLibre 依赖、双语文案及 parser 回归测试。
+- **安全影响：** parser 与 Rust `MapSpecV1` 同时拒绝 `tile_source_id`；没有 tile URL、外部 style、HTML、`file:` 路径或任意网络输入。导出只序列化 `feature_collection`，先验证 feature flag、MapSpec 和消息的 session 归属，再通过 ArtifactService 写入 `application/geo+json`；未添加 FS/HTTP/Shell capability 或 CSP 放宽。
+- **代码审查：** 核对 renderer registry 已指向 `MapBlockRenderer`，动态加载只发生在块渲染时；数据来源/attribution 位于卡片 header，视图可复位；WebGL/MapLibre 错误不会影响相邻块；Clipboard 使用 Tauri 插件；导出临时 artifact 在保存流程结束后 expire。命令已同时出现在 `invoke_handler`、AppManifest 和最小权限白名单，权限基线测试覆盖该集合。
+- **验证：** `cargo fmt --check` ⇒ pass；`cargo test --all-features --lib map` ⇒ 3 passed；`cargo test --all-features --lib artifact` ⇒ 8 passed；`cargo test --all-features --test security_config_baseline_tests` ⇒ 5 passed；`cargo clippy --all-targets --all-features -- -D warnings` ⇒ pass；`npm test -- --run` ⇒ 39 files / 273 passed；`npm run build` ⇒ pass（既有大动态 chunk warning）。
+- **未验证：** 未在三平台真实 GPU/WebGL、屏幕阅读器、窗口缩放或实际保存对话框中手工回归；JSDOM 的 canvas diagnostic 不影响测试 exit 0。远程 CI 尚未执行。
+- **Git：** 待以独立 R4a commit 推送至 `codex/rich-content-r0-r4`。
+- **远程 CI：** 待非强制 push 后触发并完成 8 项 required checks；在全绿前 R4 不标记完成。
+- **风险/回滚：** 回退 R4a commit 即恢复 `map` 的不可执行 notice fallback；不会放宽 CSP 或现有通用文件/网络能力。MapLibre bundle 增量仅在地图 renderer 动态加载时下载。
+- **文档同步：** `docs/design/frontend-ui-guidelines.md` §4.6.x.1；本实施记录。
+- **下一步：** 审查 R4a 暂存差异、提交、非强制推送并等待远程 CI 全绿；随后更新阶段看板与 R0–R4 交接文档。
 
 ## 后续记录模板
 

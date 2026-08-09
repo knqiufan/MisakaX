@@ -161,6 +161,7 @@
     "map": {
       "copyCoordinates": "复制 GeoJSON",
       "toggleFeatures": "显示或隐藏地图要素",
+      "resetView": "重置地图视图",
       "exportGeojson": "导出 GeoJSON",
       "copyFailed": "无法复制 GeoJSON。",
       "exportFailed": "无法导出 GeoJSON。",
@@ -169,7 +170,8 @@
       "fallbackFeatures": "地图不可用，正在显示要素。",
       "visualization": "地图可视化",
       "featureCount_one": "{{count}} 个要素",
-      "featureCount_other": "{{count}} 个要素"
+      "featureCount_other": "{{count}} 个要素",
+      "featureListTruncated": "仅显示前 200 个要素，共 {{count}} 个。"
     }
   }
 }

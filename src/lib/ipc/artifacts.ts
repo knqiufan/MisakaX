@@ -22,6 +22,8 @@ export const artifactsIpc = {
     invoke<void>("artifact_delete_or_expire", { sessionId, artifactId }),
   exportChartCsv: (sessionId: string, messageId: string, spec: unknown) =>
     invoke<ArtifactMetadata>("chart_export_csv", { sessionId, messageId, spec }),
+  exportMapGeojson: (sessionId: string, messageId: string, spec: unknown) =>
+    invoke<ArtifactMetadata>("map_export_geojson", { sessionId, messageId, spec }),
   appendBlock: (block: ContentBlock) =>
     invoke<void>("append_content_block", { block }),
   getMessageBlocks: (messageId: string) =>

@@ -2,6 +2,7 @@ pub mod artifacts;
 pub mod chart;
 pub mod chat;
 pub mod fs_explorer;
+pub mod map;
 pub mod mcp;
 pub mod models;
 pub mod router_configs;

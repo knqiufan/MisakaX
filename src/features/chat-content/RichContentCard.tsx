@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 
 interface RichContentCardProps {
   title: string;
+  meta?: ReactNode;
   icon: ReactNode;
   status?: "pending" | "failed" | "unsupported" | "ready";
   actions?: ReactNode;
@@ -14,6 +15,7 @@ interface RichContentCardProps {
 
 export function RichContentCard({
   title,
+  meta,
   icon,
   status = "ready",
   actions,
@@ -35,6 +37,7 @@ export function RichContentCard({
           {icon}
         </span>
         <h3 className="min-w-0 flex-1 truncate text-sm font-medium">{title}</h3>
+        {meta ? <span className="max-w-40 truncate text-xs text-muted-foreground">{meta}</span> : null}
         {status === "pending" ? (
           <LoaderCircle className="size-3.5 animate-spin text-muted-foreground" aria-hidden />
         ) : null}

@@ -639,6 +639,12 @@
           "markdownDescription": "Enables the list_workspace_preferences command without any pre-configured scope."
         },
         {
+          "description": "Enables the map_export_geojson command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-map-export-geojson",
+          "markdownDescription": "Enables the map_export_geojson command without any pre-configured scope."
+        },
+        {
           "description": "Enables the mcp_add_server_config command without any pre-configured scope.",
           "type": "string",
           "const": "allow-mcp-add-server-config",
@@ -1309,6 +1315,12 @@
           "type": "string",
           "const": "deny-list-workspace-preferences",
           "markdownDescription": "Denies the list_workspace_preferences command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the map_export_geojson command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-map-export-geojson",
+          "markdownDescription": "Denies the map_export_geojson command without any pre-configured scope."
         },
         {
           "description": "Denies the mcp_add_server_config command without any pre-configured scope.",

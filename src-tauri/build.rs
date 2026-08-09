@@ -111,6 +111,7 @@ const COMMANDS: &[&str] = &[
     "append_content_block",
     "get_message_blocks",
     "chart_export_csv",
+    "map_export_geojson",
 ];
 
 fn main() {

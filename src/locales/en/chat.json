@@ -161,6 +161,7 @@
     "map": {
       "copyCoordinates": "Copy GeoJSON",
       "toggleFeatures": "Show or hide map features",
+      "resetView": "Reset map view",
       "exportGeojson": "Export GeoJSON",
       "copyFailed": "Couldn't copy the GeoJSON.",
       "exportFailed": "Couldn't export the GeoJSON.",
@@ -169,7 +170,8 @@
       "fallbackFeatures": "Map unavailable; showing features instead.",
       "visualization": "Map visualization",
       "featureCount_one": "{{count}} feature",
-      "featureCount_other": "{{count}} features"
+      "featureCount_other": "{{count}} features",
+      "featureListTruncated": "Showing the first 200 of {{count}} features."
     }
   }
 }
