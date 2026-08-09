@@ -108,5 +108,68 @@
   },
   "toolLogs": {
     "empty": "暂无工具调用"
+  },
+  "richContent": {
+    "blockUnavailable": "此富内容结果暂不可用，仍可查看其降级内容。",
+    "download": "下载",
+    "artifact": {
+      "untitled": "未命名产物",
+      "loading": "正在加载产物…",
+      "unavailable": "产物不可用。",
+      "exportFailed": "无法导出该产物。"
+    },
+    "origin": {
+      "model": "模型",
+      "agent": "智能体",
+      "mcp": "MCP",
+      "skill": "技能",
+      "user": "用户",
+      "preview": "预览"
+    },
+    "preview": {
+      "open": "预览",
+      "loading": "正在加载预览…",
+      "failed": "无法加载预览。",
+      "downloadOnly": "此文件仅支持下载。",
+      "readOnly": "预览为只读。",
+      "truncated": "为安全起见，预览已截断。",
+      "pdfPage": "PDF 页面预览",
+      "previousPage": "上一页",
+      "nextPage": "下一页",
+      "page": "第 {{current}} / {{total}} 页"
+    },
+    "image": {
+      "untitled": "未命名图片",
+      "open": "打开图片预览",
+      "previewAlt": "图片预览",
+      "zoomOut": "缩小",
+      "fit": "适应窗口",
+      "zoomIn": "放大"
+    },
+    "chart": {
+      "toggleData": "显示或隐藏图表数据",
+      "exportCsv": "导出 CSV",
+      "exportFailed": "无法导出图表数据。",
+      "localOnly": "由本地验证后的数据渲染。",
+      "fallbackData": "图表不可用，正在显示数据。",
+      "visualization": "图表可视化",
+      "metric": "指标",
+      "series": "序列",
+      "x": "X",
+      "y": "Y"
+    },
+    "map": {
+      "copyCoordinates": "复制 GeoJSON",
+      "toggleFeatures": "显示或隐藏地图要素",
+      "exportGeojson": "导出 GeoJSON",
+      "copyFailed": "无法复制 GeoJSON。",
+      "exportFailed": "无法导出 GeoJSON。",
+      "copied": "已复制 GeoJSON。",
+      "localOnly": "未加载远程底图。",
+      "fallbackFeatures": "地图不可用，正在显示要素。",
+      "visualization": "地图可视化",
+      "featureCount_one": "{{count}} 个要素",
+      "featureCount_other": "{{count}} 个要素"
+    }
   }
 }

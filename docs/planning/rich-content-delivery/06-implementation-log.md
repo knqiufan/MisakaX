@@ -3,7 +3,7 @@
 > **用途：** 记录实际实施、验证、决策变更、风险与下一步，保证人类和 AI Agent 接手时可追溯。
 > **受众：** 所有实施者与评审者。
 > **最后审阅 / Last reviewed：** 2026-08-09
-> **状态：** R0、R1 已通过远程全量 CI。R2–R4 尚未开始阶段提交；工作区中保留的后续候选实现不得视为已验收交付。
+> **状态：** R0、R1 已通过远程全量 CI。R2 文件预览已完成本地验证，待阶段提交、推送与远程 CI；R3–R4 尚未开始阶段提交。
 
 ---
 
@@ -22,7 +22,7 @@
 |---|---|---|---|---|---|
 | R0 契约/安全基线 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `b1ed884`；[CI #31271639940](https://github.com/knqiufan/MisakaX/actions/runs/31271639940) 的 8 项检查全绿 |
 | R1 ArtifactService/图片/下载 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `53a079d`；[CI #31272842590](https://github.com/knqiufan/MisakaX/actions/runs/31272842590) 的 8 项检查全绿 |
-| R2 文件预览 | 未开始阶段门禁 | 待分配 | — | — | 候选工作区改动未提交、未验证、未推送 |
+| R2 文件预览 | 本地验证完成，待门禁 | 当前实施者 | 2026-08-09 | — | 惰性只读预览、图片 Dialog 与下载回退；待 commit/push/CI |
 | R3 图表 | 未开始阶段门禁 | 待分配 | — | — | 候选工作区改动未提交、未验证、未推送 |
 | R4 地图 | 未开始阶段门禁 | 待分配 | — | — | 候选工作区改动未提交、未验证、未推送；R4b 不在范围内 |
 | R5 Agent/Sidecar/MCP | 未开始 | 待分配 | — | — | 依赖 Phase 4 真正对话链路；通过阶段门禁后完成 |
@@ -152,6 +152,19 @@
 - **风险/回滚：** 回滚 `53a079d` 会恢复安全基线拒绝行为，且不能保留 R1 的注册命令；正常回滚 R1 时应将服务和该权限提交一并回退。
 - **文档同步：** 本实施记录的阶段看板和 R1 证据更新。
 - **下一步：** 开始 R2；先把候选工作区改动收口为仅文件预览、图片展示与下载回退，再执行独立审查、测试、commit/push/CI。
+
+### 2026-08-09 — R2：本地文件预览、图片查看与下载回退
+
+- **范围：** 在 Assistant 消息中接入有序内容块 dispatcher、Artifact/图片卡和只读预览 Dialog。文本、CSV、PDF、XLSX 与 DOCX 仅在用户打开预览后动态加载；未支持或解析失败的文件保留原件下载。图表/地图 renderer 与其导出 IPC 不在本阶段提交。
+- **修改：** 新增 `src/features/chat-content/` 的 R2 renderer、payload reader 与 block ErrorBoundary；`MessageItem` 在有 blocks 时走有序 renderer、无 blocks 时保持 Markdown；新增 PDF.js、SheetJS、Mammoth 依赖及浏览器声明，补齐双语 `chat.richContent.*` 文案和 UI 规范。
+- **代码审查：** 确认 Renderer Registry 对 chart/map 仍映射到非执行 notice；文件 bytes 只能经 artifact 窄 IPC 获取，未接受路径、`file:`、HTML、SVG 或远端 URL；DOCX 仅抽取 DOM `textContent`，不注入转换出的 HTML。每个块由 ErrorBoundary 隔离，图片/文档失败不会中断相邻 Markdown。发现阶段拆分后未提交的 R3/R4 renderer 仍需其导出 IPC 类型，已保留在未暂存候选切片中，未混入 R2。
+- **验证：** `npm run build` → pass（Vite 提示部分动态依赖 chunk 大于 500 kB，未阻塞）；`npm test -- --run` → 38 files / 271 passed。Vitest/JSDOM 输出 `HTMLCanvasElement.getContext` 未实现诊断，但测试进程 exit 0。
+- **未验证：** 未执行三平台人工 PDF/XLSX/DOCX/图片预览、恶意加密 Office/压缩炸弹压测或屏幕阅读器实测；不把这些未执行项当作通过。R3/R4 renderer 尚未进行阶段审查、提交或推送。
+- **Git：** 待提交；暂存范围仅限 R2 UI、预览依赖、i18n、设计规范与本记录。
+- **远程 CI：** 待 R2 commit 推送后运行。
+- **风险/回滚：** 移除 R2 renderer/依赖即可恢复 R1 的后端 artifact 能力；关闭 `MISAKAX_RICH_CONTENT_RENDER` 继续显示 legacy Markdown。预览始终为只读，任何失败保留下载路径。
+- **文档同步：** `docs/design/frontend-ui-guidelines.md` §4.6.x.1；本实施记录。
+- **下一步：** 审查暂存差异、提交 R2 并等待 remote CI 全绿；随后才能开始 R3。
 
 ## 后续记录模板
 
