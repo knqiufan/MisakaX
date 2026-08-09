@@ -1,4 +1,5 @@
 pub mod artifacts;
+pub mod chart;
 pub mod chat;
 pub mod fs_explorer;
 pub mod mcp;

@@ -110,6 +110,7 @@ const COMMANDS: &[&str] = &[
     "artifact_delete_or_expire",
     "append_content_block",
     "get_message_blocks",
+    "chart_export_csv",
 ];
 
 fn main() {

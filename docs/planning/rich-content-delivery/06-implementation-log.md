@@ -3,7 +3,7 @@
 > **用途：** 记录实际实施、验证、决策变更、风险与下一步，保证人类和 AI Agent 接手时可追溯。
 > **受众：** 所有实施者与评审者。
 > **最后审阅 / Last reviewed：** 2026-08-09
-> **状态：** R0、R1 已通过远程全量 CI。R2 文件预览已完成本地验证，待阶段提交、推送与远程 CI；R3–R4 尚未开始阶段提交。
+> **状态：** R0、R1、R2 已通过远程全量 CI。R3 图表已完成本地验证，待阶段提交、推送与远程 CI；R4 尚未开始阶段提交。
 
 ---
 
@@ -22,8 +22,8 @@
 |---|---|---|---|---|---|
 | R0 契约/安全基线 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `b1ed884`；[CI #31271639940](https://github.com/knqiufan/MisakaX/actions/runs/31271639940) 的 8 项检查全绿 |
 | R1 ArtifactService/图片/下载 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `53a079d`；[CI #31272842590](https://github.com/knqiufan/MisakaX/actions/runs/31272842590) 的 8 项检查全绿 |
-| R2 文件预览 | 本地验证完成，待门禁 | 当前实施者 | 2026-08-09 | — | 惰性只读预览、图片 Dialog 与下载回退；待 commit/push/CI |
-| R3 图表 | 未开始阶段门禁 | 待分配 | — | — | 候选工作区改动未提交、未验证、未推送 |
+| R2 文件预览 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `2e979e1`；[CI #31285793427](https://github.com/knqiufan/MisakaX/actions/runs/31285793427) 的 8 项检查全绿 |
+| R3 图表 | 本地验证完成，待门禁 | 当前实施者 | 2026-08-09 | — | 受限 ChartSpec、ECharts richText、可访问数据表和 ArtifactService CSV 导出；待 commit/push/CI |
 | R4 地图 | 未开始阶段门禁 | 待分配 | — | — | 候选工作区改动未提交、未验证、未推送；R4b 不在范围内 |
 | R5 Agent/Sidecar/MCP | 未开始 | 待分配 | — | — | 依赖 Phase 4 真正对话链路；通过阶段门禁后完成 |
 | R6 加固/发布 | 未开始 | 待分配 | — | — | 三平台/沙箱 gate；通过阶段门禁后完成 |
@@ -160,11 +160,24 @@
 - **代码审查：** 确认 Renderer Registry 对 chart/map 仍映射到非执行 notice；文件 bytes 只能经 artifact 窄 IPC 获取，未接受路径、`file:`、HTML、SVG 或远端 URL；DOCX 仅抽取 DOM `textContent`，不注入转换出的 HTML。每个块由 ErrorBoundary 隔离，图片/文档失败不会中断相邻 Markdown。发现阶段拆分后未提交的 R3/R4 renderer 仍需其导出 IPC 类型，已保留在未暂存候选切片中，未混入 R2。
 - **验证：** `npm run build` → pass（Vite 提示部分动态依赖 chunk 大于 500 kB，未阻塞）；`npm test -- --run` → 38 files / 271 passed。Vitest/JSDOM 输出 `HTMLCanvasElement.getContext` 未实现诊断，但测试进程 exit 0。
 - **未验证：** 未执行三平台人工 PDF/XLSX/DOCX/图片预览、恶意加密 Office/压缩炸弹压测或屏幕阅读器实测；不把这些未执行项当作通过。R3/R4 renderer 尚未进行阶段审查、提交或推送。
-- **Git：** 待提交；暂存范围仅限 R2 UI、预览依赖、i18n、设计规范与本记录。
-- **远程 CI：** 待 R2 commit 推送后运行。
+- **Git：** `2e979e1`（`feat(rich-content): complete r2 file previews`）已非强制推送至 `origin/codex/rich-content-r0-r4`。
+- **远程 CI：** [CI #31285793427](https://github.com/knqiufan/MisakaX/actions/runs/31285793427) completed/success；Rust、Frontend、三平台 Terminal Runtime 与三平台 Tauri Build 共 8 项检查全绿。
 - **风险/回滚：** 移除 R2 renderer/依赖即可恢复 R1 的后端 artifact 能力；关闭 `MISAKAX_RICH_CONTENT_RENDER` 继续显示 legacy Markdown。预览始终为只读，任何失败保留下载路径。
 - **文档同步：** `docs/design/frontend-ui-guidelines.md` §4.6.x.1；本实施记录。
-- **下一步：** 审查暂存差异、提交 R2 并等待 remote CI 全绿；随后才能开始 R3。
+- **下一步：** R2 已完成；可开始 R3 的独立阶段审查与实现收口。
+
+### 2026-08-09 — R3：受限图表、数据表与 CSV 导出
+
+- **范围：** 启用 `chart` 块的前端 renderer，动态加载 ECharts，提供 metric/data-table fallback、ARIA 标注和通过 ArtifactService 的 CSV 导出。地图保持未注册 fallback，未纳入本阶段。
+- **修改：** 新增前端 ChartSpec reader（24 series、5000 points、512 字符标签上限）和 `ChartBlockRenderer`；新增 `chart_export_csv` Rust command、AppManifest/最小权限/schema 同步与窄 IPC。CSV 逐字段转义，且为 `= + - @` 前缀加 apostrophe，避免表格公式注入；导出前验证消息归属当前会话。
+- **代码审查：** ChartSpec 仅映射固定图类型，未接收原始 ECharts option/HTML/function/外部 URL；ECharts tooltip 固定为 `richText`，不使用 HTML renderer；加载失败降级到同一份数据表，`role="img"`/ARIA 与键盘可达的数据表操作并存。未发现会扩大 CSP、FS/HTTP/Shell capability 的变更。
+- **验证：** `cargo fmt --check` → pass；`cargo clippy --all-targets --all-features -- -D warnings` → pass；`cargo test --all-features --lib chart` → 2 passed / 0 failed；`cargo test --all-features --test security_config_baseline_tests` → 5 passed / 0 failed；`npm run build` → pass（动态 chunk 大小 warning）；`npm test -- --run` → 38 files / 271 passed（JSDOM canvas diagnostic，exit 0）。
+- **未验证：** 未进行真实屏幕阅读器、手工深浅主题/窗口缩放或大量 series 的交互回归；R4 地图代码、MapLibre 依赖和 GeoJSON 导出未纳入暂存。
+- **Git：** 待提交；暂存范围为 R3 图表、CSV 导出、受控命令权限、ECharts 依赖与本记录。
+- **远程 CI：** 待 R3 commit 推送后运行。
+- **风险/回滚：** 回滚本阶段可恢复 chart→notice fallback；CSV 导出临时 artifact 会在客户端导出流程完成后 expire，不产生通用文件写入权限。
+- **文档同步：** R2 已同步的 `frontend-ui-guidelines.md` §4.6.x.1 对图表的通用规范继续适用；本实施记录补充实现证据。
+- **下一步：** 审查 R3 暂存差异、提交并等待 remote CI 全绿；之后才开始 R4。
 
 ## 后续记录模板
 

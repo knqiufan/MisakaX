@@ -453,6 +453,12 @@
           "markdownDescription": "Enables the browse_directory command without any pre-configured scope."
         },
         {
+          "description": "Enables the chart_export_csv command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-chart-export-csv",
+          "markdownDescription": "Enables the chart_export_csv command without any pre-configured scope."
+        },
+        {
           "description": "Enables the create_router_config command without any pre-configured scope.",
           "type": "string",
           "const": "allow-create-router-config",
@@ -1117,6 +1123,12 @@
           "type": "string",
           "const": "deny-browse-directory",
           "markdownDescription": "Denies the browse_directory command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the chart_export_csv command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-chart-export-csv",
+          "markdownDescription": "Denies the chart_export_csv command without any pre-configured scope."
         },
         {
           "description": "Denies the create_router_config command without any pre-configured scope.",

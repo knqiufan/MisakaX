@@ -20,6 +20,8 @@ export const artifactsIpc = {
     invoke<ArtifactExportOutcome>("artifact_export", { sessionId, artifactId }),
   expire: (sessionId: string, artifactId: string) =>
     invoke<void>("artifact_delete_or_expire", { sessionId, artifactId }),
+  exportChartCsv: (sessionId: string, messageId: string, spec: unknown) =>
+    invoke<ArtifactMetadata>("chart_export_csv", { sessionId, messageId, spec }),
   appendBlock: (block: ContentBlock) =>
     invoke<void>("append_content_block", { block }),
   getMessageBlocks: (messageId: string) =>

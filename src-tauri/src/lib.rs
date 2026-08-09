@@ -159,6 +159,7 @@ pub fn run() {
             commands::artifacts::artifact_delete_or_expire,
             commands::artifacts::append_content_block,
             commands::artifacts::get_message_blocks,
+            commands::chart::chart_export_csv,
             commands::fs_explorer::fs_list_dir,
             commands::fs_explorer::fs_read_text_file,
             commands::fs_explorer::fs_write_text_file,
