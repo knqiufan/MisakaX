@@ -189,6 +189,16 @@
 - **风险/回滚：** 仅测试同步调整；若需回退则恢复原有文件存在检查，但 Windows CI 可能复现空文件竞态。
 - **下一步：** 推送修复并等待 R3 全部远程 required checks 成功。
 
+### 2026-08-09 — R3：图表渲染器注册收口
+
+- **范围：** 仅修复 R3 的前端接线：将 `chart` 块从安全的 `NoticeBlockRenderer` fallback 映射至已审查的 `ChartBlockRenderer`；`map` 继续保留 fallback，未提前纳入 R4。
+- **代码审查：** 在阶段复核时发现先前的图表 renderer、受限 ChartSpec parser 与 CSV 导出均已落地，但 renderer registry 漏掉了 `ChartBlockRenderer` 导入和注册，导致图表在 UI 中不可达。本修复不新增 payload 能力、依赖、CSP 或 Tauri capability；R2 的未知/地图非执行 fallback 仍然生效。
+- **验证：** `npm run build` ⇒ pass（仅保留既有大动态 chunk 警告）；`npm test -- --run` ⇒ 38 files / 271 passed（JSDOM canvas diagnostic，exit 0）。
+- **Git：** 待以独立 R3 收口 commit 推送至 `codex/rich-content-r0-r4`。
+- **远程 CI：** 前序 R3 运行 [CI #31286802359](https://github.com/knqiufan/MisakaX/actions/runs/31286802359) 已 8/8 成功；本接线修复仍须重新完成完整远程 CI，故 R3 暂不标记为完成。
+- **风险/回滚：** 回退本 commit 即恢复 `chart` 的不可执行 notice fallback；不会影响 R0–R2 或 R4 候选改动。
+- **下一步：** 审查该独立切片、非强制推送并等待全部远程检查成功后再继续 R4。
+
 ## 后续记录模板
 
 ```markdown

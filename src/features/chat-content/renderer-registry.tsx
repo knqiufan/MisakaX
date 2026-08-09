@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import type { ContentBlock } from "@/lib/ipc";
 
 import { ArtifactBlockRenderer } from "./renderers/ArtifactBlockRenderer";
+import { ChartBlockRenderer } from "./renderers/ChartBlockRenderer";
 import { ImageBlockRenderer } from "./renderers/ImageBlockRenderer";
 import { MarkdownBlockRenderer } from "./renderers/MarkdownBlockRenderer";
 import { NoticeBlockRenderer } from "./renderers/NoticeBlockRenderer";
@@ -14,9 +15,7 @@ export interface BlockRendererProps {
 
 const REGISTRY: Record<ContentBlock["kind"], ComponentType<BlockRendererProps>> = {
   markdown: MarkdownBlockRenderer,
-  // Chart and map blocks are deliberately non-executing until their own
-  // renderer phases complete; their persisted fallback remains readable.
-  chart: NoticeBlockRenderer,
+  chart: ChartBlockRenderer,
   map: NoticeBlockRenderer,
   artifact: ArtifactBlockRenderer,
   image: ImageBlockRenderer,
