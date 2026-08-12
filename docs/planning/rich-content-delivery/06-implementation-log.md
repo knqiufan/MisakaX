@@ -3,7 +3,7 @@
 > **用途：** 记录实际实施、验证、决策变更、风险与下一步，保证人类和 AI Agent 接手时可追溯。
 > **受众：** 所有实施者与评审者。
 > **最后审阅 / Last reviewed：** 2026-08-13
-> **状态：** R0–R4 已通过各自的远程全量 CI；R5/R6 的 Execution Isolation S0 已本地完成，生产 provider 与阶段远程门禁仍待完成。
+> **状态：** R0–R4 已通过各自的远程全量 CI；R5/R6 的 Execution Isolation S0 已通过远程全量 CI，生产 Provider 与后续 S0.5/S1–S4 Gate 仍待完成。
 
 ---
 
@@ -25,8 +25,8 @@
 | R2 文件预览 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `2e979e1`；[CI #31285793427](https://github.com/knqiufan/MisakaX/actions/runs/31285793427) 的 8 项检查全绿 |
 | R3 图表 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `ee6eea7`；[CI #31287278455](https://github.com/knqiufan/MisakaX/actions/runs/31287278455) 的 8 项检查全绿 |
 | R4 地图 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `0a64123`；[CI #31288007260](https://github.com/knqiufan/MisakaX/actions/runs/31288007260) 的 8 项检查全绿；R4b 不在范围内 |
-| R5 Agent/Sidecar/MCP | 进行中（仅 Isolation S0） | 当前实施者 | 2026-08-13 | — | S0 provider-neutral 合约已本地实现；Sidecar `/agent/*`、producer 接线与生产 provider 未实现 |
-| R6 加固/发布 | 进行中（仅 S0 安全基线） | 当前实施者 | 2026-08-13 | — | fail-closed、快照/结果/write-back preflight 与安全基线测试已本地通过；平台 capability evidence 和发布门禁待后续 S1–S4 |
+| R5 Agent/Sidecar/MCP | 进行中（仅 Isolation S0 完成） | 当前实施者 | 2026-08-13 | — | S0 provider-neutral 合约已通过 CI #31619178489；Sidecar `/agent/*`、producer 接线与生产 Provider 未实现 |
+| R6 加固/发布 | 进行中（仅 S0 安全基线完成） | 当前实施者 | 2026-08-13 | — | fail-closed、快照/结果/write-back preflight 与安全基线已通过 CI #31619178489；平台 capability evidence 和发布门禁待后续 S1–S4 |
 
 ## 决策记录
 
@@ -239,8 +239,8 @@
 - **验证：** `cargo test --all-features --lib sandbox -j 1` → 9 passed；`cargo test --all-features --test security_config_baseline_tests -j 1` → 6 passed；`cargo clippy --all-targets --all-features -j 1 -- -D warnings` → pass；`cargo fmt --check` 与 `git diff --check` → pass。此前 `cargo test --all-features -j 1` 完整 Rust suite → pass。
 - **资源受限记录：** `cargo nextest run --all-features --profile ci` 在本机并行编译阶段因 Windows pagefile / `os error 1455` 失败，不是测试断言失败；改用单并发 `cargo test --all-features -j 1` 完成全量回归。
 - **未验证：** 未运行前端/Sidecar 测试（无相关代码变更）；未验证 remote、Windows AppContainer、Linux namespace、macOS XPC/VM 或容器能力；未执行真实网络隔离、进程回收、审计持久化与 workspace 写回。
-- **Git：** 待提交至 `codex/rich-content-r5-r6-sandbox` 并非强制推送。
-- **远程 CI：** 待提交推送后查询；在 required checks 全绿前，R5/R6 仍保持“进行中”。
+- **Git：** `15c12c591fe36bc314b981db7da7692765cfa096`（`feat(sandbox): establish isolation S0 contracts`）已非强制推送至 `origin/codex/rich-content-r5-r6-sandbox`。
+- **远程 CI：** [CI #31619178489](https://github.com/knqiufan/MisakaX/actions/runs/31619178489) completed/success；Frontend、Rust、三平台 Terminal Runtime 与三平台 Tauri Build 共 8 项检查全绿。该证据只完成 S0 门禁，不代表 R5/R6 整体或任何真实 Provider 已完成。
 - **风险/回滚：** 当前无生产调用方，回滚新增 sandbox 模块及 `services/mod.rs` 注册即可恢复原状态；不得为绕过 provider unavailable 而回退到 host terminal、Sidecar、WebView shell 或直接挂载 workspace。
 - **文档同步：** [Sandbox 技术选型 ADR](../../architecture/SANDBOX_TECH_SELECTION.md)、[Sandbox 实施计划](../SANDBOX_IMPLEMENTATION_PLAN.md)、[复核报告](../../research/SANDBOX_STRATEGY_REASSESSMENT_2026-08.md) 及本目录 README/`00`–`09`。
 - **下一步：** 先完成 S0.5（持久化审计、超时/取消、事务 write-back），再按独立 Spike 选择 S1 remote、S2 Windows、S3 macOS/Linux provider；随后才允许 R5 producer 接线或 R6 默认发布。
