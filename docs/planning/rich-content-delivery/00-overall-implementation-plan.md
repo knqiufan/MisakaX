@@ -2,8 +2,8 @@
 
 > **用途：** 定义聊天富内容能力的目标架构、实施顺序、边界和验收标准。
 > **受众：** 产品、架构、全栈开发和安全维护者。
-> **最后审阅 / Last reviewed：** 2026-08-09
-> **状态：** R0–R4 已实现并通过远程 CI；R5、R6 仍作为后续计划。本文件保留总体基线与验收方向。
+> **最后审阅 / Last reviewed：** 2026-08-13
+> **状态：** R0–R4 已实现并通过远程 CI；R5/R6 的执行隔离前置 S0 合同已实现，R5 producer integration、真实 Provider 与 R6 发布 Gate 仍待后续阶段。本文件保留总体基线与验收方向。
 
 ---
 
@@ -52,7 +52,9 @@
 
 ### 3.4 把“显示安全”与“执行 Sandbox”分层
 
-受控文件存储、WebView URI 范围、CSP、内容 schema 和解析资源限制是本功能必需的 **内容安全面**。完整 OS Sandbox 是执行面：当 Agent、Skill 或 MCP 运行外部命令、复杂转换器或不可信二进制时，后续必须接入现有 `SandboxBroker`。二者不能互相替代。
+受控文件存储、WebView URI 范围、CSP、内容 schema 和解析资源限制是本功能必需的 **内容安全面**。执行隔离是另一层：当 Agent、Skill 或 MCP 运行外部命令、复杂转换器、不可信原生 parser 或受控网络获取时，必须进入 Rust `Execution Isolation Broker`（沿用 `SandboxBroker` 名称）。strict 的共同语义是 snapshot 交付、受验证 manifest/artifact 回收、默认断网、最小环境、进程回收与 capability evidence，而不是要求三平台使用同一种 OS API。二者不能互相替代。
+
+[2026-08 Sandbox 方案复核](../../research/SANDBOX_STRATEGY_REASSESSMENT_2026-08.md) 已于 2026-08-13 纳入仍为 Proposed 的 Sandbox ADR；S0 provider-neutral 合同、snapshot/result 校验与 FakeProvider 测试已落地。任何真实 Provider 进入生产前仍须通过对应 Spike Gate，当前没有可发布 strict Provider。
 
 ## 4. 目标架构
 
@@ -76,20 +78,24 @@ flowchart LR
     PREVIEW --> URI["Scoped artifact URI / read command"]
     IMAGE --> URI
     ARTIFACTS --> EXPORT["Dialog save + Rust copy"]
-    AGENTEXEC["Agent / Skill external execution"] -. "future, brokered" .-> SANDBOX["SandboxBroker + network policy"]
+    AGENTEXEC["Agent / Skill / native converter"] -. "structured request" .-> BROKER["Rust Execution Isolation Broker"]
+    BROKER --> SNAP["Workspace/artifact snapshot"]
+    SNAP --> PROVIDER["AppContainer / XPC helper / local VM / remote microVM"]
+    PROVIDER --> RESULT["validated result manifest + artifacts"]
+    RESULT --> ARTIFACTS
 ```
 
 ## 5. 推荐实施顺序
 
-| 阶段 | 可见交付 | 关键依赖 | 是否阻塞完整 Sandbox |
+| 阶段 | 可见交付 | 关键依赖 | 执行隔离依赖 |
 |---|---|---|---|
 | R0 | 统一 DTO、Schema、迁移、feature flag、安全测试基线 | 现有聊天回归测试 | 否 |
 | R1 | 文件/图片产物的可靠保存、展示元数据、下载 | ArtifactService、窄 IPC/URI | 否 |
-| R2 | PDF、文本、表格等本地预览与失败回退 | 解析器 Strategy、资源限制 | 否；高风险转换器后接 Sandbox |
+| R2 | PDF、文本、表格等本地预览与失败回退 | 解析器 Strategy、资源限制 | 浏览器 parser 否；原生 helper/converter 必须通过已验证执行位置 |
 | R3 | 受限图表块、数据表替代、导出 | Renderer Registry、ECharts adapter | 否 |
-| R4 | 静态 GeoJSON 地图；受控瓦片试点 | Map renderer、地图数据策略 | 否；远程瓦片需网络/CSP policy |
-| R5 | Sidecar/Agent/MCP 规范化产出、权限与审计 | Phase 4 对话迁移、MCP loop | 部分依赖现有 Sandbox 计划 |
-| R6 | 安全加固、跨平台验证、清理和发布 | R0–R5、Sandbox 平台能力 | 是，涉及外部执行时 |
+| R4 | 静态 GeoJSON 地图；受控瓦片试点 | Map renderer、地图数据策略 | R4a 否；R4b 必须通过 remote 或已验证的 brokered network |
+| R5 | Sidecar/Agent/MCP 规范化产出、权限与审计 | Phase 4 对话迁移、MCP loop、ExecutionPlan contract | 非执行 adapter 可先做；外部执行依赖修订后的 provider gate |
+| R6 | 安全加固、跨平台验证、清理和发布 | R0–R5、provider capability evidence | 是，涉及外部执行/受控网络的路径按 evidence 分别放行 |
 
 详细工作包与退出条件在 [01-phased-module-practice-plan.md](./01-phased-module-practice-plan.md)。
 
@@ -106,11 +112,13 @@ flowchart LR
 
 ### 6.2 是否需要 Sandbox
 
-不需要把完整 OS Sandbox 作为上述静态展示的上线门槛；它不能解决 HTML/XSS、错误 MIME、解压炸弹或 WebView 权限问题。需要在计划中新增以下衔接：
+不需要把完整执行隔离作为上述静态展示的上线门槛；它不能解决 HTML/XSS、错误 MIME、解压炸弹或 WebView 权限问题。需要在计划中采用以下衔接：
 
 - R0 建立 `ContentSafetyPolicy`，包含文件大小、类型、解析时间/页数、像素、嵌套压缩和 URI 授权。
-- R2 对 CPU/内存密集或原生二进制转换器采用独立受限 worker；在 Sandbox Provider 可用前，不可用时应拒绝预览并保留下载。
-- R5/R6 将 Agent/Skill/MCP 的外部生成过程接入 `SandboxBroker`；网络地图瓦片走受控 provider/broker，不让 WebView 任意直连。
+- R2 的 PDF.js/SheetJS/DOCX 文本提取等纯浏览器 parser 可继续使用 worker + 内容配额；原生 helper/converter 必须通过隔离执行。Windows 优先验证无账户 AppContainer 离线 provider；macOS 项目自带窄 helper 使用 App Sandbox + XPC；通用命令或不兼容工具转 remote microVM。provider 不可用时拒绝预览并保留下载。
+- R4b 的瓦片、地理编码和第三方生成服务默认通过 remote provider 或已通过攻击测试的 brokered network 获取，再以受管 artifact/custom URI 交付；不得给 WebView 开放任意 `https:`。
+- R5/R6 将 Agent/Skill/MCP 的外部生成过程接入 Broker：strict 默认复制允许范围为 snapshot，排除 `.git`、`.misakax`、`.codex`、`.agents` 与凭据；结果以受限 manifest/artifact 返回，经 Rust 校验和用户确认后才允许写回真实工作区。
+- `host_direct` 仅作为每次显式批准的 full-access 逃生口，必须标明无 OS Sandbox 保证；provider 错误、缺失、区域不符或实验 API 不可用时不得自动选中。
 
 完整矩阵与理由见 [05-filesystem-and-sandbox-research.md](./05-filesystem-and-sandbox-research.md)。
 
@@ -122,7 +130,7 @@ flowchart LR
 4. 图表和地图只渲染结构化数据；模型输出的脚本、远程 iframe、任意 tile URL 和内联 SVG 不能执行。
 5. 每个图表提供可访问摘要和表格数据；地图提供要素列表/坐标文本；所有操作可键盘触达。
 6. 大文件、未知 MIME、损坏文件、解析超时、磁盘不足、过期引用均以可理解的本地化错误降级，不导致会话丢失或崩溃。
-7. Agent/MCP 产物的来源、用户导出和策略拒绝均进入结构化审计；涉及外部程序时符合既有 Sandbox 策略。
+7. Agent/MCP 产物的来源、用户导出和策略拒绝均进入结构化审计；涉及外部程序时记录执行位置、snapshot 摘要、网络模式、实际 isolation evidence 与结果 manifest，且无隐式 host-direct fallback。
 
 ## 8. 风险与非目标
 
@@ -130,8 +138,10 @@ flowchart LR
 |---|---|
 | 模型返回伪造/恶意结构 | 只接收工具/adapter 产出的 schema；Rust 再验证；未知块 fail closed |
 | Base64/大 JSON 使 SQLite、导出和滚动变慢 | 二进制离库；块/预览懒加载；内容哈希去重与配额 |
-| 文件解析器遭遇畸形文件或资源耗尽 | 类型 allowlist、魔数检测、页/行/像素/时间上限；必要时 worker + Sandbox |
-| 地图瓦片带来隐私、密钥和 CSP 扩张 | 静态 GeoJSON 优先；受控 tile source、Rust broker、缓存和 attribution |
+| 文件解析器遭遇畸形文件或资源耗尽 | 类型 allowlist、魔数检测、页/行/像素/时间上限；浏览器 worker 资源不可保证时仅下载，原生 helper 使用已验证隔离位置 |
+| 地图瓦片带来隐私、密钥和 CSP 扩张 | 静态 GeoJSON 优先；受控 tile source、remote/verified network broker、artifact 缓存和 attribution |
+| provider 能力或平台实现不对称 | 以 `IsolationEvidence` 和兼容矩阵决定是否可用；不以“已编译”或统一 provider 名称代替安全保证 |
+| snapshot 复制和写回发生冲突 | 绑定 base generation；限制文件数/大小/删除范围；Rust 验证 manifest，用户查看 diff 后显式 apply |
 | 组件注册表沦为散乱 if/else | 明确渲染器端口、能力声明、契约测试与 feature flag |
 | 直接修改既有 `content` 造成历史损坏 | 新表/dual-read/dual-write，迁移完成后再切换读路径 |
 
@@ -143,4 +153,4 @@ flowchart LR
 
 开始 R4 前必须确认：是否有合法的地图数据/瓦片服务、隐私提示、attribution、缓存上限和在线/离线行为。
 
-开始 R5 前必须确认：Sidecar 已从 501 占位迁移至真实对话链路；外部执行是否已满足 Sandbox Provider 的对应平台 gate。
+开始 R5 的非执行 adapter 前必须确认 Sidecar 已从 501 占位迁移至真实对话链路。启用任何外部执行前还必须确认：已实现的 S0 immutable `ExecutionPlan`、snapshot/result manifest、`ExecutionLocation`、`WorkspaceDelivery`、`NetworkMode`、`IsolationEvidence` 和 `ProviderAvailability` contract 已完成 S0.5 事务写回/审批/持久审计；目标 Provider 已通过对应 Windows/Linux/macOS/Remote Spike Gate。默认启用或企业发布还必须通过 S4 的区域、镜像、密钥代理、运维与独立安全评审。否则该执行路径保持 disabled + diagnostic。

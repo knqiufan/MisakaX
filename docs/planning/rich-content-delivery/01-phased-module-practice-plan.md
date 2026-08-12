@@ -2,8 +2,8 @@
 
 > **用途：** 将总体方案拆为可独立验收、可回滚的实施工作包。
 > **受众：** 实施开发者、测试和 AI Coding Agent。
-> **最后审阅 / Last reviewed：** 2026-08-09
-> **状态：** R0–R4 已按阶段门禁完成；R5、R6 保持后续规划。实现和 CI 证据见 [实施过程记录](./06-implementation-log.md) 与 [R0–R4 交接](./09-r0-r4-handoff.md)。
+> **最后审阅 / Last reviewed：** 2026-08-13
+> **状态：** R0–R4 已按阶段门禁完成；R5/R6 的执行隔离前置 S0 合同已实现，R5 producer integration 与 R6 发布 Gate 保持后续规划。实现和 CI 证据见 [实施过程记录](./06-implementation-log.md) 与 [R0–R4 交接](./09-r0-r4-handoff.md)。
 
 ---
 
@@ -13,6 +13,7 @@
 - 任何数据库迁移必须向前兼容：旧 `messages.content` 仍可读，导入/导出在过渡期不得静默丢失块或附件。
 - `artifact_id` 是唯一跨层引用；前端、模型、工具和 URI 不传宿主绝对路径。
 - 所有二进制、解析、下载、预览均通过 Rust application service；React 只请求 metadata、一次性预览 URL 或显式 download/export command。
+- 涉及外部进程、原生不可信 helper 或受控联网时，Rust `Execution Isolation Broker` 是唯一执行入口；strict 默认使用 snapshot，不直接挂载/写入真实工作区，且 provider 不可用时 fail closed。
 - 每一个新事件携带 `message_id`、`block_id`、`generation`/`revision`；前端丢弃已重生成、已删除或不属于当前会话的迟到事件。
 - 每个阶段完成后先通过代码审查和全部相关本地测试，再更新 [实施过程记录](./06-implementation-log.md)、提交并非强制推送当前阶段；只有远程仓库 required CI 全绿且所需 reviewer 已批准，才能启动下一阶段。完整门禁见 [AI Coding 执行说明 §7](./07-ai-coding-execution-guide.md#7-阶段完成门禁代码审查本地验证git-与远程-ci)。
 - 涉及 UI 时同步项目 `docs/design/` 规范；远程 CI 失败或不可查询时，当前阶段保持未完成，按执行说明处理。
@@ -90,8 +91,9 @@
 1. 定义 `Previewer` Strategy：`canPreview(metadata)`、`prepare(artifact)`、`getViewModel()`、`dispose()`；注册表按 MIME + magic bytes 选择，而非后缀。
 2. 预览任务与主聊天列表分离：点击后懒加载，显示可取消进度；取消/离开会话时中止并释放对象 URL/worker。
 3. 对 CSV/XLSX/DOCX/PDF 应用页数、行列、解压、时间、内存与并发限制；输出只保留受限 preview derivative，不保存任意解析脚本。
-4. R2 初期禁用 HTML、SVG、Office 宏、嵌入对象、任意 iframe 和远端图片；若未来支持，必须先完成独立 renderer sandbox 设计评审。
+4. R2 初期禁用 HTML、SVG、Office 宏、嵌入对象、任意 iframe 和远端图片；若未来支持，必须先完成独立 renderer 安全设计评审。iframe sandbox 不能作为唯一防线；需要原生解析/转换时还必须进入已验证的执行隔离位置。
 5. 预览面板可在聊天卡内展开，也可使用受限的二级 `Dialog`；不新建拥有主窗口 capability 的通用远程 webview。
+6. 纯浏览器 PDF.js/SheetJS/DOCX 文本解析通常留在受限 worker；若 parser 资源上限无法保证、需要项目自带原生 helper 或调用外部 converter，则分别采用：Windows 已验证 AppContainer offline、macOS App Sandbox + XPC 窄 helper，或 remote microVM。任何 provider 不可用时只保留原件下载。
 
 ### 退出门
 
@@ -131,7 +133,7 @@
 1. 定义 `MapSpec v1`：GeoJSON FeatureCollection、marker、bounds、初始视角、只读 label/属性和 attribution；禁止 JS 表达式、任意 HTML popup、`file:` 与模型给出的 tile URL。
 2. 实现 `MapRenderer`，动态加载 MapLibre GL JS，并以 WebGL unavailable/地图数据错误/超要素数为可恢复状态。
 3. R4a 仅使用本地 GeoJSON + 明确的基础底图策略；保存地图的静态视图/数据导出通过 ArtifactService。
-4. R4b 如产品确认在线瓦片，创建 `TileSourceRegistry`（ID、许可、attribution、允许域、密钥来源、缓存与离线策略），请求经 Rust broker/custom URI 代理；不把宽 `https:` 加入主 WebView CSP。
+4. R4b 如产品确认在线瓦片，创建 `TileSourceRegistry`（ID、许可、attribution、允许域、密钥来源、缓存与离线策略）。请求由 remote provider 或已经证明 egress 不可绕过的 brokered network 获取，经 ArtifactService/cache 与 custom URI 交付；不把宽 `https:` 加入主 WebView CSP，也不把普通 `HTTP_PROXY` 视为网络隔离。
 5. 补充坐标文本、要素列表和“复制坐标/导出 GeoJSON”替代交互；定位用户当前位置必须单独征得用户权限，不由模型触发。
 
 ### 验收
@@ -152,13 +154,17 @@
 2. 为 Agent 提供窄工具：`present_chart`、`present_map`、`create_artifact`、`attach_image`；工具入参是 schema，不能接收 URI、宿主路径、HTML 或代码。
 3. 扩展 SSE/Tauri 事件为 block lifecycle：`stream:block_started`、`stream:block_ready`、`stream:block_failed`；保留现有 token/thinking/complete 事件兼容。
 4. MCP 工具结果先经过 Artifact ingress policy、来源标记和用户权限；未经批准的 MCP 不能直接注册可展示资源。
-5. 对需要运行转换器/生成器的 Agent、Skill、MCP 路径接入 `SandboxBroker` 的 `workspace-write`/`read-only` policy；未完成的 OS provider 不得自动退回宿主执行。
+5. 将需要运行转换器/生成器的 Agent、Skill、MCP 路径接入 Rust `Execution Isolation Broker`。富内容工具仍只接受 schema/artifact ID；执行请求使用独立的结构化 argv contract，不能接收 shell 拼接、平台 profile、VM 参数、网络规则或原始 host path。
+6. 为执行合同增加 `ExecutionLocation`、`WorkspaceDelivery`、`NetworkMode`、`IsolationEvidence`、`ProviderAvailability`；`host_direct` 显式建模为 full-access，不属于 strict，且只能每次明确批准。
+7. strict 执行默认生成工作区/artifact snapshot，排除 `.git`、`.misakax`、`.codex`、`.agents`、凭据和越界符号链接；provider 只返回受限 result manifest 与 artifacts。Rust 校验路径、hash、配额、删除范围和 base generation，用户确认 diff 后才写回真实工作区。
+8. provider 策略按场景非对称：Windows 离线任务等待 AppContainer/实验 API Spike；macOS 通用命令优先 remote microVM、可选本地 Linux VM，项目自带窄 parser helper 才使用 App Sandbox + XPC；联网或未知工具优先 remote。Windows 专用账户与 macOS Seatbelt 不作为默认建设路径。
 
 ### 退出门
 
 - Rig fallback 与 Sidecar 主链均能生成同一种 canonical block。
 - 取消、重生成、MCP 拒绝、Sidecar 重启和流结束异常不会留下孤立 artifact 或错配 block。
 - 每个产物可追踪来源（模型/Agent/Skill/MCP/用户）、会话和触发消息。
+- 外部执行还必须可追踪执行位置、snapshot 摘要、区域/网络模式、lease、实际 evidence 与结果 manifest；provider 错误稳定返回 `SANDBOX_UNAVAILABLE`，不调用宿主 shell。
 
 ## R6：性能、安全加固与发布
 
@@ -167,7 +173,7 @@
 1. 做大小、内存、GPU、地图 tile、PDF 页、XLSX 解压与消息虚拟列表基准；为超限确立产品可见阈值。
 2. 三平台验证 custom/asset URI、文件名 Unicode、长路径、保存对话框、WebView2/WebKitGTK、GPU/WebGL 退化和清理任务。
 3. 完成安全回归：XSS、恶意 SVG/HTML、路径 traversal/symlink、MIME confusion、zip bomb、URI auth、CSP/capability diff、超时/取消和跨会话访问。
-4. 对需要外部执行的 preview/generator，按既有 Sandbox B0–B7 平台 gate 验证；无 strict provider 时明确禁用该可执行路径。
+4. 对需要外部执行的 preview/generator，先完成 2026-08 复核定义的 S0 合同，再按执行位置通过对应 Gate：remote snapshot 垂直切片（S1）、Windows 无账户 AppContainer（S2）、macOS XPC 窄 helper/本地 VM（S3）；默认启用/企业发布另过组织 provider、地区/镜像/密钥代理、运维和独立安全评审（S4）。只按实际 capability evidence 放行；无 strict provider 时禁用该路径。
 5. 完成保留策略、手动“清理产物”、隐私/地图 attribution 文案、可观测性和 release notes。
 
 ## 依赖与并行性
@@ -183,7 +189,11 @@ flowchart LR
   R3 --> R6
   R4 --> R6
   R5 --> R6
-  SB["Existing Sandbox B0–B5"] -. "external converters / agent execution" .-> R5
+  S0["Isolation S0\ncontract + snapshot + FakeProvider"] -. "required for execution path" .-> R5
+  S1["S1 remote snapshot gate"] -. "networked / cross-platform strict" .-> R5
+  S2["S2 Windows AppContainer gate"] -. "local offline" .-> R6
+  S3["S3 macOS XPC / VM gate"] -. "native helper / optional local strict" .-> R6
+  S4["S4 enterprise hardening / default-enable gate"] -. "release evidence" .-> R6
 ```
 
-R3 和 R4 可以在 R0 完成后并行；R2 必须复用 R1 的存储和授权；R5 的非执行部分可先做 adapter/事件，涉及外部进程的部分等待对应 Sandbox gate。
+R3 和 R4 可以在 R0 完成后并行；R2 必须复用 R1 的存储和授权。R5 的非执行 adapter/事件可先做；任何外部进程先依赖已完成的 S0 合同和待完成的 S0.5，随后按实际执行位置依赖 S1/S2/S3，默认启用或企业发布再依赖 S4。Sandbox ADR 与总实施计划已于 2026-08-13 修订；未通过对应门禁的执行路径继续保持 disabled + diagnostic。

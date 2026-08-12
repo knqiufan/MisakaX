@@ -2,8 +2,8 @@
 
 > **用途：** 记录实际实施、验证、决策变更、风险与下一步，保证人类和 AI Agent 接手时可追溯。
 > **受众：** 所有实施者与评审者。
-> **最后审阅 / Last reviewed：** 2026-08-09
-> **状态：** R0–R4 已通过各自的远程全量 CI；R5、R6 尚未开始。
+> **最后审阅 / Last reviewed：** 2026-08-13
+> **状态：** R0–R4 已通过各自的远程全量 CI；R5/R6 的 Execution Isolation S0 已本地完成，生产 provider 与阶段远程门禁仍待完成。
 
 ---
 
@@ -25,8 +25,8 @@
 | R2 文件预览 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `2e979e1`；[CI #31285793427](https://github.com/knqiufan/MisakaX/actions/runs/31285793427) 的 8 项检查全绿 |
 | R3 图表 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `ee6eea7`；[CI #31287278455](https://github.com/knqiufan/MisakaX/actions/runs/31287278455) 的 8 项检查全绿 |
 | R4 地图 | 已完成 | 当前实施者 | 2026-08-09 | 2026-08-09 | `0a64123`；[CI #31288007260](https://github.com/knqiufan/MisakaX/actions/runs/31288007260) 的 8 项检查全绿；R4b 不在范围内 |
-| R5 Agent/Sidecar/MCP | 未开始 | 待分配 | — | — | 依赖 Phase 4 真正对话链路；通过阶段门禁后完成 |
-| R6 加固/发布 | 未开始 | 待分配 | — | — | 三平台/沙箱 gate；通过阶段门禁后完成 |
+| R5 Agent/Sidecar/MCP | 进行中（仅 Isolation S0） | 当前实施者 | 2026-08-13 | — | S0 provider-neutral 合约已本地实现；Sidecar `/agent/*`、producer 接线与生产 provider 未实现 |
+| R6 加固/发布 | 进行中（仅 S0 安全基线） | 当前实施者 | 2026-08-13 | — | fail-closed、快照/结果/write-back preflight 与安全基线测试已本地通过；平台 capability evidence 和发布门禁待后续 S1–S4 |
 
 ## 决策记录
 
@@ -38,6 +38,9 @@
 | 2026-08-08 | OS Sandbox 不阻塞静态富内容 MVP，但外部执行/高风险转换必须接 SandboxBroker | 内容渲染与 OS 执行隔离是不同安全问题；不能用任何一者替代另一者 | R2、R5、R6 与 Sandbox B0–B7 对齐 |
 | 2026-08-08 | 地图先支持本地 GeoJSON，远程瓦片后置且必须使用 provider registry/broker | 避免模型驱动任意网络请求和 CSP 扩张 | R4a/R4b 切分 |
 | 2026-08-09 | 每个 R 阶段必须在代码审查和本地测试通过后 commit/push，并等待 required CI 全绿后才能进入下一阶段 | 防止未验证阶段叠加、保留可回滚检查点，并使远程仓库成为阶段完成的权威证据 | R0–R6 执行顺序、阶段看板和交接流程 |
+| 2026-08-12 | 以 Execution Isolation Broker + snapshot/manifest + 非对称 provider + capability evidence 重构后续沙箱挂接；停止按 Windows 专用账户/macOS Seatbelt/旧 B0–B7 直接建设 | 最新复核确认旧平台默认实现不可维护或缺少受支持契约；strict 应统一上层保证而非强求相同 OS API | 覆盖 2026-08-08 决策中的具体阶段挂接；R2 原生 helper、R4b、R5、R6 等待 ADR 修订及 S0–S4 gate |
+
+2026-08-08 的条目作为历史决策保留；凡涉及具体 provider 或阶段映射，以 2026-08-12 条目为当前规划结论。
 
 ## 实施记录
 
@@ -212,6 +215,35 @@
 - **风险/回滚：** 回退 R4a commit 即恢复 `map` 的不可执行 notice fallback；不会放宽 CSP 或现有通用文件/网络能力。MapLibre bundle 增量仅在地图 renderer 动态加载时下载。
 - **文档同步：** `docs/design/frontend-ui-guidelines.md` §4.6.x.1；本实施记录。
 - **下一步：** 更新阶段看板与 R0–R4 交接文档；R4b 以及 R5/R6 必须另行立项并分别通过同一阶段门禁。
+
+### 2026-08-12 — Sandbox 复核结论同步至富内容实施计划
+
+- **范围：** 根据 `docs/research/SANDBOX_STRATEGY_REASSESSMENT_2026-08.md`，重写本目录所有文档中的执行隔离挂接、阶段依赖、架构合同、功能/UX、验证和交接内容。
+- **修改：** 保留“内容安全不等待执行隔离”的既有分层；将后续建设改为 Rust Execution Isolation Broker 控制面、strict snapshot/result manifest、默认断网、显式 host-direct、非对称 provider 与 capability evidence。R2 原生 helper、R4b、R5、R6 改用 S0 contract、S1 remote、S2 Windows AppContainer、S3 macOS XPC/VM、S4 企业强化/默认启用 gate；Windows 专用账户和 macOS Seatbelt 不再作为默认路径。
+- **决策状态：** 复核报告尚未替代 Proposed Sandbox ADR；本次只更新富内容规划合同与 fail-closed 门禁，不宣称 provider 已接受或可发布。生产执行路径必须先修订 ADR 并通过对应 Spike。
+- **代码审查：** 对照复核报告逐项检查 snapshot/write-back、网络、provider availability/evidence、Windows/macOS/remote 方向、用户可见保证和历史交接；保留 2026-08-08 决策条目并用新条目显式覆盖其具体阶段映射。
+- **验证：** 本目录相对 Markdown 链接与表格结构检查 → pass；旧 `B0–B7`/`workspace-write` 活跃建设引用扫描 → 仅剩历史条目及明确否定旧依赖的说明；`git diff --check -- docs/planning/rich-content-delivery` → pass。
+- **未验证：** 未运行前端、Rust 或 Sidecar 构建/测试，因为本次仅修改规划 Markdown；未验证任何真实 provider、网络边界或平台 Spike。
+- **Git：** 未提交；保留工作区中用户已有的 `docs/design/frontend-ui-guidelines.md` 修改与复核文档状态，不纳入或改写。
+- **风险/回滚：** Sandbox ADR/总实施计划尚未同步，短期存在跨目录冲突；本目录已明确要求先修订 ADR，避免后续 Agent 按旧 provider 默认直接开工。回滚本次文档不会影响 R0–R4 代码，但会恢复过时门禁。
+- **文档同步：** 本目录 README 与 `00`–`09` 全部更新，Last reviewed 统一为 2026-08-12。
+- **下一步：** 单独修订 `SANDBOX_TECH_SELECTION.md` 与 `SANDBOX_IMPLEMENTATION_PLAN.md`，完成 S0 后再为富内容外部执行选择并验证 S1/S2/S3 路径；默认启用或企业交付另过 S4。
+
+### 2026-08-13 — R5/R6：Execution Isolation S0 合约与安全基线
+
+- **范围：** 完成 provider-neutral S0 控制面与 R6 对应安全测试；不接入 R5 producer、不实现真实隔离 provider、不启用任何生产执行入口。
+- **修改：** 新增 `src-tauri/src/services/sandbox/`，定义版本化 intent/policy/plan/lease/result/error 合约、严格 snapshot、result manifest 校验、write-back preflight、provider registry、Broker 生命周期审计与仅测试可用的 `FakeProvider`；更新 Sandbox ADR、实施计划、复核报告及本目录规划/交接文档。
+- **迁移/兼容性：** 无数据库、IPC、AppManifest、Tauri capability、CSP、依赖或前端变更；S0 仅作为 Rust 内部模块注册。现有 Rig/MCP/Sidecar/terminal 路径保持原状，Sidecar `/agent/*` 仍为 501。
+- **安全影响：** strict 只接受 snapshot、非 `host_direct` 位置和精确 provider；缺 provider、能力证据缺口、非法 lease、路径穿越、链接/重解析点、凭据文件、敏感环境变量、过期/伪造清单、哈希/配额/代际/审批不匹配均 fail closed。生产模块不包含主机进程或 WebView shell 执行捷径，结果校验不直接改写真实 workspace。
+- **代码审查：** 完成自审并收紧 provider/evidence 标识符与时间窗、lease 有效期、结果元数据、重复/重叠路径、总字节预算、approval 校验顺序和不透明 validated handle；新增非法 lease 清理回归。当前已知边界是超时/取消编排、持久化审计、事务 write-back 与真实 provider 均属于 S0.5/S1–S4，不得解释为 strict 已可用。
+- **验证：** `cargo test --all-features --lib sandbox -j 1` → 9 passed；`cargo test --all-features --test security_config_baseline_tests -j 1` → 6 passed；`cargo clippy --all-targets --all-features -j 1 -- -D warnings` → pass；`cargo fmt --check` 与 `git diff --check` → pass。此前 `cargo test --all-features -j 1` 完整 Rust suite → pass。
+- **资源受限记录：** `cargo nextest run --all-features --profile ci` 在本机并行编译阶段因 Windows pagefile / `os error 1455` 失败，不是测试断言失败；改用单并发 `cargo test --all-features -j 1` 完成全量回归。
+- **未验证：** 未运行前端/Sidecar 测试（无相关代码变更）；未验证 remote、Windows AppContainer、Linux namespace、macOS XPC/VM 或容器能力；未执行真实网络隔离、进程回收、审计持久化与 workspace 写回。
+- **Git：** 待提交至 `codex/rich-content-r5-r6-sandbox` 并非强制推送。
+- **远程 CI：** 待提交推送后查询；在 required checks 全绿前，R5/R6 仍保持“进行中”。
+- **风险/回滚：** 当前无生产调用方，回滚新增 sandbox 模块及 `services/mod.rs` 注册即可恢复原状态；不得为绕过 provider unavailable 而回退到 host terminal、Sidecar、WebView shell 或直接挂载 workspace。
+- **文档同步：** [Sandbox 技术选型 ADR](../../architecture/SANDBOX_TECH_SELECTION.md)、[Sandbox 实施计划](../SANDBOX_IMPLEMENTATION_PLAN.md)、[复核报告](../../research/SANDBOX_STRATEGY_REASSESSMENT_2026-08.md) 及本目录 README/`00`–`09`。
+- **下一步：** 先完成 S0.5（持久化审计、超时/取消、事务 write-back），再按独立 Spike 选择 S1 remote、S2 Windows、S3 macOS/Linux provider；随后才允许 R5 producer 接线或 R6 默认发布。
 
 ## 后续记录模板
 

@@ -2,8 +2,8 @@
 
 > **用途：** 描述面向用户的功能、状态、异常和验收行为，不规定具体组件实现。
 > **受众：** 产品、前端、后端、测试和本地化维护者。
-> **最后审阅 / Last reviewed：** 2026-08-08
-> **状态：** Proposed。
+> **最后审阅 / Last reviewed：** 2026-08-12
+> **状态：** R0–R4 已部分落地；R4b/R5/R6 与执行隔离体验为 Proposed。
 
 ---
 
@@ -11,7 +11,7 @@
 
 助手消息是一条有序的内容流。Markdown 与富内容块交错出现；用户无需学习标记语法，也不需要打开外部网页即可查看支持格式。每个富内容块都有独立加载、失败和操作状态，任一块失败不能遮挡同一消息的其他正文或工具结果。
 
-所有“下载”均表示用户选择本地保存位置后的文件副本；不上传到云端，也不把本地绝对路径发送给模型。所有“在线查看”在本方案中指 **应用内 WebView 预览**，并非第三方在线 Office 服务。
+所有“下载”均表示用户选择本地保存位置后的文件副本；不把本地绝对路径发送给模型。所有“在线查看”在本方案中指 **应用内 WebView 预览**，并非第三方在线 Office 服务。未来 `云端安全` converter/Agent 是另一个需要明确地区、上传范围和保留期同意的执行流程，不能借“在线查看”文案静默上传产物或工作区。
 
 ## 2. 图表
 
@@ -43,7 +43,7 @@
 
 ### 3.2 在线瓦片约束
 
-地图块只引用 `tile_source_id`，由设置/管理员登记许可信息、attribution、允许域、网络可用性和缓存策略。模型不能构造任意瓦片地址或从 Markdown 嵌入在线地图。未配置服务时使用离线/空底图并明确提示。
+地图块只引用 `tile_source_id`，由设置/管理员登记许可信息、attribution、允许域、网络可用性和缓存策略。模型不能构造任意瓦片地址或从 Markdown 嵌入在线地图。瓦片/地理编码由 remote provider 或已验证的 brokered network 获取，并经受管缓存/URI 交付；未配置安全网络位置时使用离线/空底图并明确提示。
 
 ## 4. 文件生成、预览与下载
 
@@ -113,13 +113,24 @@
 - artifact 存储位置说明、已用空间、保留期和手动清理。
 - 图片/文档/图表/地图的下载和预览上限说明。
 - 地图数据/瓦片服务的启用状态、许可/attribution、离线说明；密钥不显示、不交给模型。
+- 仅当存在执行型预览/生成器时显示执行位置状态：`本机安全（离线）`、`云端安全`、`本机安全 VM（实验性）` 或 `本机直接执行`。不得让用户直接配置 provider profile、ACL、VM 参数或网络规则。
 
 ### 7.2 权限原则
 
 - 保存文件：每次通过系统对话框明确目标；不能 silently overwrite。
 - 地理位置：显式用户动作才请求，模型不可触发。
 - 网络瓦片：产品设置启用且对应服务已登记才可使用；没有“允许所有 URL”的开关。
-- Agent 外部生成：按现有工具审批与 Sandbox policy，不因产物需要展示而自动提升权限。
+- Agent 外部生成：按 Execution Isolation Broker 的位置、snapshot、网络和审批策略执行，不因产物需要展示而自动提升权限。
+- strict 默认使用工作区/输入 artifact 副本；不会直接修改真实项目。若有变更，用户查看摘要/diff 并确认后才写回；冲突时不覆盖。
+- 云端执行在首次发送前显示服务/组织、地区、上传范围、保留期、允许域和费用/配额；模型凭据、Git/SSH/cloud credential 与浏览器 session 不随 snapshot 上传。
+- `本机直接执行` 是每次显式批准的 full-access 逃生口，必须说明无 OS Sandbox 保证；任何安全 provider 失败时不得自动切换到它。
+
+### 7.3 执行型预览与生成的可恢复体验
+
+- PDF.js、SheetJS、DOCX 文本提取等纯浏览器解析通常不显示执行位置；仍遵守页数、解压、内存、时间和并发限制。
+- 原生 converter/OCR/Office helper 需要 strict provider。Windows 可显示已验证的 `本机安全（离线）`；macOS 项目自带窄 helper 由 App Sandbox + XPC 内部处理；通用命令或联网任务显示 `云端安全`。provider 不可用时卡片显示“此环境无法安全预览”，但原件下载继续可用。
+- 用户只看到任务实际证明的保证（无网络、仅副本目录、地区、保留期、工具兼容性等），不以笼统“已沙箱化”代替证据。
+- 取消必须终止本地/远程进程树、撤销 lease 并清理临时 snapshot；取消或远端清理失败给出可操作诊断和审计 ID，不把未验证产物写入消息。
 
 ## 8. 错误与本地化契约
 
@@ -135,6 +146,9 @@ PREVIEW_RESOURCE_LIMIT             PREVIEW_CANCELLED
 CONTENT_BLOCK_INVALID              CONTENT_BLOCK_UNSUPPORTED
 CHART_SPEC_INVALID                 MAP_SPEC_INVALID
 MAP_TILE_SOURCE_UNAVAILABLE        MAP_WEBGL_UNAVAILABLE
+SANDBOX_UNAVAILABLE                EXECUTION_PROVIDER_NEEDS_SETUP
+EXECUTION_REGION_MISMATCH          EXECUTION_RESULT_INVALID
+WORKSPACE_SNAPSHOT_CONFLICT        EXECUTION_CANCEL_FAILED
 ```
 
 错误 payload 使用项目既有 `code`、`message_key`、参数、`retryable`、correlation ID 约定。用户界面翻译消息 key；不得从 Rust/Python 的自然语言错误文本推断行为。
@@ -147,3 +161,6 @@ MAP_TILE_SOURCE_UNAVAILABLE        MAP_WEBGL_UNAVAILABLE
 4. 伪造 MIME、恶意 SVG、未知内容块、路径 traversal、跨会话 artifact ID、超大 PDF/XLSX 被拒绝或降级。
 5. 无 GPU/无网/解析器失败时，消息正文、工具调用和下载能力仍可使用。
 6. 停止、重生成、会话删除、Sidecar 断线后不存在错误归属的富内容，也无可访问的孤立临时资源。
+7. 原生 converter/provider 缺失时只禁用对应预览/生成能力并保留下载；不会启动宿主 shell。
+8. remote 任务在发送 snapshot 前展示地区、范围和保留期，取消后 lease/临时数据可验证地回收；结果 manifest 未经 Rust 校验不能注册为 artifact。
+9. 工作区 generation 变化时进入冲突状态，未经用户查看 diff 与确认不会写回真实项目；`host_direct` 永不由错误 fallback 自动选中。

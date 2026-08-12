@@ -2,8 +2,8 @@
 
 > **用途：** 规定领域模型、模块边界、协议、持久化与安全边界，供代码实现和架构评审使用。
 > **受众：** React、Rust、Python Sidecar、MCP 与安全维护者。
-> **最后审阅 / Last reviewed：** 2026-08-08
-> **状态：** Proposed。
+> **最后审阅 / Last reviewed：** 2026-08-13
+> **状态：** R0–R4 已落地；执行隔离 S0 合同已实现，真实 Provider 与 R5/R6 应用链仍为 Proposed。
 
 ---
 
@@ -15,6 +15,7 @@
 4. **单一权威。** Rust 是 artifact 身份、授权、MIME、存储、预览状态、保留策略与审计的唯一所有者。React 是投影，Sidecar 是请求方，不维护第二套状态。
 5. **向前兼容。** 块包含 `schema_version`；未知类型不执行、可诊断、可下载原 payload。旧消息仍能由 `content` 合成为单一 Markdown 块。
 6. **最小暴露。** 主 WebView 无通用 FS/HTTP/Shell；可显示字节只能来自受控 artifact URI 或明确的 IPC 读取结果。
+7. **执行位置不泄漏为内容协议。** `ContentBlock`/富内容工具不携带 AppContainer profile、XPC entitlement、VM 参数、远程供应商参数、网络规则或 host path；这些只由 Rust Broker 从可信设置和审批编译。
 
 ## 2. 领域模型与消息契约
 
@@ -92,6 +93,9 @@ src-tauri/src/
       preview.rs               # Previewer Strategy orchestration
       uri.rs                   # asset/custom URI authorization adapter
       cleanup.rs               # retention and orphan cleanup
+    execution/                 # 复用全局执行隔离域，不在富内容层复制 provider
+      bridge.rs                # rich-content execution intent -> ExecutionPlan
+      result_ingress.rs        # result manifest -> ArtifactService/patch validation
   commands/
     artifacts.rs               # thin DTO adapters only
   db/repository/
@@ -198,9 +202,89 @@ sequenceDiagram
 | URI | ID/revision 归属、TTL、session/window scope、MIME 响应头、无路径泄露 |
 | 运行 | 解析并发、超时、取消、worker 资源与审计；不可保证时仅下载 |
 
-对原生转换器、外部命令和不可信 helper，`ContentSafetyPolicy` 的拒绝不能以普通 `subprocess`/shell 回退；必须转交既有 `SandboxBroker` 或禁用该预览器。
+对原生转换器、外部命令和不可信 helper，`ContentSafetyPolicy` 的拒绝不能以普通 `subprocess`/shell 回退；必须转交 Rust `Execution Isolation Broker` 或禁用该预览器。隔离环境的输出仍需重新经过本策略，不能因为“已在沙箱内运行”而跳过 MIME、hash、配额、压缩预算和路径检查。
 
-## 8. 兼容与迁移
+## 8. 执行隔离挂接合同
+
+本节采用 [2026-08 Sandbox 方案复核](../../research/SANDBOX_STRATEGY_REASSESSMENT_2026-08.md) 与 2026-08-13 修订后的 Proposed Sandbox ADR。S0 代码已经冻结富内容侧所需的 provider-neutral 端口、snapshot/result 校验与 fail-closed 语义；这仍不表示任一真实 Provider 已可用于生产。
+
+### 8.1 Broker 边界
+
+`SandboxBroker` 在本架构中是 Rust 主进程内的 **Execution Isolation Broker 控制面**，而不是某个 Windows 账户、macOS profile、容器或云 SDK。富内容侧只提交不可变的执行意图：
+
+```text
+RichExecutionIntent
+  session_id / message_id / source identity / base_generation
+  structured argv or typed converter id
+  input artifact ids / requested output kinds
+  resource budget / network intent / approval reference
+```
+
+Broker 从可信数据编译 `ExecutionPlan`，并负责 provider 选择、snapshot、lease、取消、审计和结果回收。React、模型、Sidecar、Skill manifest 与 MCP 结果不得传入原始 host path、shell 拼接、ACL、AppContainer capability、Seatbelt profile、VM/mount 参数或供应商凭据。
+
+remote provider port 必须统一为 `create_execution`、`stream`、`cancel`、`collect`、`destroy`；供应商 SDK 只能存在于 Rust provider adapter，不能由 Python Sidecar 直连。host 仅保存 OS keychain/企业 token broker 中的 credential reference，provider credential、模型 API key、Git/SSH/cloud credential 和浏览器 session 都不得注入 guest 环境。
+
+建议的跨域字段：
+
+| 概念 | 富内容使用方式 |
+|---|---|
+| `ExecutionLocation` | `windows_app_container`、`linux_namespace`、`remote_micro_vm`、`mac_xpc_helper`、`mac_local_vm`、`container_opt_in`、`host_direct`；用于审批、诊断和审计，不写入内容块业务 payload |
+| `WorkspaceDelivery` | strict 固定为 `snapshot`；`direct_mount` 只能是有额外证据和显式批准的高级模式 |
+| `NetworkMode` | 默认 `deny`；联网只接受 `provider_brokered`；`explicit_host_direct` 表示无隔离保证 |
+| `IsolationEvidence` | 文件、网络、进程树、环境、资源、凭据、审计的实际探测事实；UI 只展示已证明项 |
+| `ProviderAvailability` | `available`、`needs_setup`、`unsupported`、`experimental`、`unavailable`；不得隐藏为 fallback |
+
+### 8.2 Snapshot 与结果回收
+
+strict 路径不直接写真实工作区：
+
+1. Rust 从允许的工作区/artifact 输入生成 snapshot，默认排除 `.git`、`.misakax`、`.codex`、`.agents`、凭据/密钥模式、越界 symlink/junction 和应用配置。
+2. provider 只看到 snapshot、副本 cwd、环境 allowlist 和短期 lease；模型 API key、Git/SSH/cloud credential、浏览器 session 不进入执行环境。
+3. 可信 runner 返回受限文件变更 manifest、独立 artifacts、退出状态和实际 evidence；不能返回“请在宿主执行此 shell/patch”的指令。
+4. Rust 校验 canonical path、hash、大小/文件数、删除范围、symlink、base generation、artifact MIME/配额。工作区已变化时进入冲突状态。
+5. 产物经 `ArtifactService` ingress 后即可形成 block；真实工作区修改必须另外展示摘要/diff 并经用户确认后由 Rust 受约束 apply。
+
+### 8.3 Provider 映射与网络
+
+| 场景 | 首选执行位置 | 失败语义 |
+|---|---|---|
+| Windows 离线原生 converter/parser | 通过 Spike 的 AppContainer/LPAC + restricted token + Job Object；实验 API 仅 Canary | `SANDBOX_UNAVAILABLE`，保留原件下载 |
+| macOS 项目自带窄 parser helper | 签名的 App Sandbox + XPC，artifact-only I/O，无 network entitlement | helper 不可用则仅下载 |
+| macOS/跨平台通用命令、未知工具、需要联网 | remote Linux microVM；macOS 本地 Linux VM 仅后续隐私模式 | 显示地区/上传范围/保留期/网络规则；不回退宿主 |
+| 在线瓦片、地理编码、第三方生成 | remote provider 或攻击测试通过的 brokered network，结果经 artifact/cache 返回 | 离线/网络不可用提示；不放宽 WebView `https:` |
+| 宿主专有工具 | 每次显式批准的 `host_direct` | 明确标记 full-access/无 OS Sandbox，绝不称为 strict |
+
+Windows 专用 sandbox account 只保留为企业可选强化研究；macOS 动态 Seatbelt/`sandbox-exec` 不进入正式 strict 路径；Docker/Podman 只在用户已安装并显式选择时作为可选 provider，且不得挂载 daemon socket。普通代理环境变量不是网络隔离证据。
+
+### 8.4 外部生成时序
+
+```mermaid
+sequenceDiagram
+  participant A as Agent/Skill/MCP
+  participant B as Rust Execution Isolation Broker
+  participant P as Local/Remote Provider
+  participant S as ArtifactService
+  participant U as User/UI
+
+  A->>B: typed execution intent + artifact IDs
+  B->>B: policy/approval + snapshot + immutable plan
+  B->>P: create execution with lease
+  P-->>B: evidence + streamed diagnostics
+  P-->>B: signed/restricted result manifest + artifacts
+  B->>B: verify paths/hash/base generation
+  B->>S: content safety ingress
+  B->>P: destroy execution + revoke lease
+  S-->>U: artifact/block ready
+  opt workspace changes requested
+    B-->>U: diff + conflicts + actual guarantees
+    U->>B: explicit apply approval
+    B->>B: constrained write-back
+  end
+```
+
+provider probe 失败、实验 API 缺失、runner 签名/镜像 hash 失效、远程地区不符或供应商不可用时，strict 路径稳定返回 `SANDBOX_UNAVAILABLE`；禁止调用普通 `subprocess`、Tauri Shell 或 Sidecar 本地 shell 兜底。
+
+## 9. 兼容与迁移
 
 1. 新 schema 先 dual-write：assistant 文本继续写 `messages.content`，同时可写一个 `markdown` block。
 2. 读取顺序：有 `message_blocks` 则按块渲染；无则由 legacy adapter 构造 markdown/现有图片附件兼容视图。
@@ -208,11 +292,13 @@ sequenceDiagram
 4. 历史图片附件不移动二进制数据的情况下保持显示；在用户主动打开/导出或后台可控迁移时才复制入 artifact store，避免一次升级大量 I/O。
 5. 新 renderer、previewer、map tiles、Sidecar rich tool 分别 feature flag；关闭后显示 fallback，而不是删除数据。
 
-## 9. 架构验收清单
+## 10. 架构验收清单
 
 - [ ] Rust、TypeScript、Python 的 schema fixtures 双向一致，未知字段/版本策略明确。
 - [ ] 无块消息、旧附件、流式文本、工具调用、搜索、分页、导入导出回归通过。
 - [ ] 二进制不写入 `messages.content`，且没有前端任意路径读取入口。
 - [ ] 渲染器、预览器、provider adapter 可独立注册/测试，未触发包级循环依赖。
 - [ ] `ContentSafetyPolicy`、URI、MIME、配额和清理逻辑在 Rust 单一位置可审计。
-- [ ] 所有外部执行路径要么走 SandboxBroker，要么在 strict 模式下明确不可用。
+- [ ] 所有外部执行路径要么走 Execution Isolation Broker，要么明确不可用；provider 异常不会命中 `host_direct`。
+- [ ] strict 路径只接收结构化请求，使用 snapshot 和受限结果 manifest；敏感目录/凭据不进入 provider，真实工作区写回需校验 base generation 与用户确认。
+- [ ] UI/审计展示的是实际 `IsolationEvidence`、位置、区域、网络模式与 lease，而不是仅显示 provider 名称或“已沙箱化”。

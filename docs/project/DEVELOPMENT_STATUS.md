@@ -2,7 +2,7 @@
 
 > **用途：** 记录代码库真实进度，标明「从哪里继续开发」。  
 > **受众：** 维护者、协作者、AI 辅助开发。  
-> **最后审阅 / Last reviewed:** 2026-08-02
+> **最后审阅 / Last reviewed:** 2026-08-13
 
 ---
 
@@ -105,7 +105,7 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 - 受管与外部 source 使用 stable SkillId、activation generation 和历史消息 hash snapshot；禁用/未扫描 source 不会进入 Sidecar mount。
 - summary/tree/read-file 按需加载，全文 detail command 已删除；扫描结论来自 v12 scan/finding/approval 表，不再读取旧 `risk_json`。
 - Schema v13 首次升级将旧 source 设为 `unscanned + disabled`，批量扫描进度持久化，应用中断可恢复，失败项可重试；升级前保留 `.pre-v13.sqlite3`。
-- Codex / Claude / Cursor 外部目录只读；Sandbox 依赖的第三方深度 scanner（S4）按当前范围延后。
+- Codex / Claude / Cursor 外部目录只读；Execution Isolation S0 已完成，但 Sandbox 依赖的第三方深度 scanner 仍须等待真实 Provider 与对应发布 Gate。
 
 **关键路径：** `src/components/skills/`、`src-tauri/src/services/skills/`、`agent/app/agent.py`
 
@@ -119,7 +119,15 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 
 **关键路径：** `src-tauri/src/sidecar.rs`、`src-tauri/src/services/sidecar_client.rs`、`agent/app/routers/`
 
-### 3.7 测试覆盖
+### 3.7 Execution Isolation S0（控制面，不代表生产 Sandbox 已可用）
+
+- Rust 已新增 provider-neutral 的 intent/policy/plan/lease/result/error 合约、strict snapshot、result manifest、write-back preflight、精确 Provider registry 与 fail-closed Broker。
+- `FakeProvider` 仅在测试编译；生产代码没有 host process/WebView shell 执行捷径，也没有注册真实 Provider 或新增 Tauri capability/CSP。
+- 当前严格隔离仍不可发布：持久化审计、超时/取消、事务写回及 remote/Windows/Linux/macOS Provider 分别属于 S0.5/S1–S4 Gate。
+
+**关键路径：** `src-tauri/src/services/sandbox/`、[`SANDBOX_TECH_SELECTION.md`](../architecture/SANDBOX_TECH_SELECTION.md)、[`SANDBOX_IMPLEMENTATION_PLAN.md`](../planning/SANDBOX_IMPLEMENTATION_PLAN.md)
+
+### 3.8 测试覆盖
 
 | 范围 | 数量 | 运行命令 |
 |------|------|----------|
@@ -149,6 +157,7 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 | Rust 对话后端切换 | 仍走 Rig | `src-tauri/src/commands/chat.rs`、`services/llm/backend.rs` |
 | PowerMem 长期记忆 | 依赖未安装（optional） | `agent/pyproject.toml` `[project.optional-dependencies]` |
 | 记忆管理 UI | 无 | Phase 4 Sprint 5 |
+| Agent/Skill/MCP 外部执行接入 | S0 控制面已实现；无生产 Provider，必须 fail closed | `src-tauri/src/services/sandbox/`、Sandbox S0.5/S1–S4 |
 
 ### 4.3 其余占位页面
 
