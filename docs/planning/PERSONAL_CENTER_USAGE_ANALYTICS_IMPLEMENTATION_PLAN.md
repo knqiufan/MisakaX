@@ -3,7 +3,7 @@
 > **用途：** 将个人中心、活动日历、按模型 Token 趋势与可靠用量计量拆成可验证、可独立审查的实施阶段和 Todo。
 > **受众：** React、Rust、Python Sidecar、测试、设计与发布维护者。
 > **最后审阅 / Last reviewed：** 2026-08-13
-> **状态：** 实施中；P0–P2 已完成，P3 待开始。
+> **状态：** 实施中；P0–P3 已完成，P4 待开始。
 > **规划基线：** `main@5569c45`，Schema v14。
 > **实施分支：** `codex/personal-center-usage-analytics`
 > **关联架构：** [个人中心与 Token 用量统计功能架构](../architecture/PERSONAL_CENTER_USAGE_ANALYTICS_ARCHITECTURE.md)
@@ -19,7 +19,7 @@
 | P0 契约冻结与特征测试 | ✅ 完成 | `1876e4b` | Rust 定向测试 47 项通过（usage 10、MCP 10、Sidecar SSE 11、streaming 16） |
 | P1 Schema v15 与数据访问层 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P1 ledger repositories` | `cargo check --all-features`；数据库/迁移/消息/会话/Profile/Usage 回归 85 项通过 |
 | P2 Token 采集闭环与原子终结 | ✅ 完成 | 本阶段提交 `feat(usage): close P2 capture and finalize loop` | `cargo check --all-features`；Rust 52 项、Python 28 项、前端 55 项定向回归通过 |
-| P3 聚合查询、IPC 与历史回填 | ⏳ 待开始 | — | — |
+| P3 聚合查询、IPC 与历史回填 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P3 analytics snapshot` | Rust 聚合/回填/契约/仓储 24 项与前端 IPC 4 项通过；全特性编译及生产构建通过 |
 | P4 个人中心壳层、档案头与总览卡 | ⏳ 待开始 | — | — |
 | P5 活动日历与绿色主题 | ⏳ 待开始 | — | — |
 | P6 最近 30 天按模型趋势 | ⏳ 待开始 | — | — |
@@ -34,6 +34,7 @@
 | 2026-08-13 14:34 | P0 | 新增 canonical usage/DTO/SSE v1 契约、streak 纯函数与现有 Rig/MCP/Sidecar 特征测试；冻结首版仅展示“每日”活动视图，未实现的每周/累计不进入 UI。 |
 | 2026-08-13 14:44 | P1 | 新增 Schema v15、升级前 `.pre-v15.sqlite3` 备份、默认 local profile、追加式 usage ledger、弱引用与参数绑定仓储；两轮定向/兼容回归共 85 项通过。 |
 | 2026-08-13 15:04 | P2 | Rig/MCP/Sidecar 统一输出 canonical capture；Sidecar usage v1 在 done/error 前上报并按 run/model 去重；版本化 Unicode heuristic 只估文本且显式标记图片未知；消息、账本、session projection/title 进入同一 finalize transaction，重复 complete 不重复累计。 |
+| 2026-08-13 15:16 | P3 | 新增单锁快照 dashboard 查询：overview、365 天活动、30 天 Top 5 + others 趋势均补齐日期并保留 exact/estimated/legacy/unknown；注册 Profile/Usage IPC；启动时幂等回填可信消息 JSON 与 session residual，坏 JSON/异常投影只记诊断。 |
 
 ### 0.3 首版 LLM operation 计入口径
 
@@ -264,28 +265,28 @@ P0 contracts/tests
 
 ### Todo：聚合查询
 
-- [ ] 实现 overview：known/exact/estimated/legacy totals、按 distinct operation 计算的 unknown count、total days、current/longest streak。
-- [ ] 实现 activity：连续 365 个本地日期补零，返回 exact/estimated/legacy/unknown operation counts。
-- [ ] 实现 trend：只读取 `counts_toward_trend=true` 且模型已知的 measurement，连续 30 天补点、按 provider snapshot + effective model 分组；Top 5 按 known Token→operation count→stable key 排序，others 保留 known/unknown 质量分布。
-- [ ] 日期序列和 streak 用 Rust 纯函数，覆盖闰年、DST、跨月/年、Monday/Sunday week start。
-- [ ] 查询在一个只读快照/同一 DB lock 中完成，避免三个卡片口径不一致。
-- [ ] 对请求 days/series 上限做后端校验；非法参数返回稳定错误，不 panic。
+- [x] 实现 overview：known/exact/estimated/legacy totals、按 distinct operation 计算的 unknown count、total days、current/longest streak。
+- [x] 实现 activity：连续 365 个本地日期补零，返回 exact/estimated/legacy/unknown operation counts。
+- [x] 实现 trend：只读取 `counts_toward_trend=true` 且模型已知的 measurement，连续 30 天补点、按 provider snapshot + effective model 分组；Top 5 按 known Token→operation count→stable key 排序，others 保留 known/unknown 质量分布。
+- [x] 日期序列和 streak 用 Rust 纯函数，覆盖闰年、存储日期去重（DST 不重新解释）、跨月/年、Monday/Sunday week start。
+- [x] 查询在一个只读快照/同一 DB lock 中完成，避免三个卡片口径不一致。
+- [x] 对请求 days/series 上限做后端校验；非法参数返回稳定错误，不 panic。
 
 ### Todo：IPC
 
-- [ ] 注册 `profile_get_current`、`profile_update`、`usage_get_dashboard`、`usage_clear_history`。
-- [ ] TypeScript DTO 与 Rust serde 字段建立 contract test；验证超过 `Number.MAX_SAFE_INTEGER` 的十进制 Token 字符串不失真，禁止页面直接使用 DB record。
-- [ ] `usageIpc.getDashboard` 统一 camelCase→Tauri 参数映射，增加 mock 测试。
-- [ ] `usage:recorded` 事件 payload 只包含 profile ID、operation key、occurred_at，前端只 debounce refresh。
-- [ ] 若 Tauri capability/permission 需要显式项，生成最小 allow permission；不扩 shell/fs/http 权限。
+- [x] 注册 `profile_get_current`、`profile_update`、`usage_get_dashboard`、`usage_clear_history`。
+- [x] TypeScript DTO 与 Rust serde 字段建立 contract test；验证超过 `Number.MAX_SAFE_INTEGER` 的十进制 Token 字符串不失真，禁止页面直接使用 DB record。
+- [x] `usageIpc.getDashboard` 统一 camelCase→Tauri 参数映射，增加 mock 测试。
+- [x] `usage:recorded` 事件 payload 只包含 profile ID、operation key、occurred_at，前端只 debounce refresh（listener 在 P4 页面 hook 接入）。
+- [x] 当前 Tauri command 不需要新增 capability；未扩 shell/fs/http 权限。
 
 ### Todo：legacy backfill
 
-- [ ] 解析可识别的 `messages.token_usage`，生成确定性 `legacy:message:{id}` 事件。
-- [ ] 旧 JSON 缺 cache/source 字段时保留 NULL 并标为 `legacy_migrated`，不做假精度补全。
-- [ ] session residual 的模型保持 NULL，且 `counts_toward_activity/trend=false`；不得进入活动或按模型逐日趋势。
-- [ ] 收集坏 JSON、无法匹配日期/模型的诊断计数；migration 不因单行坏数据整体失败。
-- [ ] 测试 legacy backfill 幂等、重复 import、不完整消息、session totals 小于 message sum 的异常情况。
+- [x] 解析可识别的 `messages.token_usage`，生成确定性 `legacy:message:{id}` 事件。
+- [x] 旧 JSON 缺 cache/source 字段时保留 NULL 并标为 `legacy_migrated`，不做假精度补全。
+- [x] session residual 的模型保持 NULL，且 `counts_toward_activity/trend=false`；不得进入活动或按模型逐日趋势。
+- [x] 收集坏 JSON、无法匹配日期/模型的诊断计数；migration 不因单行坏数据整体失败。
+- [x] 测试 legacy backfill 幂等、确定性 key 重放、不完整消息、session totals 小于 message sum 的异常情况；导入来源级去重在 P7 随 ExportData v2 一并完成。
 
 ### 退出门
 

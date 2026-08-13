@@ -1,12 +1,31 @@
 use std::collections::BTreeSet;
 
-use chrono::{Duration, NaiveDate};
+use chrono::{Datelike, Duration, NaiveDate};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StreakSummary {
     pub current: u32,
     pub longest: u32,
+}
+
+pub fn local_date_sequence(end: NaiveDate, days: u32) -> Vec<NaiveDate> {
+    if days == 0 {
+        return Vec::new();
+    }
+    let start = end - Duration::days(i64::from(days - 1));
+    (0..days)
+        .map(|offset| start + Duration::days(i64::from(offset)))
+        .collect()
+}
+
+pub fn week_bucket_start(date: NaiveDate, week_start: i32) -> NaiveDate {
+    let weekday = if week_start == 0 {
+        date.weekday().num_days_from_sunday()
+    } else {
+        date.weekday().num_days_from_monday()
+    };
+    date - Duration::days(i64::from(weekday))
 }
 
 /// Calculate current and longest activity streaks from already-localized dates.

@@ -4,7 +4,7 @@
 > **受众：** 产品、设计、React、Rust、Python Sidecar、测试与后续维护者。
 > **最后审阅 / Last reviewed：** 2026-08-13
 > **规划基线：** `main@5569c45`（Schema v14，React 19 / Tauri 2 / Rust 2021 / Python 3.11）。
-> **状态：** 设计冻结并进入实施；P0–P2 已完成（canonical 契约、Schema v15、跨运行时采集与原子终结），实时进度见 [实施计划](../planning/PERSONAL_CENTER_USAGE_ANALYTICS_IMPLEMENTATION_PLAN.md)。
+> **状态：** 设计冻结并进入实施；P0–P3 已完成（canonical 契约、Schema v15、跨运行时采集、原子终结、聚合快照与历史回填），实时进度见 [实施计划](../planning/PERSONAL_CENTER_USAGE_ANALYTICS_IMPLEMENTATION_PLAN.md)。
 
 ---
 

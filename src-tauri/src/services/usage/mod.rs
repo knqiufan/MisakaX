@@ -1,10 +1,12 @@
+pub mod backfill;
 pub mod calendar;
 pub mod collector;
 pub mod estimator;
 pub mod finalize;
+pub mod query;
 pub mod types;
 
-pub use calendar::{calculate_streaks, StreakSummary};
+pub use calendar::{calculate_streaks, local_date_sequence, week_bucket_start, StreakSummary};
 pub use types::{
     DailyUsageV1, EstimatorDescriptor, MeasurementSource, ModelUsagePointV1, ModelUsageSeriesV1,
     SidecarUsageEventV1, SidecarUsageMeasurementV1, UsageCapture, UsageDashboardV1,

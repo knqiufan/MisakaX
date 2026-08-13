@@ -304,6 +304,83 @@ export interface TokenUsage {
   estimator_version?: string | null;
 }
 
+export interface UserProfile {
+  profile_id: string;
+  profile_kind: "local" | "account";
+  display_name: string;
+  avatar_storage_key: string | null;
+  avatar_sha256: string | null;
+  timezone_mode: "system" | "custom";
+  timezone_id: string | null;
+  week_start: 0 | 1;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UsageQualityV1 {
+  exact_tokens: string;
+  estimated_tokens: string;
+  legacy_tokens: string;
+  unknown_operation_count: number;
+}
+
+export interface UsageOverviewV1 {
+  total_tokens: string;
+  exact_tokens: string;
+  estimated_tokens: string;
+  legacy_tokens: string;
+  unknown_operation_count: number;
+  total_days: number;
+  current_streak: number;
+  longest_streak: number;
+}
+
+export interface DailyUsageV1 {
+  local_date: string;
+  total_tokens: string | null;
+  input_tokens: string | null;
+  output_tokens: string | null;
+  operation_count: number;
+  primary_model: string | null;
+  quality: UsageQualityV1;
+}
+
+export interface ModelUsagePointV1 {
+  local_date: string;
+  total_tokens: string | null;
+  unknown_operation_count: number;
+  estimated_tokens: string;
+  legacy_tokens: string;
+}
+
+export interface ModelUsageSeriesV1 {
+  series_key: string;
+  display_name: string;
+  provider_config_id: string | null;
+  provider_id: string | null;
+  effective_model_id: string;
+  points: ModelUsagePointV1[];
+}
+
+export interface UsageDashboardV1 {
+  schema_version: 1;
+  profile_id: string;
+  generated_at: string;
+  timezone_mode: string;
+  timezone_id: string | null;
+  utc_offset_minutes: number;
+  range: {
+    activity_start: string;
+    activity_end: string;
+    trend_start: string;
+    trend_end: string;
+  };
+  overview: UsageOverviewV1;
+  daily_activity: DailyUsageV1[];
+  model_series: ModelUsageSeriesV1[];
+  other_series: ModelUsageSeriesV1 | null;
+}
+
 export type MessageAttachment =
   | {
       kind: "image";
