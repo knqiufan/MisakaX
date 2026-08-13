@@ -3,7 +3,7 @@
 > **用途：** 将个人中心、活动日历、按模型 Token 趋势与可靠用量计量拆成可验证、可独立审查的实施阶段和 Todo。
 > **受众：** React、Rust、Python Sidecar、测试、设计与发布维护者。
 > **最后审阅 / Last reviewed：** 2026-08-13
-> **状态：** 实施中；P0–P1 已完成，P2 待开始。
+> **状态：** 实施中；P0–P2 已完成，P3 待开始。
 > **规划基线：** `main@5569c45`，Schema v14。
 > **实施分支：** `codex/personal-center-usage-analytics`
 > **关联架构：** [个人中心与 Token 用量统计功能架构](../architecture/PERSONAL_CENTER_USAGE_ANALYTICS_ARCHITECTURE.md)
@@ -18,7 +18,7 @@
 |---|---|---|---|
 | P0 契约冻结与特征测试 | ✅ 完成 | `1876e4b` | Rust 定向测试 47 项通过（usage 10、MCP 10、Sidecar SSE 11、streaming 16） |
 | P1 Schema v15 与数据访问层 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P1 ledger repositories` | `cargo check --all-features`；数据库/迁移/消息/会话/Profile/Usage 回归 85 项通过 |
-| P2 Token 采集闭环与原子终结 | ⏳ 待开始 | — | — |
+| P2 Token 采集闭环与原子终结 | ✅ 完成 | 本阶段提交 `feat(usage): close P2 capture and finalize loop` | `cargo check --all-features`；Rust 52 项、Python 28 项、前端 55 项定向回归通过 |
 | P3 聚合查询、IPC 与历史回填 | ⏳ 待开始 | — | — |
 | P4 个人中心壳层、档案头与总览卡 | ⏳ 待开始 | — | — |
 | P5 活动日历与绿色主题 | ⏳ 待开始 | — | — |
@@ -33,6 +33,7 @@
 | 2026-08-13 14:20 | 启动 | 在干净保护现有四份任务文档后，从最新 `main@5569c45` 创建 `codex/personal-center-usage-analytics` 并恢复文档。 |
 | 2026-08-13 14:34 | P0 | 新增 canonical usage/DTO/SSE v1 契约、streak 纯函数与现有 Rig/MCP/Sidecar 特征测试；冻结首版仅展示“每日”活动视图，未实现的每周/累计不进入 UI。 |
 | 2026-08-13 14:44 | P1 | 新增 Schema v15、升级前 `.pre-v15.sqlite3` 备份、默认 local profile、追加式 usage ledger、弱引用与参数绑定仓储；两轮定向/兼容回归共 85 项通过。 |
+| 2026-08-13 15:04 | P2 | Rig/MCP/Sidecar 统一输出 canonical capture；Sidecar usage v1 在 done/error 前上报并按 run/model 去重；版本化 Unicode heuristic 只估文本且显式标记图片未知；消息、账本、session projection/title 进入同一 finalize transaction，重复 complete 不重复累计。 |
 
 ### 0.3 首版 LLM operation 计入口径
 
@@ -198,45 +199,45 @@ P0 contracts/tests
 
 ### Todo：canonical 类型
 
-- [ ] 合并/适配现有 `db::models::TokenUsage`、`StreamUsage`、`TokenUsageInfo`、`AgentTokenUsage`，避免字段继续漂移。
-- [ ] 保留 input/output/total/cache read/cache creation/reasoning；未知用 `Option`，不是 0。
-- [ ] 写 invariant：有 provider total 时以其为准；缺 total 但 input/output 都有时安全求和并检查溢出。
-- [ ] measurement source 和 estimator 版本进入 message JSON 与 ledger，但 TokenBadge 仍兼容旧 JSON。
+- [x] 合并/适配现有 `db::models::TokenUsage`、`StreamUsage`、`TokenUsageInfo`、`AgentTokenUsage`，避免字段继续漂移。
+- [x] 保留 input/output/total/cache read/cache creation/reasoning；未知用 `Option`，不是 0。
+- [x] 写 invariant：有 provider total 时以其为准；缺 total 但 input/output 都有时安全求和并检查溢出。
+- [x] measurement source 和 estimator 版本进入 message JSON 与 ledger，但 TokenBadge 仍兼容旧 JSON。
 
 ### Todo：Rig
 
-- [ ] 将每轮 `GetTokenUsage` 映射为 canonical measurement。
-- [ ] MCP 多轮按 operation 聚合；多轮全部相加，最终只写一个 message operation event。
-- [ ] `prompt_once` 返回包含 usage 的 outcome；为 session title 记录 `counts_toward_activity=false` 事件。
-- [ ] 中止时若 provider 返回部分 usage 正常记录；无值再尝试 estimator。
-- [ ] 若 provider adapter 可提供 cache/reasoning，补充字段映射和 fixture。
+- [x] 将每轮 `GetTokenUsage` 映射为 canonical measurement。
+- [x] MCP 多轮按 operation 聚合；多轮全部相加，最终只写一个 message operation event。
+- [x] `prompt_once` 返回包含 usage 的 outcome；为 session title 记录 `counts_toward_activity=false` 事件。
+- [x] 中止时若 provider 返回部分 usage 正常记录；无值再尝试 estimator。
+- [x] 若 provider adapter 可提供 cache/reasoning，补充字段映射和 fixture（Rig 0.36 暴露 cache read/create；reasoning 保留可空契约并由 Sidecar/provider fixture 覆盖）。
 
 ### Todo：Sidecar
 
-- [ ] 新建 `agent/app/usage.py`，从 chunk `usage_metadata`、response metadata、model end output 规范化 usage。
-- [ ] 使用 run_id 去重同一次模型调用的 stream/end 信息，选择字段最完整版本。
-- [ ] DeepAgents 多 run 聚合时保留实际 model；不同模型不得错误合并为主模型。
-- [ ] `_stream_agent` 在 `done` 前发送 `event: usage` v1；异常/中止尽可能先发送已收集部分。
-- [ ] Rust `MappedSidecarEvent` 新增 Usage，解析时校验 schema/非负/上限，写入 accumulator。
-- [ ] Python 与 Rust 分别添加重复 run_id、工具调用、研究模式、缺失 metadata 测试。
+- [x] 新建 `agent/app/usage.py`，从 chunk `usage_metadata`、response metadata、model end output 规范化 usage。
+- [x] 使用 run_id 去重同一次模型调用的 stream/end 信息，选择字段最完整版本。
+- [x] DeepAgents 多 run 聚合时保留实际 model；不同模型不得错误合并为主模型。
+- [x] `_stream_agent` 在 `done` 前发送 `event: usage` v1；异常/中止尽可能先发送已收集部分。
+- [x] Rust `MappedSidecarEvent` 新增 Usage，解析时校验 schema/非负/上限，写入 accumulator。
+- [x] Python 与 Rust 分别添加重复 run_id、工具调用、研究多 run、缺失 metadata 测试。
 
 ### Todo：fallback estimator
 
-- [ ] 定义 `TokenEstimator` port 与 model-family registry；模型匹配逻辑集中一处。
-- [ ] 评估并锁定 tokenizer 依赖版本；实施前用该主版本官方文档/API 和本项目 manifest 复核。
-- [ ] 对无精确 tokenizer 的 provider 实现版本化 heuristic，标记 `heuristic_estimated`。
-- [ ] 为英文、中文、混合代码、长上下文、工具消息、图片附件创建 golden fixture；不得把图片字节换成精确 Token。
-- [ ] 估算器异常时降为 `unavailable`，不能阻止 assistant 正文保存。
+- [x] 定义 `TokenEstimator` port 与 model-family registry；模型匹配逻辑集中一处。
+- [x] 评估 tokenizer 依赖：首版锁定为不新增 provider-specific tokenizer；精确值只信 provider，fallback 固定为内部 `misakax-unicode-heuristic@1`，避免把单一模型 tokenizer 误用于跨 provider/图片输入。
+- [x] 对无精确 tokenizer 的 provider 实现版本化 heuristic，标记 `heuristic_estimated`。
+- [x] 为英文、中文、混合代码、长上下文、工具消息、图片附件创建 golden fixture；不得把图片字节换成精确 Token。
+- [x] 估算器异常时降为 `unavailable`，不能阻止 assistant 正文保存。
 
 ### Todo：FinalizeTurn transaction
 
-- [ ] 新增 `FinalizeTurnService`：message finalize、usage insert、session projection update 在一个 SQLite transaction。
-- [ ] `send_message` 与 `regenerate_message` 都调用同一 facade，移除分散的 `update_assistant_message` + `update_session_stats` 两步。
-- [ ] `operation_key = assistant:{assistant_message_id}` 负责分组；`measurement_key = {operation_key}:model:{series_hash}:source:{source}` 负责幂等，不同模型或质量拆行、同模型同质量多轮聚合。
-- [ ] 只有 measurement 实际插入时才把其 Token 累加到 session totals；message JSON 保存该 operation 下所有 measurement 的规范化合计。
-- [ ] 事务 commit 后 emit `usage:recorded`；emit 失败只记 warn，不回滚已提交数据。
-- [ ] 错误/中止路径把 placeholder 终结为稳定状态，不能永久停在 `streaming`。
-- [ ] 验证重放两次 complete、命令重试和 listener 重订阅都不重复计数。
+- [x] 新增 `FinalizeTurnService`：message finalize、usage insert、session projection update 在一个 SQLite transaction。
+- [x] `send_message` 与 `regenerate_message` 都调用同一 facade，移除分散的 `update_assistant_message` + `update_session_stats` 两步。
+- [x] `operation_key = assistant:{assistant_message_id}` 负责分组；`measurement_key = {operation_key}:model:{series_hash}:source:{source}` 负责幂等，不同模型或质量拆行、同模型同质量多轮聚合。
+- [x] 只有 measurement 实际插入时才把其 Token 累加到 session totals；message JSON 保存该 operation 下所有 measurement 的规范化合计。
+- [x] 事务 commit 后 emit `usage:recorded`；emit 失败只记 warn，不回滚已提交数据。
+- [x] 错误/中止路径把 placeholder 终结为稳定状态，不能永久停在 `streaming`。
+- [x] 验证重放两次 complete、命令重试和 listener 重订阅都不重复计数。
 
 ### 退出门
 

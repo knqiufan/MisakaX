@@ -6,6 +6,8 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
 use super::traits::{AgentHandle, StreamDelta, StreamUsage};
+use crate::services::usage::collector::provider_capture;
+use crate::services::usage::{MeasurementSource, UsageCapture};
 
 // ─── Event Payload 结构体 ─────────────────────────────────────────────
 
@@ -87,11 +89,27 @@ pub fn emit_tool_result(app: &AppHandle, payload: &StreamToolResultPayload) {
 }
 
 /// Token 用量信息
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, PartialEq)]
 pub struct TokenUsageInfo {
-    pub input_tokens: u64,
-    pub output_tokens: u64,
-    pub total_tokens: u64,
+    pub input_tokens: Option<u64>,
+    pub output_tokens: Option<u64>,
+    pub total_tokens: Option<u64>,
+    #[serde(default)]
+    pub cache_read_tokens: Option<u64>,
+    #[serde(default)]
+    pub cache_creation_tokens: Option<u64>,
+    #[serde(default)]
+    pub reasoning_tokens: Option<u64>,
+    #[serde(default = "provider_reported_source")]
+    pub measurement_source: MeasurementSource,
+    #[serde(default)]
+    pub estimator_id: Option<String>,
+    #[serde(default)]
+    pub estimator_version: Option<String>,
+}
+
+fn provider_reported_source() -> MeasurementSource {
+    MeasurementSource::ProviderReported
 }
 
 impl From<StreamUsage> for TokenUsageInfo {
@@ -100,6 +118,12 @@ impl From<StreamUsage> for TokenUsageInfo {
             input_tokens: u.input_tokens,
             output_tokens: u.output_tokens,
             total_tokens: u.total_tokens,
+            cache_read_tokens: u.cache_read_tokens,
+            cache_creation_tokens: u.cache_creation_tokens,
+            reasoning_tokens: u.reasoning_tokens,
+            measurement_source: MeasurementSource::ProviderReported,
+            estimator_id: None,
+            estimator_version: None,
         }
     }
 }
@@ -112,7 +136,9 @@ pub struct StreamResult {
     pub content: String,
     pub thinking: String,
     pub usage: Option<TokenUsageInfo>,
+    pub usage_captures: Vec<UsageCapture>,
     pub was_aborted: bool,
+    pub stream_error: Option<String>,
 }
 
 // ─── StreamSession ────────────────────────────────────────────────────
@@ -129,6 +155,8 @@ pub struct StreamSession {
     accumulated_content: String,
     accumulated_thinking: String,
     usage: Option<TokenUsageInfo>,
+    usage_captures: Vec<UsageCapture>,
+    stream_error: Option<String>,
 }
 
 impl StreamSession {
@@ -146,6 +174,8 @@ impl StreamSession {
             accumulated_content: String::new(),
             accumulated_thinking: String::new(),
             usage: None,
+            usage_captures: Vec::new(),
+            stream_error: None,
         }
     }
 
@@ -163,7 +193,9 @@ impl StreamSession {
         prompt: rig::completion::message::Message,
         chat_history: Vec<rig::completion::message::Message>,
     ) -> anyhow::Result<StreamResult> {
-        self.consume_stream(agent, prompt, chat_history).await?;
+        if let Err(error) = self.consume_stream(agent, prompt, chat_history).await {
+            self.stream_error = Some(error.to_string());
+        }
         self.finalize()
     }
 
@@ -178,7 +210,9 @@ impl StreamSession {
         prompt: rig::completion::message::Message,
         chat_history: Vec<rig::completion::message::Message>,
     ) -> anyhow::Result<StreamResult> {
-        self.consume_stream(agent, prompt, chat_history).await?;
+        if let Err(error) = self.consume_stream(agent, prompt, chat_history).await {
+            self.stream_error = Some(error.to_string());
+        }
         Ok(self.into_result())
     }
 
@@ -229,7 +263,9 @@ impl StreamSession {
             content: self.accumulated_content,
             thinking: self.accumulated_thinking,
             usage: self.usage,
+            usage_captures: self.usage_captures,
             was_aborted,
+            stream_error: self.stream_error,
         }
     }
 
@@ -252,7 +288,17 @@ impl StreamSession {
                 }
             }
             StreamDelta::Usage(usage) => {
-                self.usage = Some(TokenUsageInfo::from(usage));
+                self.usage = Some(TokenUsageInfo::from(usage.clone()));
+                self.usage_captures.push(provider_capture(
+                    format!("rig:{}", self.usage_captures.len()),
+                    None,
+                    usage.input_tokens,
+                    usage.output_tokens,
+                    usage.total_tokens,
+                    usage.cache_read_tokens,
+                    usage.cache_creation_tokens,
+                    usage.reasoning_tokens,
+                ));
             }
         }
         Ok(())
@@ -299,9 +345,11 @@ impl StreamSession {
             was_aborted,
         };
 
-        self.app_handle
-            .emit("stream_complete", &payload)
-            .map_err(|e| anyhow::anyhow!("Failed to emit stream_complete: {e}"))?;
+        if self.stream_error.is_none() {
+            self.app_handle
+                .emit("stream_complete", &payload)
+                .map_err(|e| anyhow::anyhow!("Failed to emit stream_complete: {e}"))?;
+        }
 
         tracing::info!(
             session_id = %self.session_id,
@@ -309,14 +357,17 @@ impl StreamSession {
             content_len = payload.full_content.len(),
             thinking_len = payload.full_thinking.len(),
             aborted = was_aborted,
-            "Stream completed"
+            failed = self.stream_error.is_some(),
+            "Stream settled"
         );
 
         Ok(StreamResult {
             content: self.accumulated_content,
             thinking: self.accumulated_thinking,
             usage: self.usage,
+            usage_captures: self.usage_captures,
             was_aborted,
+            stream_error: self.stream_error,
         })
     }
 

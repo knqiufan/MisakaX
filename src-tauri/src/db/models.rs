@@ -32,16 +32,8 @@ fn default_workspace_kind() -> String {
     "custom".to_string()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TokenUsage {
-    pub input_tokens: u64,
-    pub output_tokens: u64,
-    #[serde(default)]
-    pub cache_read_tokens: Option<u64>,
-    #[serde(default)]
-    pub cache_creation_tokens: Option<u64>,
-    pub total_tokens: u64,
-}
+/// Backward-compatible DB-facing name for the canonical stream/message usage DTO.
+pub type TokenUsage = crate::services::llm::TokenUsageInfo;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {

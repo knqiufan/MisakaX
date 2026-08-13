@@ -29,6 +29,7 @@ from app.stream_content import (
     should_emit_langgraph_event,
     thinking_delta_from_cumulative,
 )
+from app.usage import UsageCollector
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 logger = logging.getLogger(__name__)
@@ -73,6 +74,7 @@ async def _stream_agent(request: ChatRequest) -> AsyncGenerator[str, None]:
     open_tools: dict[str, dict[str, Any]] = {}
     thinking_acc = ""
     emitted_tool_ids: set[str] = set()
+    usage = UsageCollector(default_model=request.config.model)
     try:
         agent = _build_request_agent(request)
         async for event in agent.astream_events(
@@ -80,6 +82,7 @@ async def _stream_agent(request: ChatRequest) -> AsyncGenerator[str, None]:
             config=_thread_config(request),
             version="v2",
         ):
+            usage.observe(event)
             if not should_emit_langgraph_event(event, agent_mode=request.agent_mode):
                 continue
             for sse_data in _format_sse_events(
@@ -95,6 +98,8 @@ async def _stream_agent(request: ChatRequest) -> AsyncGenerator[str, None]:
                 yield sse_data
         for frame in _close_open_tools(open_tools, reason="Stream ended without tool_end"):
             yield frame
+        if usage_payload := usage.event_payload():
+            yield _sse("usage", usage_payload)
         yield _sse("done", {"finished": True})
     except Exception as exc:
         tb = traceback.format_exc()
@@ -107,6 +112,8 @@ async def _stream_agent(request: ChatRequest) -> AsyncGenerator[str, None]:
         )
         for frame in _close_open_tools(open_tools, reason=str(exc) or "stream error"):
             yield frame
+        if usage_payload := usage.event_payload():
+            yield _sse("usage", usage_payload)
         yield _sse("error", {"message": str(exc)})
 
 

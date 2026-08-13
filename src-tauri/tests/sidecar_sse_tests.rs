@@ -118,6 +118,33 @@ fn map_error_event_returns_err() {
 fn map_done_event_returns_complete() {
     let mut acc = SidecarStreamAccumulator::default();
     acc.push_content("Hello");
+    let usage = map_sidecar_event(
+        "usage",
+        &json!({
+            "schema_version": 1,
+            "measurements": [{
+                "run_id": "run-1",
+                "model": "sidecar-model",
+                "input_tokens": 8,
+                "output_tokens": 3,
+                "total_tokens": 11,
+                "cache_read_tokens": 2,
+                "cache_creation_tokens": null,
+                "reasoning_tokens": null,
+                "source": "provider_reported",
+                "provider_metadata": {}
+            }]
+        }),
+        "session-1",
+        "msg-1",
+        &mut acc,
+    )
+    .unwrap()
+    .expect("usage mapped");
+    match usage {
+        MappedSidecarEvent::Usage { measurement_count } => assert_eq!(measurement_count, 1),
+        other => panic!("unexpected: {other:?}"),
+    }
     let abort = Arc::new(AtomicBool::new(false));
     let mapped = map_sidecar_event(
         "done",
@@ -135,8 +162,60 @@ fn map_done_event_returns_complete() {
     let outcome = acc.into_outcome(abort.load(Ordering::Relaxed));
     assert_eq!(outcome.result.content, "Hello");
     assert!(!outcome.result.was_aborted);
-    assert!(outcome.result.usage.is_none());
+    let recorded = outcome.result.usage.expect("usage accumulated");
+    assert_eq!(recorded.total_tokens, Some(11));
+    assert_eq!(recorded.cache_read_tokens, Some(2));
+    assert_eq!(outcome.result.usage_captures.len(), 1);
     assert!(outcome.tool_calls.is_empty());
+}
+
+#[test]
+fn duplicate_sidecar_run_keeps_most_complete_measurement_and_checks_bounds() {
+    let mut acc = SidecarStreamAccumulator::default();
+    for payload in [
+        json!({
+            "schema_version": 1,
+            "measurements": [{
+                "run_id": "same", "model": "m", "input_tokens": 5,
+                "output_tokens": null, "total_tokens": null,
+                "cache_read_tokens": null, "cache_creation_tokens": null,
+                "reasoning_tokens": null, "source": "provider_reported"
+            }]
+        }),
+        json!({
+            "schema_version": 1,
+            "measurements": [{
+                "run_id": "same", "model": "m", "input_tokens": 5,
+                "output_tokens": 2, "total_tokens": 7,
+                "cache_read_tokens": null, "cache_creation_tokens": null,
+                "reasoning_tokens": null, "source": "provider_reported"
+            }]
+        }),
+    ] {
+        map_sidecar_event("usage", &payload, "s", "m", &mut acc).unwrap();
+    }
+    let outcome = acc.into_outcome(false);
+    assert_eq!(outcome.result.usage_captures.len(), 1);
+    assert_eq!(outcome.result.usage.unwrap().total_tokens, Some(7));
+
+    let too_large = json!({
+        "schema_version": 1,
+        "measurements": [{
+            "run_id": "large", "model": "m", "input_tokens": 9223372036854775808_u64,
+            "output_tokens": null, "total_tokens": null,
+            "cache_read_tokens": null, "cache_creation_tokens": null,
+            "reasoning_tokens": null, "source": "provider_reported"
+        }]
+    });
+    assert!(map_sidecar_event(
+        "usage",
+        &too_large,
+        "s",
+        "m",
+        &mut SidecarStreamAccumulator::default()
+    )
+    .unwrap_err()
+    .contains("SQLite INTEGER"));
 }
 
 #[test]

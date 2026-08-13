@@ -223,10 +223,12 @@ def test_thread_config_raises_langgraph_recursion_limit():
 async def test_agent_stream_emits_token_and_done(client):
     class Chunk:
         content = "Hi"
+        usage_metadata = {"input_tokens": 3, "output_tokens": 1, "total_tokens": 4}
 
     async def fake_events(*_args, **_kwargs):
         yield {
             "event": "on_chat_model_stream",
+            "run_id": "run-usage",
             "data": {"chunk": Chunk()},
         }
 
@@ -246,6 +248,8 @@ async def test_agent_stream_emits_token_and_done(client):
     assert response.status_code == 200
     body = response.text
     assert "event: token" in body
+    assert "event: usage" in body
+    assert body.index("event: usage") < body.index("event: done")
     assert "event: done" in body
 
 

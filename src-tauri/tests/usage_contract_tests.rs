@@ -15,9 +15,15 @@ fn date(value: &str) -> NaiveDate {
 
 fn usage(input: u64, output: u64, total: u64) -> TokenUsageInfo {
     TokenUsageInfo {
-        input_tokens: input,
-        output_tokens: output,
-        total_tokens: total,
+        input_tokens: Some(input),
+        output_tokens: Some(output),
+        total_tokens: Some(total),
+        cache_read_tokens: None,
+        cache_creation_tokens: None,
+        reasoning_tokens: None,
+        measurement_source: MeasurementSource::ProviderReported,
+        estimator_id: None,
+        estimator_version: None,
     }
 }
 
@@ -269,15 +275,15 @@ fn sidecar_usage_v1_rejects_bad_schema_missing_run_id_and_negative_values() {
 #[test]
 fn current_rig_usage_merge_characterizes_single_multi_and_abort_paths() {
     let single = merge_token_usage(None, Some(usage(10, 5, 15))).unwrap();
-    assert_eq!(single.total_tokens, 15);
+    assert_eq!(single.total_tokens, Some(15));
 
     let multiple = merge_token_usage(Some(usage(10, 5, 15)), Some(usage(7, 3, 10))).unwrap();
-    assert_eq!(multiple.input_tokens, 17);
-    assert_eq!(multiple.output_tokens, 8);
-    assert_eq!(multiple.total_tokens, 25);
+    assert_eq!(multiple.input_tokens, Some(17));
+    assert_eq!(multiple.output_tokens, Some(8));
+    assert_eq!(multiple.total_tokens, Some(25));
 
     let partial_abort = merge_token_usage(Some(usage(10, 5, 15)), None).unwrap();
-    assert_eq!(partial_abort.total_tokens, 15);
+    assert_eq!(partial_abort.total_tokens, Some(15));
     assert!(merge_token_usage(None, None).is_none());
 }
 
@@ -315,7 +321,22 @@ fn streak_contract_covers_today_yesterday_gaps_years_and_leap_day() {
 }
 
 #[test]
-fn sidecar_baseline_fixture_documents_missing_usage_before_p2() {
-    let current_done_event: Value = json!({"finished": true});
-    assert!(current_done_event.get("usage").is_none());
+fn sidecar_usage_event_precedes_done_in_p2_contract() {
+    let usage_event: Value = json!({
+        "schema_version": 1,
+        "measurements": [{
+            "run_id": "run-1",
+            "model": "model-a",
+            "input_tokens": 4,
+            "output_tokens": 2,
+            "total_tokens": 6,
+            "cache_read_tokens": null,
+            "cache_creation_tokens": null,
+            "reasoning_tokens": null,
+            "source": "provider_reported",
+            "provider_metadata": {}
+        }]
+    });
+    let parsed: SidecarUsageEventV1 = serde_json::from_value(usage_event).unwrap();
+    assert!(parsed.validate().is_ok());
 }

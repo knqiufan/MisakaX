@@ -207,6 +207,12 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - 主列已由 `MessageList` 的 `max-w-3xl` 约束；Assistant **不再**套 `surface-card` 底色卡片。
 - 禁止用卡片底与 User 气泡混淆。
 
+### 4.6.x.0 TokenBadge 数据质量
+
+- TokenBadge 必须兼容旧消息 JSON 和 canonical 可空字段：供应商未返回总量时显示“用量不可用”，不得把 `null` 渲染为 `0`。
+- `tokenizer_estimated` / `heuristic_estimated` 用 `~` 与 Tooltip 文案明确标为估算；cache/reasoning 是明细，不重复加入总量。
+- Badge 保持静态状态文本，无悬停位移、缩放或强数据色；完整 input/output/total 与质量说明通过可访问名称和 Tooltip/原生 title 提供。
+
 ### 4.6.x.1 富内容块（Rich Content Blocks）
 
 - 富内容是 Assistant 正文中的**有序内容块**，不是新的整条消息气泡；Assistant 外层仍保持无背景、无圆角外壳。无块或功能开关关闭时必须回退到既有 Markdown 正文。

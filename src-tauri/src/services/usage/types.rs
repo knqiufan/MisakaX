@@ -140,6 +140,18 @@ pub struct UsageMeasurement {
     pub provider_metadata: BTreeMap<String, serde_json::Value>,
 }
 
+/// One normalized model invocation captured during an assistant operation.
+///
+/// `capture_id` is local to the operation (`rig:aggregate`, Sidecar run_id,
+/// estimator id, ...). Final persistence groups captures by model/source and
+/// derives the durable measurement key from the operation key.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UsageCapture {
+    pub capture_id: String,
+    pub model: Option<String>,
+    pub measurement: UsageMeasurement,
+}
+
 impl UsageMeasurement {
     /// Resolve the authoritative total without adding cache/reasoning details.
     /// Provider totals win; input + output is used only when both are known.

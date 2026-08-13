@@ -14,7 +14,7 @@ use crate::services::llm::config::LlmConfig;
 use crate::services::llm::factory::ProviderFactory;
 use crate::services::llm::streaming::{StreamResult, StreamSession};
 
-use super::traits::{AgentHandle, LlmProvider};
+use super::traits::{AgentHandle, LlmProvider, PromptOutcome};
 
 /// 图片附件数据（Base64 编码）。保留独立结构以兼容既有测试与旧消息 JSON。
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -187,11 +187,11 @@ impl RigBackend {
     }
 
     /// Non-streaming one-shot prompt (session title, etc.).
-    pub async fn prompt_once(&self, model_id: &str, prompt: &str) -> Result<String> {
+    pub async fn prompt_once(&self, model_id: &str, prompt: &str) -> Result<PromptOutcome> {
         let agent = self
             .provider
             .build_agent(model_id, None, &self.llm_config)?;
-        agent.prompt(prompt).await
+        agent.prompt_with_usage(prompt).await
     }
 
     /// 流式执行一轮对话但**不 emit** 终结的 `stream_complete`

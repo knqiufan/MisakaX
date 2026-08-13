@@ -21,6 +21,7 @@ use crate::services::llm::{
     StreamToolCallPayload, StreamToolResultPayload, TokenUsageInfo,
 };
 use crate::services::mcp_bridge::McpToolBridge;
+use crate::services::usage::UsageCapture;
 use crate::services::ToolCallRecord;
 
 use super::approval::ensure_tool_allowed;
@@ -135,7 +136,9 @@ impl<'a> McpToolLoop<'a> {
         let mut visible = String::new();
         let mut thinking = String::new();
         let mut usage: Option<TokenUsageInfo> = None;
+        let mut usage_captures: Vec<UsageCapture> = Vec::new();
         let mut was_aborted = false;
+        let mut stream_error: Option<String> = None;
 
         for _round in 0..self.max_rounds {
             if self.abort_flag.load(Ordering::Relaxed) {
@@ -159,10 +162,19 @@ impl<'a> McpToolLoop<'a> {
                 .map_err(|e| e.to_string())?;
 
             was_aborted = result.was_aborted;
+            if stream_error.is_none() {
+                stream_error = result.stream_error.clone();
+            }
             if !result.thinking.is_empty() {
                 thinking = result.thinking.clone();
             }
             usage = merge_token_usage(usage, result.usage.clone());
+            usage_captures.extend(result.usage_captures);
+
+            if stream_error.is_some() {
+                visible = result.content;
+                break;
+            }
 
             let Some(call) = parse_tool_call_from_content(&result.content) else {
                 visible = result.content;
@@ -187,14 +199,18 @@ impl<'a> McpToolLoop<'a> {
             }
         }
 
-        self.emit_complete(&visible, &thinking, usage.clone(), was_aborted);
+        if stream_error.is_none() {
+            self.emit_complete(&visible, &thinking, usage.clone(), was_aborted);
+        }
 
         Ok(ToolLoopOutcome {
             result: StreamResult {
                 content: visible,
                 thinking,
                 usage,
+                usage_captures,
                 was_aborted,
+                stream_error,
             },
             tool_calls: records,
         })
@@ -509,10 +525,37 @@ pub fn merge_token_usage(
         (None, next) => next,
         (acc, None) => acc,
         (Some(a), Some(b)) => Some(TokenUsageInfo {
-            input_tokens: a.input_tokens + b.input_tokens,
-            output_tokens: a.output_tokens + b.output_tokens,
-            total_tokens: a.total_tokens + b.total_tokens,
+            input_tokens: merge_optional_token(a.input_tokens, b.input_tokens),
+            output_tokens: merge_optional_token(a.output_tokens, b.output_tokens),
+            total_tokens: merge_optional_token(a.total_tokens, b.total_tokens),
+            cache_read_tokens: merge_optional_token(a.cache_read_tokens, b.cache_read_tokens),
+            cache_creation_tokens: merge_optional_token(
+                a.cache_creation_tokens,
+                b.cache_creation_tokens,
+            ),
+            reasoning_tokens: merge_optional_token(a.reasoning_tokens, b.reasoning_tokens),
+            measurement_source: if a.measurement_source == b.measurement_source {
+                a.measurement_source
+            } else if a.measurement_source.is_estimated() || b.measurement_source.is_estimated() {
+                crate::services::usage::MeasurementSource::HeuristicEstimated
+            } else {
+                crate::services::usage::MeasurementSource::Unavailable
+            },
+            estimator_id: (a.estimator_id == b.estimator_id)
+                .then_some(a.estimator_id)
+                .flatten(),
+            estimator_version: (a.estimator_version == b.estimator_version)
+                .then_some(a.estimator_version)
+                .flatten(),
         }),
+    }
+}
+
+fn merge_optional_token(left: Option<u64>, right: Option<u64>) -> Option<u64> {
+    match (left, right) {
+        (Some(left), Some(right)) => left.checked_add(right),
+        (Some(value), None) | (None, Some(value)) => Some(value),
+        (None, None) => None,
     }
 }
 

@@ -12,7 +12,10 @@ use crate::db::repository::{MessageBlockRepo, MessageRepo, SessionRepo};
 use crate::services::chat;
 use crate::services::llm::backend::MessageAttachment;
 use crate::services::llm::config::LlmConfig;
-use crate::services::llm::RigBackend;
+use crate::services::llm::{RigBackend, StreamResult};
+use crate::services::usage::collector::{ensure_fallback_capture, provider_capture};
+use crate::services::usage::finalize::{emit_usage_recorded, finalize_turn, FinalizeTurnRequest};
+use crate::services::usage::UsageOperationKind;
 use crate::AppState;
 
 // ─── 请求/响应类型 ─────────────────────────────────────────────────────
@@ -67,6 +70,15 @@ pub async fn send_message(
         .map(|c| c.thinking_enabled)
         .unwrap_or(true);
     let use_sidecar = chat::read_use_sidecar(&state);
+    let operation_kind = if request
+        .llm_config
+        .as_ref()
+        .is_some_and(|config| config.agent_mode == "research")
+    {
+        UsageOperationKind::Research
+    } else {
+        UsageOperationKind::Chat
+    };
     let turn = chat::resolve_turn_model(&state, &selected, thinking_enabled, use_sidecar)?;
     let (skill_activation, selected_skills) =
         chat::resolve_selected_skill_ids(&state, &request.selected_skill_ids)?;
@@ -86,6 +98,18 @@ pub async fn send_message(
         &turn.effective,
     )?;
 
+    let mut estimator_inputs: Vec<String> = session
+        .system_prompt
+        .iter()
+        .cloned()
+        .chain(history.iter().map(|message| message.content.clone()))
+        .collect();
+    estimator_inputs.push(request.content.clone());
+    let has_image_attachments = request.attachments.as_ref().is_some_and(|attachments| {
+        attachments
+            .iter()
+            .any(|attachment| matches!(attachment, MessageAttachment::Image { .. }))
+    });
     let abort_flag = state.stream_registry.register(&request.session_id);
     let turn_result = if use_sidecar {
         chat::send_via_sidecar(
@@ -119,14 +143,27 @@ pub async fn send_message(
     };
     state.stream_registry.unregister(&request.session_id);
 
-    let (result, tool_calls_json) = turn_result?;
-    chat::update_assistant_message(
+    let (result, tool_calls_json, call_started) = match turn_result {
+        Ok((result, tool_calls_json)) => (result, tool_calls_json, true),
+        Err(error) => (failed_stream_result(&error), None, false),
+    };
+    let stream_error = result.stream_error.clone();
+    chat::finalize_assistant_turn(
+        &app,
         &state,
+        &request.session_id,
         &assistant_msg_id,
-        &result,
-        tool_calls_json.as_deref(),
+        &turn,
+        operation_kind,
+        &estimator_inputs,
+        has_image_attachments,
+        call_started,
+        result,
+        tool_calls_json,
     )?;
-    chat::update_session_stats(&state, &request.session_id, &result)?;
+    if let Some(error) = stream_error {
+        return Err(error);
+    }
 
     Ok(SendMessageResult {
         user_message_id: user_msg_id,
@@ -187,8 +224,33 @@ pub async fn regenerate_message(
     let assistant_msg_id = uuid::Uuid::new_v4().to_string();
     chat::create_assistant_placeholder(&state, &assistant_msg_id, &session_id, &turn.effective)?;
 
-    let abort_flag = state.stream_registry.register(&session_id);
+    let mut estimator_inputs: Vec<String> = session
+        .system_prompt
+        .iter()
+        .cloned()
+        .chain(
+            regen_ctx
+                .messages_before
+                .iter()
+                .map(|message| message.content.clone()),
+        )
+        .collect();
+    estimator_inputs.push(regen_ctx.user_content.clone());
     let attachments = chat::parse_attachments_json(regen_ctx.user_attachments.as_deref());
+    let has_image_attachments = attachments.as_ref().is_some_and(|items| {
+        items
+            .iter()
+            .any(|attachment| matches!(attachment, MessageAttachment::Image { .. }))
+    });
+    let operation_kind = if llm_config
+        .as_ref()
+        .is_some_and(|config| config.agent_mode == "research")
+    {
+        UsageOperationKind::Research
+    } else {
+        UsageOperationKind::Chat
+    };
+    let abort_flag = state.stream_registry.register(&session_id);
     let turn_result = if use_sidecar {
         chat::send_via_sidecar(
             &app,
@@ -221,14 +283,27 @@ pub async fn regenerate_message(
     };
     state.stream_registry.unregister(&session_id);
 
-    let (result, tool_calls_json) = turn_result?;
-    chat::update_assistant_message(
+    let (result, tool_calls_json, call_started) = match turn_result {
+        Ok((result, tool_calls_json)) => (result, tool_calls_json, true),
+        Err(error) => (failed_stream_result(&error), None, false),
+    };
+    let stream_error = result.stream_error.clone();
+    chat::finalize_assistant_turn(
+        &app,
         &state,
+        &session_id,
         &assistant_msg_id,
-        &result,
-        tool_calls_json.as_deref(),
+        &turn,
+        operation_kind,
+        &estimator_inputs,
+        has_image_attachments,
+        call_started,
+        result,
+        tool_calls_json,
     )?;
-    chat::update_session_stats(&state, &session_id, &result)?;
+    if let Some(error) = stream_error {
+        return Err(error);
+    }
 
     Ok(SendMessageResult {
         user_message_id: regen_ctx.user_msg_id,
@@ -241,6 +316,7 @@ pub async fn regenerate_message(
 /// Lightweight Rig-only title generation (does not use Sidecar).
 #[tauri::command]
 pub async fn generate_session_title(
+    app: AppHandle,
     state: State<'_, AppState>,
     request: GenerateSessionTitleRequest,
 ) -> Result<GenerateSessionTitleResult, String> {
@@ -265,19 +341,71 @@ pub async fn generate_session_title(
         .map_err(|e| format!("Failed to create backend: {e}"))?;
 
     let prompt = chat::build_title_prompt(&request.first_message);
-    let title = backend
+    let prompt_outcome = backend
         .prompt_once(&model_spec.model_id, &prompt)
         .await
         .map_err(|e| format!("Title generation failed: {e}"))?;
-    let title = chat::sanitize_session_title(&title);
-
-    {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        SessionRepo::update(&db, &request.session_id, Some(&title), None, None, None)
-            .map_err(|e| e.to_string())?;
-    }
+    let title = chat::sanitize_session_title(&prompt_outcome.output);
+    let mut captures = prompt_outcome
+        .usage
+        .map(|usage| {
+            provider_capture(
+                "rig:title",
+                Some(model_spec.model_id.clone()),
+                usage.input_tokens,
+                usage.output_tokens,
+                usage.total_tokens,
+                usage.cache_read_tokens,
+                usage.cache_creation_tokens,
+                usage.reasoning_tokens,
+            )
+        })
+        .into_iter()
+        .collect::<Vec<_>>();
+    ensure_fallback_capture(
+        &mut captures,
+        Some(&router_config.provider),
+        Some(&model_spec.model_id),
+        &[prompt.as_str()],
+        &prompt_outcome.output,
+        false,
+        false,
+        true,
+    );
+    let finalize_request = FinalizeTurnRequest {
+        operation_key: format!("session_title:{}", uuid::Uuid::new_v4()),
+        operation_kind: UsageOperationKind::SessionTitle,
+        session_id: Some(request.session_id.clone()),
+        message_id: None,
+        selected_model_id: Some(model_spec.model_id.clone()),
+        effective_provider_config_id: Some(model_spec.config_id.clone()),
+        effective_model_id: Some(model_spec.model_id.clone()),
+        vendor_id: router_config.vendor.clone(),
+        content: String::new(),
+        thinking: String::new(),
+        tool_calls_json: None,
+        captures,
+        was_aborted: false,
+        stream_error: None,
+        session_title: Some(title.clone()),
+    };
+    let mut db = state.db.lock().map_err(|error| error.to_string())?;
+    let finalized = finalize_turn(&mut db, &finalize_request).map_err(|error| error.to_string())?;
+    drop(db);
+    emit_usage_recorded(&app, &finalized.recorded);
 
     Ok(GenerateSessionTitleResult { title })
+}
+
+fn failed_stream_result(error: &str) -> StreamResult {
+    StreamResult {
+        content: String::new(),
+        thinking: String::new(),
+        usage: None,
+        usage_captures: Vec::new(),
+        was_aborted: false,
+        stream_error: Some(error.to_string()),
+    }
 }
 
 // ─── get_messages Command ──────────────────────────────────────────────

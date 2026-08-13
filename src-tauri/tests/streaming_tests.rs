@@ -5,6 +5,7 @@ use misaka_x_lib::services::llm::{
     StreamTokenPayload, StreamToolCallPayload, StreamToolResultPayload, StreamUsage,
     TokenUsageInfo,
 };
+use misaka_x_lib::services::usage::MeasurementSource;
 
 // ─── StreamRegistry tests ──────────────────────────────
 
@@ -80,9 +81,15 @@ fn test_registry_default() {
 #[test]
 fn test_token_usage_info_serialize() {
     let usage = TokenUsageInfo {
-        input_tokens: 100,
-        output_tokens: 50,
-        total_tokens: 150,
+        input_tokens: Some(100),
+        output_tokens: Some(50),
+        total_tokens: Some(150),
+        cache_read_tokens: None,
+        cache_creation_tokens: None,
+        reasoning_tokens: None,
+        measurement_source: MeasurementSource::ProviderReported,
+        estimator_id: None,
+        estimator_version: None,
     };
     let json = serde_json::to_string(&usage).unwrap();
     assert!(json.contains("\"input_tokens\":100"));
@@ -93,14 +100,17 @@ fn test_token_usage_info_serialize() {
 #[test]
 fn test_token_usage_from_stream_usage() {
     let stream_usage = StreamUsage {
-        input_tokens: 42,
-        output_tokens: 13,
-        total_tokens: 55,
+        input_tokens: Some(42),
+        output_tokens: Some(13),
+        total_tokens: Some(55),
+        cache_read_tokens: None,
+        cache_creation_tokens: None,
+        reasoning_tokens: None,
     };
     let info = TokenUsageInfo::from(stream_usage);
-    assert_eq!(info.input_tokens, 42);
-    assert_eq!(info.output_tokens, 13);
-    assert_eq!(info.total_tokens, 55);
+    assert_eq!(info.input_tokens, Some(42));
+    assert_eq!(info.output_tokens, Some(13));
+    assert_eq!(info.total_tokens, Some(55));
 }
 
 // ─── Event Payload serialization tests ─────────────────
@@ -136,9 +146,15 @@ fn test_stream_complete_payload_serialize() {
         full_content: "Hello world".to_string(),
         full_thinking: "I thought about it".to_string(),
         usage: Some(TokenUsageInfo {
-            input_tokens: 10,
-            output_tokens: 5,
-            total_tokens: 15,
+            input_tokens: Some(10),
+            output_tokens: Some(5),
+            total_tokens: Some(15),
+            cache_read_tokens: None,
+            cache_creation_tokens: None,
+            reasoning_tokens: None,
+            measurement_source: MeasurementSource::ProviderReported,
+            estimator_id: None,
+            estimator_version: None,
         }),
         was_aborted: false,
     };

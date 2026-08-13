@@ -288,11 +288,20 @@ export interface ArtifactExportOutcome {
 }
 
 export interface TokenUsage {
-  input_tokens: number;
-  output_tokens: number;
-  cache_read_tokens: number | null;
-  cache_creation_tokens: number | null;
-  total_tokens: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cache_read_tokens?: number | null;
+  cache_creation_tokens?: number | null;
+  reasoning_tokens?: number | null;
+  total_tokens: number | null;
+  measurement_source?:
+    | "provider_reported"
+    | "tokenizer_estimated"
+    | "heuristic_estimated"
+    | "legacy_migrated"
+    | "unavailable";
+  estimator_id?: string | null;
+  estimator_version?: string | null;
 }
 
 export type MessageAttachment =
