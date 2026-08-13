@@ -110,6 +110,7 @@ describe("usage chart options", () => {
       series(`key-${index}`, index < 2 ? "Shared" : `Model ${index}`, [point("2026-08-13", String(index))], `p${index}`)
     );
     const other = series("others", "Others", [point("2026-08-13", "10")], null);
+    const sourceBeforeRender = structuredClone(models);
     const first = buildUsageChart(
       models,
       other,
@@ -126,6 +127,7 @@ describe("usage chart options", () => {
     );
 
     expect(first.preparedSeries).toHaveLength(6);
+    expect(models).toEqual(sourceBeforeRender);
     expect(first.option.legend.type).toBe("scroll");
     expect(first.preparedSeries[0].label).toContain("p0");
     const firstColor = first.preparedSeries.find((item) => item.seriesKey === "key-0")?.color;

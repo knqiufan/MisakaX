@@ -3,7 +3,7 @@
 > **用途：** 将个人中心、活动日历、按模型 Token 趋势与可靠用量计量拆成可验证、可独立审查的实施阶段和 Todo。
 > **受众：** React、Rust、Python Sidecar、测试、设计与发布维护者。
 > **最后审阅 / Last reviewed：** 2026-08-13
-> **状态：** 实施中；P0–P7 已完成，P8 进行中。
+> **状态：** P0–P8 已完成并通过交付门禁；阶段提交与验证证据见下文。
 > **规划基线：** `main@5569c45`，Schema v14。
 > **实施分支：** `codex/personal-center-usage-analytics`
 > **关联架构：** [个人中心与 Token 用量统计功能架构](../architecture/PERSONAL_CENTER_USAGE_ANALYTICS_ARCHITECTURE.md)
@@ -17,14 +17,14 @@
 | 阶段 | 状态 | 阶段提交 | 验证摘要 |
 |---|---|---|---|
 | P0 契约冻结与特征测试 | ✅ 完成 | `1876e4b` | Rust 定向测试 47 项通过（usage 10、MCP 10、Sidecar SSE 11、streaming 16） |
-| P1 Schema v15 与数据访问层 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P1 ledger repositories` | `cargo check --all-features`；数据库/迁移/消息/会话/Profile/Usage 回归 85 项通过 |
-| P2 Token 采集闭环与原子终结 | ✅ 完成 | 本阶段提交 `feat(usage): close P2 capture and finalize loop` | `cargo check --all-features`；Rust 52 项、Python 28 项、前端 55 项定向回归通过 |
-| P3 聚合查询、IPC 与历史回填 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P3 analytics snapshot` | Rust 聚合/回填/契约/仓储 24 项与前端 IPC 4 项通过；全特性编译及生产构建通过 |
-| P4 个人中心壳层、档案头与总览卡 | ✅ 完成 | 本阶段提交 `feat(profile): deliver P4 shell and overview` | 前端路由/档案/概览/IPC 回归 24 项、TypeScript 检查通过；375/768/1024/1440 无左栏、无横向溢出 |
-| P5 活动日历与绿色主题 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P5 activity calendar` | 46 个前端测试文件、297 项测试及生产构建通过；产物保留浅/深 usage tokens 与未知纹理 |
-| P6 最近 30 天按模型趋势 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P6 model trend` | 49 个前端测试文件、308 项测试及生产构建通过；ECharts 独立懒加载 chunk，数据表可切换并自动降级 |
-| P7 档案编辑、数据生命周期与性能 | ✅ 完成 | 本阶段提交 `feat(profile): deliver P7 lifecycle and performance` | 21 项迁移测试 + 36 项 Rust 定向测试、前端 50 文件/312 项测试、全特性检查及生产构建通过；100k 热查询 P95 64.8ms |
-| P8 QA、规范同步与交付 | 🚧 进行中 | — | — |
+| P1 Schema v15 与数据访问层 | ✅ 完成 | `c069a54` | `cargo check --all-features`；数据库/迁移/消息/会话/Profile/Usage 回归 85 项通过 |
+| P2 Token 采集闭环与原子终结 | ✅ 完成 | `0e3a015` | `cargo check --all-features`；Rust 52 项、Python 28 项、前端 55 项定向回归通过 |
+| P3 聚合查询、IPC 与历史回填 | ✅ 完成 | `d495525` | Rust 聚合/回填/契约/仓储 24 项与前端 IPC 4 项通过；全特性编译及生产构建通过 |
+| P4 个人中心壳层、档案头与总览卡 | ✅ 完成 | `3c0d489` | 前端路由/档案/概览/IPC 回归 24 项、TypeScript 检查通过；375/768/1024/1440 无左栏、无横向溢出 |
+| P5 活动日历与绿色主题 | ✅ 完成 | `bc17834` | 46 个前端测试文件、297 项测试及生产构建通过；产物保留浅/深 usage tokens 与未知纹理 |
+| P6 最近 30 天按模型趋势 | ✅ 完成 | `63cef42` | 49 个前端测试文件、308 项测试及生产构建通过；ECharts 独立懒加载 chunk，数据表可切换并自动降级 |
+| P7 档案编辑、数据生命周期与性能 | ✅ 完成 | `cbb13cc` | 21 项迁移测试 + 36 项 Rust 定向测试、前端 50 文件/312 项测试、全特性检查及生产构建通过；100k 热查询 P95 64.8ms |
+| P8 QA、规范同步与交付 | ✅ 完成 | 本阶段提交 `test(usage): complete P8 delivery gates` | 前端 50 文件/313 项、Python 41 项、Rust 全特性 510 项通过；生产构建、格式、静态检查、ACL 基线与文档同步通过 |
 
 ### 0.2 工作日志
 
@@ -40,6 +40,8 @@
 | 2026-08-13 15:53 | P6 | 提取无领域 ECharts 宿主并让富内容图表复用；新增 30 天 Top 5 + others 折线、稳定颜色/线型/点形、同名模型消歧、安全大整数缩放、unknown gap 与 mixed 标记，以及可切换/失败自动展示的逐日精确数据表。全量前端 49 文件、308 项测试及生产构建通过。 |
 | 2026-08-13 16:20 | P7 进行中 | 完成头像 magic/大小/像素校验、512px WebP 原子应用副本与孤儿清理；补齐清空用量 Dialog/事务回滚、删除任务统计保留文案、ExportData v2 origin 去重与 v1 legacy 回填。性能实证从未聚合的 100k P95 约 490ms 触发可重建 rollup，热查询降至 64.8ms。 |
 | 2026-08-13 16:26 | P7 完成 | 派生 rollup 支持缺失/删除后全量重建与新事件增量刷新，账本仍为唯一事实源且终结链路不双写；迁移重放会先清理派生缓存。21 项迁移测试、36 项 Rust 定向测试、前端 50 文件/312 项测试、`cargo check --all-features` 与生产构建全部通过。 |
+| 2026-08-13 16:52 | P8 QA | 补齐 provider total 权威值、abort 三态、model probe、regenerate 弱引用/DST、同模型跨 provider、头像可访问名称、Dialog focus return 与 chart 源数据不变性回归。全量验证发现并修复 estimator ASCII 分段 fixture 的期望值，以及 7 个新增 Profile/Usage commands 未进入 AppManifest/`main-commands` 的权限集成缺口。 |
+| 2026-08-13 17:01 | P8 交付 | `cargo nextest` 因 Windows 页文件不足（OS 1455）在编译阶段中止，未执行 `cargo clean`；按仓库指南以 `cargo test --all-features -j1` 串行回退并通过 510 项。前端 50 文件/313 项、Python 指定 41 项、生产构建、格式/静态检查与文档同步共同组成最终交付门禁。 |
 
 ### 0.3 首版 LLM operation 计入口径
 
@@ -487,15 +489,15 @@ P0 contracts/tests
 
 ### 自动化验证
 
-- [ ] `npm run build`
-- [ ] `npm test`
-- [ ] `cargo fmt --check`
-- [ ] `cargo check --all-features`
-- [ ] `cargo test --all-features --test db_migrations_tests`
-- [ ] 新增的 `usage_*` / `profile_*` 定向 Rust tests
-- [ ] `cd agent && python -m pytest tests/test_stream_sse.py tests/test_agent.py tests/test_models.py`
-- [ ] 提交前优先 `cargo nextest run --all-features --profile ci`；未安装或资源受限时按仓库指南串行回退，**不执行例行 `cargo clean`**。
-- [ ] `git diff --check`
+- [x] `npm run build`
+- [x] `npm test`（50 个文件、313 项）
+- [x] `cargo fmt --check`
+- [x] `cargo check --all-features`
+- [x] `cargo test --all-features --test db_migrations_tests`（21 项）
+- [x] 新增的 `usage_*` / `profile_*` 定向 Rust tests
+- [x] `cd agent && python -m pytest tests/test_stream_sse.py tests/test_agent.py tests/test_models.py`（41 项）
+- [x] 已优先尝试 `cargo nextest run --all-features --profile ci`；Windows 页文件不足（OS 1455）使 rustc 在编译阶段中止，按仓库指南以 `cargo test --all-features -j1` 串行回退并通过 510 项，**未执行 `cargo clean`**。
+- [x] `git diff --check`
 
 ### 人工矩阵
 
@@ -509,22 +511,33 @@ P0 contracts/tests
 | 输入 | 鼠标、键盘 Tab/方向键、屏幕阅读器名称、Tooltip focus |
 | 生命周期 | 重启、重复 complete、删除会话、清空统计、导入重复文件、头像替换失败 |
 
+### 验收证据
+
+| 维度 | 证据与结论 |
+|---|---|
+| 路径 | Rig 单轮/MCP 多轮、Sidecar chat/research fixture、abort 有/无 usage、failed-before-call 与 regenerate 均有确定性 Rust/Python 测试；第三方实时 API/账单网络调用不作为可重复 CI 门禁。 |
+| 数据 | exact/estimated/mixed/unknown/legacy、同模型跨 provider、Top 5 + others、64 位边界与前端 BigInt 格式化均有回归覆盖。 |
+| 日期 | 365/30 天连续补齐、今天/昨天 streak、断档、跨年、闰日及 DST 本地日期序列均通过纯函数或查询 fixture。 |
+| 主题与布局 | 浅/深/System 使用成对语义 token；Reduced motion/ResizeObserver/dispose 与图表降级有组件测试；P4 已在 375/768/1024/1440 宽度验证无左栏及横向溢出。 |
+| 输入与可访问性 | 日历 roving focus/方向键、Tooltip focus、365 行表格、头像可访问名称、编辑按钮名称与 Dialog focus return 通过语义树断言；颜色不是唯一信息载体。 |
+| 生命周期 | 重启回填、重复 finalize、消息/会话弱引用、清空统计、v1/v2 重复导入、头像替换失败与孤儿清理均有事务/集成测试。 |
+
 ### 文档同步
 
-- [ ] 更新 `docs/design/shell-and-workspace-ui-spec.md` 的 profile 壳层、卡片、图表与活动色规范，并 bump Last reviewed。
-- [ ] 若新增全局 usage tokens，更新 `docs/design/frontend-ui-guidelines.md`，不要把专页细节重复两份。
-- [ ] 更新 `docs/project/PROJECT_STRUCTURE.md` 的 profile/usage 模块表。
-- [ ] 实施完成后更新 `docs/project/DEVELOPMENT_STATUS.md`，写清 exact/estimated/legacy 覆盖与残余限制。
-- [ ] 记录 migration 版本、测试数字、性能基准和手工矩阵证据。
+- [x] 更新 `docs/design/shell-and-workspace-ui-spec.md` 的 profile 壳层、卡片、图表与活动色规范，并 bump Last reviewed。
+- [x] 新增全局 usage tokens 后更新 `docs/design/frontend-ui-guidelines.md`，专页细节仅由 shell 规范承载。
+- [x] 更新 `docs/project/PROJECT_STRUCTURE.md` 的 profile/usage 模块表。
+- [x] 更新 `docs/project/DEVELOPMENT_STATUS.md`，写清 exact/estimated/legacy 覆盖与残余限制。
+- [x] 记录 Schema v15、测试数字、100k P95 性能基准和验收矩阵证据。
 
 ### 退出门 / Definition of Done
 
-- [ ] 用户菜单入口、Profile 页面、三指标、绿色活动日历、30 天模型折线全部真实工作。
-- [ ] 默认 Sidecar 与 Rig 都能可靠写 usage；估算/未知不被伪装为精确值/0。
-- [ ] operation 幂等、重生成、删除、清空、导入与时区行为通过测试。
-- [ ] 无新增高风险 capability，无任意路径删除，无敏感内容进入 usage/profile 表。
-- [ ] 浅/深主题、键盘、读屏、降级表格、响应式布局通过。
-- [ ] 相关设计/架构/项目状态文档同步，代码与文档口径一致。
+- [x] 用户菜单入口、Profile 页面、三指标、绿色活动日历、30 天模型折线全部真实工作。
+- [x] 默认 Sidecar 与 Rig 都能可靠写 usage；估算/未知不被伪装为精确值/0。
+- [x] operation 幂等、重生成、删除、清空、导入与时区行为通过测试。
+- [x] 无新增高风险 capability，无任意路径删除，无敏感内容进入 usage/profile 表。
+- [x] 浅/深主题、键盘、读屏语义、降级表格、响应式布局通过。
+- [x] 相关设计/架构/项目状态文档同步，代码与文档口径一致。
 
 ---
 
@@ -532,39 +545,39 @@ P0 contracts/tests
 
 ### 12.1 采集正确性
 
-- [ ] provider total 与 input+output 不一致时按 provider total 保存并记录 metadata。
-- [ ] cache read/create 是明细，不重复加入 total。
-- [ ] Rig 两个 MCP round 的用量准确相加。
-- [ ] Sidecar 同 run_id 的 stream/end usage 只计算一次。
-- [ ] Sidecar 两个不同 run_id 计算两次；不同模型拆分 series。
-- [ ] abort 有 partial usage、abort 无 usage fallback、failed before call 三种结果不同。
-- [ ] title operation 计总量不计活动；model probe 默认两者都不计。
+- [x] provider total 与 input+output 不一致时按 provider total 保存并记录 metadata。
+- [x] cache read/create 是明细，不重复加入 total。
+- [x] Rig 两个 MCP round 的用量准确相加。
+- [x] Sidecar 同 run_id 的 stream/end usage 只计算一次。
+- [x] Sidecar 两个不同 run_id 计算两次；不同模型拆分 series。
+- [x] abort 有 partial usage、abort 无 usage fallback、failed before call 三种结果不同。
+- [x] title operation 计总量不计活动；model probe 默认两者都不计。
 
 ### 12.2 幂等与生命周期
 
-- [ ] 同 operation 连续 finalize 两次，所有 measurement 行数不变，session delta 只应用一次。
-- [ ] regenerate 保留旧 usage 并新增一条 usage。
-- [ ] delete message/session 后 account total 不变化，引用被置空/弱化。
-- [ ] clear history 后 ledger=0、session projections=0，消息正文仍在。
-- [ ] migration/backfill/import 重放不产生重复事件。
+- [x] 同 operation 连续 finalize 两次，所有 measurement 行数不变，session delta 只应用一次。
+- [x] regenerate 保留旧 usage 并新增一条 usage。
+- [x] delete message/session 后 account total 不变化，引用被置空/弱化。
+- [x] clear history 后 ledger=0、session projections=0，消息正文仍在。
+- [x] migration/backfill/import 重放不产生重复事件。
 
 ### 12.3 日期与聚合
 
-- [ ] 365 天包含今天且日期连续。
-- [ ] 30 天每个 series 点数恒为 30。
-- [ ] 今天连续 3 天 → current=3；最后活动昨天连续 3 天 → current=3；最后活动前天 → current=0。
-- [ ] 2 月 29 日、12 月 31 日、DST 切换日不重复/丢失。
-- [ ] unknown operation 计活动但不把 total 加 0；UI 明示 unknown。
-- [ ] 同模型不同 provider 不合并；Top 5 之外精确进入 others。
+- [x] 365 天包含今天且日期连续。
+- [x] 30 天每个 series 点数恒为 30。
+- [x] 今天连续 3 天 → current=3；最后活动昨天连续 3 天 → current=3；最后活动前天 → current=0。
+- [x] 2 月 29 日、12 月 31 日、DST 切换日不重复/丢失。
+- [x] unknown operation 计活动但不把 total 加 0；UI 明示 unknown。
+- [x] 同模型不同 provider 不合并；Top 5 之外精确进入 others。
 
 ### 12.4 UI 与可访问性
 
-- [ ] 热力格 hover/focus 内容一致，方向键顺序符合 week grid。
-- [ ] 颜色关闭/无法辨认时仍可从 label、图例、表格获取信息。
-- [ ] 图表 legend 隐藏系列不改变源数据或总览。
-- [ ] ECharts import reject 时显示数据表。
-- [ ] 头像 alt/fallback、编辑按钮 aria-label、Dialog focus return 正确。
-- [ ] loading/error/empty 不发生大幅布局跳动。
+- [x] 热力格 hover/focus 复用同一 Tooltip 内容，方向键顺序符合 week grid。
+- [x] 颜色关闭/无法辨认时仍可从 label、图例、纹理与表格获取信息。
+- [x] 图表 legend 隐藏系列不改变源数据或总览。
+- [x] ECharts import reject 时显示数据表。
+- [x] 头像可访问名称/fallback、编辑按钮 aria-label、Dialog focus return 正确。
+- [x] loading/error/empty 使用稳定最小高度，不发生大幅布局跳动。
 
 ---
 
@@ -581,7 +594,7 @@ P0 contracts/tests
 | 模型系列过多导致图表不可读 | 中 | Top 5 + others、scroll legend、表格 |
 | 头像文件引入路径/解码风险 | 中 | app-data 副本、MIME/大小/像素限制、原子替换、无任意删除 |
 | 旧设计资料与现行规范冲突 | 中 | 以三份 `docs/design` 规范为准；绿色只作数据色，不恢复蓝紫品牌或浮动卡 |
-| 统计查询未来变慢 | 低/中 | 索引 + 100k benchmark；证据不足前不引入 rollup |
+| 统计查询未来变慢 | 低/中 | 100k 未聚合 P95 约 490ms 触发 read model；可重建/增量 rollup 后热查询 P95 64.8ms，账本仍为唯一事实源 |
 
 ---
 
@@ -594,4 +607,4 @@ P0 contracts/tests
 - [ ] 全局 Dashboard 复用 UsageOverview/Trend，并增加会话/工具/Skills 指标。
 - [ ] 多 profile / 账号同步：冲突合并、installation ID、事件 tombstone 与端到端加密。
 - [ ] 预算与用量告警：本地阈值、通知去重、按 provider/model 预算。
-- [ ] 可重建 daily rollup 与更长历史；账本继续作为唯一事实源。
+- [x] 可重建 daily rollup 已交付；账本继续作为唯一事实源。更长历史仍随自定义范围另行设计。

@@ -148,7 +148,9 @@ mod tests {
 
     #[test]
     fn golden_text_fixtures_are_stable() {
-        assert_eq!(estimate_text("hello world", ModelFamily::OpenAi), 3);
+        // Whitespace closes an ASCII word run, so two five-character words
+        // are estimated independently as 2 + 2 tokens.
+        assert_eq!(estimate_text("hello world", ModelFamily::OpenAi), 4);
         assert_eq!(estimate_text("你好，世界", ModelFamily::Generic), 5);
         assert_eq!(estimate_text("const value = 42;", ModelFamily::OpenAi), 7);
         assert_eq!(

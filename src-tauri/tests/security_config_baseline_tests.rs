@@ -285,7 +285,11 @@ fn isolation_s0_has_no_host_process_or_webview_execution_shortcut() {
     }
 
     let module = fs::read_to_string(sandbox_root.join("mod.rs")).unwrap();
-    assert!(module.contains("#[cfg(test)]\nmod tests;"));
+    assert!(module
+        .lines()
+        .collect::<Vec<_>>()
+        .windows(2)
+        .any(|lines| lines == ["#[cfg(test)]", "mod tests;"]));
     assert!(!source.contains("FakeProvider"));
 
     let capability = json("capabilities/default.json");

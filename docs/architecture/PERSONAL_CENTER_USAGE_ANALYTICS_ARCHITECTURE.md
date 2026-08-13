@@ -4,7 +4,7 @@
 > **受众：** 产品、设计、React、Rust、Python Sidecar、测试与后续维护者。
 > **最后审阅 / Last reviewed：** 2026-08-13
 > **规划基线：** `main@5569c45`（Schema v14，React 19 / Tauri 2 / Rust 2021 / Python 3.11）。
-> **状态：** 设计冻结并进入实施；P0–P7 已完成（含档案编辑、用量生命周期、ExportData v2 与性能汇总），实时进度见 [实施计划](../planning/PERSONAL_CENTER_USAGE_ANALYTICS_IMPLEMENTATION_PLAN.md)。
+> **状态：** P0–P8 已完成并通过交付门禁（含档案编辑、用量生命周期、ExportData v2、可重建 rollup、权限基线与全量 QA），阶段提交和证据见 [实施计划](../planning/PERSONAL_CENTER_USAGE_ANALYTICS_IMPLEMENTATION_PLAN.md)。
 
 ---
 
@@ -21,7 +21,9 @@
 
 ---
 
-## 2. 当前代码基线与缺口
+## 2. 规划时代码基线与缺口（P0–P8 已关闭）
+
+下表保留 2026-08-13 实施前的决策输入，用于解释为什么采用追加式账本和跨层 canonical contract；这些缺口均已由实施计划 P0–P8 关闭，不代表当前代码现状。
 
 | 领域 | 已有基础 | 关键缺口 |
 |---|---|---|
@@ -491,3 +493,13 @@ UnifiedTopBar：返回 + “个人中心”
 - 热力图为绿色系，模型折线可区分，浅/深主题和键盘/读屏均可用。
 - 页面没有新增图表依赖、没有 UI 扫描全量消息、没有 prompt/API key/路径进入统计表。
 - 架构、实施计划与 `docs/design/shell-and-workspace-ui-spec.md` 保持同步。
+
+### 14.1 交付验证快照
+
+| 门禁 | 结果 |
+|---|---|
+| 数据与迁移 | Schema v15 幂等迁移/备份、Profile/Usage repository、legacy backfill、ExportData v1/v2 与 rollup 重建通过 Rust 回归 |
+| 采集与生命周期 | Rig/MCP、Sidecar run-id 去重、provider total、abort 三态、重复 finalize、regenerate、弱引用删除与清空统计通过确定性测试 |
+| 查询与 UI | 365/30 天、streak/闰日/DST、同模型跨 provider、Top 5 + others、BigInt、活动日历/趋势降级及可访问语义通过回归 |
+| 性能 | 100k 未聚合组合查询 P95 约 490ms；启用按需重建/增量 rollup 后热查询 P95 64.8ms，低于 100ms 门槛 |
+| 最终套件 | 前端 50 文件/313 项、Python 指定 41 项、Rust 全特性 510 项、生产构建、格式与静态检查通过；`nextest` 的 Windows OS 1455 资源中止由串行 `cargo test --all-features -j1` 完整回退覆盖 |

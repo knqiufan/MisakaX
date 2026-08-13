@@ -102,11 +102,25 @@ describe("profile shell", () => {
       <ProfileAvatar displayName="御坂" avatarUrl="missing-avatar.webp" className="size-20" />
     );
     expect(screen.getByText("御")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Avatar for 御坂" })).toBeTruthy();
     expect(container.querySelector('[data-slot="avatar"]')?.className).toContain("size-20");
     expect(profileInitial("", "U")).toBe("U");
     expect(validateDisplayName("   ")).toBe("empty");
     expect(validateDisplayName("😀".repeat(40))).toBeNull();
     expect(validateDisplayName("😀".repeat(41))).toBe("tooLong");
+  });
+
+  it("restores focus to the accessible edit trigger when the dialog closes", async () => {
+    render(
+      <TooltipProvider>
+        <ProfileHeader />
+      </TooltipProvider>
+    );
+    const trigger = screen.getByRole("button", { name: "Edit profile" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 
   it("saves a name in the standard dialog and synchronizes the shared store", async () => {

@@ -165,6 +165,45 @@ fn trend_keeps_provider_boundaries_and_collapses_after_top_five() {
 }
 
 #[test]
+fn trend_keeps_the_same_effective_model_separate_across_provider_configs() {
+    let (conn, profile_id) = setup();
+    let first = event(
+        &profile_id,
+        "shared-model-provider-a",
+        "2026-08-13",
+        Some("shared-model"),
+        Some(40),
+        MeasurementSource::ProviderReported,
+        true,
+        true,
+    );
+    let second = event(
+        &profile_id,
+        "shared-model-provider-b",
+        "2026-08-13",
+        Some("shared-model"),
+        Some(60),
+        MeasurementSource::ProviderReported,
+        true,
+        true,
+    );
+    UsageRepo::insert_batch_idempotent(&conn, &[first, second]).unwrap();
+
+    let dashboard = get_dashboard_at(&conn, DashboardQuery::default(), date("2026-08-13")).unwrap();
+    assert_eq!(dashboard.model_series.len(), 2);
+    assert!(dashboard
+        .model_series
+        .iter()
+        .all(|series| series.effective_model_id == "shared-model"));
+    let provider_configs = dashboard
+        .model_series
+        .iter()
+        .map(|series| series.provider_config_id.as_deref().unwrap())
+        .collect::<std::collections::HashSet<_>>();
+    assert_eq!(provider_configs.len(), 2);
+}
+
+#[test]
 fn date_helpers_cover_leap_year_year_boundary_and_week_starts() {
     let dates = local_date_sequence(date("2024-03-01"), 3);
     assert_eq!(
@@ -173,6 +212,11 @@ fn date_helpers_cover_leap_year_year_boundary_and_week_starts() {
     );
     let dates = local_date_sequence(date("2026-01-01"), 2);
     assert_eq!(dates, vec![date("2025-12-31"), date("2026-01-01")]);
+    let dst_dates = local_date_sequence(date("2026-03-09"), 3);
+    assert_eq!(
+        dst_dates,
+        vec![date("2026-03-07"), date("2026-03-08"), date("2026-03-09")]
+    );
     assert_eq!(week_bucket_start(date("2026-08-13"), 1), date("2026-08-10"));
     assert_eq!(week_bucket_start(date("2026-08-13"), 0), date("2026-08-09"));
 }

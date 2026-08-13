@@ -1,7 +1,7 @@
 # MisakaX 项目结构说明
 
-> **最后审阅 / Last reviewed:** 2026-08-01
-> **开发进度与续做入口：** 见同目录 [`DEVELOPMENT_STATUS.md`](./DEVELOPMENT_STATUS.md)（Phase 3 主体完成 → **Phase 4 DeepAgents 迁移** 为下一步）。
+> **最后审阅 / Last reviewed:** 2026-08-13
+> **开发进度与续做入口：** 见同目录 [`DEVELOPMENT_STATUS.md`](./DEVELOPMENT_STATUS.md)；个人中心与用量统计 P0–P8 已交付，主线续做入口仍由该状态文档维护。
 
 ## 顶层目录
 
@@ -43,7 +43,7 @@ MisakaX/
 |------|------|
 | `Cargo.toml` | Rust 项目的依赖声明文件。定义了 Tauri 2.x 核心、4 个最小 Tauri 插件（shell open、updater、dialog、clipboard）、rusqlite/sqlite-vec、tokio、serde，以及锁定的 `portable-pty`/平台进程树依赖等 |
 | `Cargo.lock` | 依赖版本锁定文件，确保编译可复现 |
-| `build.rs` | Rust 构建脚本。把 102 个 custom commands 注册进 Tauri AppManifest，再生成 Tauri 上下文代码和 `OUT_DIR` 环境变量 |
+| `build.rs` | Rust 构建脚本。把 120 个 custom commands（含 Profile/Usage）注册进 Tauri AppManifest，再生成 Tauri 上下文代码和 `OUT_DIR` 环境变量；命令、permission 与 invoke handler 集合由安全基线测试锁定 |
 | `tauri.conf.json` | Tauri 应用的主配置文件。包含应用名称（MisakaX）、窗口大小（1280x800）、图标路径、构建命令，以及严格 production CSP / 仅开发态 HMR `devCsp` |
 
 ### `src-tauri/capabilities/`
@@ -83,7 +83,7 @@ MisakaX/
 | 文件 / 目录 | 用途 |
 |-------------|------|
 | `main.rs` | Tauri 应用入口，调用 `misaka_x_lib::run()` |
-| `lib.rs` | 最小插件注册、DB 初始化、Sidecar / MCP 预热、`AppState`、`invoke_handler`（102 个已登记 custom commands） |
+| `lib.rs` | 最小插件注册、DB 初始化、Sidecar / MCP 预热、legacy usage 幂等回填、`AppState`、`invoke_handler`（120 个已登记 custom commands） |
 | `config.rs` | `AppConfig`、YAML 读写、`~/.misakax/` 路径 |
 | `crypto.rs` | API Key AES-GCM 加密 |
 | `sidecar.rs` | `SidecarManager`：Sidecar 启动、健康检查、状态事件 |
@@ -93,9 +93,9 @@ MisakaX/
 | 文件 / 目录 | 用途 |
 |-------------|------|
 | `mod.rs` | SQLite 初始化、WAL、sqlite-vec 加载、运行迁移 |
-| `migrations.rs` | Schema **v1–v13**；v11 stable SkillId/activation，v12 scan/finding/approval，v13 存量扫描与旧表清理 |
-| `models.rs` | Session / Message / RouterConfig 等数据模型 |
-| `repository/` | 会话、消息、Provider、MCP、Workspace、Settings，以及 `skill_source_repo` / `skill_security_repo`；Skills 只写 `skill_sources` |
+| `migrations.rs` | Schema **v1–v15**；v11 stable SkillId/activation，v12 scan/finding/approval，v13 存量扫描，v14 sandbox audit，v15 local profile、追加式 usage ledger 与可重建 rollup |
+| `models.rs` | Session / Message / RouterConfig、`UserProfile`、`UsageEvent` 与写入 DTO 等数据模型 |
+| `repository/` | 会话、消息、Provider、MCP、Workspace、Settings、Skills/Sandbox，以及 `profile_repo` / `usage_repo`；UsageRepo 使用参数绑定和稳定 measurement/source key 保证幂等 |
 
 ### `src-tauri/src/commands/`
 
@@ -104,8 +104,10 @@ MisakaX/
 | `settings.rs` | 设置与 `AppConfig` CRUD |
 | `router_configs.rs` | Provider / API Key 管理、连接测试 |
 | `models.rs` | 可用模型列表、自定义模型、拉取 Provider 模型 |
-| `chat.rs` | `send_message`、`stop_generation`、`regenerate_message`、`get_messages` |
-| `session.rs` | 会话 CRUD、搜索、导入导出、工作目录 |
+| `chat.rs` | `send_message`、`stop_generation`、`regenerate_message`、`get_messages`；Rig/Sidecar 最终结果统一进入 usage finalize transaction |
+| `session.rs` | 会话 CRUD、搜索、ExportData v1/v2 导入导出、工作目录；v2 可携带安全 profile metadata 与 usage events |
+| `profile.rs` | 当前本地档案读取/编辑与头像读取、设置、清除；头像只写 app-data 管理副本 |
+| `usage.rs` | 单快照 dashboard 查询与当前 profile 用量清空；参数范围和事务边界在 Rust 端校验 |
 | `workspace.rs` | 工作目录浏览、最近目录、按会话读取只读 Workspace/Git context |
 | `terminal.rs` | owner-bound PTY spawn/write/resize/kill/get-state 窄 command；不接收 cwd、任意 executable/argv/env |
 | `fs_explorer.rs` | 工作区文件读写、在资源管理器中Reveal |
@@ -124,6 +126,8 @@ MisakaX/
 | `skills/` | 多来源 registry、安装/文件提供器、quarantine、离线 scanner、policy、migration 与 watcher |
 | `workspace/` | canonical workspace、只读 `VcsProvider`/Git CLI、single-flight cache、generation 与 HEAD/ref watcher |
 | `terminal/` | `TerminalManager`、可信 shell profile、限额/背压、output/exited 事件、Windows Job Object 与 Unix process-group 回收；Windows PowerShell 安全进入 extended-length cwd，cmd 不支持时返回稳定诊断 |
+| `usage/` | canonical usage 类型、Rig/Sidecar collector、版本化 heuristic estimator、原子 finalize、streak/date 与 dashboard/rollup 查询服务 |
+| `profile_avatar.rs` | 头像 magic/大小/像素校验、512px WebP 处理、原子替换与受控孤儿清理 |
 
 ---
 
@@ -137,15 +141,17 @@ MisakaX/
 | `components/layout/` | `AppShell`、`Sidebar`、`ContentArea` |
 | `components/chat/` | `ChatView`、会话、Composer、只读 WorkspaceContext badge、WorkspacePanel、Explorer/Monaco、xterm `TerminalPanel` 与消息工具日志入口 |
 | `components/ui/` | shadcn/ui 组件 |
-| `pages/` | `ChatPage`、`SettingsPage`；Skills 领域 UI 位于 Settings，Knowledge / Dashboard 仍为占位 |
+| `pages/` | `ChatPage`、`SettingsPage`、独立无左栏的 `ProfilePage`；Skills 领域 UI 位于 Settings，Knowledge / Dashboard 仍为占位 |
+| `features/profile/` | 共享 profile store、80px 档案头像/回退与档案头编辑 Dialog；UserMenu、TopBar 与页面共享同一状态 |
+| `features/usage-analytics/` | 三指标总览、365 天可访问活动日历、30 天 Top 5 + others 趋势、ECharts/数据表降级、清空用量控制与 dashboard debounce hook |
 | `components/skills/` | Skills 仓库双栏、按需文件预览、安全报告、迁移进度与安装/卸载 Dialog |
 | `stores/` | Zustand：`chat-store`、`settings-store`、`theme-store`、独立 `workspace-panel-store`、`workspace-explorer-store` 与 owner/generation/seq 门控的 `terminal-store` 等 |
-| `lib/ipc/` | Tauri IPC 封装（chat、session、mcp、settings、workspace、terminal…） |
+| `lib/ipc/` | Tauri IPC 封装（chat、session、mcp、settings、workspace、terminal、`profile`、`usage`…）；用量 64 位值保持十进制字符串 |
 | `lib/providers/` | Provider 目录与 catalog |
 | `locales/` | i18n（zh-CN / en） |
 | `hooks/` | `use-stream-listener`、`use-ipc`、`use-sidecar-status`、`use-workspace-context` |
 | `styles/terminal.css` | xterm token 背景、内边距与窄滚动条；不依赖远端样式 |
-| `__tests__/` | Vitest 单元测试，含 TerminalPanel/terminal-store 的 StrictMode、事件顺序、输入、clipboard、resize 与工作区切换覆盖；Rust `terminal_manager_tests` 另覆盖真实 PTY、长 Unicode cwd、突发/持续输出、崩溃回收和重开 |
+| `__tests__/` | Vitest 单元测试（当前 50 文件/313 项），含 Profile shell、Usage overview/calendar/trend、可访问性/图表降级，以及既有 Terminal/Workspace/Skills 回归 |
 
 ---
 
@@ -158,11 +164,12 @@ MisakaX/
 | `build_nuitka.py` | Sidecar Nuitka 打包脚本（Phase 3 验收项） |
 | `app/main.py` | FastAPI 入口，注册 health / info / agent 路由 |
 | `app/config.py` | pydantic-settings（`MISAKA_` 环境变量） |
-| `app/models.py` | Sidecar 请求 / 响应模型 |
+| `app/models.py` | Sidecar 请求 / 响应与 Usage SSE v1 模型 |
+| `app/usage.py` | 按 LangChain run_id/model 归一化并去重 stream/end usage，保留 cache/reasoning 明细 |
 | `app/routers/health.py` | `GET /health` — Sidecar 就绪检测 |
 | `app/routers/info.py` | 服务信息 |
-| `app/routers/agent.py` | `/agent/chat`、`/agent/stream` — **501 占位，Phase 4 实现 DeepAgents** |
-| `tests/` | pytest（health、info、agent 占位端点） |
+| `app/routers/agent.py` | `/agent/chat`、`/agent/stream`；chat/research 模式在 done/error 前尽力发送 Usage SSE v1 |
+| `tests/` | pytest（health、info、agent、SSE、usage 去重与模型契约） |
 
 ---
 
@@ -177,6 +184,7 @@ MisakaX/
 | `MISAKAX_ARCHITECTURE_FINAL - DeepSeek-V4-Pro.md` | 最终技术架构选型文档 |
 | `MISAKAX_ARCHITECTURE_SELECTION - Opus4.6.md` | 架构方案对比与选择理由 |
 | `MISAKAX_TECH_SELECTION_REPORT.md` | 技术选型详细报告 |
+| `PERSONAL_CENTER_USAGE_ANALYTICS_ARCHITECTURE.md` | Local Profile、Usage Metering/Ledger/Analytics 的已交付架构与数据语义 |
 
 ### `docs/planning/`
 
@@ -189,6 +197,7 @@ MisakaX/
 | `PHASE_3_DETAILED_PLAN.md` | Phase 3 完整方案（背景设计） |
 | `PHASE_3_REMAINING_TODO.md` | **Phase 3 未完成项执行清单（续做入口）** |
 | `PHASE_4_DETAILED_PLAN.md` | Phase 4 DeepAgents 迁移（Phase 3 完成后） |
+| `PERSONAL_CENTER_USAGE_ANALYTICS_IMPLEMENTATION_PLAN.md` | 个人中心与用量统计 P0–P8 阶段提交、Todo 与验收证据 |
 
 ### `docs/research/`
 
@@ -247,7 +256,8 @@ MisakaX/
 ~/.misakax/
 ├── config.yaml           # 全局配置（YAML 格式，User-editable）
 ├── data/
-│   └── misaka.db         # SQLite 数据库（WAL 模式，含向量索引）
+│   ├── misaka.db         # SQLite v15 数据库（WAL 模式，含向量索引与 usage ledger）
+│   └── profile-avatars/  # 应用托管、规范化后的本地头像 WebP 副本
 ├── skills/               # 用户自定义 Skills
 ├── managed/skills/       # 从市场安装的 Skills
 ├── plugins/              # 插件目录
