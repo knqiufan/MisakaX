@@ -1,17 +1,25 @@
 use std::path::{Path, PathBuf};
 
+use sha2::{Digest, Sha256};
 use tauri::State;
 
 use crate::config;
-use crate::db::models::{ExportData, ExportSession, ImportResult, MessageSearchResult, Session};
+use crate::db::models::{
+    ExportData, ExportProfileMetadata, ExportSession, ExportUsageEvent, ImportResult,
+    MessageSearchResult, NewUsageEvent, Session, UsageEvent,
+};
 use crate::db::repository::{
-    ArtifactRepo, MessageBlockRepo, MessageRepo, SessionRepo, WorkspaceRepo,
+    ArtifactRepo, MessageBlockRepo, MessageRepo, ProfileRepo, SessionRepo, SettingsRepo, UsageRepo,
+    WorkspaceRepo,
 };
 use crate::services::artifacts::{ArtifactService, ContentSafetyPolicy, RetentionState};
+use crate::services::usage::backfill::backfill_legacy_usage;
 use crate::AppState;
 
 pub const WORKSPACE_KIND_DEFAULT: &str = "default";
 pub const WORKSPACE_KIND_CUSTOM: &str = "custom";
+pub const EXPORT_DATA_VERSION: u32 = 2;
+const INSTALLATION_ID_SETTING_KEY: &str = "installation.id";
 
 /// Resolved working directory + kind for session create/update.
 pub struct ResolvedWorkspace {
@@ -275,6 +283,7 @@ pub fn export_sessions_to_file(
     file_path: &Path,
 ) -> Result<(), String> {
     let mut export_sessions = Vec::with_capacity(session_ids.len());
+    let mut usage_events = Vec::new();
     for sid in session_ids {
         let session = SessionRepo::find_by_id(conn, sid).map_err(|e| e.to_string())?;
         let mut messages =
@@ -284,15 +293,29 @@ pub fn export_sessions_to_file(
                 MessageBlockRepo::find_by_message(conn, &message.id).map_err(|e| e.to_string())?;
         }
         export_sessions.push(ExportSession { session, messages });
+        usage_events.extend(UsageRepo::list_for_session(conn, sid).map_err(|e| e.to_string())?);
     }
 
+    let installation_id = installation_id(conn)?;
+    let profile = ProfileRepo::ensure_default(conn).map_err(|error| error.to_string())?;
+
     let export_data = ExportData {
-        version: 1,
+        version: EXPORT_DATA_VERSION,
         exported_at: chrono::Utc::now().to_rfc3339(),
         app: "MisakaX".to_string(),
         sessions: export_sessions,
         artifact_manifest: ArtifactRepo::find_by_sessions(conn, session_ids)
             .map_err(|e| e.to_string())?,
+        profile: Some(ExportProfileMetadata {
+            display_name: profile.display_name,
+            timezone_mode: profile.timezone_mode,
+            timezone_id: profile.timezone_id,
+            week_start: profile.week_start,
+        }),
+        usage_events: usage_events
+            .into_iter()
+            .map(|event| export_usage_event(event, &installation_id))
+            .collect(),
     };
 
     let json = serde_json::to_string_pretty(&export_data).map_err(|e| e.to_string())?;
@@ -323,6 +346,9 @@ pub fn import_sessions_from_file(
 ) -> Result<ImportResult, String> {
     let json = std::fs::read_to_string(file_path).map_err(|e| e.to_string())?;
     let data: ExportData = serde_json::from_str(&json).map_err(|e| e.to_string())?;
+    if data.version == 0 || data.version > EXPORT_DATA_VERSION {
+        return Err(format!("Unsupported export version {}", data.version));
+    }
     let mut imported = 0u32;
     let mut skipped = 0u32;
     let mut errors: Vec<String> = Vec::new();
@@ -354,11 +380,173 @@ pub fn import_sessions_from_file(
         let _ = ArtifactRepo::insert(conn, &artifact);
     }
 
+    let profile = ProfileRepo::ensure_default(conn).map_err(|error| error.to_string())?;
+    let usage_count = data.usage_events.len();
+    let usage_batch = data
+        .usage_events
+        .into_iter()
+        .map(|event| import_usage_event(conn, &profile.profile_id, event, data.version))
+        .collect::<Result<Vec<_>, _>>()?;
+    let usage_inserted = UsageRepo::insert_batch_idempotent(conn, &usage_batch)
+        .map_err(|error| error.to_string())?
+        .len();
+    let legacy_backfill = backfill_legacy_usage(conn).map_err(|error| error.to_string())?;
+    let legacy_inserted =
+        legacy_backfill.message_events_inserted + legacy_backfill.residual_events_inserted;
+    let total_usage_inserted = usage_inserted.saturating_add(legacy_inserted as usize);
+
     Ok(ImportResult {
         imported_count: imported,
         skipped_count: skipped,
         errors,
+        usage_imported_count: total_usage_inserted as u32,
+        usage_skipped_count: usage_count.saturating_sub(usage_inserted) as u32,
     })
+}
+
+fn installation_id(conn: &rusqlite::Connection) -> Result<String, String> {
+    if let Some(installation_id) =
+        SettingsRepo::get(conn, INSTALLATION_ID_SETTING_KEY).map_err(|error| error.to_string())?
+    {
+        if uuid::Uuid::parse_str(&installation_id).is_ok() {
+            return Ok(installation_id);
+        }
+    }
+    let installation_id = uuid::Uuid::new_v4().to_string();
+    SettingsRepo::set(conn, INSTALLATION_ID_SETTING_KEY, &installation_id)
+        .map_err(|error| error.to_string())?;
+    Ok(installation_id)
+}
+
+fn export_usage_event(event: UsageEvent, local_installation_id: &str) -> ExportUsageEvent {
+    ExportUsageEvent {
+        source_installation_id: event
+            .source_installation_id
+            .unwrap_or_else(|| local_installation_id.to_string()),
+        source_event_id: event.source_event_id.unwrap_or(event.event_id),
+        operation_key: event.operation_key,
+        operation_kind: event.operation_kind,
+        session_id: event.session_id,
+        message_id: event.message_id,
+        provider_config_id: event.provider_config_id,
+        provider_id: event.provider_id,
+        vendor_id: event.vendor_id,
+        selected_model_id: event.selected_model_id,
+        effective_model_id: event.effective_model_id,
+        model_display_name: event.model_display_name,
+        input_tokens: event.input_tokens,
+        output_tokens: event.output_tokens,
+        total_tokens: event.total_tokens,
+        cache_read_tokens: event.cache_read_tokens,
+        cache_creation_tokens: event.cache_creation_tokens,
+        reasoning_tokens: event.reasoning_tokens,
+        measurement_source: event.measurement_source,
+        estimator_id: event.estimator_id,
+        estimator_version: event.estimator_version,
+        outcome: event.outcome,
+        counts_toward_totals: event.counts_toward_totals,
+        counts_toward_activity: event.counts_toward_activity,
+        counts_toward_trend: event.counts_toward_trend,
+        occurred_at_utc: event.occurred_at_utc,
+        local_date: event.local_date,
+        timezone_id: event.timezone_id,
+        utc_offset_minutes: event.utc_offset_minutes,
+    }
+}
+
+fn import_usage_event(
+    conn: &rusqlite::Connection,
+    profile_id: &str,
+    event: ExportUsageEvent,
+    export_version: u32,
+) -> Result<NewUsageEvent, String> {
+    if event.source_installation_id.trim().is_empty()
+        || event.source_event_id.trim().is_empty()
+        || event.source_installation_id.len() > 128
+        || event.source_event_id.len() > 256
+    {
+        return Err("Invalid usage event origin identifiers".into());
+    }
+    let session_id = existing_reference(conn, "sessions", "id", event.session_id.as_deref())?;
+    let message_id = existing_reference(conn, "messages", "id", event.message_id.as_deref())?;
+    let operation_key = scoped_import_key(
+        "operation",
+        &event.source_installation_id,
+        &event.operation_key,
+    );
+    let measurement_key = scoped_import_key(
+        "measurement",
+        &event.source_installation_id,
+        &event.source_event_id,
+    );
+    let metadata_json = serde_json::json!({
+        "imported": true,
+        "source_export_version": export_version,
+        "source_measurement_quality": event.measurement_source.as_str(),
+        "legacy_migrated": event.measurement_source == crate::services::usage::MeasurementSource::LegacyMigrated,
+    })
+    .to_string();
+    Ok(NewUsageEvent {
+        event_id: uuid::Uuid::new_v4().to_string(),
+        profile_id: profile_id.to_string(),
+        operation_key,
+        measurement_key,
+        operation_kind: event.operation_kind,
+        session_id,
+        message_id,
+        provider_config_id: event.provider_config_id,
+        provider_id: event.provider_id,
+        vendor_id: event.vendor_id,
+        selected_model_id: event.selected_model_id,
+        effective_model_id: event.effective_model_id,
+        model_display_name: event.model_display_name,
+        input_tokens: event.input_tokens,
+        output_tokens: event.output_tokens,
+        total_tokens: event.total_tokens,
+        cache_read_tokens: event.cache_read_tokens,
+        cache_creation_tokens: event.cache_creation_tokens,
+        reasoning_tokens: event.reasoning_tokens,
+        measurement_source: event.measurement_source,
+        estimator_id: event.estimator_id,
+        estimator_version: event.estimator_version,
+        outcome: event.outcome,
+        counts_toward_totals: event.counts_toward_totals,
+        counts_toward_activity: event.counts_toward_activity,
+        counts_toward_trend: event.counts_toward_trend,
+        occurred_at_utc: event.occurred_at_utc,
+        local_date: event.local_date,
+        timezone_id: event.timezone_id,
+        utc_offset_minutes: event.utc_offset_minutes,
+        metadata_json,
+        source_installation_id: Some(event.source_installation_id),
+        source_event_id: Some(event.source_event_id),
+    })
+}
+
+fn scoped_import_key(namespace: &str, first: &str, second: &str) -> String {
+    let mut digest = Sha256::new();
+    for part in [namespace, first, second] {
+        digest.update((part.len() as u64).to_be_bytes());
+        digest.update(part.as_bytes());
+    }
+    format!("import:{namespace}:{:x}", digest.finalize())
+}
+
+fn existing_reference(
+    conn: &rusqlite::Connection,
+    table: &str,
+    column: &str,
+    value: Option<&str>,
+) -> Result<Option<String>, String> {
+    let Some(value) = value else { return Ok(None) };
+    let exists = conn
+        .query_row(
+            &format!("SELECT EXISTS(SELECT 1 FROM {table} WHERE {column} = ?1)"),
+            [value],
+            |row| row.get::<_, bool>(0),
+        )
+        .map_err(|error| error.to_string())?;
+    Ok(exists.then(|| value.to_string()))
 }
 
 /// Idempotent backfill for sessions with NULL/empty working directories.

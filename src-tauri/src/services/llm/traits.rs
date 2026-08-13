@@ -58,9 +58,18 @@ pub enum StreamDelta {
 /// 类型擦除的 token 用量
 #[derive(Debug, Clone)]
 pub struct StreamUsage {
-    pub input_tokens: u64,
-    pub output_tokens: u64,
-    pub total_tokens: u64,
+    pub input_tokens: Option<u64>,
+    pub output_tokens: Option<u64>,
+    pub total_tokens: Option<u64>,
+    pub cache_read_tokens: Option<u64>,
+    pub cache_creation_tokens: Option<u64>,
+    pub reasoning_tokens: Option<u64>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PromptOutcome {
+    pub output: String,
+    pub usage: Option<StreamUsage>,
 }
 
 /// 类型擦除的流式输出流
@@ -102,9 +111,14 @@ where
             }
             StreamedAssistantContent::Final(response) => response.token_usage().map(|usage| {
                 StreamDelta::Usage(StreamUsage {
-                    input_tokens: usage.input_tokens,
-                    output_tokens: usage.output_tokens,
-                    total_tokens: usage.total_tokens,
+                    input_tokens: Some(usage.input_tokens),
+                    output_tokens: Some(usage.output_tokens),
+                    total_tokens: Some(usage.total_tokens),
+                    cache_read_tokens: (usage.cached_input_tokens > 0)
+                        .then_some(usage.cached_input_tokens),
+                    cache_creation_tokens: (usage.cache_creation_input_tokens > 0)
+                        .then_some(usage.cache_creation_input_tokens),
+                    reasoning_tokens: None,
                 })
             }),
             _ => None,
@@ -144,6 +158,47 @@ impl AgentHandle {
             Self::OpenAi(a) => a.prompt(input).await.map_err(|e| anyhow::anyhow!("{e}")),
             Self::Anthropic(a) => a.prompt(input).await.map_err(|e| anyhow::anyhow!("{e}")),
             Self::Gemini(a) => a.prompt(input).await.map_err(|e| anyhow::anyhow!("{e}")),
+        }
+    }
+
+    /// Non-streaming prompt with Rig's aggregated usage details preserved.
+    pub async fn prompt_with_usage(&self, input: &str) -> Result<PromptOutcome> {
+        use rig::completion::Prompt;
+
+        macro_rules! execute {
+            ($agent:expr) => {{
+                let response = $agent
+                    .prompt(input)
+                    .extended_details()
+                    .await
+                    .map_err(|error| anyhow::anyhow!("{error}"))?;
+                let usage = response.usage;
+                let usage = (usage.input_tokens > 0
+                    || usage.output_tokens > 0
+                    || usage.total_tokens > 0
+                    || usage.cached_input_tokens > 0
+                    || usage.cache_creation_input_tokens > 0)
+                    .then_some(StreamUsage {
+                        input_tokens: Some(usage.input_tokens),
+                        output_tokens: Some(usage.output_tokens),
+                        total_tokens: Some(usage.total_tokens),
+                        cache_read_tokens: (usage.cached_input_tokens > 0)
+                            .then_some(usage.cached_input_tokens),
+                        cache_creation_tokens: (usage.cache_creation_input_tokens > 0)
+                            .then_some(usage.cache_creation_input_tokens),
+                        reasoning_tokens: None,
+                    });
+                Ok(PromptOutcome {
+                    output: response.output,
+                    usage,
+                })
+            }};
+        }
+
+        match self {
+            Self::OpenAi(agent) => execute!(agent),
+            Self::Anthropic(agent) => execute!(agent),
+            Self::Gemini(agent) => execute!(agent),
         }
     }
 

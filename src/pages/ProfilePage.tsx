@@ -1,0 +1,68 @@
+import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
+
+import { ProfileHeader, useProfileStore } from "@/features/profile";
+import {
+  ActivityCalendar,
+  UsageOverviewCards,
+  UsageDataControls,
+  UsageTrendChart,
+  useUsageDashboard,
+} from "@/features/usage-analytics";
+
+export function ProfilePage() {
+  const { t } = useTranslation("profile");
+  const loadProfile = useProfileStore((state) => state.load);
+  const weekStart = useProfileStore((state) => state.profile?.week_start ?? 1);
+  const { dashboard, status, error, refresh } = useUsageDashboard();
+
+  useEffect(() => {
+    void loadProfile().catch(() => undefined);
+  }, [loadProfile]);
+
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto" data-profile-page>
+      <div className="mx-auto grid max-w-6xl gap-8 p-6 lg:p-10">
+        <ProfileHeader />
+        <section className="grid gap-4" aria-labelledby="usage-overview-heading">
+          <div>
+            <h2 id="usage-overview-heading" className="text-lg font-semibold tracking-tight">
+              {t("overview.title")}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("overview.description")}</p>
+          </div>
+          <UsageOverviewCards
+            dashboard={dashboard}
+            status={status}
+            error={error}
+            onRetry={() => void refresh()}
+          />
+        </section>
+        <section aria-label={t("activity.sectionLabel")}>
+          <ActivityCalendar
+            days={dashboard?.daily_activity ?? []}
+            weekStart={weekStart}
+            todayLocalDate={dashboard?.range.activity_end}
+            status={status}
+            hasSnapshot={dashboard !== null}
+            onRetry={() => void refresh()}
+          />
+        </section>
+        <section aria-label={t("trend.sectionLabel")}>
+          <UsageTrendChart
+            modelSeries={dashboard?.model_series ?? []}
+            otherSeries={dashboard?.other_series ?? null}
+            range={dashboard ? {
+              start: dashboard.range.trend_start,
+              end: dashboard.range.trend_end,
+            } : null}
+            status={status}
+            hasSnapshot={dashboard !== null}
+            onRetry={() => void refresh()}
+          />
+        </section>
+        <UsageDataControls onCleared={refresh} />
+      </div>
+    </div>
+  );
+}

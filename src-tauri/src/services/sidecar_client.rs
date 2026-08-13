@@ -106,12 +106,34 @@ pub struct AgentToolCall {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentTokenUsage {
+    #[serde(default, alias = "prompt_tokens")]
+    pub input_tokens: Option<u64>,
+    #[serde(default, alias = "completion_tokens")]
+    pub output_tokens: Option<u64>,
     #[serde(default)]
-    pub prompt_tokens: u32,
+    pub total_tokens: Option<u64>,
     #[serde(default)]
-    pub completion_tokens: u32,
+    pub cache_read_tokens: Option<u64>,
     #[serde(default)]
-    pub total_tokens: u32,
+    pub cache_creation_tokens: Option<u64>,
+    #[serde(default)]
+    pub reasoning_tokens: Option<u64>,
+}
+
+impl From<AgentTokenUsage> for crate::services::usage::UsageMeasurement {
+    fn from(value: AgentTokenUsage) -> Self {
+        Self {
+            input_tokens: value.input_tokens,
+            output_tokens: value.output_tokens,
+            total_tokens: value.total_tokens,
+            cache_read_tokens: value.cache_read_tokens,
+            cache_creation_tokens: value.cache_creation_tokens,
+            reasoning_tokens: value.reasoning_tokens,
+            source: crate::services::usage::MeasurementSource::ProviderReported,
+            estimator: None,
+            provider_metadata: std::collections::BTreeMap::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

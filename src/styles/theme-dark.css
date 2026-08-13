@@ -87,6 +87,14 @@ html.dark {
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
 
+  --usage-heat-0: oklch(0.268 0.007 34.298);
+  --usage-heat-1: oklch(0.35 0.06 145);
+  --usage-heat-2: oklch(0.46 0.1 145);
+  --usage-heat-3: oklch(0.58 0.13 145);
+  --usage-heat-4: oklch(0.7 0.145 145);
+  --usage-heat-border: oklch(1 0 0 / 0.12);
+  --usage-unknown: oklch(0.72 0.025 145);
+
   --primary: oklch(0.985 0.001 106.423);
   --primary-foreground: oklch(0.262 0 0);
 }

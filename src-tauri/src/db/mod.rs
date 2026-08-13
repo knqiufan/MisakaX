@@ -26,7 +26,7 @@ pub fn init_database(db_path: &Path) -> Result<Connection> {
     conn.execute_batch("PRAGMA foreign_keys=ON;")?;
     conn.execute_batch("PRAGMA busy_timeout=5000;")?;
 
-    backup_before_migration(&conn, db_path, 14)?;
+    backup_before_migration(&conn, db_path, 16)?;
 
     // Load sqlite-vec extension
     unsafe {
@@ -38,6 +38,11 @@ pub fn init_database(db_path: &Path) -> Result<Connection> {
 
     // Run schema migrations
     migrations::run_migrations(&conn)?;
+    repository::ProfileRepo::ensure_default(&conn)?;
+    match crate::services::usage::backfill::backfill_legacy_usage(&conn) {
+        Ok(diagnostics) => tracing::info!(?diagnostics, "Legacy usage backfill complete"),
+        Err(error) => tracing::warn!(error = %error, "Legacy usage backfill failed"),
+    }
 
     tracing::info!("Database initialized at: {}", db_path.display());
     Ok(conn)

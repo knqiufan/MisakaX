@@ -4,11 +4,15 @@ mod tests {
     use misaka_x_lib::config::AppConfig;
     use misaka_x_lib::contracts::FeatureFlags;
     use misaka_x_lib::db::migrations::run_migrations;
-    use misaka_x_lib::db::repository::{MessageRepo, SessionRepo, WorkspaceRepo};
+    use misaka_x_lib::db::models::NewUsageEvent;
+    use misaka_x_lib::db::repository::{
+        MessageRepo, ProfileRepo, SessionRepo, UsageRepo, WorkspaceRepo,
+    };
     use misaka_x_lib::services::llm::StreamRegistry;
     use misaka_x_lib::services::mcp::McpManager;
     use misaka_x_lib::services::sidecar_client::SidecarClient;
     use misaka_x_lib::services::terminal::TerminalManager;
+    use misaka_x_lib::services::usage::{MeasurementSource, UsageOperationKind, UsageOutcome};
     use misaka_x_lib::services::workspace::{GitCliProvider, WorkspaceContextService};
     use misaka_x_lib::sidecar::SidecarManager;
     use misaka_x_lib::AppState;
@@ -34,6 +38,44 @@ mod tests {
             terminal_manager: Arc::new(TerminalManager::default()),
             workspace_terminal_guard: tokio::sync::Mutex::new(()),
             feature_flags: FeatureFlags::default(),
+        }
+    }
+
+    fn export_usage_event(profile_id: &str) -> NewUsageEvent {
+        NewUsageEvent {
+            event_id: "origin-event".into(),
+            profile_id: profile_id.into(),
+            operation_key: "assistant:assistant-1".into(),
+            measurement_key: "measurement:assistant-1".into(),
+            operation_kind: UsageOperationKind::Chat,
+            session_id: Some("roundtrip-session".into()),
+            message_id: Some("assistant-1".into()),
+            provider_config_id: Some("provider-config".into()),
+            provider_id: Some("provider".into()),
+            vendor_id: None,
+            selected_model_id: Some("gpt-4o".into()),
+            effective_model_id: Some("gpt-4o".into()),
+            model_display_name: Some("GPT-4o".into()),
+            input_tokens: Some(9),
+            output_tokens: Some(6),
+            total_tokens: Some(15),
+            cache_read_tokens: None,
+            cache_creation_tokens: None,
+            reasoning_tokens: None,
+            measurement_source: MeasurementSource::LegacyMigrated,
+            estimator_id: None,
+            estimator_version: None,
+            outcome: UsageOutcome::Completed,
+            counts_toward_totals: true,
+            counts_toward_activity: true,
+            counts_toward_trend: true,
+            occurred_at_utc: "2026-08-13T00:00:00Z".into(),
+            local_date: "2026-08-13".into(),
+            timezone_id: Some("Asia/Shanghai".into()),
+            utc_offset_minutes: 480,
+            metadata_json: "{\"private_path\":\"must-not-export\"}".into(),
+            source_installation_id: None,
+            source_event_id: None,
         }
     }
 
@@ -233,5 +275,168 @@ mod tests {
         assert_eq!(messages.len(), 2);
         assert_eq!(messages[0].content, "Read package.json");
         assert_eq!(messages[1].tool_calls.as_deref(), Some(tool_calls));
+    }
+
+    #[test]
+    fn v2_export_import_preserves_safe_usage_origin_and_deduplicates_replays() {
+        let source = create_test_state();
+        let source_conn = source.db.lock().unwrap();
+        let profile = ProfileRepo::ensure_default(&source_conn).unwrap();
+        ProfileRepo::update_avatar(
+            &source_conn,
+            &profile.profile_id,
+            "avatar-private.webp",
+            "private-sha",
+        )
+        .unwrap();
+        SessionRepo::create(
+            &source_conn,
+            "roundtrip-session",
+            Some("Roundtrip"),
+            Some("gpt-4o"),
+            None,
+        )
+        .unwrap();
+        MessageRepo::insert_assistant_placeholder(
+            &source_conn,
+            "assistant-1",
+            "roundtrip-session",
+            "gpt-4o",
+        )
+        .unwrap();
+        UsageRepo::insert_batch_idempotent(
+            &source_conn,
+            &[export_usage_event(&profile.profile_id)],
+        )
+        .unwrap();
+
+        let directory = tempfile::tempdir().unwrap();
+        let export_path = directory.path().join("v2.json");
+        export_sessions_to_file(
+            &source_conn,
+            &["roundtrip-session".to_string()],
+            &export_path,
+        )
+        .unwrap();
+        let exported: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&export_path).unwrap()).unwrap();
+        assert_eq!(exported["version"], 2);
+        assert!(exported["profile"].get("avatar_storage_key").is_none());
+        assert!(exported["profile"].get("avatar_sha256").is_none());
+        let exported_text = exported.to_string();
+        assert!(!exported_text.contains("avatar-private"));
+        assert!(!exported_text.contains("private-sha"));
+        assert!(!exported_text.contains("private_path"));
+        assert_eq!(exported["usage_events"].as_array().unwrap().len(), 1);
+        let source_installation = exported["usage_events"][0]["source_installation_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let target = create_test_state();
+        let target_conn = target.db.lock().unwrap();
+        let first = import_sessions_from_file(&target_conn, &export_path).unwrap();
+        assert_eq!(first.usage_imported_count, 1);
+        assert_eq!(first.usage_skipped_count, 0);
+        let second = import_sessions_from_file(&target_conn, &export_path).unwrap();
+        assert_eq!(second.usage_imported_count, 0);
+        assert_eq!(second.usage_skipped_count, 1);
+        let target_profile = ProfileRepo::get_current(&target_conn).unwrap();
+        let imported =
+            UsageRepo::list_for_profile(&target_conn, &target_profile.profile_id).unwrap();
+        assert_eq!(imported.len(), 1);
+        assert_eq!(
+            imported[0].source_installation_id.as_deref(),
+            Some(source_installation.as_str())
+        );
+        assert_eq!(imported[0].source_event_id.as_deref(), Some("origin-event"));
+        assert!(imported[0].metadata_json.contains("legacy_migrated"));
+        assert!(!imported[0].metadata_json.contains("private_path"));
+
+        let reexport_path = directory.path().join("reexport.json");
+        export_sessions_to_file(
+            &target_conn,
+            &["roundtrip-session".to_string()],
+            &reexport_path,
+        )
+        .unwrap();
+        let reexported: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&reexport_path).unwrap()).unwrap();
+        assert_eq!(
+            reexported["usage_events"][0]["source_installation_id"],
+            source_installation
+        );
+        assert_eq!(
+            reexported["usage_events"][0]["source_event_id"],
+            "origin-event"
+        );
+
+        // Delimiter-bearing origin pairs remain distinct:
+        // ("a:b", "c") must not collide with ("a", "b:c").
+        let mut collision_export = exported;
+        collision_export["usage_events"][0]["source_installation_id"] = serde_json::json!("a:b");
+        collision_export["usage_events"][0]["source_event_id"] = serde_json::json!("c");
+        let mut second_event = collision_export["usage_events"][0].clone();
+        second_event["source_installation_id"] = serde_json::json!("a");
+        second_event["source_event_id"] = serde_json::json!("b:c");
+        collision_export["usage_events"]
+            .as_array_mut()
+            .unwrap()
+            .push(second_event);
+        let collision_path = directory.path().join("origin-collision.json");
+        std::fs::write(
+            &collision_path,
+            serde_json::to_vec_pretty(&collision_export).unwrap(),
+        )
+        .unwrap();
+        let collision_target = create_test_state();
+        let collision_conn = collision_target.db.lock().unwrap();
+        let collision_result = import_sessions_from_file(&collision_conn, &collision_path).unwrap();
+        assert_eq!(collision_result.usage_imported_count, 2);
+        assert_eq!(collision_result.usage_skipped_count, 0);
+    }
+
+    #[test]
+    fn legacy_v1_export_without_profile_or_usage_fields_remains_importable() {
+        let source = create_test_state();
+        let source_conn = source.db.lock().unwrap();
+        SessionRepo::create(&source_conn, "legacy-session", Some("Legacy"), None, None).unwrap();
+        source_conn
+            .execute(
+                "UPDATE sessions SET total_input_tokens = 7, total_output_tokens = 3
+                 WHERE id = 'legacy-session'",
+                [],
+            )
+            .unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let export_path = directory.path().join("legacy-v1.json");
+        export_sessions_to_file(&source_conn, &["legacy-session".to_string()], &export_path)
+            .unwrap();
+        let mut value: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&export_path).unwrap()).unwrap();
+        value["version"] = serde_json::json!(1);
+        value.as_object_mut().unwrap().remove("profile");
+        value.as_object_mut().unwrap().remove("usage_events");
+        std::fs::write(&export_path, serde_json::to_vec_pretty(&value).unwrap()).unwrap();
+
+        let target = create_test_state();
+        let target_conn = target.db.lock().unwrap();
+        let result = import_sessions_from_file(&target_conn, &export_path).unwrap();
+        assert_eq!(result.imported_count, 1);
+        assert_eq!(result.usage_imported_count, 1);
+        assert_eq!(result.usage_skipped_count, 0);
+        let profile = ProfileRepo::get_current(&target_conn).unwrap();
+        let usage = UsageRepo::list_for_profile(&target_conn, &profile.profile_id).unwrap();
+        assert_eq!(usage.len(), 1);
+        assert_eq!(
+            usage[0].measurement_source,
+            MeasurementSource::LegacyMigrated
+        );
+        assert!(usage[0]
+            .metadata_json
+            .contains("sessions.total_*_tokens residual"));
+        assert!(usage[0]
+            .metadata_json
+            .contains("historical_timezone_unknown"));
     }
 } // mod tests

@@ -22,10 +22,21 @@ fn test_init_database() {
             })
             .unwrap();
         assert!(
-            version >= 3,
-            "Expected schema version >= 3, got {}",
+            version >= 16,
+            "Expected schema version >= 16, got {}",
             version
         );
+
+        let (profile_count, current_profile): (i64, String) = conn
+            .query_row(
+                "SELECT COUNT(*), (SELECT value FROM settings WHERE key = 'profile.current_id')
+                 FROM user_profiles",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(profile_count, 1);
+        assert!(!current_profile.is_empty());
 
         tables
     };
@@ -38,4 +49,10 @@ fn test_init_database() {
     assert!(tables.contains(&"tasks".to_string()));
     assert!(tables.contains(&"knowledge_docs".to_string()));
     assert!(tables.contains(&"mcp_servers".to_string()));
+    assert!(tables.contains(&"user_profiles".to_string()));
+    assert!(tables.contains(&"llm_usage_events".to_string()));
+    assert!(tables.contains(&"usage_rollup_state".to_string()));
+    assert!(tables.contains(&"usage_operation_rollups".to_string()));
+    assert!(tables.contains(&"usage_profile_rollups".to_string()));
+    assert!(tables.contains(&"usage_daily_rollups".to_string()));
 }

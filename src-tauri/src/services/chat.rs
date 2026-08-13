@@ -21,6 +21,11 @@ use crate::services::sidecar_client::{AgentChatConfig, AgentChatMessage, AgentCh
 use crate::services::sidecar_sse::consume_sidecar_stream;
 use crate::services::skills::types::{MessageSkillSelection, SkillActivationView};
 use crate::services::thinking_capabilities::lookup_thinking_capability;
+use crate::services::usage::collector::ensure_fallback_capture;
+use crate::services::usage::finalize::{
+    emit_usage_recorded, finalize_turn, FinalizeTurnOutcome, FinalizeTurnRequest,
+};
+use crate::services::usage::UsageOperationKind;
 use crate::AppState;
 
 /// 将附件 JSON 字符串反序列化为 MessageAttachment 列表
@@ -581,49 +586,51 @@ pub(crate) fn create_assistant_placeholder(
         .map_err(|e| e.to_string())
 }
 
-pub(crate) fn update_assistant_message(
-    state: &AppState,
-    msg_id: &str,
-    result: &StreamResult,
-    tool_calls_json: Option<&str>,
-) -> Result<(), String> {
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-
-    let usage_json = result
-        .usage
-        .as_ref()
-        .map(|u| serde_json::to_string(u).unwrap_or_default());
-
-    let thinking = if result.thinking.is_empty() {
-        None
-    } else {
-        Some(result.thinking.as_str())
-    };
-
-    MessageRepo::update_assistant_content(
-        &db,
-        msg_id,
-        &result.content,
-        thinking,
-        usage_json.as_deref(),
-        result.was_aborted,
-        tool_calls_json,
-    )
-    .map_err(|e| e.to_string())
-}
-
-pub(crate) fn update_session_stats(
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn finalize_assistant_turn(
+    app: &AppHandle,
     state: &AppState,
     session_id: &str,
-    result: &StreamResult,
-) -> Result<(), String> {
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-
-    let (input_tokens, output_tokens) = match &result.usage {
-        Some(usage) => (Some(usage.input_tokens), Some(usage.output_tokens)),
-        None => (None, None),
+    assistant_message_id: &str,
+    turn: &TurnModel,
+    operation_kind: UsageOperationKind,
+    input_segments: &[String],
+    has_image_attachments: bool,
+    call_started: bool,
+    mut result: StreamResult,
+    tool_calls_json: Option<String>,
+) -> Result<FinalizeTurnOutcome, String> {
+    let input_refs: Vec<&str> = input_segments.iter().map(String::as_str).collect();
+    ensure_fallback_capture(
+        &mut result.usage_captures,
+        turn.vendor.as_deref(),
+        Some(&turn.effective.model_id),
+        &input_refs,
+        &result.content,
+        has_image_attachments,
+        tool_calls_json.is_some(),
+        call_started,
+    );
+    let request = FinalizeTurnRequest {
+        operation_key: format!("assistant:{assistant_message_id}"),
+        operation_kind,
+        session_id: Some(session_id.to_string()),
+        message_id: Some(assistant_message_id.to_string()),
+        selected_model_id: Some(turn.selected.model_id.clone()),
+        effective_provider_config_id: Some(turn.effective.config_id.clone()),
+        effective_model_id: Some(turn.effective.model_id.clone()),
+        vendor_id: turn.vendor.clone(),
+        content: result.content,
+        thinking: result.thinking,
+        tool_calls_json,
+        captures: result.usage_captures,
+        was_aborted: result.was_aborted,
+        stream_error: result.stream_error,
+        session_title: None,
     };
-
-    SessionRepo::update_stats(&db, session_id, input_tokens, output_tokens)
-        .map_err(|e| e.to_string())
+    let mut db = state.db.lock().map_err(|error| error.to_string())?;
+    let outcome = finalize_turn(&mut db, &request).map_err(|error| error.to_string())?;
+    drop(db);
+    emit_usage_recorded(app, &outcome.recorded);
+    Ok(outcome)
 }

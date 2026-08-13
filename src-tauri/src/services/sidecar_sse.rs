@@ -14,6 +14,8 @@ use crate::services::llm::{
     StreamThinkingPayload, StreamTokenPayload, StreamToolCallPayload, StreamToolResultPayload,
     TokenUsageInfo,
 };
+use crate::services::usage::collector::{aggregate_captures, provider_capture};
+use crate::services::usage::{SidecarUsageEventV1, UsageCapture};
 use crate::services::ToolCallRecord;
 
 const SIDECAR_SERVER_ID: &str = "sidecar";
@@ -31,6 +33,7 @@ pub enum MappedSidecarEvent {
     Thinking { delta: String },
     ToolCall(StreamToolCallPayload),
     ToolResult(StreamToolResultPayload),
+    Usage { measurement_count: usize },
     Done,
 }
 
@@ -46,6 +49,7 @@ pub struct SidecarStreamAccumulator {
     content: String,
     thinking: String,
     usage: Option<TokenUsageInfo>,
+    usage_captures: Vec<UsageCapture>,
     /// Open tool records keyed by stable SSE tool id (LangChain run_id).
     open_tools: HashMap<String, usize>,
     tool_calls: Vec<ToolCallRecord>,
@@ -105,7 +109,9 @@ impl SidecarStreamAccumulator {
                 content: self.content,
                 thinking: self.thinking,
                 usage: self.usage,
+                usage_captures: self.usage_captures,
                 was_aborted,
+                stream_error: None,
             },
             tool_calls: self.tool_calls,
         }
@@ -224,6 +230,85 @@ impl SidecarStreamAccumulator {
             .find(|(_, r)| r.status == "running" && r.tool_name == tool_name)
             .map(|(i, _)| i)
     }
+
+    fn record_usage(&mut self, event: SidecarUsageEventV1) -> Result<usize, String> {
+        event.validate().map_err(ToString::to_string)?;
+        for measurement in event.measurements {
+            for value in [
+                measurement.input_tokens,
+                measurement.output_tokens,
+                measurement.total_tokens,
+                measurement.cache_read_tokens,
+                measurement.cache_creation_tokens,
+                measurement.reasoning_tokens,
+            ]
+            .into_iter()
+            .flatten()
+            {
+                i64::try_from(value)
+                    .map_err(|_| "usage token value exceeds SQLite INTEGER".to_string())?;
+            }
+            let mut capture = provider_capture(
+                measurement.run_id.clone(),
+                measurement.model,
+                measurement.input_tokens,
+                measurement.output_tokens,
+                measurement.total_tokens,
+                measurement.cache_read_tokens,
+                measurement.cache_creation_tokens,
+                measurement.reasoning_tokens,
+            );
+            capture.measurement.source = measurement.source;
+            capture.measurement.provider_metadata = measurement.provider_metadata;
+            if let Some(existing) = self
+                .usage_captures
+                .iter_mut()
+                .find(|current| current.capture_id == capture.capture_id)
+            {
+                if capture_completeness(&capture) >= capture_completeness(existing) {
+                    *existing = capture;
+                }
+            } else {
+                self.usage_captures.push(capture);
+            }
+        }
+        self.refresh_usage_summary()?;
+        Ok(self.usage_captures.len())
+    }
+
+    fn refresh_usage_summary(&mut self) -> Result<(), String> {
+        if self.usage_captures.is_empty() {
+            self.usage = None;
+            return Ok(());
+        }
+        let aggregate = aggregate_captures(&self.usage_captures).map_err(|e| e.to_string())?;
+        self.usage = Some(TokenUsageInfo {
+            input_tokens: aggregate.input_tokens,
+            output_tokens: aggregate.output_tokens,
+            total_tokens: aggregate.resolved_total().map_err(ToString::to_string)?,
+            cache_read_tokens: aggregate.cache_read_tokens,
+            cache_creation_tokens: aggregate.cache_creation_tokens,
+            reasoning_tokens: aggregate.reasoning_tokens,
+            measurement_source: aggregate.source,
+            estimator_id: aggregate.estimator.as_ref().map(|value| value.id.clone()),
+            estimator_version: aggregate.estimator.map(|value| value.version),
+        });
+        Ok(())
+    }
+}
+
+fn capture_completeness(capture: &UsageCapture) -> usize {
+    [
+        capture.measurement.input_tokens,
+        capture.measurement.output_tokens,
+        capture.measurement.total_tokens,
+        capture.measurement.cache_read_tokens,
+        capture.measurement.cache_creation_tokens,
+        capture.measurement.reasoning_tokens,
+    ]
+    .into_iter()
+    .filter(Option::is_some)
+    .count()
 }
 
 fn now_millis() -> i64 {
@@ -311,6 +396,12 @@ pub fn map_sidecar_event(
         }
         "tool_start" => Ok(Some(map_tool_start(data, session_id, message_id, acc))),
         "tool_end" => Ok(Some(map_tool_end(data, session_id, message_id, acc))),
+        "usage" => {
+            let event: SidecarUsageEventV1 = serde_json::from_value(data.clone())
+                .map_err(|error| format!("Invalid usage SSE payload: {error}"))?;
+            let measurement_count = acc.record_usage(event)?;
+            Ok(Some(MappedSidecarEvent::Usage { measurement_count }))
+        }
         "done" => Ok(Some(MappedSidecarEvent::Done)),
         "error" => {
             let message = data
@@ -482,6 +573,7 @@ pub async fn consume_sidecar_stream(
                 Ok(Some(MappedSidecarEvent::ToolResult(payload))) => {
                     emit_tool_result(app, &payload);
                 }
+                Ok(Some(MappedSidecarEvent::Usage { .. })) => {}
                 Ok(Some(MappedSidecarEvent::Done)) => {
                     return finalize_stream(app, session_id, message_id, acc, &abort_flag, None);
                 }
@@ -547,14 +639,16 @@ fn finalize_stream(
             content: acc.content.clone(),
             thinking: acc.thinking.clone(),
             usage: acc.usage.clone(),
+            usage_captures: acc.usage_captures.clone(),
             was_aborted,
+            stream_error: stream_error.clone(),
         },
         tool_calls: acc.tool_calls,
     };
 
     if let Some(err) = stream_error {
         emit_stream_error(app, session_id, message_id, &err);
-        return Err(err);
+        return Ok(outcome);
     }
 
     let payload = StreamCompletePayload {

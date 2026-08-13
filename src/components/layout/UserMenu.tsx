@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   User,
@@ -8,7 +9,8 @@ import {
   Settings,
 } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ProfileAvatar } from "@/features/profile";
+import { useProfileStore } from "@/features/profile/profile-store";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +22,15 @@ import {
 export function UserMenu() {
   const navigate = useAppStore((s) => s.navigate);
   const { t } = useTranslation("nav");
+  const profile = useProfileStore((state) => state.profile);
+  const avatarUrl = useProfileStore((state) => state.avatarUrl);
+  const loadProfile = useProfileStore((state) => state.load);
+
+  useEffect(() => {
+    void loadProfile().catch(() => undefined);
+  }, [loadProfile]);
+
+  const displayName = profile?.display_name ?? t("user");
 
   return (
     <DropdownMenu>
@@ -28,12 +39,13 @@ export function UserMenu() {
           type="button"
           className="flex h-9 w-full items-center gap-2 rounded-xl px-3 text-[13px] font-normal text-sidebar-foreground outline-none transition-colors duration-150 hover:bg-sidebar-accent/60 focus-visible:ring-2 focus-visible:ring-ring/35"
         >
-          <Avatar className="size-5 shrink-0">
-            <AvatarFallback className="bg-primary/10 text-[10px] text-primary">
-              U
-            </AvatarFallback>
-          </Avatar>
-          <span className="truncate">{t("user")}</span>
+          <ProfileAvatar
+            displayName={displayName}
+          avatarUrl={avatarUrl}
+            className="size-5"
+            fallbackClassName="text-[10px]"
+          />
+          <span className="truncate">{displayName}</span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -42,7 +54,7 @@ export function UserMenu() {
         sideOffset={8}
         className="w-48"
       >
-        <DropdownMenuItem disabled>
+        <DropdownMenuItem onClick={() => navigate({ page: "profile" })}>
           <User className="mr-2 h-4 w-4" />
           {t("userMenu.profile")}
         </DropdownMenuItem>

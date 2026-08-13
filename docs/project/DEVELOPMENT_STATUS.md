@@ -10,7 +10,7 @@
 
 **当前处于 Phase 3 代码关门阶段（约 95%），M2 里程碑等待最终 UI/实机复验记录。**
 
-MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目录、MCP 管理、Provider 配置）。Phase 3 的 Sidecar watchdog、对话内 MCP 工具闭环、导入刷新、Nuitka 打包和 F1-F3 自动化测试已落地；进入 Phase 4 前请先按 Phase 3 §6 补齐最终 UI/实机复验记录。
+MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目录、MCP 管理、Provider 配置），并已交付独立个人中心、365 天活动日历、30 天模型趋势与跨 Rig/Sidecar 的可靠 Token 账本。Phase 3 的 Sidecar watchdog、对话内 MCP 工具闭环、导入刷新、Nuitka 打包和 F1-F3 自动化测试已落地；原总体路线的完成度与实机 Gate 仍按下表单独追踪。
 
 **续做入口：** [`docs/planning/PHASE_3_REMAINING_TODO.md`](../planning/PHASE_3_REMAINING_TODO.md)（Epic A–F 详细 TODO + V1–V30 记录表）
 
@@ -109,13 +109,13 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 
 **关键路径：** `src/components/skills/`、`src-tauri/src/services/skills/`、`agent/app/agent.py`
 
-### 3.6 Sidecar 预热（尚未参与对话）
+### 3.6 Sidecar Agent 与预热
 
 - 应用启动可自动预热 Python Sidecar（`auto_start_sidecar` in config）
 - 健康检查、`SidecarStatusBadge` 状态展示
 - 运行时 watchdog：就绪后检测子进程退出 / health 失败，最多 3 次自动重启
 - Nuitka 二进制优先启动：存在 `agent/dist/misaka-agent.exe` 时优先 spawn，否则回退 uvicorn
-- `/health`、`/info` 可用；`/agent/chat`、`/agent/stream` 返回 **501 占位**
+- `/health`、`/info`、`/agent/chat`、`/agent/stream` 可用；chat/research 模式均可产生 token/thinking/tool/done，并在完成或异常前尽力上报 Usage SSE v1
 
 **关键路径：** `src-tauri/src/sidecar.rs`、`src-tauri/src/services/sidecar_client.rs`、`agent/app/routers/`
 
@@ -127,12 +127,26 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 
 **关键路径：** `src-tauri/src/services/sandbox/`、[`SANDBOX_TECH_SELECTION.md`](../architecture/SANDBOX_TECH_SELECTION.md)、[`SANDBOX_IMPLEMENTATION_PLAN.md`](../planning/SANDBOX_IMPLEMENTATION_PLAN.md)
 
-### 3.8 测试覆盖
+### 3.8 个人中心与 Token 用量统计（P0–P8 已交付）
+
+- 用户菜单进入独立 `profile` route；页面无主导航/会话栏，保留 UnifiedTopBar、80px 本地头像、名称编辑与三张总览卡。
+- Schema v15 引入的 `llm_usage_events` 是唯一事实源；Schema v16 为较早到达 v15 的安装补建可重建 rollup 表。Rig/MCP 与 Sidecar chat/research 统一为 canonical usage，provider-reported 优先，heuristic、legacy 与 unavailable 明确分级，未知值不伪装为 0。
+- Dashboard 单快照返回总览、365 天活动与 30 天 Top 5 + others 趋势；同模型跨 provider 不合并，前端以十进制字符串 + BigInt 避免 64 位精度损失。
+- 消息、账本、session projection 在同一 finalize transaction；重复 complete、重生成、弱引用删除、清空、v1/v2 导入与启动回填均有确定行为。
+- 头像限制为 PNG/JPEG/WebP、5 MiB、40M 像素，规范化为最长边 512px 的托管 WebP；清空与替换不接受任意删除路径。
+- 1k/10k/100k fixture 触发可重建/增量 rollup；100k 热查询 P95 约 64.8ms，账本仍为唯一事实源。
+
+**精度与残余限制：** 首版是单本地 profile、系统时区快照与固定 365/30 天范围；不含价格/成本、预算、云同步或供应商账单对账。没有 provider usage 时只对可提取文本做版本化 heuristic，多模态未知部分保持 unknown；legacy 数据与时区历史不做伪精确回算。rollup 按追加式账本设计，未来若允许原地改写计量字段必须扩展失效策略。
+
+**关键路径：** `src/pages/ProfilePage.tsx`、`src/features/{profile,usage-analytics}/`、`src/lib/ipc/{profile,usage}.ts`、`src-tauri/src/{commands,services,db}/`、`agent/app/usage.py`、[`PERSONAL_CENTER_USAGE_ANALYTICS_ARCHITECTURE.md`](../architecture/PERSONAL_CENTER_USAGE_ANALYTICS_ARCHITECTURE.md)
+
+### 3.9 测试覆盖
 
 | 范围 | 数量 | 运行命令 |
 |------|------|----------|
-| 前端 Vitest | 38 个测试文件 / 271 tests | `npm test` |
-| Rust 集成测试 | 50 个测试文件 | 日常：`cargo test --test <name>`；提交前：`cargo nextest run --all-features --profile ci`（或 `cargo test --all-features -j1`） |
+| 前端 Vitest | 50 个测试文件 / 313 tests | `npm test` |
+| Rust 全特性 | 45 个集成测试文件 / 合计 511 tests | 日常：`cargo test --test <name>`；提交前：`cargo nextest run --all-features --profile ci`（或 `cargo test --all-features -j1`） |
+| Python Sidecar 交付门禁 | 指定 3 个文件 / 41 tests | `python -m pytest tests/test_stream_sse.py tests/test_agent.py tests/test_models.py` |
 
 > Rust 日常构建/测试依赖增量编译，**不要**在每次 `cargo test` 前执行 `cargo clean`。日常改代码优先 `cargo check` + 精准 `--test`（映射表见优化指南 §4.2）；Cursor hook `.cursor/hooks/post-edit-test.sh` 已按映射自动选择测试。仅在链接异常、切分支后编译诡异失败等情况下按需 `cargo clean`。见 [`docs/guides/rust-build-test-optimization.md`](../guides/rust-build-test-optimization.md)。
 
@@ -144,18 +158,18 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 
 | 项 | 现状 | 参考 |
 |----|------|------|
-| Sidecar Agent 端点 | `agent/app/routers/agent.py` 返回 501 | Phase 3 AC-4 → Phase 4 替换 |
+| Sidecar Agent 实机联调 | chat/research 与 Usage SSE 已有 fixture/集成测试；仍需按发布环境使用真实 Provider/MCP 复验网络与凭据路径 | Phase 4 / 发布 Gate |
 | UI/实机复验记录 | C/D/F 自动化与 CLI 验证已完成；V1-V26 中仍有若干 UI 操作需人工最终确认 | Phase 3 §6 |
 | 发布捆绑 | Nuitka 本地产物已验收；W6 Windows 当前机已重新生成并审计本地未签名 EXE/MSI/NSIS，Release Terminal、纯本地静态资源与进程级离线解析失败启动通过；`externalBin`、签名和三平台正式安装包仍属发布阶段 | Phase 6 / Workspace W6 |
 
-### 4.2 Phase 4 核心缺口（**主续做线**）
+### 4.2 Phase 4 剩余 Gate（原计划需按当前实现重基线）
 
 | 项 | 现状 | 首要文件 |
 |----|------|----------|
-| DeepAgents Agent 组装 | 未实现 | 新建 `agent/app/agent.py` |
-| 自定义 Tool（PowerMem / MCP Bridge） | 未实现 | 新建 `agent/app/tools.py` |
-| Rust 对话后端切换 | 仍走 Rig | `src-tauri/src/commands/chat.rs`、`services/llm/backend.rs` |
-| PowerMem 长期记忆 | 依赖未安装（optional） | `agent/pyproject.toml` `[project.optional-dependencies]` |
+| DeepAgents Agent 组装 | `agent.py` 已提供 chat/research 组装与 subagents；仍需对齐原 Phase 4 全部发布 Gate | `agent/app/agent.py` |
+| 自定义 Tool（PowerMem / MCP Bridge） | `tools.py` 已有惰性 PowerMem 与 Rust MCP Bridge；真实凭据/Provider/Sandbox 路径仍需实机复验 | `agent/app/tools.py` |
+| Rust 对话后端切换 | `use_sidecar` 可选择 Sidecar，Rig 保留为 fallback；完整迁移/回退策略需重新验收 | `src-tauri/src/commands/chat.rs`、`services/llm/backend.rs` |
+| PowerMem 长期记忆 | 惰性适配与 API 已存在；功能是否可用取决于 optional 依赖和运行配置 | `agent/app/memory.py`、`agent/pyproject.toml` |
 | 记忆管理 UI | 无 | Phase 4 Sprint 5 |
 | Agent/Skill/MCP 外部执行接入 | S0 控制面已实现；无生产 Provider，必须 fail closed | `src-tauri/src/services/sandbox/`、Sandbox S0.5/S1–S4 |
 
@@ -235,10 +249,10 @@ npm run tauri dev
 
 | 维度 | 规模 |
 |------|------|
-| 前端 TS/TSX | ~160+ 文件 |
-| Rust 源码 | 47 个 `.rs`（`src-tauri/src/`） |
-| Tauri Commands | ~50+（见 `src-tauri/src/lib.rs` `invoke_handler`） |
-| DB Schema | **v13**（`src-tauri/src/db/migrations.rs`） |
+| 前端 TS/TSX | 268 个文件 |
+| Rust 源码 | 129 个 `.rs`（`src-tauri/src/`） |
+| Tauri Commands | 120（见 `src-tauri/build.rs` 与 `src-tauri/src/lib.rs`） |
+| DB Schema | **v16**（v15 事实表 + v16 旧安装 rollup 修复；`src-tauri/src/db/migrations.rs`） |
 | UI 设计规范 | `docs/design/frontend-ui-guidelines.md` 等 3 份 |
 
 ---
@@ -247,19 +261,19 @@ npm run tauri dev
 
 ```
 React 前端 ✅
-  Chat / Settings / Workspace / MCP UI
+  Chat / Settings / Workspace / MCP / Profile / Usage UI
         │
         ▼
 Tauri Rust ✅
-  ├── chat ──▶ Rig ──▶ LLM API          ← 当前对话路径
+  ├── chat ──▶ use_sidecar ? Python Agent : Rig ──▶ LLM API
   ├── MCP (rmcp) ──▶ MCP Servers
-  ├── SQLite v13
+  ├── Usage finalize/query ──▶ SQLite v16 ledger + rebuildable rollups
   └── SidecarManager ──▶ Python :9527
                               ├── /health ✅
-                              └── /agent/* ❌ 501（Phase 4）
+                              └── /agent/* ✅ chat/research + Usage SSE v1
 ```
 
-Phase 4 完成后，对话路径变为：`chat.rs → SidecarClient → DeepAgents → LLM/MCP/PowerMem`。
+当前 `use_sidecar` 运行时开关决定走 `chat.rs → SidecarClient → Python Agent` 或保留的 Rig 路径；原 Phase 4 文档中的 PowerMem、发布与完整迁移 Gate 仍需按各自计划复验，不能仅凭端点已实现视为整阶段完成。
 
 ---
 

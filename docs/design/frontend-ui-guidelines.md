@@ -4,11 +4,11 @@
 
 ## 文档关系
 
-- **壳层布局、单列左栏、会话列表工具区与底栏、对话页工作目录顶栏、设置页卡片系统、Workspace Explorer chrome、对话消息/Markdown/思考与工具**等专项约定：见 [shell-and-workspace-ui-spec.md](./shell-and-workspace-ui-spec.md)。  
+- **壳层布局、单列左栏、会话列表工具区与底栏、对话页工作目录顶栏、设置页卡片系统、个人中心与用量统计、Workspace Explorer chrome、对话消息/Markdown/思考与工具**等专项约定：见 [shell-and-workspace-ui-spec.md](./shell-and-workspace-ui-spec.md)。
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-08-09（v34）
+**最后审阅 / Last reviewed:** 2026-08-13（v37）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -56,6 +56,7 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - 常用文字：`text-foreground`、`text-muted-foreground`。
 - 字体：Geist Variable + Geist Mono；`body` 使用 `antialiased`。
 - 产品圆角：`--radius: 1rem`（16px）。
+- 数据可视化专用 `--usage-heat-0..4` 只编码个人中心活动强度，须在 `theme-light.css` / `theme-dark.css` 成对定义；它不替换 `--primary`、`--ring`、状态色或普通成功提示。未知用量必须再配纹理/轮廓与文本语义，细节见 [壳层规范 §4.5](./shell-and-workspace-ui-spec.md#45-个人中心与用量统计)。
 
 ### 3.2 阴影与层级 (Shadows & Elevation)
 - **扁平化为主**：基础按钮、输入框等控件尽量减少阴影，使用边框（Border）来区分边界。
@@ -207,11 +208,18 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - 主列已由 `MessageList` 的 `max-w-3xl` 约束；Assistant **不再**套 `surface-card` 底色卡片。
 - 禁止用卡片底与 User 气泡混淆。
 
+### 4.6.x.0 TokenBadge 数据质量
+
+- TokenBadge 必须兼容旧消息 JSON 和 canonical 可空字段：供应商未返回总量时显示“用量不可用”，不得把 `null` 渲染为 `0`。
+- `tokenizer_estimated` / `heuristic_estimated` 用 `~` 与 Tooltip 文案明确标为估算；cache/reasoning 是明细，不重复加入总量。
+- Badge 保持静态状态文本，无悬停位移、缩放或强数据色；完整 input/output/total 与质量说明通过可访问名称和 Tooltip/原生 title 提供。
+
 ### 4.6.x.1 富内容块（Rich Content Blocks）
 
 - 富内容是 Assistant 正文中的**有序内容块**，不是新的整条消息气泡；Assistant 外层仍保持无背景、无圆角外壳。无块或功能开关关闭时必须回退到既有 Markdown 正文。
 - 每个独立块使用 `my-4 rounded-xl border-border/40 bg-muted/20` 的低对比容器，头部使用 `size-4` Lucide 图标、`text-sm font-medium` 标题和紧凑 `icon-xs` 操作；禁止 dashboard 式强色背景、悬停位移或缩放。
 - 图表、地图、文件预览必须惰性加载，并提供受控的文本/数据/下载降级路径；块级失败只能显示局部 notice，不能中断相邻 Markdown、工具调用或消息 footer。
+- ECharts 等命令式可视化必须通过通用宿主管理动态 import、容器 Resize、主题 token 重应用和卸载释放；领域层只生成 options 与等价数据，不复制 init/observer/dispose 生命周期。业务统计的具体 gap、大整数和表格语义见 [壳层与工作区规范 §4.5](./shell-and-workspace-ui-spec.md#45-个人中心与用量统计)。
 - 文件预览使用共享 `Dialog`，始终标明“只读”；二进制资源仅经窄 IPC 获取，禁止在 JSX 注入 HTML、任意 URL、`file:` 路径或未验证 SVG。所有可见标签、状态、`aria-label` 和错误文案必须走 `chat.richContent.*` i18n key。
 - 图表和地图的辅助操作（数据表、要素列表、复制、导出）必须键盘可达；颜色不是唯一信息来源，库加载/WebGL 失败时显示等价文本数据。
 - R4a 地图只渲染经校验的本地 GeoJSON：不得接收 tile URL、外部样式或其他远程资源；地图区域保持中性底色、固定可读高度和加载态，渲染失败时回退为要素列表。长要素列表默认最多显示 200 项，并明确告知截断。

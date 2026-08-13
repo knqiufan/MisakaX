@@ -7,6 +7,23 @@ interface TokenBadgeProps {
 }
 
 export function TokenBadge({ usage, className }: TokenBadgeProps) {
+  const resolvedTotal =
+    usage.total_tokens ??
+    (usage.input_tokens != null && usage.output_tokens != null
+      ? usage.input_tokens + usage.output_tokens
+      : null);
+  const isEstimated =
+    usage.measurement_source === "tokenizer_estimated" ||
+    usage.measurement_source === "heuristic_estimated";
+  const label =
+    resolvedTotal == null
+      ? "Usage unavailable"
+      : `${isEstimated ? "~" : ""}${formatTokenCount(resolvedTotal)} tokens`;
+  const title =
+    resolvedTotal == null
+      ? "Token usage was not reported"
+      : `Input: ${usage.input_tokens ?? "unknown"} | Output: ${usage.output_tokens ?? "unknown"} | Total: ${resolvedTotal}${isEstimated ? " (estimated)" : ""}`;
+
   return (
     <span
       className={cn(
@@ -15,9 +32,10 @@ export function TokenBadge({ usage, className }: TokenBadgeProps) {
         "border border-[color:var(--border-muted)]",
         className
       )}
-      title={`Input: ${usage.input_tokens} | Output: ${usage.output_tokens} | Total: ${usage.total_tokens}`}
+      title={title}
+      aria-label={title}
     >
-      <span>{formatTokenCount(usage.total_tokens)} tokens</span>
+      <span>{label}</span>
     </span>
   );
 }

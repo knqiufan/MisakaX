@@ -94,6 +94,12 @@ pub fn artifacts_dir() -> Result<PathBuf> {
     Ok(config_dir()?.join("data").join("artifacts"))
 }
 
+/// Application-owned, normalized profile avatars. Database rows store only
+/// the generated filename, never the user-selected source path.
+pub fn profile_avatars_dir() -> Result<PathBuf> {
+    Ok(config_dir()?.join("data").join("profile-avatars"))
+}
+
 /// Get the skills directory path (~/.misakax/skills/)
 pub fn skills_dir() -> Result<PathBuf> {
     Ok(config_dir()?.join("skills"))
@@ -149,6 +155,7 @@ pub fn ensure_directories() -> Result<()> {
         root.clone(),
         root.join("data"),
         root.join("data").join("artifacts"),
+        root.join("data").join("profile-avatars"),
         root.join("skills"),
         root.join("managed").join("skills"),
         root.join("managed").join("skills-staging"),

@@ -723,6 +723,36 @@
           "markdownDescription": "Enables the pin_session command without any pre-configured scope."
         },
         {
+          "description": "Enables the profile_avatar_clear command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-profile-avatar-clear",
+          "markdownDescription": "Enables the profile_avatar_clear command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the profile_avatar_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-profile-avatar-get",
+          "markdownDescription": "Enables the profile_avatar_get command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the profile_avatar_set command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-profile-avatar-set",
+          "markdownDescription": "Enables the profile_avatar_set command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the profile_get_current command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-profile-get-current",
+          "markdownDescription": "Enables the profile_get_current command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the profile_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-profile-update",
+          "markdownDescription": "Enables the profile_update command without any pre-configured scope."
+        },
+        {
           "description": "Enables the record_directory_usage command without any pre-configured scope.",
           "type": "string",
           "const": "allow-record-directory-usage",
@@ -1051,6 +1081,18 @@
           "type": "string",
           "const": "allow-update-workspace-preference",
           "markdownDescription": "Enables the update_workspace_preference command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the usage_clear_history command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-usage-clear-history",
+          "markdownDescription": "Enables the usage_clear_history command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the usage_get_dashboard command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-usage-get-dashboard",
+          "markdownDescription": "Enables the usage_get_dashboard command without any pre-configured scope."
         },
         {
           "description": "Enables the validate_directory command without any pre-configured scope.",
@@ -1401,6 +1443,36 @@
           "markdownDescription": "Denies the pin_session command without any pre-configured scope."
         },
         {
+          "description": "Denies the profile_avatar_clear command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-profile-avatar-clear",
+          "markdownDescription": "Denies the profile_avatar_clear command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the profile_avatar_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-profile-avatar-get",
+          "markdownDescription": "Denies the profile_avatar_get command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the profile_avatar_set command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-profile-avatar-set",
+          "markdownDescription": "Denies the profile_avatar_set command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the profile_get_current command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-profile-get-current",
+          "markdownDescription": "Denies the profile_get_current command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the profile_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-profile-update",
+          "markdownDescription": "Denies the profile_update command without any pre-configured scope."
+        },
+        {
           "description": "Denies the record_directory_usage command without any pre-configured scope.",
           "type": "string",
           "const": "deny-record-directory-usage",
@@ -1729,6 +1801,18 @@
           "type": "string",
           "const": "deny-update-workspace-preference",
           "markdownDescription": "Denies the update_workspace_preference command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the usage_clear_history command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-usage-clear-history",
+          "markdownDescription": "Denies the usage_clear_history command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the usage_get_dashboard command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-usage-get-dashboard",
+          "markdownDescription": "Denies the usage_get_dashboard command without any pre-configured scope."
         },
         {
           "description": "Denies the validate_directory command without any pre-configured scope.",

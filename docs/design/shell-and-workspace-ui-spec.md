@@ -3,8 +3,8 @@
 | 属性 | 说明 |
 |------|------|
 | **用途** | 定义主窗口混合壳结构、任务侧栏、对话页顶栏、设置页与工作区布局语义。 |
-| **受众** | 负责 `AppShell`、`UnifiedTopBar`、`SessionPanel`、`SettingsSidebar`、`ChatPage`、`WorkspaceBar`、`SettingsPage` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-08-07（v32） |
+| **受众** | 负责 `AppShell`、`UnifiedTopBar`、`SessionPanel`、`SettingsSidebar`、`ChatPage`、`WorkspaceBar`、`SettingsPage`、`ProfilePage` 及相关布局的前端开发者。 |
+| **最后审阅** | 2026-08-13（v37） |
 
 ## 相关文档
 
@@ -37,8 +37,8 @@ AppShell (flex-col h-screen)
 2. **左栏（单列）**：
    - `chat`：任务列表 + Quick actions + 仅含用户菜单的底栏。
    - `settings`：整列换成 `SettingsSidebar`（六分区导航）。
-   - `skills` / `knowledge` / `dashboard` / `notifications`：**无左栏**，仅 TopBar + 主内容。
-3. **主内容区**：当前页面；无任务时为居中 hero（见 §6）。
+   - `profile` / `knowledge` / `dashboard` / `notifications`：**无左栏**，仅 TopBar + 主内容。
+3. **主内容区**：当前页面；无任务时为居中 hero（见 §7）。
 4. **Sidecar / Agent 状态**：不在任务底栏展示；放在设置 → 关于 → 系统信息（`SidecarStatusBadge`，异常时可点重启）。
 
 ### 1.1 左栏显隐与窄屏（必须遵守）
@@ -86,8 +86,8 @@ Session / Settings 左栏 / Main 使用 `--sidebar`、`--border`、`--background
 
 固定在任务列表底部（`shrink-0`），仅保留一个 `UserMenu` 触发器，行形与 Quick actions 一致（`h-9 rounded-xl text-[13px]`）。
 
-- 用户菜单顺序：禁用的个人中心 → 通知（保留未读徽标）→ Settings → 分隔线 → 知识库 / 仪表盘 → 分隔线 → 禁用的退出。
-- Skills **不得**出现在用户菜单中；唯一入口为 Settings → Skills（见 §6 / [frontend-ui-guidelines.md](./frontend-ui-guidelines.md)）。
+- 用户菜单顺序：个人中心 → 通知（保留未读徽标）→ Settings → 分隔线 → 知识库 / 仪表盘 → 分隔线 → 禁用的退出。个人中心启用后导航至独立 `profile` route，不复用仪表盘或 Settings tab。
+- Skills **不得**出现在用户菜单中；唯一入口为 Settings → Skills（见 §4.4 / [frontend-ui-guidelines.md](./frontend-ui-guidelines.md)）。
 - 通知与 Settings **不得**作为底栏独立行重复出现。
 
 Sidecar 状态**不**放在底栏（见 §1 / 关于页）。
@@ -165,7 +165,7 @@ Sidecar 状态**不**放在底栏（见 §1 / 关于页）。
 - 进入 settings 时，**壳层左栏整列**换成 `SettingsSidebar`（与任务列表共用 `sessionListWidth` / gutter）。
 - 项形：`h-9 px-3 rounded-xl text-[13px]`（与任务 Quick actions 同形）。
 - `SettingsPage` **只渲染内容槽**；不再内嵌桌面左导航或窄屏横条 pill（避免双导航）。
-- Back 在 `UnifiedTopBar`（ghost sm、`h-7`、ArrowLeft）；**所有非 chat 页**（含 settings 与技能/知识库/仪表盘/通知）均提供返回 chat。
+- Back 在 `UnifiedTopBar`（ghost sm、`h-7`、ArrowLeft）；**所有非 chat 页**（含 profile、settings 与知识库/仪表盘/通知）均提供返回 chat。
 
 导航唯一源：`src/components/settings/nav-config.ts`。路由仍为 Zustand `route.page === "settings"`（无 React Router）。
 
@@ -212,6 +212,29 @@ Provider 目录网格仅 `md:grid-cols-2`。Appearance 主题分段：`rounded-m
 - Security tab 的摘要、隐私契约、findings 和审批历史只在首次打开该 tab 后加载；findings 使用后端 cursor 分页，筛选变化必须丢弃旧页。JSON/SARIF 导出先走系统保存对话框，不在 WebView 中拼接下载链接。
 - `review_required` 就地显示原因输入与批准/拒绝；少于 3 个非空字符时动作 disabled。批准后的受管 Skill 仍为 disabled，已有有效批准跨详情重开/应用重启可恢复并可撤销；blocked 结论不能显示批准捷径。
 - 首次升级扫描状态条位于 toolbar 与双栏内容之间，宽度跟随 Skills 内容槽；pending/running 展示 `completed / total`，`completed_with_errors` 展示失败数与显式重试，completed 不占布局空间。
+
+---
+
+## 4.5 个人中心与用量统计
+
+- 个人中心使用独立 `profile` route，保持与仪表盘、Settings 的职责边界；壳层为 `UnifiedTopBar` + 无左栏主内容，并提供返回 chat。页面使用 `p-6 lg:p-10`、`mx-auto max-w-6xl` 和纵向滚动。
+- `UserMenu` 与 `ProfileHeader` 必须读取同一份 local profile 状态；菜单触发器展示档案名称和共享 Avatar fallback，编辑成功后两处同步，不允许各自缓存名称。
+- 顶部资料区将约 `80px` 头像、显示名称与低优先级编辑入口水平居中；名称按 Unicode 字符校验 1–40、长文本截断，失败保持 Dialog 打开并显示稳定就地错误。不得用固定半屏高度制造大面积空白，也不得展示尚无可靠来源的账号等级、邮箱或会员信息。
+- 档案编辑必须使用标准 Dialog：图片选择限 PNG/JPEG/WebP、5 MiB，文案明确“复制到应用存储”；选择后先显示预览，保存失败保留旧头像与 Dialog。头像移除是显式次级操作，UserMenu 与 ProfileHeader 必须共享保存后的 app-data 副本或同一 fallback，不得长期引用用户源文件。
+- 统计区固定按「总览指标 → Token 活动 → 最近 30 天模型趋势」排列。总览使用 3 个扁平指标卡；区块采用暖灰表面、克制边框和统一圆角，不使用渐变、重阴影、悬浮位移或缩放。
+- 总览 Token DTO 保持十进制字符串，前端仅通过 `bigint` 做 K/M/B 与 locale 全值格式化；空数据和仅未知数据使用「—」，不得把未知伪装成 `0`。后台刷新失败时保留最后一次成功快照并显示局部重试条。
+- 活动图默认展示按用户时区归属的最近 365 个自然日，使用 `--usage-heat-0` 至 `--usage-heat-4` 的绿色强度表达相对用量。绿色仅作为数据编码，不取代全局 charcoal 品牌色；未知 Token 量但确有活动的日期必须使用独立纹理或轮廓，不得伪装成 0。
+- 活动强度使用区间内已知正值的 P95 截断值与 `log1p` 四档映射；known-zero 活动至少进入 1 档，unknown 使用斜纹，known + unknown 使用额外虚线轮廓。图例必须注明相对刻度，不可暗示供应商额度或绝对等级。
+- 活动单元复用共享 Tooltip 展示日期、Token 量与计量状态；同时提供键盘可达的 roving focus、明确的 focus-visible，以及等价的可访问数据表。窄宽度允许统计图内部水平滚动，页面主体不得整体横向溢出。
+- 网格维持 7 行和 52/53 周，按 profile 的 Sunday/Monday 偏好排列；方向键按日/周移动，Home/End 在当前周移动，Escape 释放 Tooltip。日期与“今天”边界以 dashboard 的本地日期范围为准，不以浏览器 UTC 日期重算。
+- 首版仅显示已有真实聚合的“每日”活动图，不渲染“每周/累计”Tabs 或 Coming soon Trigger；365 日原始值通过折叠表格按日期提供，确保颜色与 Tooltip 都不是唯一数据通道。
+- 模型趋势图复用项目现有 ECharts 适配层和 `--chart-1` 至 `--chart-5`，展示最近 30 个自然日；默认最多显示前 5 个模型并将其余合并为「其他」。序列除颜色外还须使用图例、线型或点形区分，并提供表格回退；活动图专用绿色不应用于所有模型线。
+- 趋势缺失日按 no-call `0` 补齐，仅 unknown 的调用使用断线 gap，known + unknown 保留已知值并用独立点标记；Tooltip 与表格必须同时显示 unknown 数、estimated/legacy 质量，禁止 `connectNulls` 或平滑曲线掩盖差异。
+- Token 原值继续使用十进制字符串；绘图值超出 JavaScript 安全整数时以 `bigint` 计算统一比例尺后再转 number，Tooltip/表格始终展示未截断的 locale 原整数。Y 轴从 0 开始并用 K/M/B，图例隐藏只影响图层可见性，不重算顶部总量。
+- 图表宿主必须动态加载 ECharts、响应容器 Resize 与根主题 class/style 变化，并在卸载时释放 observer/实例；初始化失败自动显示等价数据表。模型趋势禁用动画与 smooth，使用 `aria.enabled`、decal 和可切换数据表保证 reduced-motion 与非颜色通道可读。
+- loading、empty、partial、error 状态必须保持区块高度稳定并支持局部重试；未知值显示「—」而不是 `0`。所有文案、日期和数字均走 i18n / locale 格式化；仅在已有真实聚合结果时展示「每日 / 每周 / 累计」切换，禁止先放无效标签或占位交互。
+- “清空用量历史”属于 profile 页危险操作，必须使用标准 destructive Dialog，逐项说明聊天正文和消息 TokenBadge 保留、统计投影清零；请求期间禁用关闭/重复提交，失败保持 Dialog 打开。会话删除也必须先确认，并明确历史用量事实保留且仅解除会话/消息关联。
+- 统计定义、计量事件、查询契约与分阶段落地要求见 [个人中心与 Token 用量统计功能架构](../architecture/PERSONAL_CENTER_USAGE_ANALYTICS_ARCHITECTURE.md) 和 [实施规划](../planning/PERSONAL_CENTER_USAGE_ANALYTICS_IMPLEMENTATION_PLAN.md)。
 
 ---
 

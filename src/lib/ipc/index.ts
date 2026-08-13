@@ -12,6 +12,8 @@ export { fsIpc } from "./fs";
 export { skillsIpc } from "./skills";
 export { trayIpc } from "./tray";
 export { terminalIpc } from "./terminal";
+export { profileIpc } from "./profile";
+export { usageIpc, USAGE_RECORDED_EVENT } from "./usage";
 export type {
   AppConfig,
   CloseBehavior,
@@ -91,7 +93,16 @@ export type {
   SkillInstallResult,
   SkillActivationMount,
   SkillActivationView,
+  UserProfile,
+  UsageQualityV1,
+  UsageOverviewV1,
+  DailyUsageV1,
+  ModelUsagePointV1,
+  ModelUsageSeriesV1,
+  UsageDashboardV1,
 } from "./types";
+export type { ProfileUpdateParams } from "./profile";
+export type { UsageDashboardParams, UsageRecordedEvent } from "./usage";
 export type { DirectoryInfo, RecentDirectory, WorkspacePreference } from "./workspace";
 export type {
   WorkspaceContext,
