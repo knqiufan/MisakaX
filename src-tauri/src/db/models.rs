@@ -1,5 +1,6 @@
 use crate::services::artifacts::ArtifactRecord;
 use crate::services::content::ContentBlock;
+use crate::services::usage::{MeasurementSource, UsageOperationKind, UsageOutcome};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,6 +70,95 @@ pub struct Setting {
     pub key: String,
     pub value: String,
     pub updated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UserProfile {
+    pub profile_id: String,
+    pub profile_kind: String,
+    pub display_name: String,
+    pub avatar_storage_key: Option<String>,
+    pub avatar_sha256: Option<String>,
+    pub timezone_mode: String,
+    pub timezone_id: Option<String>,
+    pub week_start: i32,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NewUsageEvent {
+    pub event_id: String,
+    pub profile_id: String,
+    pub operation_key: String,
+    pub measurement_key: String,
+    pub operation_kind: UsageOperationKind,
+    pub session_id: Option<String>,
+    pub message_id: Option<String>,
+    pub provider_config_id: Option<String>,
+    pub provider_id: Option<String>,
+    pub vendor_id: Option<String>,
+    pub selected_model_id: Option<String>,
+    pub effective_model_id: Option<String>,
+    pub model_display_name: Option<String>,
+    pub input_tokens: Option<u64>,
+    pub output_tokens: Option<u64>,
+    pub total_tokens: Option<u64>,
+    pub cache_read_tokens: Option<u64>,
+    pub cache_creation_tokens: Option<u64>,
+    pub reasoning_tokens: Option<u64>,
+    pub measurement_source: MeasurementSource,
+    pub estimator_id: Option<String>,
+    pub estimator_version: Option<String>,
+    pub outcome: UsageOutcome,
+    pub counts_toward_totals: bool,
+    pub counts_toward_activity: bool,
+    pub counts_toward_trend: bool,
+    pub occurred_at_utc: String,
+    pub local_date: String,
+    pub timezone_id: Option<String>,
+    pub utc_offset_minutes: i32,
+    pub metadata_json: String,
+    pub source_installation_id: Option<String>,
+    pub source_event_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UsageEvent {
+    pub event_id: String,
+    pub profile_id: String,
+    pub operation_key: String,
+    pub measurement_key: String,
+    pub operation_kind: UsageOperationKind,
+    pub session_id: Option<String>,
+    pub message_id: Option<String>,
+    pub provider_config_id: Option<String>,
+    pub provider_id: Option<String>,
+    pub vendor_id: Option<String>,
+    pub selected_model_id: Option<String>,
+    pub effective_model_id: Option<String>,
+    pub model_display_name: Option<String>,
+    pub input_tokens: Option<u64>,
+    pub output_tokens: Option<u64>,
+    pub total_tokens: Option<u64>,
+    pub cache_read_tokens: Option<u64>,
+    pub cache_creation_tokens: Option<u64>,
+    pub reasoning_tokens: Option<u64>,
+    pub measurement_source: MeasurementSource,
+    pub estimator_id: Option<String>,
+    pub estimator_version: Option<String>,
+    pub outcome: UsageOutcome,
+    pub counts_toward_totals: bool,
+    pub counts_toward_activity: bool,
+    pub counts_toward_trend: bool,
+    pub occurred_at_utc: String,
+    pub local_date: String,
+    pub timezone_id: Option<String>,
+    pub utc_offset_minutes: i32,
+    pub metadata_json: String,
+    pub source_installation_id: Option<String>,
+    pub source_event_id: Option<String>,
+    pub created_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

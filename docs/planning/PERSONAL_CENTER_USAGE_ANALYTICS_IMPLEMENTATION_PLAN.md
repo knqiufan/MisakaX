@@ -3,7 +3,7 @@
 > **用途：** 将个人中心、活动日历、按模型 Token 趋势与可靠用量计量拆成可验证、可独立审查的实施阶段和 Todo。
 > **受众：** React、Rust、Python Sidecar、测试、设计与发布维护者。
 > **最后审阅 / Last reviewed：** 2026-08-13
-> **状态：** 实施中；P0 已完成，P1 待开始。
+> **状态：** 实施中；P0–P1 已完成，P2 待开始。
 > **规划基线：** `main@5569c45`，Schema v14。
 > **实施分支：** `codex/personal-center-usage-analytics`
 > **关联架构：** [个人中心与 Token 用量统计功能架构](../architecture/PERSONAL_CENTER_USAGE_ANALYTICS_ARCHITECTURE.md)
@@ -16,8 +16,8 @@
 
 | 阶段 | 状态 | 阶段提交 | 验证摘要 |
 |---|---|---|---|
-| P0 契约冻结与特征测试 | ✅ 完成 | 本阶段提交 `feat(usage): freeze P0 analytics contracts` | Rust 定向测试 47 项通过（usage 10、MCP 10、Sidecar SSE 11、streaming 16） |
-| P1 Schema v15 与数据访问层 | ⏳ 待开始 | — | — |
+| P0 契约冻结与特征测试 | ✅ 完成 | `1876e4b` | Rust 定向测试 47 项通过（usage 10、MCP 10、Sidecar SSE 11、streaming 16） |
+| P1 Schema v15 与数据访问层 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P1 ledger repositories` | `cargo check --all-features`；数据库/迁移/消息/会话/Profile/Usage 回归 85 项通过 |
 | P2 Token 采集闭环与原子终结 | ⏳ 待开始 | — | — |
 | P3 聚合查询、IPC 与历史回填 | ⏳ 待开始 | — | — |
 | P4 个人中心壳层、档案头与总览卡 | ⏳ 待开始 | — | — |
@@ -32,6 +32,7 @@
 |---|---|---|
 | 2026-08-13 14:20 | 启动 | 在干净保护现有四份任务文档后，从最新 `main@5569c45` 创建 `codex/personal-center-usage-analytics` 并恢复文档。 |
 | 2026-08-13 14:34 | P0 | 新增 canonical usage/DTO/SSE v1 契约、streak 纯函数与现有 Rig/MCP/Sidecar 特征测试；冻结首版仅展示“每日”活动视图，未实现的每周/累计不进入 UI。 |
+| 2026-08-13 14:44 | P1 | 新增 Schema v15、升级前 `.pre-v15.sqlite3` 备份、默认 local profile、追加式 usage ledger、弱引用与参数绑定仓储；两轮定向/兼容回归共 85 项通过。 |
 
 ### 0.3 首版 LLM operation 计入口径
 
@@ -154,23 +155,23 @@ P0 contracts/tests
 
 ### Todo：migration
 
-- [ ] 新增 `migrate_v15`，创建 `user_profiles` 与 `llm_usage_events`、约束和索引。
-- [ ] `run_migrations` 增加 v15；`test_migration_idempotent` 期望更新为 15。
-- [ ] `init_database` 的 `backup_before_migration` 目标更新为 15，验证 `.pre-v15.sqlite3`。
-- [ ] 为 v14 fixture → v15 添加恢复/幂等测试；不得删除或重写现有 message/session 字段。
-- [ ] 首次启动创建默认 local profile，并写 `settings.profile.current_id`；重复启动不得产生多个默认 profile。
-- [ ] 默认 profile 写 `timezone_mode=system`；`timezone_id` 可空，`utc_offset_minutes` 在每条 usage event 上必填。
-- [ ] `local_date`、measurement source（含 `legacy_migrated`）、operation kind、outcome、三类计入 flags 和非负 Token 使用 CHECK。
-- [ ] session/message 弱引用采用 `ON DELETE SET NULL` 或经测试的逻辑约束；避免删除正文级联删除真实用量。
+- [x] 新增 `migrate_v15`，创建 `user_profiles` 与 `llm_usage_events`、约束和索引。
+- [x] `run_migrations` 增加 v15；`test_migration_idempotent` 期望更新为 15。
+- [x] `init_database` 的 `backup_before_migration` 目标更新为 15，验证 `.pre-v15.sqlite3`。
+- [x] 为 v14 fixture → v15 添加恢复/幂等测试；不得删除或重写现有 message/session 字段。
+- [x] 首次启动创建默认 local profile，并写 `settings.profile.current_id`；重复启动不得产生多个默认 profile。
+- [x] 默认 profile 写 `timezone_mode=system`；`timezone_id` 可空，`utc_offset_minutes` 在每条 usage event 上必填。
+- [x] `local_date`、measurement source（含 `legacy_migrated`）、operation kind、outcome、三类计入 flags 和非负 Token 使用 CHECK。
+- [x] session/message 弱引用采用 `ON DELETE SET NULL` 或经测试的逻辑约束；避免删除正文级联删除真实用量。
 
 ### Todo：repository
 
-- [ ] `ProfileRepo::get_current/create_default/update_display_name/update_avatar/clear_avatar`。
-- [ ] `UsageRepo::insert_batch_idempotent` 按 `measurement_key` 返回实际插入集合，调用方只按该集合更新 session projection。
-- [ ] `UsageRepo::find_by_operation_key` 供重放/诊断使用。
-- [ ] `UsageRepo::clear_profile_history` 必须在显式事务中执行。
-- [ ] 所有查询使用参数绑定；禁止把日期、profile 或排序片段直接拼接 SQL。
-- [ ] 测试 64 位大数、NULL usage、重复 measurement key、同 operation 多模型、配置删除后快照仍可读。
+- [x] `ProfileRepo::get_current/create_default/update_display_name/update_avatar/clear_avatar`。
+- [x] `UsageRepo::insert_batch_idempotent` 按 `measurement_key` 返回实际插入集合，调用方只按该集合更新 session projection。
+- [x] `UsageRepo::find_by_operation_key` 供重放/诊断使用。
+- [x] `UsageRepo::clear_profile_history` 必须在显式事务中执行。
+- [x] 所有查询使用参数绑定；禁止把日期、profile 或排序片段直接拼接 SQL。
+- [x] 测试 64 位大数、NULL usage、重复 measurement key、同 operation 多模型、配置删除后快照仍可读。
 
 ### 退出门
 

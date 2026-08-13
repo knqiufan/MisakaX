@@ -16,8 +16,33 @@ pub enum MeasurementSource {
 }
 
 impl MeasurementSource {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ProviderReported => "provider_reported",
+            Self::TokenizerEstimated => "tokenizer_estimated",
+            Self::HeuristicEstimated => "heuristic_estimated",
+            Self::LegacyMigrated => "legacy_migrated",
+            Self::Unavailable => "unavailable",
+        }
+    }
+
     pub fn is_estimated(self) -> bool {
         matches!(self, Self::TokenizerEstimated | Self::HeuristicEstimated)
+    }
+}
+
+impl std::str::FromStr for MeasurementSource {
+    type Err = &'static str;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "provider_reported" => Ok(Self::ProviderReported),
+            "tokenizer_estimated" => Ok(Self::TokenizerEstimated),
+            "heuristic_estimated" => Ok(Self::HeuristicEstimated),
+            "legacy_migrated" => Ok(Self::LegacyMigrated),
+            "unavailable" => Ok(Self::Unavailable),
+            _ => Err("unknown measurement source"),
+        }
     }
 }
 
@@ -32,6 +57,35 @@ pub enum UsageOperationKind {
     LegacyBackfill,
 }
 
+impl UsageOperationKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Chat => "chat",
+            Self::Research => "research",
+            Self::ToolRound => "tool_round",
+            Self::SessionTitle => "session_title",
+            Self::ModelProbe => "model_probe",
+            Self::LegacyBackfill => "legacy_backfill",
+        }
+    }
+}
+
+impl std::str::FromStr for UsageOperationKind {
+    type Err = &'static str;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "chat" => Ok(Self::Chat),
+            "research" => Ok(Self::Research),
+            "tool_round" => Ok(Self::ToolRound),
+            "session_title" => Ok(Self::SessionTitle),
+            "model_probe" => Ok(Self::ModelProbe),
+            "legacy_backfill" => Ok(Self::LegacyBackfill),
+            _ => Err("unknown usage operation kind"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum UsageOutcome {
@@ -39,6 +93,31 @@ pub enum UsageOutcome {
     Aborted,
     Failed,
     Partial,
+}
+
+impl UsageOutcome {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Completed => "completed",
+            Self::Aborted => "aborted",
+            Self::Failed => "failed",
+            Self::Partial => "partial",
+        }
+    }
+}
+
+impl std::str::FromStr for UsageOutcome {
+    type Err = &'static str;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "completed" => Ok(Self::Completed),
+            "aborted" => Ok(Self::Aborted),
+            "failed" => Ok(Self::Failed),
+            "partial" => Ok(Self::Partial),
+            _ => Err("unknown usage outcome"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -74,6 +74,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         migrate_v14(conn)?;
     }
 
+    if current_version < 15 {
+        migrate_v15(conn)?;
+    }
+
     Ok(())
 }
 
@@ -693,6 +697,112 @@ fn migrate_v14(conn: &Connection) -> Result<()> {
     )?;
     tx.commit()?;
     tracing::info!("Database migrated to version 14");
+    Ok(())
+}
+
+fn migrate_v15(conn: &Connection) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute_batch(
+        "
+        CREATE TABLE user_profiles (
+            profile_id TEXT PRIMARY KEY,
+            profile_kind TEXT NOT NULL DEFAULT 'local'
+                CHECK(profile_kind IN ('local', 'account')),
+            display_name TEXT NOT NULL
+                CHECK(length(trim(display_name)) BETWEEN 1 AND 40),
+            avatar_storage_key TEXT,
+            avatar_sha256 TEXT,
+            timezone_mode TEXT NOT NULL DEFAULT 'system'
+                CHECK(timezone_mode IN ('system', 'custom')),
+            timezone_id TEXT,
+            week_start INTEGER NOT NULL DEFAULT 1 CHECK(week_start IN (0, 1)),
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE llm_usage_events (
+            event_id TEXT PRIMARY KEY,
+            profile_id TEXT NOT NULL,
+            operation_key TEXT NOT NULL,
+            measurement_key TEXT NOT NULL UNIQUE,
+            operation_kind TEXT NOT NULL CHECK(operation_kind IN (
+                'chat', 'research', 'tool_round', 'session_title',
+                'model_probe', 'legacy_backfill'
+            )),
+            session_id TEXT,
+            message_id TEXT,
+            provider_config_id TEXT,
+            provider_id TEXT,
+            vendor_id TEXT,
+            selected_model_id TEXT,
+            effective_model_id TEXT,
+            model_display_name TEXT,
+            input_tokens INTEGER CHECK(input_tokens IS NULL OR input_tokens >= 0),
+            output_tokens INTEGER CHECK(output_tokens IS NULL OR output_tokens >= 0),
+            total_tokens INTEGER CHECK(total_tokens IS NULL OR total_tokens >= 0),
+            cache_read_tokens INTEGER CHECK(
+                cache_read_tokens IS NULL OR cache_read_tokens >= 0
+            ),
+            cache_creation_tokens INTEGER CHECK(
+                cache_creation_tokens IS NULL OR cache_creation_tokens >= 0
+            ),
+            reasoning_tokens INTEGER CHECK(
+                reasoning_tokens IS NULL OR reasoning_tokens >= 0
+            ),
+            measurement_source TEXT NOT NULL CHECK(measurement_source IN (
+                'provider_reported', 'tokenizer_estimated', 'heuristic_estimated',
+                'legacy_migrated', 'unavailable'
+            )),
+            estimator_id TEXT,
+            estimator_version TEXT,
+            outcome TEXT NOT NULL CHECK(outcome IN (
+                'completed', 'aborted', 'failed', 'partial'
+            )),
+            counts_toward_totals INTEGER NOT NULL CHECK(counts_toward_totals IN (0, 1)),
+            counts_toward_activity INTEGER NOT NULL CHECK(counts_toward_activity IN (0, 1)),
+            counts_toward_trend INTEGER NOT NULL CHECK(counts_toward_trend IN (0, 1)),
+            occurred_at_utc TEXT NOT NULL,
+            local_date TEXT NOT NULL CHECK(
+                length(local_date) = 10
+                AND substr(local_date, 5, 1) = '-'
+                AND substr(local_date, 8, 1) = '-'
+            ),
+            timezone_id TEXT,
+            utc_offset_minutes INTEGER NOT NULL
+                CHECK(utc_offset_minutes BETWEEN -840 AND 840),
+            metadata_json TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(metadata_json)),
+            source_installation_id TEXT,
+            source_event_id TEXT,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (profile_id) REFERENCES user_profiles(profile_id) ON DELETE RESTRICT,
+            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE SET NULL,
+            FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE SET NULL,
+            CHECK(
+                (source_installation_id IS NULL AND source_event_id IS NULL)
+                OR (source_installation_id IS NOT NULL AND source_event_id IS NOT NULL)
+            )
+        );
+
+        CREATE INDEX idx_usage_profile_date
+        ON llm_usage_events(profile_id, local_date, counts_toward_activity);
+        CREATE INDEX idx_usage_profile_model_date
+        ON llm_usage_events(
+            profile_id, counts_toward_trend, provider_config_id,
+            effective_model_id, local_date
+        );
+        CREATE INDEX idx_usage_operation
+        ON llm_usage_events(operation_key);
+        CREATE INDEX idx_usage_session
+        ON llm_usage_events(session_id, occurred_at_utc);
+        CREATE UNIQUE INDEX idx_usage_import_source
+        ON llm_usage_events(source_installation_id, source_event_id)
+        WHERE source_installation_id IS NOT NULL AND source_event_id IS NOT NULL;
+
+        INSERT INTO _schema_version (version) VALUES (15);
+        ",
+    )?;
+    tx.commit()?;
+    tracing::info!("Database migrated to version 15");
     Ok(())
 }
 

@@ -162,7 +162,128 @@ fn test_migration_idempotent() {
             row.get(0)
         })
         .unwrap();
-    assert_eq!(version, 14);
+    assert_eq!(version, 15);
+}
+
+#[test]
+fn test_v15_creates_profile_and_usage_ledger_with_constraints() {
+    let conn = create_test_db();
+    run_migrations(&conn).unwrap();
+
+    conn.execute(
+        "INSERT INTO user_profiles (
+            profile_id, display_name, profile_kind, timezone_mode, week_start
+         ) VALUES ('profile-v15', 'Local User', 'local', 'system', 1)",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO llm_usage_events (
+            event_id, profile_id, operation_key, measurement_key, operation_kind,
+            input_tokens, output_tokens, total_tokens, measurement_source, outcome,
+            counts_toward_totals, counts_toward_activity, counts_toward_trend,
+            occurred_at_utc, local_date, utc_offset_minutes, metadata_json
+         ) VALUES (
+            'event-v15', 'profile-v15', 'assistant:m1', 'assistant:m1:model:a', 'chat',
+            10, 5, 15, 'provider_reported', 'completed', 1, 1, 1,
+            '2026-08-13T00:00:00Z', '2026-08-13', 480, '{}'
+         )",
+        [],
+    )
+    .unwrap();
+
+    let invalid_negative = conn.execute(
+        "UPDATE llm_usage_events SET total_tokens = -1 WHERE event_id = 'event-v15'",
+        [],
+    );
+    let invalid_source = conn.execute(
+        "UPDATE llm_usage_events SET measurement_source = 'guessed' WHERE event_id = 'event-v15'",
+        [],
+    );
+    let invalid_flag = conn.execute(
+        "UPDATE llm_usage_events SET counts_toward_totals = 2 WHERE event_id = 'event-v15'",
+        [],
+    );
+    assert!(invalid_negative.is_err());
+    assert!(invalid_source.is_err());
+    assert!(invalid_flag.is_err());
+
+    let index_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master
+             WHERE type = 'index' AND name IN (
+                'idx_usage_profile_date', 'idx_usage_profile_model_date',
+                'idx_usage_operation', 'idx_usage_session', 'idx_usage_import_source'
+             )",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(index_count, 5);
+}
+
+#[test]
+fn test_v15_upgrade_preserves_v14_data_and_backup_is_restorable() {
+    let temporary = tempfile::tempdir().unwrap();
+    let db_path = temporary.path().join("misaka.db");
+    let conn = Connection::open(&db_path).unwrap();
+    conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+    run_migrations_to_v14(&conn);
+    conn.execute(
+        "INSERT INTO sessions (
+            id, title, total_input_tokens, total_output_tokens
+         ) VALUES ('session-v14', 'Before v15', 100, 50)",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO messages (
+            id, session_id, role, content, token_usage, model
+         ) VALUES (
+            'message-v14', 'session-v14', 'assistant', 'kept',
+            '{\"input_tokens\":100,\"output_tokens\":50,\"total_tokens\":150}',
+            'model-v14'
+         )",
+        [],
+    )
+    .unwrap();
+
+    let backup = backup_before_migration(&conn, &db_path, 15)
+        .unwrap()
+        .expect("v14 database should be backed up");
+    assert!(backup.ends_with("misaka.pre-v15.sqlite3"));
+    run_migrations(&conn).unwrap();
+    run_migrations(&conn).unwrap();
+
+    let preserved: (String, String, i64, i64) = conn
+        .query_row(
+            "SELECT messages.content, messages.model,
+                    sessions.total_input_tokens, sessions.total_output_tokens
+             FROM messages JOIN sessions ON sessions.id = messages.session_id
+             WHERE messages.id = 'message-v14'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .unwrap();
+    assert_eq!(preserved, ("kept".into(), "model-v14".into(), 100, 50));
+    drop(conn);
+
+    let restored = Connection::open(backup).unwrap();
+    let restored_version: i64 = restored
+        .query_row("SELECT MAX(version) FROM _schema_version", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    let v15_tables: i64 = restored
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master
+             WHERE type = 'table' AND name IN ('user_profiles', 'llm_usage_events')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(restored_version, 14);
+    assert_eq!(v15_tables, 0);
 }
 
 #[test]
@@ -602,6 +723,7 @@ fn test_migration_v6_injects_builtin_models_for_existing_router_configs() {
 
 fn run_migrations_to_v5(conn: &Connection) {
     run_migrations(conn).unwrap();
+    revert_v15(conn);
     revert_v14(conn);
     conn.execute_batch(
         "DROP TABLE skill_security_migration_items;
@@ -640,6 +762,7 @@ fn run_migrations_to_v5(conn: &Connection) {
 
 fn run_migrations_to_v10(conn: &Connection) {
     run_migrations(conn).unwrap();
+    revert_v15(conn);
     revert_v14(conn);
     revert_v13(conn);
     conn.execute_batch(
@@ -669,6 +792,7 @@ fn run_migrations_to_v10(conn: &Connection) {
 
 fn run_migrations_to_v11(conn: &Connection) {
     run_migrations(conn).unwrap();
+    revert_v15(conn);
     revert_v14(conn);
     revert_v13(conn);
     conn.execute_batch(
@@ -685,8 +809,28 @@ fn run_migrations_to_v11(conn: &Connection) {
 
 fn run_migrations_to_v12(conn: &Connection) {
     run_migrations(conn).unwrap();
+    revert_v15(conn);
     revert_v14(conn);
     revert_v13(conn);
+}
+
+fn run_migrations_to_v14(conn: &Connection) {
+    run_migrations(conn).unwrap();
+    revert_v15(conn);
+}
+
+fn revert_v15(conn: &Connection) {
+    conn.execute_batch(
+        "DROP INDEX IF EXISTS idx_usage_import_source;
+         DROP INDEX IF EXISTS idx_usage_session;
+         DROP INDEX IF EXISTS idx_usage_operation;
+         DROP INDEX IF EXISTS idx_usage_profile_model_date;
+         DROP INDEX IF EXISTS idx_usage_profile_date;
+         DROP TABLE IF EXISTS llm_usage_events;
+         DROP TABLE IF EXISTS user_profiles;
+         DELETE FROM _schema_version WHERE version = 15;",
+    )
+    .unwrap();
 }
 
 fn revert_v14(conn: &Connection) {

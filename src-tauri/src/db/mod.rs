@@ -26,7 +26,7 @@ pub fn init_database(db_path: &Path) -> Result<Connection> {
     conn.execute_batch("PRAGMA foreign_keys=ON;")?;
     conn.execute_batch("PRAGMA busy_timeout=5000;")?;
 
-    backup_before_migration(&conn, db_path, 14)?;
+    backup_before_migration(&conn, db_path, 15)?;
 
     // Load sqlite-vec extension
     unsafe {
@@ -38,6 +38,7 @@ pub fn init_database(db_path: &Path) -> Result<Connection> {
 
     // Run schema migrations
     migrations::run_migrations(&conn)?;
+    repository::ProfileRepo::ensure_default(&conn)?;
 
     tracing::info!("Database initialized at: {}", db_path.display());
     Ok(conn)
