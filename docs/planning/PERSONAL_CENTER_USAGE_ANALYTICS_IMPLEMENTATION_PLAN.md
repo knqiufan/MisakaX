@@ -3,7 +3,7 @@
 > **用途：** 将个人中心、活动日历、按模型 Token 趋势与可靠用量计量拆成可验证、可独立审查的实施阶段和 Todo。
 > **受众：** React、Rust、Python Sidecar、测试、设计与发布维护者。
 > **最后审阅 / Last reviewed：** 2026-08-13
-> **状态：** P0–P8 已完成并通过交付门禁；阶段提交与验证证据见下文。
+> **状态：** P0–P8 已完成并通过交付门禁；交付后发现的旧 v15 rollup 缺表问题已由 Schema v16 修复迁移关闭。
 > **规划基线：** `main@5569c45`，Schema v14。
 > **实施分支：** `codex/personal-center-usage-analytics`
 > **关联架构：** [个人中心与 Token 用量统计功能架构](../architecture/PERSONAL_CENTER_USAGE_ANALYTICS_ARCHITECTURE.md)
@@ -25,6 +25,7 @@
 | P6 最近 30 天按模型趋势 | ✅ 完成 | `63cef42` | 49 个前端测试文件、308 项测试及生产构建通过；ECharts 独立懒加载 chunk，数据表可切换并自动降级 |
 | P7 档案编辑、数据生命周期与性能 | ✅ 完成 | `cbb13cc` | 21 项迁移测试 + 36 项 Rust 定向测试、前端 50 文件/312 项测试、全特性检查及生产构建通过；100k 热查询 P95 64.8ms |
 | P8 QA、规范同步与交付 | ✅ 完成 | 本阶段提交 `test(usage): complete P8 delivery gates` | 前端 50 文件/313 项、Python 41 项、Rust 全特性 510 项通过；生产构建、格式、静态检查、ACL 基线与文档同步通过 |
+| 交付后修复：Schema v16 | ✅ 完成 | 本次提交 `fix(usage): repair legacy v15 rollup schema` | 复现真实旧 v15 缺表数据库；22 项迁移、Dashboard 查询、`.pre-v16.sqlite3` 恢复及全特性 511 项回归通过 |
 
 ### 0.2 工作日志
 
@@ -42,6 +43,7 @@
 | 2026-08-13 16:26 | P7 完成 | 派生 rollup 支持缺失/删除后全量重建与新事件增量刷新，账本仍为唯一事实源且终结链路不双写；迁移重放会先清理派生缓存。21 项迁移测试、36 项 Rust 定向测试、前端 50 文件/312 项测试、`cargo check --all-features` 与生产构建全部通过。 |
 | 2026-08-13 16:52 | P8 QA | 补齐 provider total 权威值、abort 三态、model probe、regenerate 弱引用/DST、同模型跨 provider、头像可访问名称、Dialog focus return 与 chart 源数据不变性回归。全量验证发现并修复 estimator ASCII 分段 fixture 的期望值，以及 7 个新增 Profile/Usage commands 未进入 AppManifest/`main-commands` 的权限集成缺口。 |
 | 2026-08-13 17:01 | P8 交付 | `cargo nextest` 因 Windows 页文件不足（OS 1455）在编译阶段中止，未执行 `cargo clean`；按仓库指南以 `cargo test --all-features -j1` 串行回退并通过 510 项。前端 50 文件/313 项、Python 指定 41 项、生产构建、格式/静态检查与文档同步共同组成最终交付门禁。 |
+| 2026-08-13 17:22 | v16 修复 | 实机数据库确认 `_schema_version=15`、3 条 legacy usage event 存在但四张 rollup 表缺失；新增独立 v16 事务迁移与 `.pre-v16.sqlite3` 备份，重建的仅是派生表。新增 fixture 精确模拟旧 v15，验证账本保留、首次 dashboard 返回 321 legacy tokens、迁移幂等和备份可恢复。 |
 
 ### 0.3 首版 LLM operation 计入口径
 

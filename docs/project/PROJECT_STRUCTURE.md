@@ -93,7 +93,7 @@ MisakaX/
 | 文件 / 目录 | 用途 |
 |-------------|------|
 | `mod.rs` | SQLite 初始化、WAL、sqlite-vec 加载、运行迁移 |
-| `migrations.rs` | Schema **v1–v15**；v11 stable SkillId/activation，v12 scan/finding/approval，v13 存量扫描，v14 sandbox audit，v15 local profile、追加式 usage ledger 与可重建 rollup |
+| `migrations.rs` | Schema **v1–v16**；v11 stable SkillId/activation，v12 scan/finding/approval，v13 存量扫描，v14 sandbox audit，v15 local profile/追加式 usage ledger，v16 为旧 v15 安装补建可重建 rollup |
 | `models.rs` | Session / Message / RouterConfig、`UserProfile`、`UsageEvent` 与写入 DTO 等数据模型 |
 | `repository/` | 会话、消息、Provider、MCP、Workspace、Settings、Skills/Sandbox，以及 `profile_repo` / `usage_repo`；UsageRepo 使用参数绑定和稳定 measurement/source key 保证幂等 |
 
@@ -256,7 +256,7 @@ MisakaX/
 ~/.misakax/
 ├── config.yaml           # 全局配置（YAML 格式，User-editable）
 ├── data/
-│   ├── misaka.db         # SQLite v15 数据库（WAL 模式，含向量索引与 usage ledger）
+│   ├── misaka.db         # SQLite v16 数据库（WAL 模式，含向量索引与 usage ledger）
 │   └── profile-avatars/  # 应用托管、规范化后的本地头像 WebP 副本
 ├── skills/               # 用户自定义 Skills
 ├── managed/skills/       # 从市场安装的 Skills

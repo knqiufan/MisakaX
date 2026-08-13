@@ -130,7 +130,7 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 ### 3.8 个人中心与 Token 用量统计（P0–P8 已交付）
 
 - 用户菜单进入独立 `profile` route；页面无主导航/会话栏，保留 UnifiedTopBar、80px 本地头像、名称编辑与三张总览卡。
-- Schema v15 的 `llm_usage_events` 是唯一事实源；Rig/MCP 与 Sidecar chat/research 统一为 canonical usage，provider-reported 优先，heuristic、legacy 与 unavailable 明确分级，未知值不伪装为 0。
+- Schema v15 引入的 `llm_usage_events` 是唯一事实源；Schema v16 为较早到达 v15 的安装补建可重建 rollup 表。Rig/MCP 与 Sidecar chat/research 统一为 canonical usage，provider-reported 优先，heuristic、legacy 与 unavailable 明确分级，未知值不伪装为 0。
 - Dashboard 单快照返回总览、365 天活动与 30 天 Top 5 + others 趋势；同模型跨 provider 不合并，前端以十进制字符串 + BigInt 避免 64 位精度损失。
 - 消息、账本、session projection 在同一 finalize transaction；重复 complete、重生成、弱引用删除、清空、v1/v2 导入与启动回填均有确定行为。
 - 头像限制为 PNG/JPEG/WebP、5 MiB、40M 像素，规范化为最长边 512px 的托管 WebP；清空与替换不接受任意删除路径。
@@ -145,7 +145,7 @@ MisakaX 已是可用的**桌面 LLM 对话客户端**（流式对话、工作目
 | 范围 | 数量 | 运行命令 |
 |------|------|----------|
 | 前端 Vitest | 50 个测试文件 / 313 tests | `npm test` |
-| Rust 全特性 | 45 个集成测试文件 / 合计 510 tests | 日常：`cargo test --test <name>`；提交前：`cargo nextest run --all-features --profile ci`（或 `cargo test --all-features -j1`） |
+| Rust 全特性 | 45 个集成测试文件 / 合计 511 tests | 日常：`cargo test --test <name>`；提交前：`cargo nextest run --all-features --profile ci`（或 `cargo test --all-features -j1`） |
 | Python Sidecar 交付门禁 | 指定 3 个文件 / 41 tests | `python -m pytest tests/test_stream_sse.py tests/test_agent.py tests/test_models.py` |
 
 > Rust 日常构建/测试依赖增量编译，**不要**在每次 `cargo test` 前执行 `cargo clean`。日常改代码优先 `cargo check` + 精准 `--test`（映射表见优化指南 §4.2）；Cursor hook `.cursor/hooks/post-edit-test.sh` 已按映射自动选择测试。仅在链接异常、切分支后编译诡异失败等情况下按需 `cargo clean`。见 [`docs/guides/rust-build-test-optimization.md`](../guides/rust-build-test-optimization.md)。
@@ -252,7 +252,7 @@ npm run tauri dev
 | 前端 TS/TSX | 268 个文件 |
 | Rust 源码 | 129 个 `.rs`（`src-tauri/src/`） |
 | Tauri Commands | 120（见 `src-tauri/build.rs` 与 `src-tauri/src/lib.rs`） |
-| DB Schema | **v15**（`src-tauri/src/db/migrations.rs`） |
+| DB Schema | **v16**（v15 事实表 + v16 旧安装 rollup 修复；`src-tauri/src/db/migrations.rs`） |
 | UI 设计规范 | `docs/design/frontend-ui-guidelines.md` 等 3 份 |
 
 ---
@@ -267,7 +267,7 @@ React 前端 ✅
 Tauri Rust ✅
   ├── chat ──▶ use_sidecar ? Python Agent : Rig ──▶ LLM API
   ├── MCP (rmcp) ──▶ MCP Servers
-  ├── Usage finalize/query ──▶ SQLite v15 ledger + rebuildable rollups
+  ├── Usage finalize/query ──▶ SQLite v16 ledger + rebuildable rollups
   └── SidecarManager ──▶ Python :9527
                               ├── /health ✅
                               └── /agent/* ✅ chat/research + Usage SSE v1

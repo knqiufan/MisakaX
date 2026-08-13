@@ -4,7 +4,7 @@
 > **受众：** 产品、设计、React、Rust、Python Sidecar、测试与后续维护者。
 > **最后审阅 / Last reviewed：** 2026-08-13
 > **规划基线：** `main@5569c45`（Schema v14，React 19 / Tauri 2 / Rust 2021 / Python 3.11）。
-> **状态：** P0–P8 已完成并通过交付门禁（含档案编辑、用量生命周期、ExportData v2、可重建 rollup、权限基线与全量 QA），阶段提交和证据见 [实施计划](../planning/PERSONAL_CENTER_USAGE_ANALYTICS_IMPLEMENTATION_PLAN.md)。
+> **状态：** P0–P8 已完成并通过交付门禁；Schema v16 已补充旧 v15 安装的 rollup 表修复迁移。阶段提交和证据见 [实施计划](../planning/PERSONAL_CENTER_USAGE_ANALYTICS_IMPLEMENTATION_PLAN.md)。
 
 ---
 
@@ -426,14 +426,21 @@ UnifiedTopBar：返回 + “个人中心”
 - Sidecar 过去未上报的 Token 无法精确重建；默认不对完整历史上下文做误导性估算。
 - migration 必须幂等；坏 JSON 计入诊断计数，不阻塞整个数据库升级。
 
-### 10.2 导入导出
+### 10.2 v15 → v16 派生表修复
+
+- v15 引入 `user_profiles` 与 `llm_usage_events` 事实表；v16 仅创建/重建四张可丢弃 rollup 表，不删除或改写 profile、账本、消息与会话。
+- 修复背景：部分本地数据库在 rollup 优化加入前已记录 `_schema_version=15`，不会重放后来扩充的 `migrate_v15`；新结构必须使用独立版本号，禁止修改已发布迁移后假设其会重跑。
+- 升级前以 `VACUUM INTO` 创建 `.pre-v16.sqlite3`；迁移事务完成后首次 dashboard 查询从账本惰性重建读模型。
+- 回归 fixture 必须覆盖“v15 + 有账本数据 + 四张 rollup 表缺失”，并验证升级幂等、Dashboard 读数和备份可恢复。
+
+### 10.3 导入导出
 
 - `ExportData.version = 2` 携带可选 usage events 与安全 profile display metadata；v1 仍可导入，未知未来版本拒绝。普通 JSON 不携带 avatar 二进制、avatar key/hash 或原始 usage metadata。
 - 本机生成并校验稳定 installation UUID；事件导入使用原始 `source_installation_id + source_event_id` 唯一索引去重，本地 operation/measurement key 由长度分隔输入的 SHA-256 命名以避免分隔符碰撞；再导出时继续保留来源对。
 - 导入仅重建确有对应记录的 session/message/provider 弱引用，不能接受文件中的悬空或跨库引用。
 - 旧导出按 legacy 规则迁移 session 投影残差；导入 metadata 只保留来源版本、计量质量、legacy 标记和“历史时区未知”，不透传任意 JSON。
 
-### 10.3 隐私与安全
+### 10.4 隐私与安全
 
 - 用量表不保存 prompt、回复正文、API key、完整 base URL、工具参数/结果、工作区路径或附件内容。
 - profile avatar 只读写 app-data 受管目录；文件名由后端生成，拒绝 traversal、超限和不支持 MIME。
@@ -447,7 +454,7 @@ UnifiedTopBar：返回 + “个人中心”
 - 年度热力图固定最多 400 个点；30 天趋势最多 8×90 点，DTO 有硬上限。
 - 1k/10k/100k 确定性 fixture 在预热后各采样 7 次；未聚合 100k 组合查询 P95 约 490ms，超过 <100ms 门槛后才启用可重建 read model，热查询实测约 64.8ms。
 - `usage_operation_rollups`、`usage_profile_rollups`、`usage_daily_rollups` 与 `usage_rollup_state` 都是派生缓存：账本是唯一事实源；终结只追加账本，不双写 rollup。查询前比较 ledger count/max rowid，新增事件增量刷新，删除、状态缺失或迁移重放则从账本全量重建。
-- rollup 表可被安全删除；清空当前 profile 时与账本/session projection 同事务清理。若未来允许原地修改统计字段，必须扩展失效策略，不能绕过追加式仓储。
+- rollup 内容可被安全清空并从账本重建；表结构由版本化 migration 保证。清空当前 profile 时与账本/session projection 同事务清理。若未来允许原地修改统计字段，必须扩展失效策略，不能绕过追加式仓储。
 - `EXPLAIN QUERY PLAN` 测试固定验证 profile/date 与 provider/model/date 索引；性能门禁失败应先保留证据，再调整索引或派生读模型。
 - ECharts 仅在 TrendCard 进入 DOM 后动态加载；页面离开时 dispose，ResizeObserver 必须 disconnect。
 - 记录脱敏日志：capture source、operation kind、是否估算、query duration、event insert conflict；不记录用户内容。
@@ -498,7 +505,7 @@ UnifiedTopBar：返回 + “个人中心”
 
 | 门禁 | 结果 |
 |---|---|
-| 数据与迁移 | Schema v15 幂等迁移/备份、Profile/Usage repository、legacy backfill、ExportData v1/v2 与 rollup 重建通过 Rust 回归 |
+| 数据与迁移 | Schema v15 事实表、Schema v16 旧安装修复/备份、Profile/Usage repository、legacy backfill、ExportData v1/v2 与 rollup 重建通过 Rust 回归 |
 | 采集与生命周期 | Rig/MCP、Sidecar run-id 去重、provider total、abort 三态、重复 finalize、regenerate、弱引用删除与清空统计通过确定性测试 |
 | 查询与 UI | 365/30 天、streak/闰日/DST、同模型跨 provider、Top 5 + others、BigInt、活动日历/趋势降级及可访问语义通过回归 |
 | 性能 | 100k 未聚合组合查询 P95 约 490ms；启用按需重建/增量 rollup 后热查询 P95 64.8ms，低于 100ms 门槛 |

@@ -1,4 +1,7 @@
-use misaka_x_lib::db::{backup_before_migration, migrations::run_migrations};
+use chrono::NaiveDate;
+use misaka_x_lib::db::repository::ProfileRepo;
+use misaka_x_lib::db::{backup_before_migration, init_database, migrations::run_migrations};
+use misaka_x_lib::services::usage::query::{get_dashboard_at, DashboardQuery};
 use rusqlite::Connection;
 
 fn create_test_db() -> Connection {
@@ -162,7 +165,7 @@ fn test_migration_idempotent() {
             row.get(0)
         })
         .unwrap();
-    assert_eq!(version, 15);
+    assert_eq!(version, 16);
 }
 
 #[test]
@@ -284,6 +287,100 @@ fn test_v15_upgrade_preserves_v14_data_and_backup_is_restorable() {
         .unwrap();
     assert_eq!(restored_version, 14);
     assert_eq!(v15_tables, 0);
+}
+
+#[test]
+fn test_v16_repairs_legacy_v15_rollups_and_preserves_a_restorable_backup() {
+    let temporary = tempfile::tempdir().unwrap();
+    let db_path = temporary.path().join("misaka.db");
+    let conn = Connection::open(&db_path).unwrap();
+    conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+    run_migrations(&conn).unwrap();
+    revert_v16(&conn);
+    let profile = ProfileRepo::ensure_default(&conn).unwrap();
+    conn.execute(
+        "INSERT INTO llm_usage_events (
+            event_id, profile_id, operation_key, measurement_key, operation_kind,
+            effective_model_id, input_tokens, output_tokens, total_tokens,
+            measurement_source, outcome, counts_toward_totals,
+            counts_toward_activity, counts_toward_trend, occurred_at_utc,
+            local_date, utc_offset_minutes, metadata_json
+         ) VALUES (
+            'legacy-v15-event', ?1, 'legacy:message:one',
+            'legacy:message:one:model', 'legacy_backfill', 'legacy-model',
+            200, 121, 321, 'legacy_migrated', 'completed', 1, 1, 1,
+            '2026-08-13T00:00:00Z', '2026-08-13', 480, '{}'
+         )",
+        [&profile.profile_id],
+    )
+    .unwrap();
+
+    let legacy_version: i64 = conn
+        .query_row("SELECT MAX(version) FROM _schema_version", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    let missing_rollups: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master
+             WHERE type = 'table' AND name IN (
+                'usage_rollup_state', 'usage_operation_rollups',
+                'usage_profile_rollups', 'usage_daily_rollups'
+             )",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(legacy_version, 15);
+    assert_eq!(missing_rollups, 0);
+
+    drop(conn);
+    let backup = db_path.with_extension("pre-v16.sqlite3");
+    let conn = init_database(&db_path).unwrap();
+    assert!(backup.exists());
+    run_migrations(&conn).unwrap();
+
+    let repaired_version: i64 = conn
+        .query_row("SELECT MAX(version) FROM _schema_version", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    let repaired_rollups: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master
+             WHERE type = 'table' AND name IN (
+                'usage_rollup_state', 'usage_operation_rollups',
+                'usage_profile_rollups', 'usage_daily_rollups'
+             )",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let dashboard = get_dashboard_at(
+        &conn,
+        DashboardQuery::default(),
+        NaiveDate::from_ymd_opt(2026, 8, 13).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(repaired_version, 16);
+    assert_eq!(repaired_rollups, 4);
+    assert_eq!(dashboard.overview.total_tokens, "321");
+    assert_eq!(dashboard.overview.legacy_tokens, "321");
+    drop(conn);
+
+    let restored = Connection::open(backup).unwrap();
+    let restored_version: i64 = restored
+        .query_row("SELECT MAX(version) FROM _schema_version", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    let restored_event_count: i64 = restored
+        .query_row("SELECT COUNT(*) FROM llm_usage_events", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(restored_version, 15);
+    assert_eq!(restored_event_count, 1);
 }
 
 #[test]
@@ -820,6 +917,7 @@ fn run_migrations_to_v14(conn: &Connection) {
 }
 
 fn revert_v15(conn: &Connection) {
+    revert_v16(conn);
     conn.execute_batch(
         "DROP INDEX IF EXISTS idx_usage_import_source;
          DROP INDEX IF EXISTS idx_usage_session;
@@ -829,6 +927,17 @@ fn revert_v15(conn: &Connection) {
          DROP TABLE IF EXISTS llm_usage_events;
          DROP TABLE IF EXISTS user_profiles;
          DELETE FROM _schema_version WHERE version = 15;",
+    )
+    .unwrap();
+}
+
+fn revert_v16(conn: &Connection) {
+    conn.execute_batch(
+        "DROP TABLE IF EXISTS usage_rollup_state;
+         DROP TABLE IF EXISTS usage_operation_rollups;
+         DROP TABLE IF EXISTS usage_profile_rollups;
+         DROP TABLE IF EXISTS usage_daily_rollups;
+         DELETE FROM _schema_version WHERE version = 16;",
     )
     .unwrap();
 }

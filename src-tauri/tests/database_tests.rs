@@ -22,8 +22,8 @@ fn test_init_database() {
             })
             .unwrap();
         assert!(
-            version >= 15,
-            "Expected schema version >= 15, got {}",
+            version >= 16,
+            "Expected schema version >= 16, got {}",
             version
         );
 
@@ -51,4 +51,8 @@ fn test_init_database() {
     assert!(tables.contains(&"mcp_servers".to_string()));
     assert!(tables.contains(&"user_profiles".to_string()));
     assert!(tables.contains(&"llm_usage_events".to_string()));
+    assert!(tables.contains(&"usage_rollup_state".to_string()));
+    assert!(tables.contains(&"usage_operation_rollups".to_string()));
+    assert!(tables.contains(&"usage_profile_rollups".to_string()));
+    assert!(tables.contains(&"usage_daily_rollups".to_string()));
 }

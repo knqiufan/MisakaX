@@ -78,6 +78,10 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         migrate_v15(conn)?;
     }
 
+    if current_version < 16 {
+        migrate_v16(conn)?;
+    }
+
     Ok(())
 }
 
@@ -704,14 +708,6 @@ fn migrate_v15(conn: &Connection) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     tx.execute_batch(
         "
-        -- These tables are disposable read-model caches. Recreate them when
-        -- v15 is replayed by rollback/recovery tooling, while keeping the
-        -- ledger and profile table creation strict.
-        DROP TABLE IF EXISTS usage_rollup_state;
-        DROP TABLE IF EXISTS usage_operation_rollups;
-        DROP TABLE IF EXISTS usage_profile_rollups;
-        DROP TABLE IF EXISTS usage_daily_rollups;
-
         CREATE TABLE user_profiles (
             profile_id TEXT PRIMARY KEY,
             profile_kind TEXT NOT NULL DEFAULT 'local'
@@ -806,9 +802,34 @@ fn migrate_v15(conn: &Connection) -> Result<()> {
         ON llm_usage_events(source_installation_id, source_event_id)
         WHERE source_installation_id IS NOT NULL AND source_event_id IS NOT NULL;
 
-        -- Rebuildable usage read-model cache. The append-only ledger above is
-        -- the only fact source; these rows are refreshed lazily from it and
-        -- may be deleted/rebuilt at any time.
+        INSERT INTO _schema_version (version) VALUES (15);
+        ",
+    )?;
+    tx.commit()?;
+    tracing::info!("Database migrated to version 15");
+    Ok(())
+}
+
+fn migrate_v16(conn: &Connection) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    reset_usage_rollup_tables(&tx)?;
+    tx.execute("INSERT INTO _schema_version (version) VALUES (16)", [])?;
+    tx.commit()?;
+    tracing::info!("Database migrated to version 16");
+    Ok(())
+}
+
+fn reset_usage_rollup_tables(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "
+        -- These tables are disposable read-model caches. Schema v16 repairs
+        -- installations that reached v15 before the rollup optimization was
+        -- added. The append-only ledger remains the only fact source.
+        DROP TABLE IF EXISTS usage_rollup_state;
+        DROP TABLE IF EXISTS usage_operation_rollups;
+        DROP TABLE IF EXISTS usage_profile_rollups;
+        DROP TABLE IF EXISTS usage_daily_rollups;
+
         CREATE TABLE usage_rollup_state (
             profile_id TEXT PRIMARY KEY,
             last_event_rowid INTEGER NOT NULL DEFAULT 0,
@@ -849,12 +870,8 @@ fn migrate_v15(conn: &Connection) -> Result<()> {
             PRIMARY KEY (profile_id, local_date),
             FOREIGN KEY (profile_id) REFERENCES user_profiles(profile_id) ON DELETE CASCADE
         ) WITHOUT ROWID;
-
-        INSERT INTO _schema_version (version) VALUES (15);
         ",
     )?;
-    tx.commit()?;
-    tracing::info!("Database migrated to version 15");
     Ok(())
 }
 
