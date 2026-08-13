@@ -21,7 +21,7 @@
 | P2 Token 采集闭环与原子终结 | ✅ 完成 | 本阶段提交 `feat(usage): close P2 capture and finalize loop` | `cargo check --all-features`；Rust 52 项、Python 28 项、前端 55 项定向回归通过 |
 | P3 聚合查询、IPC 与历史回填 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P3 analytics snapshot` | Rust 聚合/回填/契约/仓储 24 项与前端 IPC 4 项通过；全特性编译及生产构建通过 |
 | P4 个人中心壳层、档案头与总览卡 | ✅ 完成 | 本阶段提交 `feat(profile): deliver P4 shell and overview` | 前端路由/档案/概览/IPC 回归 24 项、TypeScript 检查通过；375/768/1024/1440 无左栏、无横向溢出 |
-| P5 活动日历与绿色主题 | ⏳ 待开始 | — | — |
+| P5 活动日历与绿色主题 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P5 activity calendar` | 46 个前端测试文件、297 项测试及生产构建通过；产物保留浅/深 usage tokens 与未知纹理 |
 | P6 最近 30 天按模型趋势 | ⏳ 待开始 | — | — |
 | P7 档案编辑、数据生命周期与性能 | ⏳ 待开始 | — | — |
 | P8 QA、规范同步与交付 | ⏳ 待开始 | — | — |
@@ -36,6 +36,7 @@
 | 2026-08-13 15:04 | P2 | Rig/MCP/Sidecar 统一输出 canonical capture；Sidecar usage v1 在 done/error 前上报并按 run/model 去重；版本化 Unicode heuristic 只估文本且显式标记图片未知；消息、账本、session projection/title 进入同一 finalize transaction，重复 complete 不重复累计。 |
 | 2026-08-13 15:16 | P3 | 新增单锁快照 dashboard 查询：overview、365 天活动、30 天 Top 5 + others 趋势均补齐日期并保留 exact/estimated/legacy/unknown；注册 Profile/Usage IPC；启动时幂等回填可信消息 JSON 与 session residual，坏 JSON/异常投影只记诊断。 |
 | 2026-08-13 15:32 | P4 | 接入独立 profile route、共享 local profile 状态与名称编辑 Dialog；UserMenu/TopBar/ProfileHeader 同步；三张总览卡以 BigInt 处理十进制字符串并覆盖 loading/empty/partial/error。浏览器按 375/768/1024/1440 验证无左栏与横向溢出。 |
+| 2026-08-13 15:42 | P5 | 新增 7×52/53 周活动网格、locale 周起始/月标签、P95 截断 `log1p` 四档强度、known-zero/unknown/mixed 独立状态；接入键盘 roving focus、共享 Tooltip、横向滚动、图例和 365 行可访问表格，并补齐浅深主题 usage tokens。 |
 
 ### 0.3 首版 LLM operation 计入口径
 
@@ -370,32 +371,32 @@ P0 contracts/tests
 
 ### Todo：日历算法
 
-- [ ] 纯函数生成 7 行×52/53 周网格，正确处理范围起止、月标签、未来日期、locale week start。
-- [ ] 计算 P95 + `log1p` 的 4 档强度；固定 fixture 保证单个 outlier 不压平其它天。
-- [ ] 有已知 measurement 的活动日至少映射到 1 档绿色；已知值为 0、全区间为 0 时也不得与无活动混淆。
-- [ ] 有活动但 Token unknown 生成独立 `unknown` visual state，不等同无活动。
-- [ ] 单元测试 leap day、year boundary、range 365、Sunday/Monday、全零、单 outlier、全同值。
+- [x] 纯函数生成 7 行×52/53 周网格，正确处理范围起止、月标签、未来日期、locale week start。
+- [x] 计算 P95 + `log1p` 的 4 档强度；固定 fixture 保证单个 outlier 不压平其它天。
+- [x] 有已知 measurement 的活动日至少映射到 1 档绿色；已知值为 0、全区间为 0 时也不与无活动混淆。
+- [x] 有活动但 Token unknown 生成独立 `unknown` visual state；known + unknown 使用 `mixed` 状态。
+- [x] 单元测试 leap day、year boundary、range 365、Sunday/Monday、全零、单 outlier、全同值。
 
 ### Todo：视觉与交互
 
-- [ ] 增加 `--usage-heat-0..4` 浅/深主题 token；绿色仅用于数据编码，不替换 primary/交互焦点色。
-- [ ] Cell 维持最小可辨尺寸、暖灰空态、2–4px gap；卡片窄宽使用内部横向滚动。
-- [ ] Tooltip 复用 `src/components/ui/tooltip.tsx`，显示日期、总 Token、input/output、调用数、主要模型、数据质量。
-- [ ] Hover 不位移不缩放，只改 border/outline；focus ring 不被 overflow 裁剪。
-- [ ] 图例显示“少 → 多”、未知样式和数值说明；颜色不是唯一信息来源。
+- [x] 增加 `--usage-heat-0..4` 浅/深主题 token；绿色仅用于数据编码，不替换 primary/交互焦点色。
+- [x] Cell 使用 12px 尺寸、暖灰空态、3px gap；卡片窄宽使用内部横向滚动。
+- [x] Tooltip 复用 `src/components/ui/tooltip.tsx`，显示日期、总 Token、input/output、调用数、主要模型、数据质量。
+- [x] Hover 不位移不缩放，只改 border/outline；focus ring 由滚动区内边距保护。
+- [x] 图例显示“少 → 多”、未知纹理和 P95 对数刻度说明；颜色不是唯一信息来源。
 
 ### Todo：键盘与读屏
 
-- [ ] Grid/row/cell 语义或等价可访问结构；每格有本地化 `aria-label`。
-- [ ] roving tabindex：Tab 只进入当前 cell，方向键移动，Home/End 可选，Escape 关闭显式 popover（若使用）。
-- [ ] Tooltip 在 focus 时可见；触屏/点击路径若未来支持，不能只依赖 hover。
-- [ ] 提供按日期排序的可访问数据表/摘要入口，避免 Canvas/颜色成为唯一通道。
+- [x] Grid/cell 语义、row/column index 与本地化 `aria-label` 完整。
+- [x] roving tabindex：Tab 只进入当前 cell，方向键/Home/End 移动，Escape 释放焦点并关闭 Tooltip。
+- [x] Tooltip 在 focus 时可见；原始数据同时可由原生 summary/table 路径读取，不依赖 hover。
+- [x] 提供按日期排序的 365 日可访问数据表/摘要入口，避免颜色成为唯一通道。
 
 ### Todo：可选聚合 Tabs
 
-- [ ] 若产品确认首发“每日/每周/累计”，复用 Radix Tabs：每日热力图、每周聚合、累计线都接真实数据。
-- [ ] 若任一视图未实现，删除该 Trigger；禁止 disabled/Coming soon 占位。
-- [ ] 切换只改本地展示或使用同一快照，不反复请求相同数据。
+- [x] 首版契约仅确认“每日”热力图，因此不渲染 Tabs，也不虚构“每周/累计”。
+- [x] 页面无 disabled/Coming soon Trigger；未来只有在全部视图接入真实数据后才增加。
+- [x] 当前每日视图复用单次 dashboard 快照，不产生额外请求。
 
 ### 退出门
 

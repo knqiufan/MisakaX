@@ -8,7 +8,7 @@
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-08-13（v35）
+**最后审阅 / Last reviewed:** 2026-08-13（v36）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -56,6 +56,7 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - 常用文字：`text-foreground`、`text-muted-foreground`。
 - 字体：Geist Variable + Geist Mono；`body` 使用 `antialiased`。
 - 产品圆角：`--radius: 1rem`（16px）。
+- 数据可视化专用 `--usage-heat-0..4` 只编码个人中心活动强度，须在 `theme-light.css` / `theme-dark.css` 成对定义；它不替换 `--primary`、`--ring`、状态色或普通成功提示。未知用量必须再配纹理/轮廓与文本语义，细节见 [壳层规范 §4.5](./shell-and-workspace-ui-spec.md#45-个人中心与用量统计)。
 
 ### 3.2 阴影与层级 (Shadows & Elevation)
 - **扁平化为主**：基础按钮、输入框等控件尽量减少阴影，使用边框（Border）来区分边界。

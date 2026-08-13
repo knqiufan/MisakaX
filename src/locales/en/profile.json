@@ -41,5 +41,46 @@
     "loadError": "Usage overview could not be loaded",
     "loadErrorDescription": "The local usage snapshot is unavailable. Try again.",
     "refreshError": "Showing the last available snapshot. Refresh failed."
+  },
+  "activity": {
+    "sectionLabel": "Token activity calendar",
+    "title": "Token activity",
+    "description": "The last 365 local calendar days. Intensity is relative to this range.",
+    "gridLabel": "Daily Token activity for the last 365 days",
+    "less": "Less",
+    "more": "More",
+    "unknownLegend": "Unknown usage",
+    "legendLabel": "Usage intensity from less to more, plus unknown usage",
+    "relativeScale": "P95-capped logarithmic scale",
+    "unknownTokens": "Token count unknown",
+    "unknownShort": "unknown",
+    "noPrimaryModel": "No model recorded",
+    "qualitySummary": "Exact {{exact}} · estimated {{estimated}} · legacy {{legacy}} · {{unknown}} unknown operations",
+    "cellLabel": "{{date}}: {{tokens}}, {{calls}} calls, primary model {{model}}. {{quality}}",
+    "loadError": "Token activity could not be loaded",
+    "loadErrorDescription": "The local activity snapshot is unavailable. Try again.",
+    "refreshError": "Showing the last available activity snapshot.",
+    "tableSummary": "Open accessible activity table",
+    "tooltip": {
+      "total": "Total: {{value}}",
+      "io": "Input {{input}} · output {{output}}",
+      "calls_one": "{{count}} call",
+      "calls_other": "{{count}} calls",
+      "model": "Primary model: {{model}}"
+    },
+    "table": {
+      "date": "Date",
+      "tokens": "Tokens",
+      "calls": "Calls",
+      "model": "Primary model",
+      "quality": "Data quality"
+    },
+    "states": {
+      "none": "No activity",
+      "known": "Known usage",
+      "unknown": "Activity with unknown Token count",
+      "mixed": "Known usage with additional unknown operations",
+      "future": "Future date"
+    }
   }
 }

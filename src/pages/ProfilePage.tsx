@@ -2,11 +2,16 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ProfileHeader, useProfileStore } from "@/features/profile";
-import { UsageOverviewCards, useUsageDashboard } from "@/features/usage-analytics";
+import {
+  ActivityCalendar,
+  UsageOverviewCards,
+  useUsageDashboard,
+} from "@/features/usage-analytics";
 
 export function ProfilePage() {
   const { t } = useTranslation("profile");
   const loadProfile = useProfileStore((state) => state.load);
+  const weekStart = useProfileStore((state) => state.profile?.week_start ?? 1);
   const { dashboard, status, error, refresh } = useUsageDashboard();
 
   useEffect(() => {
@@ -28,6 +33,16 @@ export function ProfilePage() {
             dashboard={dashboard}
             status={status}
             error={error}
+            onRetry={() => void refresh()}
+          />
+        </section>
+        <section aria-label={t("activity.sectionLabel")}>
+          <ActivityCalendar
+            days={dashboard?.daily_activity ?? []}
+            weekStart={weekStart}
+            todayLocalDate={dashboard?.range.activity_end}
+            status={status}
+            hasSnapshot={dashboard !== null}
             onRetry={() => void refresh()}
           />
         </section>

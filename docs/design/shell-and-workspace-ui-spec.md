@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口混合壳结构、任务侧栏、对话页顶栏、设置页与工作区布局语义。 |
 | **受众** | 负责 `AppShell`、`UnifiedTopBar`、`SessionPanel`、`SettingsSidebar`、`ChatPage`、`WorkspaceBar`、`SettingsPage`、`ProfilePage` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-08-13（v34） |
+| **最后审阅** | 2026-08-13（v35） |
 
 ## 相关文档
 
@@ -223,7 +223,10 @@ Provider 目录网格仅 `md:grid-cols-2`。Appearance 主题分段：`rounded-m
 - 统计区固定按「总览指标 → Token 活动 → 最近 30 天模型趋势」排列。总览使用 3 个扁平指标卡；区块采用暖灰表面、克制边框和统一圆角，不使用渐变、重阴影、悬浮位移或缩放。
 - 总览 Token DTO 保持十进制字符串，前端仅通过 `bigint` 做 K/M/B 与 locale 全值格式化；空数据和仅未知数据使用「—」，不得把未知伪装成 `0`。后台刷新失败时保留最后一次成功快照并显示局部重试条。
 - 活动图默认展示按用户时区归属的最近 365 个自然日，使用 `--usage-heat-0` 至 `--usage-heat-4` 的绿色强度表达相对用量。绿色仅作为数据编码，不取代全局 charcoal 品牌色；未知 Token 量但确有活动的日期必须使用独立纹理或轮廓，不得伪装成 0。
+- 活动强度使用区间内已知正值的 P95 截断值与 `log1p` 四档映射；known-zero 活动至少进入 1 档，unknown 使用斜纹，known + unknown 使用额外虚线轮廓。图例必须注明相对刻度，不可暗示供应商额度或绝对等级。
 - 活动单元复用共享 Tooltip 展示日期、Token 量与计量状态；同时提供键盘可达的 roving focus、明确的 focus-visible，以及等价的可访问数据表。窄宽度允许统计图内部水平滚动，页面主体不得整体横向溢出。
+- 网格维持 7 行和 52/53 周，按 profile 的 Sunday/Monday 偏好排列；方向键按日/周移动，Home/End 在当前周移动，Escape 释放 Tooltip。日期与“今天”边界以 dashboard 的本地日期范围为准，不以浏览器 UTC 日期重算。
+- 首版仅显示已有真实聚合的“每日”活动图，不渲染“每周/累计”Tabs 或 Coming soon Trigger；365 日原始值通过折叠表格按日期提供，确保颜色与 Tooltip 都不是唯一数据通道。
 - 模型趋势图复用项目现有 ECharts 适配层和 `--chart-1` 至 `--chart-5`，展示最近 30 个自然日；默认最多显示前 5 个模型并将其余合并为「其他」。序列除颜色外还须使用图例、线型或点形区分，并提供表格回退；活动图专用绿色不应用于所有模型线。
 - loading、empty、partial、error 状态必须保持区块高度稳定并支持局部重试；未知值显示「—」而不是 `0`。所有文案、日期和数字均走 i18n / locale 格式化；仅在已有真实聚合结果时展示「每日 / 每周 / 累计」切换，禁止先放无效标签或占位交互。
 - 统计定义、计量事件、查询契约与分阶段落地要求见 [个人中心与 Token 用量统计功能架构](../architecture/PERSONAL_CENTER_USAGE_ANALYTICS_ARCHITECTURE.md) 和 [实施规划](../planning/PERSONAL_CENTER_USAGE_ANALYTICS_IMPLEMENTATION_PLAN.md)。

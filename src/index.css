@@ -32,6 +32,11 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-usage-heat-0: var(--usage-heat-0);
+  --color-usage-heat-1: var(--usage-heat-1);
+  --color-usage-heat-2: var(--usage-heat-2);
+  --color-usage-heat-3: var(--usage-heat-3);
+  --color-usage-heat-4: var(--usage-heat-4);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -61,4 +66,22 @@
 
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+}
+
+@layer components {
+  .usage-cell-unknown {
+    border-color: var(--usage-unknown);
+    background-color: var(--usage-heat-0);
+    background-image: repeating-linear-gradient(
+      135deg,
+      transparent 0 2px,
+      var(--usage-unknown) 2px 3px
+    );
+  }
+
+  .usage-cell-mixed {
+    box-shadow: inset 0 0 0 1px var(--usage-unknown);
+    outline: 1px dashed var(--usage-unknown);
+    outline-offset: -2px;
+  }
 }

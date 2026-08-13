@@ -39,5 +39,45 @@
     "loadError": "无法加载用量概览",
     "loadErrorDescription": "本地用量快照暂时不可用，请重试。",
     "refreshError": "当前显示上次可用快照，本次刷新失败。"
+  },
+  "activity": {
+    "sectionLabel": "Token 活动日历",
+    "title": "Token 活动",
+    "description": "最近 365 个本地自然日，颜色强度相对于当前区间计算。",
+    "gridLabel": "最近 365 天的每日 Token 活动",
+    "less": "少",
+    "more": "多",
+    "unknownLegend": "用量未知",
+    "legendLabel": "从少到多的用量强度，以及用量未知状态",
+    "relativeScale": "P95 截断对数刻度",
+    "unknownTokens": "Token 数量未知",
+    "unknownShort": "未知",
+    "noPrimaryModel": "未记录模型",
+    "qualitySummary": "精确 {{exact}} · 估算 {{estimated}} · 旧数据 {{legacy}} · {{unknown}} 次用量未知",
+    "cellLabel": "{{date}}：{{tokens}}，{{calls}} 次调用，主要模型 {{model}}。{{quality}}",
+    "loadError": "无法加载 Token 活动",
+    "loadErrorDescription": "本地活动快照暂时不可用，请重试。",
+    "refreshError": "当前显示上次可用的活动快照。",
+    "tableSummary": "展开无障碍活动数据表",
+    "tooltip": {
+      "total": "总量：{{value}}",
+      "io": "输入 {{input}} · 输出 {{output}}",
+      "calls": "{{count}} 次调用",
+      "model": "主要模型：{{model}}"
+    },
+    "table": {
+      "date": "日期",
+      "tokens": "Token",
+      "calls": "调用次数",
+      "model": "主要模型",
+      "quality": "数据质量"
+    },
+    "states": {
+      "none": "无活动",
+      "known": "已知用量",
+      "unknown": "有活动但 Token 数量未知",
+      "mixed": "存在已知用量及额外未知调用",
+      "future": "未来日期"
+    }
   }
 }
