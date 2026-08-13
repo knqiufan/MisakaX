@@ -704,6 +704,14 @@ fn migrate_v15(conn: &Connection) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     tx.execute_batch(
         "
+        -- These tables are disposable read-model caches. Recreate them when
+        -- v15 is replayed by rollback/recovery tooling, while keeping the
+        -- ledger and profile table creation strict.
+        DROP TABLE IF EXISTS usage_rollup_state;
+        DROP TABLE IF EXISTS usage_operation_rollups;
+        DROP TABLE IF EXISTS usage_profile_rollups;
+        DROP TABLE IF EXISTS usage_daily_rollups;
+
         CREATE TABLE user_profiles (
             profile_id TEXT PRIMARY KEY,
             profile_kind TEXT NOT NULL DEFAULT 'local'
@@ -797,6 +805,50 @@ fn migrate_v15(conn: &Connection) -> Result<()> {
         CREATE UNIQUE INDEX idx_usage_import_source
         ON llm_usage_events(source_installation_id, source_event_id)
         WHERE source_installation_id IS NOT NULL AND source_event_id IS NOT NULL;
+
+        -- Rebuildable usage read-model cache. The append-only ledger above is
+        -- the only fact source; these rows are refreshed lazily from it and
+        -- may be deleted/rebuilt at any time.
+        CREATE TABLE usage_rollup_state (
+            profile_id TEXT PRIMARY KEY,
+            last_event_rowid INTEGER NOT NULL DEFAULT 0,
+            event_count INTEGER NOT NULL DEFAULT 0,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (profile_id) REFERENCES user_profiles(profile_id) ON DELETE CASCADE
+        );
+        CREATE TABLE usage_operation_rollups (
+            profile_id TEXT NOT NULL,
+            operation_key TEXT NOT NULL,
+            exact_tokens INTEGER NOT NULL DEFAULT 0,
+            estimated_tokens INTEGER NOT NULL DEFAULT 0,
+            legacy_tokens INTEGER NOT NULL DEFAULT 0,
+            has_unknown INTEGER NOT NULL DEFAULT 0 CHECK(has_unknown IN (0, 1)),
+            PRIMARY KEY (profile_id, operation_key),
+            FOREIGN KEY (profile_id) REFERENCES user_profiles(profile_id) ON DELETE CASCADE
+        ) WITHOUT ROWID;
+        CREATE TABLE usage_profile_rollups (
+            profile_id TEXT PRIMARY KEY,
+            exact_tokens INTEGER NOT NULL DEFAULT 0,
+            estimated_tokens INTEGER NOT NULL DEFAULT 0,
+            legacy_tokens INTEGER NOT NULL DEFAULT 0,
+            unknown_operation_count INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (profile_id) REFERENCES user_profiles(profile_id) ON DELETE CASCADE
+        );
+        CREATE TABLE usage_daily_rollups (
+            profile_id TEXT NOT NULL,
+            local_date TEXT NOT NULL,
+            total_tokens INTEGER,
+            input_tokens INTEGER,
+            output_tokens INTEGER,
+            operation_count INTEGER NOT NULL,
+            exact_tokens INTEGER NOT NULL DEFAULT 0,
+            estimated_tokens INTEGER NOT NULL DEFAULT 0,
+            legacy_tokens INTEGER NOT NULL DEFAULT 0,
+            unknown_operation_count INTEGER NOT NULL DEFAULT 0,
+            primary_model TEXT,
+            PRIMARY KEY (profile_id, local_date),
+            FOREIGN KEY (profile_id) REFERENCES user_profiles(profile_id) ON DELETE CASCADE
+        ) WITHOUT ROWID;
 
         INSERT INTO _schema_version (version) VALUES (15);
         ",

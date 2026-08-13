@@ -700,6 +700,8 @@ export interface ImportResult {
   imported_count: number;
   skipped_count: number;
   errors: string[];
+  usage_imported_count: number;
+  usage_skipped_count: number;
 }
 
 // ─── MCP Types ───────────────────────────────────────────────────────

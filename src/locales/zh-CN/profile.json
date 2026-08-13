@@ -8,7 +8,12 @@
   "edit": {
     "action": "编辑档案",
     "title": "编辑档案",
-    "description": "设置在 MisakaX 本地档案中显示的名称。",
+    "description": "设置在 MisakaX 本地档案中显示的名称和头像。",
+    "avatarLabel": "档案头像",
+    "avatarHelp": "支持不超过 5 MiB 的 PNG、JPEG 或 WebP；MisakaX 仅保存缩放后的应用副本。",
+    "avatarFilter": "头像图片",
+    "changeAvatar": "更换头像",
+    "removeAvatar": "移除头像",
     "nameLabel": "显示名称",
     "nameHelp": "请输入 1–40 个字符。",
     "cancel": "取消",
@@ -101,5 +106,16 @@
       "unknown": "· {{count}} 次未知",
       "estimated": "估算 {{value}}"
     }
+  },
+  "dataControls": {
+    "title": "本地用量数据",
+    "description": "管理当前设备保存的用量账本。",
+    "action": "清空用量历史",
+    "dialogTitle": "确定清空用量历史？",
+    "dialogDescription": "此操作会永久删除本地用量账本并将会话统计投影归零，但不会删除聊天正文，消息内已保存的 Token 标签仍会保留。此操作无法撤销。",
+    "confirm": "清空用量历史",
+    "clearing": "正在清空…",
+    "cleared": "已清空 {{count}} 条用量事件；之后的新模型调用仍会继续记录。",
+    "error": "无法清空用量历史，未保留任何局部修改。"
   }
 }

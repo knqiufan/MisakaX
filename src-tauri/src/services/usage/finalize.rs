@@ -214,10 +214,20 @@ pub fn finalize_turn(
     }
     transaction.commit()?;
 
+    let source_counts = |source: MeasurementSource| {
+        inserted
+            .iter()
+            .filter(|event| event.measurement_source == source)
+            .count()
+    };
     tracing::info!(
-        operation_key = %request.operation_key,
         inserted_count = inserted.len(),
-        source_count = request.captures.len(),
+        capture_count = request.captures.len(),
+        provider_reported_count = source_counts(MeasurementSource::ProviderReported),
+        tokenizer_estimated_count = source_counts(MeasurementSource::TokenizerEstimated),
+        heuristic_estimated_count = source_counts(MeasurementSource::HeuristicEstimated),
+        legacy_migrated_count = source_counts(MeasurementSource::LegacyMigrated),
+        unavailable_count = source_counts(MeasurementSource::Unavailable),
         "Finalized assistant usage operation"
     );
     Ok(FinalizeTurnOutcome {

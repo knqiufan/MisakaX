@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pencil } from "lucide-react";
+import { open as dialogOpen } from "@tauri-apps/plugin-dialog";
+import { ImagePlus, Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -30,9 +31,13 @@ export function ProfileHeader() {
   const profile = useProfileStore((state) => state.profile);
   const status = useProfileStore((state) => state.status);
   const updating = useProfileStore((state) => state.updating);
+  const avatarUpdating = useProfileStore((state) => state.avatarUpdating);
+  const avatarUrl = useProfileStore((state) => state.avatarUrl);
   const updateError = useProfileStore((state) => state.updateError);
   const load = useProfileStore((state) => state.load);
   const update = useProfileStore((state) => state.update);
+  const setAvatar = useProfileStore((state) => state.setAvatar);
+  const clearAvatar = useProfileStore((state) => state.clearAvatar);
   const clearUpdateError = useProfileStore((state) => state.clearUpdateError);
   const [open, setOpen] = useState(false);
   const [displayName, setDisplayName] = useState("");
@@ -64,6 +69,28 @@ export function ProfileHeader() {
     }
   }
 
+  async function handleChooseAvatar() {
+    const selected = await dialogOpen({
+      multiple: false,
+      directory: false,
+      filters: [{ name: t("edit.avatarFilter"), extensions: ["png", "jpg", "jpeg", "webp"] }],
+    });
+    if (typeof selected !== "string") return;
+    try {
+      await setAvatar(selected);
+    } catch {
+      // The store exposes a stable inline error without closing the dialog.
+    }
+  }
+
+  async function handleClearAvatar() {
+    try {
+      await clearAvatar();
+    } catch {
+      // The store exposes a stable inline error without closing the dialog.
+    }
+  }
+
   if (status === "loading" && !profile) {
     return (
       <div className="flex min-h-40 flex-col items-center justify-center gap-3" aria-label={t("loadingProfile")}>
@@ -92,7 +119,7 @@ export function ProfileHeader() {
     <header className="flex min-h-40 flex-col items-center justify-center gap-3 text-center">
       <ProfileAvatar
         displayName={profile.display_name}
-        avatarUrl={profile.avatar_storage_key}
+        avatarUrl={avatarUrl}
         className="size-20 ring-1 ring-border"
         fallbackClassName="text-2xl"
       />
@@ -112,6 +139,40 @@ export function ProfileHeader() {
               <DialogTitle>{t("edit.title")}</DialogTitle>
               <DialogDescription>{t("edit.description")}</DialogDescription>
             </DialogHeader>
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-3">
+              <ProfileAvatar
+                displayName={profile.display_name}
+                avatarUrl={avatarUrl}
+                className="size-12 ring-1 ring-border"
+              />
+              <div className="min-w-0 flex-1 text-left">
+                <p className="text-sm font-medium">{t("edit.avatarLabel")}</p>
+                <p className="text-xs text-muted-foreground">{t("edit.avatarHelp")}</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void handleChooseAvatar()}
+                disabled={avatarUpdating}
+                aria-label={t("edit.changeAvatar")}
+              >
+                <ImagePlus className="size-3.5" />
+                {t("edit.changeAvatar")}
+              </Button>
+              {avatarUrl ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => void handleClearAvatar()}
+                  disabled={avatarUpdating}
+                  aria-label={t("edit.removeAvatar")}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              ) : null}
+            </div>
             <div className="grid gap-2">
               <label htmlFor="profile-display-name" className="text-sm font-medium">
                 {t("edit.nameLabel")}
@@ -137,11 +198,11 @@ export function ProfileHeader() {
             </div>
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="outline" disabled={updating}>
+                <Button type="button" variant="outline" disabled={updating || avatarUpdating}>
                   {t("edit.cancel")}
                 </Button>
               </DialogClose>
-              <Button type="submit" disabled={updating}>
+              <Button type="submit" disabled={updating || avatarUpdating}>
                 {updating ? t("edit.saving") : t("edit.save")}
               </Button>
             </DialogFooter>

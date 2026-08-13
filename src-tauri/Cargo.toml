@@ -66,6 +66,7 @@ hkdf = "0.12"
 sha2 = "0.10"
 base64 = "0.22"
 rand = "0.8"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 
 # --- LLM framework (Phase 2) ---
 rig-core = { version = "0.36", default-features = false, features = ["derive", "reqwest", "native-tls"] }

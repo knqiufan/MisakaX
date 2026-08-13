@@ -7,6 +7,11 @@ export interface ProfileUpdateParams {
   weekStart?: 0 | 1;
 }
 
+export interface ProfileAvatarResponse {
+  profile: UserProfile;
+  avatar_data_url: string;
+}
+
 export const profileIpc = {
   getCurrent: () => invoke<UserProfile>("profile_get_current"),
   update: (params: ProfileUpdateParams) =>
@@ -17,4 +22,8 @@ export const profileIpc = {
         week_start: params.weekStart,
       },
     }),
+  getAvatar: () => invoke<string | null>("profile_avatar_get"),
+  setAvatar: (filePath: string) =>
+    invoke<ProfileAvatarResponse>("profile_avatar_set", { filePath }),
+  clearAvatar: () => invoke<UserProfile>("profile_avatar_clear"),
 };

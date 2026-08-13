@@ -5,6 +5,7 @@ import { ProfileHeader, useProfileStore } from "@/features/profile";
 import {
   ActivityCalendar,
   UsageOverviewCards,
+  UsageDataControls,
   UsageTrendChart,
   useUsageDashboard,
 } from "@/features/usage-analytics";
@@ -60,6 +61,7 @@ export function ProfilePage() {
             onRetry={() => void refresh()}
           />
         </section>
+        <UsageDataControls onCleared={refresh} />
       </div>
     </div>
   );

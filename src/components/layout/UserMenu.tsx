@@ -23,6 +23,7 @@ export function UserMenu() {
   const navigate = useAppStore((s) => s.navigate);
   const { t } = useTranslation("nav");
   const profile = useProfileStore((state) => state.profile);
+  const avatarUrl = useProfileStore((state) => state.avatarUrl);
   const loadProfile = useProfileStore((state) => state.load);
 
   useEffect(() => {
@@ -40,7 +41,7 @@ export function UserMenu() {
         >
           <ProfileAvatar
             displayName={displayName}
-            avatarUrl={profile?.avatar_storage_key}
+          avatarUrl={avatarUrl}
             className="size-5"
             fallbackClassName="text-[10px]"
           />

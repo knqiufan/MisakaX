@@ -4,6 +4,7 @@ pub mod collector;
 pub mod estimator;
 pub mod finalize;
 pub mod query;
+pub mod rollup;
 pub mod types;
 
 pub use calendar::{calculate_streaks, local_date_sequence, week_bucket_start, StreakSummary};

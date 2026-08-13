@@ -8,7 +8,12 @@
   "edit": {
     "action": "Edit profile",
     "title": "Edit profile",
-    "description": "Choose the name shown in your local MisakaX profile.",
+    "description": "Choose the name and image shown in your local MisakaX profile.",
+    "avatarLabel": "Profile image",
+    "avatarHelp": "PNG, JPEG, or WebP up to 5 MiB. MisakaX stores a resized app-owned copy.",
+    "avatarFilter": "Profile images",
+    "changeAvatar": "Change profile image",
+    "removeAvatar": "Remove profile image",
     "nameLabel": "Display name",
     "nameHelp": "Use 1–40 characters.",
     "cancel": "Cancel",
@@ -105,5 +110,17 @@
       "unknown_other": "· {{count}} unknown",
       "estimated": "Estimated {{value}}"
     }
+  },
+  "dataControls": {
+    "title": "Local usage data",
+    "description": "Manage the usage ledger stored by this installation.",
+    "action": "Clear usage history",
+    "dialogTitle": "Clear usage history?",
+    "dialogDescription": "This permanently deletes the local usage ledger and resets session totals. Chat messages and their stored per-message Token badges remain. This cannot be undone.",
+    "confirm": "Clear usage history",
+    "clearing": "Clearing…",
+    "cleared_one": "Cleared {{count}} usage event. New model calls will continue to be recorded.",
+    "cleared_other": "Cleared {{count}} usage events. New model calls will continue to be recorded.",
+    "error": "Usage history could not be cleared. No partial changes were kept."
   }
 }

@@ -25,4 +25,16 @@ describe("profile IPC", () => {
       },
     });
   });
+
+  it("uses dedicated avatar commands without exposing storage paths", async () => {
+    mockInvoke.mockResolvedValue(null);
+    await profileIpc.getAvatar();
+    await profileIpc.setAvatar("D:\\pictures\\avatar.png");
+    await profileIpc.clearAvatar();
+    expect(mockInvoke.mock.calls).toEqual([
+      ["profile_avatar_get", undefined],
+      ["profile_avatar_set", { filePath: "D:\\pictures\\avatar.png" }],
+      ["profile_avatar_clear", undefined],
+    ]);
+  });
 });

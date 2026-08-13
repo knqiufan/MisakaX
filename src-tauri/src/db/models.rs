@@ -284,6 +284,53 @@ pub struct ExportData {
     pub sessions: Vec<ExportSession>,
     #[serde(default)]
     pub artifact_manifest: Vec<ArtifactRecord>,
+    #[serde(default)]
+    pub profile: Option<ExportProfileMetadata>,
+    #[serde(default)]
+    pub usage_events: Vec<ExportUsageEvent>,
+}
+
+/// Safe, non-secret profile metadata included in ordinary JSON exports.
+/// Avatar keys, hashes and bytes intentionally have no field here.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExportProfileMetadata {
+    pub display_name: String,
+    pub timezone_mode: String,
+    pub timezone_id: Option<String>,
+    pub week_start: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExportUsageEvent {
+    pub source_installation_id: String,
+    pub source_event_id: String,
+    pub operation_key: String,
+    pub operation_kind: UsageOperationKind,
+    pub session_id: Option<String>,
+    pub message_id: Option<String>,
+    pub provider_config_id: Option<String>,
+    pub provider_id: Option<String>,
+    pub vendor_id: Option<String>,
+    pub selected_model_id: Option<String>,
+    pub effective_model_id: Option<String>,
+    pub model_display_name: Option<String>,
+    pub input_tokens: Option<u64>,
+    pub output_tokens: Option<u64>,
+    pub total_tokens: Option<u64>,
+    pub cache_read_tokens: Option<u64>,
+    pub cache_creation_tokens: Option<u64>,
+    pub reasoning_tokens: Option<u64>,
+    pub measurement_source: MeasurementSource,
+    pub estimator_id: Option<String>,
+    pub estimator_version: Option<String>,
+    pub outcome: UsageOutcome,
+    pub counts_toward_totals: bool,
+    pub counts_toward_activity: bool,
+    pub counts_toward_trend: bool,
+    pub occurred_at_utc: String,
+    pub local_date: String,
+    pub timezone_id: Option<String>,
+    pub utc_offset_minutes: i32,
 }
 
 /// 单个会话的导出数据（含消息列表）
@@ -299,4 +346,8 @@ pub struct ImportResult {
     pub imported_count: u32,
     pub skipped_count: u32,
     pub errors: Vec<String>,
+    #[serde(default)]
+    pub usage_imported_count: u32,
+    #[serde(default)]
+    pub usage_skipped_count: u32,
 }

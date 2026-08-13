@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use rusqlite::{Connection, OptionalExtension};
+use std::collections::HashSet;
 
 use crate::db::models::UserProfile;
 
@@ -113,6 +114,14 @@ impl ProfileRepo {
             anyhow::bail!("profile not found");
         }
         Self::find_by_id(conn, profile_id)?.context("profile not found after avatar clear")
+    }
+
+    pub fn avatar_storage_keys(conn: &Connection) -> Result<HashSet<String>> {
+        let mut statement = conn.prepare(
+            "SELECT avatar_storage_key FROM user_profiles WHERE avatar_storage_key IS NOT NULL",
+        )?;
+        let rows = statement.query_map([], |row| row.get::<_, String>(0))?;
+        Ok(rows.collect::<rusqlite::Result<HashSet<_>>>()?)
     }
 
     pub fn update_timezone_snapshot(

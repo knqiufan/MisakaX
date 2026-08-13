@@ -4,7 +4,7 @@
 > **受众：** 产品、设计、React、Rust、Python Sidecar、测试与后续维护者。
 > **最后审阅 / Last reviewed：** 2026-08-13
 > **规划基线：** `main@5569c45`（Schema v14，React 19 / Tauri 2 / Rust 2021 / Python 3.11）。
-> **状态：** 设计冻结并进入实施；P0–P6 已完成（canonical 契约、Schema v15、跨运行时采集、原子终结、聚合快照、历史回填、个人中心壳层、总览、活动日历与 30 天模型趋势），实时进度见 [实施计划](../planning/PERSONAL_CENTER_USAGE_ANALYTICS_IMPLEMENTATION_PLAN.md)。
+> **状态：** 设计冻结并进入实施；P0–P7 已完成（含档案编辑、用量生命周期、ExportData v2 与性能汇总），实时进度见 [实施计划](../planning/PERSONAL_CENTER_USAGE_ANALYTICS_IMPLEMENTATION_PLAN.md)。
 
 ---
 
@@ -426,9 +426,10 @@ UnifiedTopBar：返回 + “个人中心”
 
 ### 10.2 导入导出
 
-- Export schema 版本升级后可携带 usage events 和 profile display metadata，但不携带 avatar 二进制，除非后续定义独立 bundle。
-- 事件导入使用 `source_installation_id + source_event_id` 去重；不能只靠本机 UUID 猜测重复。
-- 旧导出只按 legacy 规则迁移；导入来源在 metadata 标记，便于未来筛选。
+- `ExportData.version = 2` 携带可选 usage events 与安全 profile display metadata；v1 仍可导入，未知未来版本拒绝。普通 JSON 不携带 avatar 二进制、avatar key/hash 或原始 usage metadata。
+- 本机生成并校验稳定 installation UUID；事件导入使用原始 `source_installation_id + source_event_id` 唯一索引去重，本地 operation/measurement key 由长度分隔输入的 SHA-256 命名以避免分隔符碰撞；再导出时继续保留来源对。
+- 导入仅重建确有对应记录的 session/message/provider 弱引用，不能接受文件中的悬空或跨库引用。
+- 旧导出按 legacy 规则迁移 session 投影残差；导入 metadata 只保留来源版本、计量质量、legacy 标记和“历史时区未知”，不透传任意 JSON。
 
 ### 10.3 隐私与安全
 
@@ -442,8 +443,10 @@ UnifiedTopBar：返回 + “个人中心”
 ## 11. 性能、可维护性与可观测性
 
 - 年度热力图固定最多 400 个点；30 天趋势最多 8×90 点，DTO 有硬上限。
-- 首版直接在索引化事件表聚合；以 100k events 下组合查询 P95 < 100ms 为门槛。未测量前不引入 daily rollup 表。
-- 若将来超过门槛，再增加可重建的 `usage_daily_rollups`；账本仍是事实源。
+- 1k/10k/100k 确定性 fixture 在预热后各采样 7 次；未聚合 100k 组合查询 P95 约 490ms，超过 <100ms 门槛后才启用可重建 read model，热查询实测约 64.8ms。
+- `usage_operation_rollups`、`usage_profile_rollups`、`usage_daily_rollups` 与 `usage_rollup_state` 都是派生缓存：账本是唯一事实源；终结只追加账本，不双写 rollup。查询前比较 ledger count/max rowid，新增事件增量刷新，删除、状态缺失或迁移重放则从账本全量重建。
+- rollup 表可被安全删除；清空当前 profile 时与账本/session projection 同事务清理。若未来允许原地修改统计字段，必须扩展失效策略，不能绕过追加式仓储。
+- `EXPLAIN QUERY PLAN` 测试固定验证 profile/date 与 provider/model/date 索引；性能门禁失败应先保留证据，再调整索引或派生读模型。
 - ECharts 仅在 TrendCard 进入 DOM 后动态加载；页面离开时 dispose，ResizeObserver 必须 disconnect。
 - 记录脱敏日志：capture source、operation kind、是否估算、query duration、event insert conflict；不记录用户内容。
 - DTO 与 SSE 都带 `schema_version`；新增 provider metadata 不破坏旧前端。

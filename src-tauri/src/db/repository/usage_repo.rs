@@ -47,7 +47,7 @@ impl UsageRepo {
                     ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21,
                     ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31,
                     ?32, ?33
-                 ) ON CONFLICT(measurement_key) DO NOTHING",
+                 ) ON CONFLICT DO NOTHING",
                 rusqlite::params![
                     event.event_id,
                     event.profile_id,
@@ -88,6 +88,15 @@ impl UsageRepo {
                 inserted.push(event.clone());
             }
         }
+        let conflict_count = events.len().saturating_sub(inserted.len());
+        if conflict_count > 0 {
+            tracing::info!(
+                attempted_count = events.len(),
+                inserted_count = inserted.len(),
+                conflict_count,
+                "Skipped duplicate usage measurements"
+            );
+        }
         Ok(inserted)
     }
 
@@ -123,6 +132,31 @@ impl UsageRepo {
              WHERE profile_id = ?1 ORDER BY occurred_at_utc, event_id"
         ))?;
         let rows = statement.query_map([profile_id], Self::map_row)?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(Into::into)
+    }
+
+    pub fn list_for_session(conn: &Connection, session_id: &str) -> Result<Vec<UsageEvent>> {
+        let mut statement = conn.prepare(&format!(
+            "SELECT {USAGE_COLUMNS} FROM llm_usage_events
+             WHERE session_id = ?1 ORDER BY occurred_at_utc, event_id"
+        ))?;
+        let rows = statement.query_map([session_id], Self::map_row)?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(Into::into)
+    }
+
+    pub fn list_for_profile_since(
+        conn: &Connection,
+        profile_id: &str,
+        local_date: &str,
+    ) -> Result<Vec<UsageEvent>> {
+        let mut statement = conn.prepare(&format!(
+            "SELECT {USAGE_COLUMNS} FROM llm_usage_events
+             WHERE profile_id = ?1 AND local_date >= ?2
+             ORDER BY local_date, event_id"
+        ))?;
+        let rows = statement.query_map([profile_id, local_date], Self::map_row)?;
         rows.collect::<std::result::Result<Vec<_>, _>>()
             .map_err(Into::into)
     }

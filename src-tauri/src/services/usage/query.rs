@@ -1,5 +1,5 @@
 use std::cmp::Reverse;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::Instant;
 
 use anyhow::{Context, Result};
@@ -9,6 +9,7 @@ use rusqlite::Connection;
 use crate::db::models::UsageEvent;
 use crate::db::repository::{ProfileRepo, UsageRepo};
 
+use super::rollup::refresh_usage_rollups;
 use super::{
     calculate_streaks, local_date_sequence, DailyUsageV1, MeasurementSource, ModelUsagePointV1,
     ModelUsageSeriesV1, UsageDashboardV1, UsageOverviewV1, UsageQualityV1, UsageRangeV1,
@@ -66,10 +67,23 @@ pub fn get_dashboard_at(
     let started = Instant::now();
     let query = query.validate()?;
     let profile = ProfileRepo::get_current(conn)?;
-    let events = UsageRepo::list_for_profile(conn, &profile.profile_id)?;
+    refresh_usage_rollups(conn, &profile.profile_id)?;
     let activity_dates = local_date_sequence(today, query.activity_days);
     let trend_dates = local_date_sequence(today, query.trend_days);
-    let (model_series, other_series) = build_trend(&events, &trend_dates, query.max_series)?;
+    let trend_started = Instant::now();
+    let trend_events = UsageRepo::list_for_profile_since(
+        conn,
+        &profile.profile_id,
+        &trend_dates.first().unwrap().to_string(),
+    )?;
+    let (model_series, other_series) = build_trend(&trend_events, &trend_dates, query.max_series)?;
+    let trend_ms = trend_started.elapsed().as_millis() as u64;
+    let overview_started = Instant::now();
+    let overview = query_overview(conn, &profile.profile_id, today)?;
+    let overview_ms = overview_started.elapsed().as_millis() as u64;
+    let activity_started = Instant::now();
+    let daily_activity = query_activity(conn, &profile.profile_id, &activity_dates)?;
+    let activity_ms = activity_started.elapsed().as_millis() as u64;
 
     let dashboard = UsageDashboardV1 {
         schema_version: USAGE_DASHBOARD_SCHEMA_VERSION,
@@ -84,38 +98,49 @@ pub fn get_dashboard_at(
             trend_start: trend_dates.first().unwrap().to_string(),
             trend_end: trend_dates.last().unwrap().to_string(),
         },
-        overview: build_overview(&events, today)?,
-        daily_activity: build_activity(&events, &activity_dates)?,
+        overview,
+        daily_activity,
         model_series,
         other_series,
     };
 
     tracing::info!(
         duration_ms = started.elapsed().as_millis() as u64,
-        event_count = events.len(),
+        overview_ms,
+        activity_ms,
+        trend_ms,
+        trend_event_count = trend_events.len(),
         "Built usage dashboard snapshot"
     );
     Ok(dashboard)
 }
 
-fn build_overview(events: &[UsageEvent], today: NaiveDate) -> Result<UsageOverviewV1> {
-    let totals_events: Vec<&UsageEvent> = events
-        .iter()
-        .filter(|event| event.counts_toward_totals)
-        .collect();
-    let exact = sum_by_source(&totals_events, |source| {
-        source == MeasurementSource::ProviderReported
-    })?;
-    let estimated = sum_by_source(&totals_events, MeasurementSource::is_estimated)?;
-    let legacy = sum_by_source(&totals_events, |source| {
-        source == MeasurementSource::LegacyMigrated
-    })?;
-    let unknown_operation_count = distinct_unknown_operations(&totals_events) as u64;
-    let activity_dates: BTreeSet<NaiveDate> = events
-        .iter()
-        .filter(|event| event.counts_toward_activity)
-        .filter_map(|event| parse_date(&event.local_date))
-        .collect();
+fn query_overview(
+    conn: &Connection,
+    profile_id: &str,
+    today: NaiveDate,
+) -> Result<UsageOverviewV1> {
+    let (exact, estimated, legacy, unknown_operation_count): (i64, i64, i64, i64) = conn
+        .query_row(
+            "SELECT exact_tokens, estimated_tokens, legacy_tokens,
+                    unknown_operation_count
+             FROM usage_profile_rollups WHERE profile_id = ?1",
+            [profile_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )?;
+    let exact = nonnegative_u64(exact, "exact overview total")?;
+    let estimated = nonnegative_u64(estimated, "estimated overview total")?;
+    let legacy = nonnegative_u64(legacy, "legacy overview total")?;
+    let unknown_operation_count =
+        nonnegative_u64(unknown_operation_count, "unknown overview operation count")?;
+    let mut statement = conn.prepare(
+        "SELECT local_date FROM usage_daily_rollups
+         WHERE profile_id = ?1 ORDER BY local_date",
+    )?;
+    let activity_dates = statement
+        .query_map([profile_id], |row| row.get::<_, String>(0))?
+        .filter_map(|row| row.ok().and_then(|value| parse_date(&value)))
+        .collect::<Vec<_>>();
     let streak = calculate_streaks(activity_dates.iter().copied(), today);
     let total = exact
         .checked_add(estimated)
@@ -134,48 +159,122 @@ fn build_overview(events: &[UsageEvent], today: NaiveDate) -> Result<UsageOvervi
     })
 }
 
-fn build_activity(events: &[UsageEvent], dates: &[NaiveDate]) -> Result<Vec<DailyUsageV1>> {
-    let allowed: HashSet<String> = dates.iter().map(ToString::to_string).collect();
-    let mut by_date: HashMap<&str, Vec<&UsageEvent>> = HashMap::new();
-    for event in events
-        .iter()
-        .filter(|event| event.counts_toward_activity && allowed.contains(event.local_date.as_str()))
-    {
-        by_date.entry(&event.local_date).or_default().push(event);
+#[derive(Debug)]
+struct ActivityAggregate {
+    total_tokens: Option<u64>,
+    input_tokens: Option<u64>,
+    output_tokens: Option<u64>,
+    operation_count: u64,
+    exact_tokens: u64,
+    estimated_tokens: u64,
+    legacy_tokens: u64,
+    unknown_operation_count: u64,
+    primary_model: Option<String>,
+}
+
+fn query_activity(
+    conn: &Connection,
+    profile_id: &str,
+    dates: &[NaiveDate],
+) -> Result<Vec<DailyUsageV1>> {
+    let start = dates
+        .first()
+        .context("activity range is empty")?
+        .to_string();
+    let end = dates.last().context("activity range is empty")?.to_string();
+    let mut statement = conn.prepare(
+        "SELECT local_date, total_tokens, input_tokens, output_tokens,
+                operation_count, exact_tokens, estimated_tokens, legacy_tokens,
+                unknown_operation_count, primary_model
+         FROM usage_daily_rollups
+         WHERE profile_id = ?1 AND local_date BETWEEN ?2 AND ?3
+         ORDER BY local_date",
+    )?;
+    let rows = statement.query_map(rusqlite::params![profile_id, start, end], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, Option<i64>>(1)?,
+            row.get::<_, Option<i64>>(2)?,
+            row.get::<_, Option<i64>>(3)?,
+            row.get::<_, i64>(4)?,
+            row.get::<_, i64>(5)?,
+            row.get::<_, i64>(6)?,
+            row.get::<_, i64>(7)?,
+            row.get::<_, i64>(8)?,
+            row.get::<_, Option<String>>(9)?,
+        ))
+    })?;
+    let mut aggregates = HashMap::new();
+    for row in rows {
+        let (date, total, input, output, operations, exact, estimated, legacy, unknown, primary) =
+            row?;
+        aggregates.insert(
+            date,
+            ActivityAggregate {
+                total_tokens: optional_nonnegative_u64(total, "daily total")?,
+                input_tokens: optional_nonnegative_u64(input, "daily input")?,
+                output_tokens: optional_nonnegative_u64(output, "daily output")?,
+                operation_count: nonnegative_u64(operations, "daily operation count")?,
+                exact_tokens: nonnegative_u64(exact, "daily exact total")?,
+                estimated_tokens: nonnegative_u64(estimated, "daily estimated total")?,
+                legacy_tokens: nonnegative_u64(legacy, "daily legacy total")?,
+                unknown_operation_count: nonnegative_u64(unknown, "daily unknown count")?,
+                primary_model: primary,
+            },
+        );
     }
 
-    dates
+    Ok(dates
         .iter()
         .map(|date| {
-            let key = date.to_string();
-            let day = by_date.get(key.as_str()).cloned().unwrap_or_default();
-            let operations: HashSet<&str> = day
-                .iter()
-                .map(|event| event.operation_key.as_str())
-                .collect();
-            let total_tokens = sum_known(&day, |event| event.total_tokens)?;
-            let input_tokens = sum_known(&day, |event| event.input_tokens)?;
-            let output_tokens = sum_known(&day, |event| event.output_tokens)?;
-            let exact =
-                sum_by_source(&day, |source| source == MeasurementSource::ProviderReported)?;
-            let estimated = sum_by_source(&day, MeasurementSource::is_estimated)?;
-            let legacy = sum_by_source(&day, |source| source == MeasurementSource::LegacyMigrated)?;
-            Ok(DailyUsageV1 {
-                local_date: key,
-                total_tokens: total_tokens.map(|value| value.to_string()),
-                input_tokens: input_tokens.map(|value| value.to_string()),
-                output_tokens: output_tokens.map(|value| value.to_string()),
-                operation_count: operations.len() as u64,
-                primary_model: primary_model(&day),
+            let local_date = date.to_string();
+            let aggregate = aggregates.remove(&local_date);
+            DailyUsageV1 {
+                local_date,
+                total_tokens: aggregate
+                    .as_ref()
+                    .and_then(|value| value.total_tokens)
+                    .map(|value| value.to_string()),
+                input_tokens: aggregate
+                    .as_ref()
+                    .and_then(|value| value.input_tokens)
+                    .map(|value| value.to_string()),
+                output_tokens: aggregate
+                    .as_ref()
+                    .and_then(|value| value.output_tokens)
+                    .map(|value| value.to_string()),
+                operation_count: aggregate.as_ref().map_or(0, |value| value.operation_count),
+                primary_model: aggregate
+                    .as_ref()
+                    .and_then(|value| value.primary_model.clone()),
                 quality: UsageQualityV1 {
-                    exact_tokens: exact.to_string(),
-                    estimated_tokens: estimated.to_string(),
-                    legacy_tokens: legacy.to_string(),
-                    unknown_operation_count: distinct_unknown_operations(&day) as u64,
+                    exact_tokens: aggregate
+                        .as_ref()
+                        .map_or(0, |value| value.exact_tokens)
+                        .to_string(),
+                    estimated_tokens: aggregate
+                        .as_ref()
+                        .map_or(0, |value| value.estimated_tokens)
+                        .to_string(),
+                    legacy_tokens: aggregate
+                        .as_ref()
+                        .map_or(0, |value| value.legacy_tokens)
+                        .to_string(),
+                    unknown_operation_count: aggregate
+                        .as_ref()
+                        .map_or(0, |value| value.unknown_operation_count),
                 },
-            })
+            }
         })
-        .collect()
+        .collect())
+}
+
+fn nonnegative_u64(value: i64, field: &str) -> Result<u64> {
+    u64::try_from(value).with_context(|| format!("{field} was negative"))
+}
+
+fn optional_nonnegative_u64(value: Option<i64>, field: &str) -> Result<Option<u64>> {
+    value.map(|value| nonnegative_u64(value, field)).transpose()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -301,20 +400,6 @@ fn series_from_events(
         effective_model_id: key.model.clone(),
         points,
     })
-}
-
-fn primary_model(events: &[&UsageEvent]) -> Option<String> {
-    let mut totals: BTreeMap<&str, u64> = BTreeMap::new();
-    for event in events {
-        if let Some(model) = event.effective_model_id.as_deref() {
-            let total = totals.entry(model).or_default();
-            *total = total.saturating_add(event.total_tokens.unwrap_or(0));
-        }
-    }
-    totals
-        .into_iter()
-        .max_by_key(|(model, total)| (*total, Reverse(*model)))
-        .map(|(model, _)| model.to_string())
 }
 
 fn sum_by_source<T>(events: &[T], predicate: impl Fn(MeasurementSource) -> bool) -> Result<u64>

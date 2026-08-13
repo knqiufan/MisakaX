@@ -3,7 +3,7 @@
 > **用途：** 将个人中心、活动日历、按模型 Token 趋势与可靠用量计量拆成可验证、可独立审查的实施阶段和 Todo。
 > **受众：** React、Rust、Python Sidecar、测试、设计与发布维护者。
 > **最后审阅 / Last reviewed：** 2026-08-13
-> **状态：** 实施中；P0–P6 已完成，P7 进行中。
+> **状态：** 实施中；P0–P7 已完成，P8 进行中。
 > **规划基线：** `main@5569c45`，Schema v14。
 > **实施分支：** `codex/personal-center-usage-analytics`
 > **关联架构：** [个人中心与 Token 用量统计功能架构](../architecture/PERSONAL_CENTER_USAGE_ANALYTICS_ARCHITECTURE.md)
@@ -23,8 +23,8 @@
 | P4 个人中心壳层、档案头与总览卡 | ✅ 完成 | 本阶段提交 `feat(profile): deliver P4 shell and overview` | 前端路由/档案/概览/IPC 回归 24 项、TypeScript 检查通过；375/768/1024/1440 无左栏、无横向溢出 |
 | P5 活动日历与绿色主题 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P5 activity calendar` | 46 个前端测试文件、297 项测试及生产构建通过；产物保留浅/深 usage tokens 与未知纹理 |
 | P6 最近 30 天按模型趋势 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P6 model trend` | 49 个前端测试文件、308 项测试及生产构建通过；ECharts 独立懒加载 chunk，数据表可切换并自动降级 |
-| P7 档案编辑、数据生命周期与性能 | ⏳ 待开始 | — | — |
-| P8 QA、规范同步与交付 | ⏳ 待开始 | — | — |
+| P7 档案编辑、数据生命周期与性能 | ✅ 完成 | 本阶段提交 `feat(profile): deliver P7 lifecycle and performance` | 21 项迁移测试 + 36 项 Rust 定向测试、前端 50 文件/312 项测试、全特性检查及生产构建通过；100k 热查询 P95 64.8ms |
+| P8 QA、规范同步与交付 | 🚧 进行中 | — | — |
 
 ### 0.2 工作日志
 
@@ -38,6 +38,8 @@
 | 2026-08-13 15:32 | P4 | 接入独立 profile route、共享 local profile 状态与名称编辑 Dialog；UserMenu/TopBar/ProfileHeader 同步；三张总览卡以 BigInt 处理十进制字符串并覆盖 loading/empty/partial/error。浏览器按 375/768/1024/1440 验证无左栏与横向溢出。 |
 | 2026-08-13 15:42 | P5 | 新增 7×52/53 周活动网格、locale 周起始/月标签、P95 截断 `log1p` 四档强度、known-zero/unknown/mixed 独立状态；接入键盘 roving focus、共享 Tooltip、横向滚动、图例和 365 行可访问表格，并补齐浅深主题 usage tokens。 |
 | 2026-08-13 15:53 | P6 | 提取无领域 ECharts 宿主并让富内容图表复用；新增 30 天 Top 5 + others 折线、稳定颜色/线型/点形、同名模型消歧、安全大整数缩放、unknown gap 与 mixed 标记，以及可切换/失败自动展示的逐日精确数据表。全量前端 49 文件、308 项测试及生产构建通过。 |
+| 2026-08-13 16:20 | P7 进行中 | 完成头像 magic/大小/像素校验、512px WebP 原子应用副本与孤儿清理；补齐清空用量 Dialog/事务回滚、删除任务统计保留文案、ExportData v2 origin 去重与 v1 legacy 回填。性能实证从未聚合的 100k P95 约 490ms 触发可重建 rollup，热查询降至 64.8ms。 |
+| 2026-08-13 16:26 | P7 完成 | 派生 rollup 支持缺失/删除后全量重建与新事件增量刷新，账本仍为唯一事实源且终结链路不双写；迁移重放会先清理派生缓存。21 项迁移测试、36 项 Rust 定向测试、前端 50 文件/312 项测试、`cargo check --all-features` 与生产构建全部通过。 |
 
 ### 0.3 首版 LLM operation 计入口径
 
@@ -447,32 +449,32 @@ P0 contracts/tests
 
 ### Todo：头像与名称
 
-- [ ] 头像仅接受 PNG/JPEG/WebP、≤5 MiB；后端解码验证、限制像素、重新编码/缩放并存入 app-data。
-- [ ] DB 只保存 storage key/hash；绝不保存或删除用户选择的原文件。
-- [ ] 头像替换使用临时文件 + 原子 rename；失败保留旧头像；清理孤儿文件。
-- [ ] `profile_update` 校验 Unicode 长度/空白；成功后 UserMenu 与 ProfileHeader 同步刷新。
+- [x] 头像仅接受 PNG/JPEG/WebP、≤5 MiB；后端按 magic 解码、限制 40 MP、最长边缩放至 512px、重编码为 WebP 并存入 app-data。
+- [x] DB 只保存后端生成的 storage key 与规范化文件 SHA-256；不保存、不修改或删除用户选择的原文件。
+- [x] 头像替换使用独占临时文件、落盘同步与原子 rename；失败保留旧头像；启动时清理临时文件和无 DB 引用的孤儿文件。
+- [x] `profile_update` 校验 Unicode 长度/空白；成功后共享 store 同步刷新 UserMenu 与 ProfileHeader。
 
 ### Todo：清空与删除语义
 
-- [ ] “清空用量历史”使用标准 Dialog，说明不删除聊天正文且会清零统计投影。
-- [ ] 清空事件与 session projection 在一个事务完成；失败回滚。
-- [ ] 删除消息/会话的现有确认文案补充统计保留语义，或提供产品明确选择；不可静默改变。
-- [ ] 测试清空后新事件可继续记录、旧 TokenBadge 仍可显示消息内 JSON 的预期行为。
+- [x] “清空用量历史”使用标准 Dialog，明确不删除聊天正文或消息 TokenBadge，但会清零统计投影。
+- [x] 清空事件、派生 rollup 与 session projection 在一个事务完成；触发器注入失败时整体回滚。
+- [x] 会话删除改为标准确认 Dialog，并明确历史用量账本保留、会话/消息弱引用置空；不静默改写统计事实。
+- [x] 测试清空后新事件可继续记录、旧 TokenBadge 仍读取消息内 JSON。
 
 ### Todo：导入导出
 
-- [ ] `ExportData.version` 升级并定义 usage event 可选字段，保持旧文件可导入。
-- [ ] 使用 `source_installation_id + source_event_id` 去重；导入不重复累计。
-- [ ] profile 仅导出名称、时区模式/标识等安全 metadata；头像 bundle 另立版本，不塞 base64 到普通 JSON。
-- [ ] 导入 legacy session 的统计来源/质量进入 metadata。
+- [x] `ExportData.version` 升至 v2 并增加可选 profile/usage 字段；v1 缺失字段仍可导入，未来版本显式拒绝。
+- [x] 以稳定 installation ID 与原始 event ID 形成来源对；首次导入、重复导入及再导出/导入均不重复累计。
+- [x] profile 仅导出名称、时区模式/标识与周起始日；普通 JSON 不包含头像、原始 usage metadata 或其他私密字段。
+- [x] legacy session 投影残差按 `legacy_migrated` 回填，并在最小导入 metadata 标注来源版本、质量与历史时区未知。
 
 ### Todo：性能与可观测性
 
-- [ ] 建立 1k/10k/100k usage events benchmark fixture；组合查询 P95 目标 <100ms。
-- [ ] 检查 `EXPLAIN QUERY PLAN` 命中 profile/date/model 索引。
-- [ ] 页面进入只取一次 dashboard；`usage:recorded` 事件 debounce，避免事件风暴。
-- [ ] 记录 query duration、insert conflict、measurement source 分布；日志不含内容/路径/key。
-- [ ] 若 100k 未达标，再设计可重建 daily rollup；不得提前双写第二事实源。
+- [x] 建立确定性的 1k/10k/100k usage events fixture，预热后采样 7 次并对组合查询执行 P95 <100ms 门禁；实测分别约 4.9/9.9/64.8ms。
+- [x] `EXPLAIN QUERY PLAN` 测试确认 profile/date 与 provider/model/date 查询命中既有索引。
+- [x] 页面进入只取一次 dashboard；`usage:recorded` 事件 debounce，避免事件风暴。
+- [x] 记录查询分段耗时、rollup 刷新耗时、insert conflict 数与 measurement source 计数；日志不含内容、路径、measurement/operation key。
+- [x] 未聚合 SQL 在 100k 实测 P95 约 490ms 后才引入可重建 operation/profile/daily rollup；查询前懒刷新，终结写入仍只追加账本，不双写第二事实源。
 
 ### 退出门
 

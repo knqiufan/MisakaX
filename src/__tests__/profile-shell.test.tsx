@@ -4,7 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const profileMocks = vi.hoisted(() => ({
   getCurrent: vi.fn(),
   update: vi.fn(),
+  getAvatar: vi.fn(),
+  setAvatar: vi.fn(),
+  clearAvatar: vi.fn(),
 }));
+
+const { dialogOpen } = vi.hoisted(() => ({ dialogOpen: vi.fn() }));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: dialogOpen }));
 
 vi.mock("@/lib/ipc/profile", () => ({
   profileIpc: profileMocks,
@@ -52,13 +59,19 @@ describe("profile shell", () => {
     });
     useProfileStore.setState({
       profile: PROFILE,
+      avatarUrl: null,
       status: "success",
       error: null,
       updating: false,
+      avatarUpdating: false,
       updateError: null,
     });
     profileMocks.getCurrent.mockReset().mockResolvedValue(PROFILE);
     profileMocks.update.mockReset();
+    profileMocks.getAvatar.mockReset().mockResolvedValue(null);
+    profileMocks.setAvatar.mockReset();
+    profileMocks.clearAvatar.mockReset();
+    dialogOpen.mockReset();
   });
 
   it("routes the enabled user-menu profile item and reads the profile name", async () => {
@@ -113,5 +126,30 @@ describe("profile shell", () => {
     await waitFor(() => expect(profileMocks.update).toHaveBeenCalledWith({ displayName: "Local Agent" }));
     await waitFor(() => expect(useProfileStore.getState().profile?.display_name).toBe("Local Agent"));
     expect(screen.getByRole("heading", { name: "Local Agent" })).toBeTruthy();
+  });
+
+  it("selects an avatar copy and removes it through the shared store", async () => {
+    dialogOpen.mockResolvedValue("D:\\pictures\\avatar.png");
+    profileMocks.setAvatar.mockResolvedValue({
+      profile: { ...PROFILE, avatar_storage_key: "avatar-safe.webp", avatar_sha256: "hash" },
+      avatar_data_url: "data:image/webp;base64,c2FmZQ==",
+    });
+    profileMocks.clearAvatar.mockResolvedValue(PROFILE);
+    render(
+      <TooltipProvider>
+        <ProfileHeader />
+      </TooltipProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit profile" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Change profile image" }));
+    await waitFor(() =>
+      expect(profileMocks.setAvatar).toHaveBeenCalledWith("D:\\pictures\\avatar.png")
+    );
+    expect(useProfileStore.getState().avatarUrl).toBe("data:image/webp;base64,c2FmZQ==");
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove profile image" }));
+    await waitFor(() => expect(profileMocks.clearAvatar).toHaveBeenCalledOnce());
+    expect(useProfileStore.getState().avatarUrl).toBeNull();
   });
 });

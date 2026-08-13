@@ -193,3 +193,51 @@ fn query_limits_return_stable_errors() {
     .to_string();
     assert!(error.contains("activity_days"));
 }
+
+#[test]
+fn lazy_rollups_incrementally_refresh_and_remain_rebuildable_from_the_ledger() {
+    let (conn, profile_id) = setup();
+    let first = event(
+        &profile_id,
+        "mixed-known",
+        "2026-08-13",
+        Some("model-a"),
+        Some(10),
+        MeasurementSource::ProviderReported,
+        true,
+        true,
+    );
+    UsageRepo::insert_batch_idempotent(&conn, &[first]).unwrap();
+    let initial = get_dashboard_at(&conn, DashboardQuery::default(), date("2026-08-13")).unwrap();
+    assert_eq!(initial.overview.total_tokens, "10");
+
+    let mut unknown = event(
+        &profile_id,
+        "mixed-unknown",
+        "2026-08-13",
+        Some("model-a"),
+        None,
+        MeasurementSource::Unavailable,
+        true,
+        true,
+    );
+    unknown.operation_key = "operation:mixed-known".into();
+    UsageRepo::insert_batch_idempotent(&conn, &[unknown]).unwrap();
+    let refreshed = get_dashboard_at(&conn, DashboardQuery::default(), date("2026-08-13")).unwrap();
+    assert_eq!(refreshed.overview.total_tokens, "10");
+    assert_eq!(refreshed.overview.unknown_operation_count, 1);
+    let today = refreshed.daily_activity.last().unwrap();
+    assert_eq!(today.operation_count, 1);
+    assert_eq!(today.total_tokens.as_deref(), Some("10"));
+    assert_eq!(today.quality.unknown_operation_count, 1);
+
+    conn.execute("DELETE FROM usage_rollup_state", []).unwrap();
+    conn.execute("DELETE FROM usage_operation_rollups", [])
+        .unwrap();
+    conn.execute("DELETE FROM usage_profile_rollups", [])
+        .unwrap();
+    conn.execute("DELETE FROM usage_daily_rollups", []).unwrap();
+    let rebuilt = get_dashboard_at(&conn, DashboardQuery::default(), date("2026-08-13")).unwrap();
+    assert_eq!(rebuilt.overview, refreshed.overview);
+    assert_eq!(rebuilt.daily_activity, refreshed.daily_activity);
+}

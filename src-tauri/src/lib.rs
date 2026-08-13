@@ -55,6 +55,15 @@ pub fn run() {
 
     let db_path = config::db_path().expect("Failed to determine database path");
     let conn = db::init_database(&db_path).expect("Failed to initialize database");
+    if let (Ok(storage_root), Ok(active_keys)) = (
+        config::profile_avatars_dir(),
+        db::repository::ProfileRepo::avatar_storage_keys(&conn),
+    ) {
+        if services::profile_avatar::cleanup_orphaned_avatars(&storage_root, &active_keys).is_err()
+        {
+            tracing::warn!("Failed to clean orphaned profile avatars");
+        }
+    }
     if let Err(error) = services::skills::security::recover_startup(&conn) {
         tracing::warn!(error = %error, "Failed to recover interrupted Skill scans");
     }
@@ -148,6 +157,9 @@ pub fn run() {
             commands::models::test_model,
             commands::profile::profile_get_current,
             commands::profile::profile_update,
+            commands::profile::profile_avatar_get,
+            commands::profile::profile_avatar_set,
+            commands::profile::profile_avatar_clear,
             commands::usage::usage_get_dashboard,
             commands::usage::usage_clear_history,
             commands::chat::send_message,

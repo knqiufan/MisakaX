@@ -16,6 +16,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -59,6 +67,8 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
   const [archivedSessions, setArchivedSessions] = useState<Session[]>([]);
   const [archivedCount, setArchivedCount] = useState(0);
   const [workspacePreferences, setWorkspacePreferences] = useState<WorkspacePreference[]>([]);
+  const [pendingDelete, setPendingDelete] = useState<Session | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const loadSessions = useCallback(async () => {
@@ -158,6 +168,7 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
 
   const handleDelete = useCallback(
     async (id: string) => {
+      setDeleting(true);
       try {
         await sessionsIpc.delete(id);
         if (activeSessionId === id) {
@@ -166,11 +177,15 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
         }
         await loadSessions();
         if (showArchived) await loadArchivedSessions();
+        setPendingDelete(null);
       } catch (err) {
         console.error("Failed to delete session:", err);
+        toast.error(t("common:error"));
+      } finally {
+        setDeleting(false);
       }
     },
-    [activeSessionId, setActiveSession, setActiveSessionData, loadSessions, showArchived, loadArchivedSessions]
+    [activeSessionId, setActiveSession, setActiveSessionData, loadSessions, showArchived, loadArchivedSessions, t]
   );
 
   const handleArchive = useCallback(
@@ -310,7 +325,7 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
       groups={groups}
       onSelect={handleSelect}
       onRename={handleRename}
-      onDelete={handleDelete}
+      onDelete={() => setPendingDelete(session)}
       onArchive={handleArchive}
       onTogglePin={handleTogglePin}
       onSetGroup={handleSetGroup}
@@ -378,6 +393,41 @@ export function SessionPanel({ onNewSession }: SessionPanelProps) {
       </ScrollArea>
 
       <SessionPanelFooter />
+      <Dialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setPendingDelete(null);
+        }}
+      >
+        <DialogContent showCloseButton={!deleting}>
+          <DialogHeader>
+            <DialogTitle>{t("session.deleteConfirmTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("session.deleteConfirm", {
+                title: pendingDelete?.title || t("session.newTask"),
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deleting}
+              onClick={() => setPendingDelete(null)}
+            >
+              {t("common:cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleting || !pendingDelete}
+              onClick={() => pendingDelete && void handleDelete(pendingDelete.id)}
+            >
+              {deleting ? t("common:loading") : t("session.delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
