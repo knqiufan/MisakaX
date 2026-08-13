@@ -79,5 +79,27 @@
       "mixed": "存在已知用量及额外未知调用",
       "future": "未来日期"
     }
+  },
+  "trend": {
+    "sectionLabel": "模型 Token 趋势",
+    "title": "模型 Token 趋势",
+    "description": "按最近 30 个本地自然日内实际调用的模型展示每日 Token 用量。",
+    "yAxis": "Token",
+    "unknownOperations": "次用量未知",
+    "estimatedTokens": "估算",
+    "legacyTokens": "旧数据",
+    "toggleTable": "数据表",
+    "chartLabel": "按模型展示的 30 天 Token 用量折线图",
+    "empty": "当前区间尚未记录模型趋势数据。",
+    "loadError": "无法加载模型趋势",
+    "loadErrorDescription": "本地趋势快照暂时不可用，请重试。",
+    "refreshError": "当前显示上次可用的趋势快照。",
+    "chartFallback": "图表渲染器不可用，相同数值已在下方数据表中展示。",
+    "chartFallbackTable": "图表降级数据",
+    "table": {
+      "date": "日期",
+      "unknown": "· {{count}} 次未知",
+      "estimated": "估算 {{value}}"
+    }
   }
 }

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { BarChart3, Download, Table2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { EChartCanvas } from "@/components/charts";
 import { artifactsIpc } from "@/lib/ipc";
 import type { BlockRendererProps } from "../renderer-registry";
 import { RichContentCard } from "../RichContentCard";
@@ -73,39 +74,15 @@ export function ChartBlockRenderer({ block, sessionId }: BlockRendererProps) {
 
 function ChartCanvas({ spec }: { spec: ChartSpecV1 }) {
   const { t } = useTranslation("chat");
-  const elementRef = useRef<HTMLDivElement>(null);
-  const [error, setError] = useState(false);
   const option = useMemo(() => compileChartOption(spec), [spec]);
-
-  useEffect(() => {
-    const element = elementRef.current;
-    if (!element) return;
-    let disposed = false;
-    let instance: { resize: () => void; dispose: () => void } | null = null;
-    let resizeObserver: ResizeObserver | null = null;
-
-    void import("echarts")
-      .then((echarts) => {
-        if (disposed) return;
-        const chart = echarts.init(element, undefined, { renderer: "canvas" });
-        chart.setOption(option, { notMerge: true, lazyUpdate: true });
-        instance = chart;
-        resizeObserver = new ResizeObserver(() => chart.resize());
-        resizeObserver.observe(element);
-      })
-      .catch(() => !disposed && setError(true));
-
-    return () => {
-      disposed = true;
-      resizeObserver?.disconnect();
-      instance?.dispose();
-    };
-  }, [option]);
-
-  if (error) {
-    return <ChartDataTable spec={spec} label={t("richContent.chart.fallbackData")} />;
-  }
-  return <div ref={elementRef} className="h-[260px] min-w-0" role="img" aria-label={t("richContent.chart.visualization")} />;
+  return (
+    <EChartCanvas
+      option={option}
+      className="h-[260px]"
+      ariaLabel={t("richContent.chart.visualization")}
+      fallback={<ChartDataTable spec={spec} label={t("richContent.chart.fallbackData")} />}
+    />
+  );
 }
 
 function MetricPreview({ spec }: { spec: ChartSpecV1 }) {

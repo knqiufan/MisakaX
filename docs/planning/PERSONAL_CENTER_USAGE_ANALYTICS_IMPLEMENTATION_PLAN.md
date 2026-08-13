@@ -3,7 +3,7 @@
 > **用途：** 将个人中心、活动日历、按模型 Token 趋势与可靠用量计量拆成可验证、可独立审查的实施阶段和 Todo。
 > **受众：** React、Rust、Python Sidecar、测试、设计与发布维护者。
 > **最后审阅 / Last reviewed：** 2026-08-13
-> **状态：** 实施中；P0–P3 已完成，P4 待开始。
+> **状态：** 实施中；P0–P6 已完成，P7 进行中。
 > **规划基线：** `main@5569c45`，Schema v14。
 > **实施分支：** `codex/personal-center-usage-analytics`
 > **关联架构：** [个人中心与 Token 用量统计功能架构](../architecture/PERSONAL_CENTER_USAGE_ANALYTICS_ARCHITECTURE.md)
@@ -22,7 +22,7 @@
 | P3 聚合查询、IPC 与历史回填 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P3 analytics snapshot` | Rust 聚合/回填/契约/仓储 24 项与前端 IPC 4 项通过；全特性编译及生产构建通过 |
 | P4 个人中心壳层、档案头与总览卡 | ✅ 完成 | 本阶段提交 `feat(profile): deliver P4 shell and overview` | 前端路由/档案/概览/IPC 回归 24 项、TypeScript 检查通过；375/768/1024/1440 无左栏、无横向溢出 |
 | P5 活动日历与绿色主题 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P5 activity calendar` | 46 个前端测试文件、297 项测试及生产构建通过；产物保留浅/深 usage tokens 与未知纹理 |
-| P6 最近 30 天按模型趋势 | ⏳ 待开始 | — | — |
+| P6 最近 30 天按模型趋势 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P6 model trend` | 49 个前端测试文件、308 项测试及生产构建通过；ECharts 独立懒加载 chunk，数据表可切换并自动降级 |
 | P7 档案编辑、数据生命周期与性能 | ⏳ 待开始 | — | — |
 | P8 QA、规范同步与交付 | ⏳ 待开始 | — | — |
 
@@ -37,6 +37,7 @@
 | 2026-08-13 15:16 | P3 | 新增单锁快照 dashboard 查询：overview、365 天活动、30 天 Top 5 + others 趋势均补齐日期并保留 exact/estimated/legacy/unknown；注册 Profile/Usage IPC；启动时幂等回填可信消息 JSON 与 session residual，坏 JSON/异常投影只记诊断。 |
 | 2026-08-13 15:32 | P4 | 接入独立 profile route、共享 local profile 状态与名称编辑 Dialog；UserMenu/TopBar/ProfileHeader 同步；三张总览卡以 BigInt 处理十进制字符串并覆盖 loading/empty/partial/error。浏览器按 375/768/1024/1440 验证无左栏与横向溢出。 |
 | 2026-08-13 15:42 | P5 | 新增 7×52/53 周活动网格、locale 周起始/月标签、P95 截断 `log1p` 四档强度、known-zero/unknown/mixed 独立状态；接入键盘 roving focus、共享 Tooltip、横向滚动、图例和 365 行可访问表格，并补齐浅深主题 usage tokens。 |
+| 2026-08-13 15:53 | P6 | 提取无领域 ECharts 宿主并让富内容图表复用；新增 30 天 Top 5 + others 折线、稳定颜色/线型/点形、同名模型消歧、安全大整数缩放、unknown gap 与 mixed 标记，以及可切换/失败自动展示的逐日精确数据表。全量前端 49 文件、308 项测试及生产构建通过。 |
 
 ### 0.3 首版 LLM operation 计入口径
 
@@ -419,17 +420,17 @@ P0 contracts/tests
 
 ### Todo
 
-- [ ] 从现有 `ChartCanvas` 提取 ECharts 动态 import、init、ResizeObserver、dispose、error fallback 的无领域宿主。
-- [ ] `usage-chart-options.ts` 纯函数生成 30 天 category xAxis、多 series、axis tooltip、scroll legend。
-- [ ] 区分 no-call=0、unknown-only=NULL/gap、known+unknown=已知值加质量标记；Tooltip/表格显示 unknown operation count。
-- [ ] Y 轴从 0 开始，axis label 用 K/M/B，Tooltip 保留原始整数与 estimated/unknown 说明。
-- [ ] chart adapter 对安全整数直接转 number；超出时用 BigInt 比例缩放绘制并保留原值 Tooltip/表格，禁止静默截断。
-- [ ] series key 对颜色做稳定映射；同名不同 provider 展示可区分 label。
-- [ ] 最多 5 个模型 + others；legend 可隐藏系列，但不改变顶部总量。
-- [ ] `animation=false` 或 150ms 并检测 reduced motion；禁止 smooth 过度导致小数据误读，可默认直线或弱 smooth。
-- [ ] ECharts `aria.enabled` + decal；同时提供可切换/自动降级的数据表。
-- [ ] 图表空态、只有一个点、全零、百万/十亿级、5+ 模型、Resize、主题切换均测试。
-- [ ] 不新增 chart dependency，不在页面 bundle 启动时同步加载 ECharts。
+- [x] 从现有 `ChartCanvas` 提取 ECharts 动态 import、init、ResizeObserver、dispose、error fallback 的无领域宿主。
+- [x] `usage-chart-options.ts` 纯函数生成 30 天 category xAxis、多 series、axis tooltip、scroll legend。
+- [x] 区分 no-call=0、unknown-only=NULL/gap、known+unknown=已知值加质量标记；Tooltip/表格显示 unknown operation count。
+- [x] Y 轴从 0 开始，axis label 用 K/M/B，Tooltip 保留原始整数与 estimated/unknown 说明。
+- [x] chart adapter 对安全整数直接转 number；超出时用 BigInt 比例缩放绘制并保留原值 Tooltip/表格，禁止静默截断。
+- [x] series key 对颜色做稳定映射；同名同 provider 仍以 config/series key 生成唯一 label。
+- [x] dashboard 契约提供最多 5 个模型 + others；legend 只控制图层可见性，不改 dashboard 总览快照。
+- [x] 固定 `animation=false`、`smooth=false`、`connectNulls=false`，避免 reduced motion 与 gap 误读。
+- [x] ECharts `aria.enabled` + decal；同时提供可切换/自动降级的数据表。
+- [x] 图表空态、只有一个点、全零、百万/十亿级、5+ 模型、Resize、主题切换均测试。
+- [x] 未新增 chart dependency；唯一运行时引用保持动态 import，生产构建生成独立 ECharts chunk。
 
 ### 退出门
 

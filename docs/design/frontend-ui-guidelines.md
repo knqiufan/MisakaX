@@ -8,7 +8,7 @@
 - **按钮、下拉菜单、Popover、Select、Dialog、Tooltip 等控件的细节与变体**：编写或调整时须同时对照 [button-menu-design-spec.md](./button-menu-design-spec.md)。
 - **可复刻参考（CodePilot）**：[`docs/ui/02-chat.md`](../ui/02-chat.md)、[`docs/ui/03-workspace.md`](../ui/03-workspace.md)、[`docs/ui/04-settings.md`](../ui/04-settings.md)、[`docs/ui/06-markdown-message-tools.md`](../ui/06-markdown-message-tools.md)（视觉与能力对齐；IA 以 shell 规范本期边界为准）。
 
-**最后审阅 / Last reviewed:** 2026-08-13（v36）
+**最后审阅 / Last reviewed:** 2026-08-13（v37）
 
 ## 1. 设计理念 (Design Philosophy)
 
@@ -219,6 +219,7 @@ MisakaX 的目标是打造一个**现代化、专业、克制的桌面端 Agent 
 - 富内容是 Assistant 正文中的**有序内容块**，不是新的整条消息气泡；Assistant 外层仍保持无背景、无圆角外壳。无块或功能开关关闭时必须回退到既有 Markdown 正文。
 - 每个独立块使用 `my-4 rounded-xl border-border/40 bg-muted/20` 的低对比容器，头部使用 `size-4` Lucide 图标、`text-sm font-medium` 标题和紧凑 `icon-xs` 操作；禁止 dashboard 式强色背景、悬停位移或缩放。
 - 图表、地图、文件预览必须惰性加载，并提供受控的文本/数据/下载降级路径；块级失败只能显示局部 notice，不能中断相邻 Markdown、工具调用或消息 footer。
+- ECharts 等命令式可视化必须通过通用宿主管理动态 import、容器 Resize、主题 token 重应用和卸载释放；领域层只生成 options 与等价数据，不复制 init/observer/dispose 生命周期。业务统计的具体 gap、大整数和表格语义见 [壳层与工作区规范 §4.5](./shell-and-workspace-ui-spec.md#45-个人中心与用量统计)。
 - 文件预览使用共享 `Dialog`，始终标明“只读”；二进制资源仅经窄 IPC 获取，禁止在 JSX 注入 HTML、任意 URL、`file:` 路径或未验证 SVG。所有可见标签、状态、`aria-label` 和错误文案必须走 `chat.richContent.*` i18n key。
 - 图表和地图的辅助操作（数据表、要素列表、复制、导出）必须键盘可达；颜色不是唯一信息来源，库加载/WebGL 失败时显示等价文本数据。
 - R4a 地图只渲染经校验的本地 GeoJSON：不得接收 tile URL、外部样式或其他远程资源；地图区域保持中性底色、固定可读高度和加载态，渲染失败时回退为要素列表。长要素列表默认最多显示 200 项，并明确告知截断。

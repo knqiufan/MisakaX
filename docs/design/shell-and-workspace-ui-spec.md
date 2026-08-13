@@ -4,7 +4,7 @@
 |------|------|
 | **用途** | 定义主窗口混合壳结构、任务侧栏、对话页顶栏、设置页与工作区布局语义。 |
 | **受众** | 负责 `AppShell`、`UnifiedTopBar`、`SessionPanel`、`SettingsSidebar`、`ChatPage`、`WorkspaceBar`、`SettingsPage`、`ProfilePage` 及相关布局的前端开发者。 |
-| **最后审阅** | 2026-08-13（v35） |
+| **最后审阅** | 2026-08-13（v36） |
 
 ## 相关文档
 
@@ -228,6 +228,9 @@ Provider 目录网格仅 `md:grid-cols-2`。Appearance 主题分段：`rounded-m
 - 网格维持 7 行和 52/53 周，按 profile 的 Sunday/Monday 偏好排列；方向键按日/周移动，Home/End 在当前周移动，Escape 释放 Tooltip。日期与“今天”边界以 dashboard 的本地日期范围为准，不以浏览器 UTC 日期重算。
 - 首版仅显示已有真实聚合的“每日”活动图，不渲染“每周/累计”Tabs 或 Coming soon Trigger；365 日原始值通过折叠表格按日期提供，确保颜色与 Tooltip 都不是唯一数据通道。
 - 模型趋势图复用项目现有 ECharts 适配层和 `--chart-1` 至 `--chart-5`，展示最近 30 个自然日；默认最多显示前 5 个模型并将其余合并为「其他」。序列除颜色外还须使用图例、线型或点形区分，并提供表格回退；活动图专用绿色不应用于所有模型线。
+- 趋势缺失日按 no-call `0` 补齐，仅 unknown 的调用使用断线 gap，known + unknown 保留已知值并用独立点标记；Tooltip 与表格必须同时显示 unknown 数、estimated/legacy 质量，禁止 `connectNulls` 或平滑曲线掩盖差异。
+- Token 原值继续使用十进制字符串；绘图值超出 JavaScript 安全整数时以 `bigint` 计算统一比例尺后再转 number，Tooltip/表格始终展示未截断的 locale 原整数。Y 轴从 0 开始并用 K/M/B，图例隐藏只影响图层可见性，不重算顶部总量。
+- 图表宿主必须动态加载 ECharts、响应容器 Resize 与根主题 class/style 变化，并在卸载时释放 observer/实例；初始化失败自动显示等价数据表。模型趋势禁用动画与 smooth，使用 `aria.enabled`、decal 和可切换数据表保证 reduced-motion 与非颜色通道可读。
 - loading、empty、partial、error 状态必须保持区块高度稳定并支持局部重试；未知值显示「—」而不是 `0`。所有文案、日期和数字均走 i18n / locale 格式化；仅在已有真实聚合结果时展示「每日 / 每周 / 累计」切换，禁止先放无效标签或占位交互。
 - 统计定义、计量事件、查询契约与分阶段落地要求见 [个人中心与 Token 用量统计功能架构](../architecture/PERSONAL_CENTER_USAGE_ANALYTICS_ARCHITECTURE.md) 和 [实施规划](../planning/PERSONAL_CENTER_USAGE_ANALYTICS_IMPLEMENTATION_PLAN.md)。
 

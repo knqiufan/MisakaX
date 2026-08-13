@@ -5,6 +5,7 @@ import { ProfileHeader, useProfileStore } from "@/features/profile";
 import {
   ActivityCalendar,
   UsageOverviewCards,
+  UsageTrendChart,
   useUsageDashboard,
 } from "@/features/usage-analytics";
 
@@ -41,6 +42,19 @@ export function ProfilePage() {
             days={dashboard?.daily_activity ?? []}
             weekStart={weekStart}
             todayLocalDate={dashboard?.range.activity_end}
+            status={status}
+            hasSnapshot={dashboard !== null}
+            onRetry={() => void refresh()}
+          />
+        </section>
+        <section aria-label={t("trend.sectionLabel")}>
+          <UsageTrendChart
+            modelSeries={dashboard?.model_series ?? []}
+            otherSeries={dashboard?.other_series ?? null}
+            range={dashboard ? {
+              start: dashboard.range.trend_start,
+              end: dashboard.range.trend_end,
+            } : null}
             status={status}
             hasSnapshot={dashboard !== null}
             onRetry={() => void refresh()}

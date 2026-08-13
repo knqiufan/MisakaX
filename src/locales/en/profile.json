@@ -82,5 +82,28 @@
       "mixed": "Known usage with additional unknown operations",
       "future": "Future date"
     }
+  },
+  "trend": {
+    "sectionLabel": "Model Token trend",
+    "title": "Model Token trend",
+    "description": "Daily Token usage by the models actually called in the last 30 local calendar days.",
+    "yAxis": "Tokens",
+    "unknownOperations": "unknown operations",
+    "estimatedTokens": "estimated",
+    "legacyTokens": "legacy",
+    "toggleTable": "Data table",
+    "chartLabel": "Thirty-day Token usage line chart by model",
+    "empty": "No model trend data has been recorded for this range.",
+    "loadError": "Model trend could not be loaded",
+    "loadErrorDescription": "The local trend snapshot is unavailable. Try again.",
+    "refreshError": "Showing the last available trend snapshot.",
+    "chartFallback": "The chart renderer is unavailable. The same values are shown in the table below.",
+    "chartFallbackTable": "Chart fallback data",
+    "table": {
+      "date": "Date",
+      "unknown_one": "· {{count}} unknown",
+      "unknown_other": "· {{count}} unknown",
+      "estimated": "Estimated {{value}}"
+    }
   }
 }
