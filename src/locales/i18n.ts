@@ -8,6 +8,7 @@ import enWorkspace from "./en/workspace.json";
 import enChat from "./en/chat.json";
 import enSkills from "./en/skills.json";
 import enTray from "./en/tray.json";
+import enProfile from "./en/profile.json";
 
 import zhCommon from "./zh-CN/common.json";
 import zhNav from "./zh-CN/nav.json";
@@ -16,6 +17,7 @@ import zhWorkspace from "./zh-CN/workspace.json";
 import zhChat from "./zh-CN/chat.json";
 import zhSkills from "./zh-CN/skills.json";
 import zhTray from "./zh-CN/tray.json";
+import zhProfile from "./zh-CN/profile.json";
 
 const resources = {
   en: {
@@ -26,6 +28,7 @@ const resources = {
     chat: enChat,
     skills: enSkills,
     tray: enTray,
+    profile: enProfile,
   },
   "zh-CN": {
     common: zhCommon,
@@ -35,6 +38,7 @@ const resources = {
     chat: zhChat,
     skills: zhSkills,
     tray: zhTray,
+    profile: zhProfile,
   },
 };
 
@@ -43,7 +47,7 @@ i18n.use(initReactI18next).init({
   lng: "en",
   fallbackLng: "en",
   defaultNS: "common",
-  ns: ["common", "nav", "settings", "workspace", "chat", "skills", "tray"],
+  ns: ["common", "nav", "settings", "workspace", "chat", "skills", "tray", "profile"],
   interpolation: {
     escapeValue: false,
   },

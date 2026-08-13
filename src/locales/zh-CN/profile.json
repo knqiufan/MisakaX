@@ -1,0 +1,43 @@
+{
+  "avatarFallback": "U",
+  "avatarLabel": "{{name}} 的头像",
+  "loadingProfile": "正在加载本地档案",
+  "profileLoadError": "无法加载本地档案",
+  "profileLoadErrorDescription": "请重试以重新连接本地档案数据库。",
+  "retry": "重试",
+  "edit": {
+    "action": "编辑档案",
+    "title": "编辑档案",
+    "description": "设置在 MisakaX 本地档案中显示的名称。",
+    "nameLabel": "显示名称",
+    "nameHelp": "请输入 1–40 个字符。",
+    "cancel": "取消",
+    "save": "保存",
+    "saving": "保存中…",
+    "errors": {
+      "empty": "请输入显示名称。",
+      "tooLong": "显示名称不能超过 40 个字符。",
+      "saveFailed": "档案保存失败，请重试。"
+    }
+  },
+  "overview": {
+    "title": "用量概览",
+    "description": "汇总当前设备在本地记录的模型用量。",
+    "totalTokens": "总 Token",
+    "totalDays": "总使用天数",
+    "currentStreak": "连续使用天数",
+    "emptyValue": "—",
+    "fullTokens": "{{value}} Token",
+    "unknownTotal": "已知 Token 总量不可用",
+    "fullDays": "共 {{count}} 个活跃日",
+    "fullStreak": "已连续活跃 {{count}} 天",
+    "quality": "估算 {{estimated}} · 旧数据 {{legacy}} · {{unknown}} 次用量未知",
+    "totalDaysDescription": "按本地自然日去重统计有记录的活跃天数。",
+    "longestStreak": "最长连续 {{count}} 天",
+    "currentStreakDescription": "统计连续到今天或昨天的活跃日。",
+    "noUsageYet": "尚未记录模型活动。",
+    "loadError": "无法加载用量概览",
+    "loadErrorDescription": "本地用量快照暂时不可用，请重试。",
+    "refreshError": "当前显示上次可用快照，本次刷新失败。"
+  }
+}

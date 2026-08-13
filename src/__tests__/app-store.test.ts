@@ -5,6 +5,7 @@ import {
   SESSION_LIST_MIN_WIDTH,
   SESSION_LIST_DEFAULT_WIDTH,
   LG_BREAKPOINT,
+  routeHasLeftColumn,
 } from "@/stores/app-store";
 import { SETTINGS_NAV } from "@/components/settings/nav-config";
 
@@ -35,6 +36,17 @@ describe("useAppStore", () => {
   it("should navigate to notifications", () => {
     useAppStore.getState().navigate({ page: "notifications" });
     expect(useAppStore.getState().route).toEqual({ page: "notifications" });
+  });
+
+  it("should navigate to the independent profile route", () => {
+    useAppStore.getState().navigate({ page: "profile" });
+    expect(useAppStore.getState().route).toEqual({ page: "profile" });
+  });
+
+  it("keeps the profile route out of the shell left column", () => {
+    expect(routeHasLeftColumn({ page: "chat" })).toBe(true);
+    expect(routeHasLeftColumn({ page: "settings" })).toBe(true);
+    expect(routeHasLeftColumn({ page: "profile" })).toBe(false);
   });
 
   it("exposes Skills only through the Settings deep link", () => {

@@ -20,7 +20,7 @@
 | P1 Schema v15 与数据访问层 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P1 ledger repositories` | `cargo check --all-features`；数据库/迁移/消息/会话/Profile/Usage 回归 85 项通过 |
 | P2 Token 采集闭环与原子终结 | ✅ 完成 | 本阶段提交 `feat(usage): close P2 capture and finalize loop` | `cargo check --all-features`；Rust 52 项、Python 28 项、前端 55 项定向回归通过 |
 | P3 聚合查询、IPC 与历史回填 | ✅ 完成 | 本阶段提交 `feat(usage): deliver P3 analytics snapshot` | Rust 聚合/回填/契约/仓储 24 项与前端 IPC 4 项通过；全特性编译及生产构建通过 |
-| P4 个人中心壳层、档案头与总览卡 | ⏳ 待开始 | — | — |
+| P4 个人中心壳层、档案头与总览卡 | ✅ 完成 | 本阶段提交 `feat(profile): deliver P4 shell and overview` | 前端路由/档案/概览/IPC 回归 24 项、TypeScript 检查通过；375/768/1024/1440 无左栏、无横向溢出 |
 | P5 活动日历与绿色主题 | ⏳ 待开始 | — | — |
 | P6 最近 30 天按模型趋势 | ⏳ 待开始 | — | — |
 | P7 档案编辑、数据生命周期与性能 | ⏳ 待开始 | — | — |
@@ -35,6 +35,7 @@
 | 2026-08-13 14:44 | P1 | 新增 Schema v15、升级前 `.pre-v15.sqlite3` 备份、默认 local profile、追加式 usage ledger、弱引用与参数绑定仓储；两轮定向/兼容回归共 85 项通过。 |
 | 2026-08-13 15:04 | P2 | Rig/MCP/Sidecar 统一输出 canonical capture；Sidecar usage v1 在 done/error 前上报并按 run/model 去重；版本化 Unicode heuristic 只估文本且显式标记图片未知；消息、账本、session projection/title 进入同一 finalize transaction，重复 complete 不重复累计。 |
 | 2026-08-13 15:16 | P3 | 新增单锁快照 dashboard 查询：overview、365 天活动、30 天 Top 5 + others 趋势均补齐日期并保留 exact/estimated/legacy/unknown；注册 Profile/Usage IPC；启动时幂等回填可信消息 JSON 与 session residual，坏 JSON/异常投影只记诊断。 |
+| 2026-08-13 15:32 | P4 | 接入独立 profile route、共享 local profile 状态与名称编辑 Dialog；UserMenu/TopBar/ProfileHeader 同步；三张总览卡以 BigInt 处理十进制字符串并覆盖 loading/empty/partial/error。浏览器按 375/768/1024/1440 验证无左栏与横向溢出。 |
 
 ### 0.3 首版 LLM operation 计入口径
 
@@ -319,33 +320,33 @@ P0 contracts/tests
 
 ### Todo：路由与入口
 
-- [ ] `Route` 增加 `{ page: "profile" }`；补 app-store navigation test。
-- [ ] `ContentArea` 和 pages index 接入 `ProfilePage`。
-- [ ] `UnifiedTopBar.PAGE_TITLE_KEYS` 增加 profile；保持非 chat 的返回按钮。
-- [ ] `UserMenu` 个人中心取消 disabled，导航到 profile；触发器名称/头像读取 profile。
-- [ ] Profile 无左栏；`AppShell.showLeftColumn` 仍只包含 chat/settings。
-- [ ] 保持 Dashboard route 与占位页不变，避免需求范围漂移。
+- [x] `Route` 增加 `{ page: "profile" }`；补 app-store navigation test。
+- [x] `ContentArea` 和 pages index 接入 `ProfilePage`。
+- [x] `UnifiedTopBar.PAGE_TITLE_KEYS` 增加 profile；保持非 chat 的返回按钮。
+- [x] `UserMenu` 个人中心取消 disabled，导航到 profile；触发器名称/头像读取共享 profile 状态。
+- [x] Profile 无左栏；`AppShell` 通过纯函数约束左栏仍只包含 chat/settings。
+- [x] 保持 Dashboard route 与占位页不变，避免需求范围漂移。
 
 ### Todo：ProfileHeader
 
-- [ ] 使用共享 Avatar primitive，目标尺寸 80px，加载失败回退到本地化首字/`U`。
-- [ ] 名称居中、1–40 字符、长文本截断；无邮箱/会员/在线状态等虚假信息。
-- [ ] 编辑入口使用共享 Button/Dialog、visible focus、i18n、pending disabled 和就地错误。
-- [ ] 页面布局 `mx-auto max-w-6xl p-6 lg:p-10`，独立纵向滚动；顶部不机械占 50vh。
+- [x] 使用共享 Avatar primitive，目标尺寸 80px，加载失败回退到本地化首字/`U`。
+- [x] 名称居中、1–40 Unicode 字符、长文本截断；无邮箱/会员/在线状态等虚假信息。
+- [x] 编辑入口使用共享 Button/Dialog、visible focus、i18n、pending disabled 和就地稳定错误。
+- [x] 页面布局 `mx-auto max-w-6xl p-6 lg:p-10`，独立纵向滚动；顶部不机械占 50vh。
 
 ### Todo：总览卡
 
-- [ ] 三张等权卡：总 Token、总使用天数、连续使用天数；宽屏三列，窄宽纵排。
-- [ ] 总 Token 以 `bigint` 安全格式化 K/M/B，并保留 Tooltip/可访问全值；不得先转成 JS number 再累计。
-- [ ] current streak 主显示，longest streak 放说明；含估算/未知次数以次级文字展示。
-- [ ] Skeleton、empty、partial、error 高度稳定；查询失败显示就地重试。
-- [ ] 不使用渐变、彩色发光、悬停上浮、active scale 或网页式营销卡。
+- [x] 三张等权卡：总 Token、总使用天数、连续使用天数；宽屏三列，窄宽纵排。
+- [x] 总 Token 以 `bigint` 安全格式化 K/M/B，并保留 Tooltip/可访问全值；不转成 JS number。
+- [x] current streak 主显示，longest streak 放说明；估算、legacy 与未知次数以次级文字展示。
+- [x] Skeleton、empty、保留旧快照的 partial、error 高度稳定；查询失败显示就地重试。
+- [x] 不使用渐变、彩色发光、悬停上浮、active scale 或网页式营销卡。
 
 ### 测试
 
-- [ ] UserMenu profile navigation、TopBar title/back、ContentArea route。
-- [ ] 名称长文本、无头像、头像错误、loading/error/empty/partial overview。
-- [ ] 浅/深主题快照或 DOM class 合约；375/768/1024/1440 宽度人工检查。
+- [x] UserMenu profile navigation、TopBar title/back、ContentArea route。
+- [x] 名称长文本、无头像、头像错误、loading/error/empty/partial overview。
+- [x] 浅/深主题 DOM class 合约；375/768/1024/1440 浏览器人工检查。
 
 ### 退出门
 

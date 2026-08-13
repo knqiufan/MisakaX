@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 const PAGE_TITLE_KEYS: Record<string, string> = {
   chat: "nav:chat",
+  profile: "nav:profile",
   knowledge: "nav:knowledge",
   dashboard: "nav:dashboard",
   notifications: "nav:notifications",

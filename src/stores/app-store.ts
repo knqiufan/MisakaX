@@ -10,6 +10,7 @@ export type SettingsTab =
 
 export type Route =
   | { page: "chat"; sessionId?: string }
+  | { page: "profile" }
   | { page: "knowledge" }
   | { page: "dashboard" }
   | { page: "notifications" }
@@ -54,6 +55,10 @@ export function resolveLeftColumnWidth(
 ): number {
   if (viewportWidth >= LG_BREAKPOINT) return preferredWidth;
   return Math.min(preferredWidth, SESSION_LIST_MIN_WIDTH);
+}
+
+export function routeHasLeftColumn(route: Route): boolean {
+  return route.page === "chat" || route.page === "settings";
 }
 
 export const useAppStore = create<AppState>((set) => ({

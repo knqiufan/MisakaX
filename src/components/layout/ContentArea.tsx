@@ -4,6 +4,7 @@ import {
   KnowledgePage,
   DashboardPage,
   NotificationsPage,
+  ProfilePage,
   SettingsPage,
 } from "@/pages";
 
@@ -13,6 +14,8 @@ export function ContentArea() {
   switch (route.page) {
     case "chat":
       return <ChatPage />;
+    case "profile":
+      return <ProfilePage />;
     case "knowledge":
       return <KnowledgePage />;
     case "dashboard":

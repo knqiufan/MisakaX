@@ -1,0 +1,45 @@
+{
+  "avatarFallback": "U",
+  "avatarLabel": "Avatar for {{name}}",
+  "loadingProfile": "Loading local profile",
+  "profileLoadError": "Your local profile could not be loaded",
+  "profileLoadErrorDescription": "Try again to reconnect to the local profile database.",
+  "retry": "Retry",
+  "edit": {
+    "action": "Edit profile",
+    "title": "Edit profile",
+    "description": "Choose the name shown in your local MisakaX profile.",
+    "nameLabel": "Display name",
+    "nameHelp": "Use 1–40 characters.",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "errors": {
+      "empty": "Enter a display name.",
+      "tooLong": "Display name must be 40 characters or fewer.",
+      "saveFailed": "The profile could not be saved. Try again."
+    }
+  },
+  "overview": {
+    "title": "Usage overview",
+    "description": "A local summary of model usage recorded by this installation.",
+    "totalTokens": "Total tokens",
+    "totalDays": "Days used",
+    "currentStreak": "Current streak",
+    "emptyValue": "—",
+    "fullTokens": "{{value}} tokens",
+    "unknownTotal": "Known token total is unavailable",
+    "fullDays_one": "{{count}} day with activity",
+    "fullDays_other": "{{count}} days with activity",
+    "fullStreak_one": "{{count}} consecutive day",
+    "fullStreak_other": "{{count}} consecutive days",
+    "quality": "Estimated {{estimated}} · legacy {{legacy}} · {{unknown}} unknown operations",
+    "totalDaysDescription": "Distinct local calendar days with recorded activity.",
+    "longestStreak": "Longest streak: {{count}} days",
+    "currentStreakDescription": "Consecutive activity through today or yesterday.",
+    "noUsageYet": "No model activity has been recorded yet.",
+    "loadError": "Usage overview could not be loaded",
+    "loadErrorDescription": "The local usage snapshot is unavailable. Try again.",
+    "refreshError": "Showing the last available snapshot. Refresh failed."
+  }
+}

@@ -10,6 +10,7 @@ import {
   LG_BREAKPOINT,
   SESSION_LIST_DEFAULT_WIDTH,
   resolveLeftColumnWidth,
+  routeHasLeftColumn,
 } from "@/stores/app-store";
 import { useThemeStore } from "@/stores/theme-store";
 import { useChatStore } from "@/stores/chat-store";
@@ -69,7 +70,7 @@ export function AppShell() {
     [displayWidth, setSessionListWidth]
   );
 
-  const showLeftColumn = route.page === "chat" || route.page === "settings";
+  const showLeftColumn = routeHasLeftColumn(route);
 
   return (
     <TooltipProvider delayDuration={300}>
