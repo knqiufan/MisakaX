@@ -162,7 +162,7 @@ impl<'a> McpToolLoop<'a> {
             if !result.thinking.is_empty() {
                 thinking = result.thinking.clone();
             }
-            usage = merge_usage(usage, result.usage.clone());
+            usage = merge_token_usage(usage, result.usage.clone());
 
             let Some(call) = parse_tool_call_from_content(&result.content) else {
                 visible = result.content;
@@ -501,7 +501,7 @@ fn assistant_history_message(session_id: &str, content: &str) -> Message {
     }
 }
 
-fn merge_usage(
+pub fn merge_token_usage(
     acc: Option<TokenUsageInfo>,
     next: Option<TokenUsageInfo>,
 ) -> Option<TokenUsageInfo> {

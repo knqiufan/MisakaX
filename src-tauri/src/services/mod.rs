@@ -13,6 +13,7 @@ pub mod skills;
 pub mod terminal;
 pub mod thinking_capabilities;
 pub mod tool_call_record;
+pub mod usage;
 pub mod workspace;
 
 pub use tool_call_record::ToolCallRecord;
