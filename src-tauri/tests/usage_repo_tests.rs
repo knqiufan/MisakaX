@@ -62,7 +62,7 @@ fn insert_batch_returns_only_new_measurements_and_replay_is_idempotent() {
     let (conn, profile_id) = setup();
     let first = event(&profile_id, "event-1", "assistant:message-1:model:a");
 
-    let inserted = UsageRepo::insert_batch_idempotent(&conn, &[first.clone()]).unwrap();
+    let inserted = UsageRepo::insert_batch_idempotent(&conn, std::slice::from_ref(&first)).unwrap();
     let replayed = UsageRepo::insert_batch_idempotent(&conn, &[first]).unwrap();
     assert_eq!(inserted.len(), 1);
     assert!(replayed.is_empty());

@@ -8,6 +8,7 @@ use super::estimator::{
 };
 use super::{MeasurementSource, UsageCapture, UsageMeasurement};
 
+#[allow(clippy::too_many_arguments)]
 pub fn provider_capture(
     capture_id: impl Into<String>,
     model: Option<String>,

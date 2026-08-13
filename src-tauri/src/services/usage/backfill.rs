@@ -211,7 +211,7 @@ fn normalize_legacy_timestamp(value: &str) -> Option<(String, String)> {
     let date = normalized.get(..10)?;
     chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").ok()?;
     let datetime = NaiveDateTime::parse_from_str(
-        normalized.get(..19).unwrap_or(&normalized),
+        normalized.get(..19).unwrap_or(normalized),
         "%Y-%m-%dT%H:%M:%S",
     )
     .ok()?
