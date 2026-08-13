@@ -2,8 +2,8 @@
 
 > **用途：** 回答“实现图表、地图、文件预览/下载和图片显示是否需要文件系统、Sandbox，以及应如何接入”的决策问题。
 > **受众：** 架构、安全、Rust、Sidecar 和发布维护者。
-> **最后审阅 / Last reviewed：** 2026-08-08
-> **状态：** 调研结论已纳入实施计划；需在实现 Spike 中验证 Tauri URI 与三平台行为。
+> **最后审阅 / Last reviewed：** 2026-08-13
+> **状态：** 已按 [Sandbox 方案复核](../../research/SANDBOX_STRATEGY_REASSESSMENT_2026-08.md) 更新富内容挂接方案并同步 ADR；S0 合同已实现，真实 Provider 仍待 Spike Gate，不构成已接受的生产承诺。
 
 ---
 
@@ -15,32 +15,39 @@
 
 Tauri 官方文档也区分了 Rust 侧可直接使用 `std::fs`/`tokio::fs` 与前端 FS plugin，并说明 plugin 的危险命令和 scope 默认被阻断。故推荐继续由 Rust application service 实现，只为明确的 artifact read/export 暴露窄 command/URI，保持默认 capability 不增加 `fs:*`。来源见 [Tauri File System](https://v2.tauri.app/plugin/file-system/) 与 [Tauri Permissions](https://v2.tauri.app/security/permissions/)。
 
-### 1.2 Sandbox：展示功能本身不依赖完整 OS Sandbox，但内容安全不可省略
+### 1.2 Sandbox：展示功能本身不依赖完整执行隔离，但内容安全不可省略
 
-纯 Markdown、受限图表 spec、静态 GeoJSON、raster 图片显示和已存档文件下载并不运行不可信宿主程序，因此不应等待完整跨平台 Sandbox 才交付。然而它们仍必须有：MIME/magic 检查、配额、哈希、解析上限、URI 授权、严格 CSP、无脚本 schema 和安全降级。这是 **内容安全面**，不能拿“未来有 Sandbox”取代。
+纯 Markdown、受限图表 spec、静态 GeoJSON、raster 图片显示和已存档文件下载并不运行不可信宿主程序，因此不应等待完整跨平台执行隔离才交付。然而它们仍必须有：MIME/magic 检查、配额、哈希、解析上限、URI 授权、严格 CSP、无脚本 schema 和安全降级。这是 **内容安全面**，不能拿“未来有 Sandbox”取代。
 
-完整 OS Sandbox 是以下场景的硬依赖或强烈建议：
+严格执行/网络隔离是以下场景的硬依赖或强烈建议：
 
 - Agent/Skill/MCP 使用 shell、编译器、图像/Office 转换器或其他外部程序产生文件；
 - 不可信文件交给原生二进制解析器/转换器处理；
 - 需要网络访问、地理编码、远程瓦片或第三方生成服务；
 - 解析器需要隔离 CPU、内存、文件系统、环境变量和子进程树。
 
-这些路径必须复用已有 [Sandbox ADR](../../architecture/SANDBOX_TECH_SELECTION.md) 的 `SandboxBroker`、平台 provider、网络 policy、审批与审计；不能因为“只是生成预览”退回直接继承宿主环境的 subprocess。
+这些路径必须进入 Rust `Execution Isolation Broker`（沿用 `SandboxBroker` 名称），不能因为“只是生成预览”退回直接继承宿主环境的 subprocess。Broker 是策略、审批、snapshot、provider 选择、lease、审计与结果回收的控制面，不是某个 OS runner。strict 的跨平台共同语义是：
+
+- 输入以工作区/artifact snapshot 交付，默认排除 `.git`、`.misakax`、`.codex`、`.agents`、凭据和越界链接，不直接写真实工作区；
+- 网络默认拒绝，联网必须是 remote provider 或已经证明不可绕过的 `provider_brokered`，不能把 `HTTP_PROXY` 当安全边界；
+- provider 返回受限 result manifest、artifacts 与实际 capability evidence，Rust 重新验证后才进入 ArtifactService；
+- 用户确认 diff 后才允许写回真实工作区；provider 不可用时返回 `SANDBOX_UNAVAILABLE`，绝不自动选择 `host_direct`。
+
+最新复核已否定两个旧默认假设：Windows 专用账户不再是默认本地方案，优先 Spike 无账户 AppContainer；macOS 动态 Seatbelt/`sandbox-exec` 不再作为正式 strict 边界，项目自带窄 helper 使用 App Sandbox + XPC，通用命令优先 remote microVM、后续可选本地 Linux VM。该建议已于 2026-08-13 纳入仍为 Proposed 的 [Sandbox ADR](../../architecture/SANDBOX_TECH_SELECTION.md)；S0 合同已实现，但真实 Provider 仍须过对应 Gate。
 
 ## 2. 按功能的决策矩阵
 
-| 功能 | 受控本地文件系统 | 内容安全面 | OS Sandbox | 网络/CSP | 首期决策 |
+| 功能 | 受控本地文件系统 | 内容安全面 | 执行/网络隔离 | 网络/CSP | 首期决策 |
 |---|---:|---:|---:|---:|---|
 | Markdown/Mermaid | 否 | 是（现有 Markdown 防护） | 否 | 否 | 保持现状 |
 | 统计图 | 可选（数据导出时需要） | 是，受限 ChartSpec | 否 | 否 | 本地 renderer + 数据表 |
 | 静态 GeoJSON 地图 | 可选（GeoJSON 导出/缓存） | 是，受限 MapSpec/要素数 | 否 | 否 | 先支持离线数据 |
-| 远程瓦片地图 | 是（缓存） | 是 | 不一定 | 是，必须受控 | registry + Rust broker 后再启用 |
+| 远程瓦片地图 | 是（缓存） | 是 | **是（网络位置）** | 是，必须受控 | remote/verified broker 获取 + artifact/custom URI 后再启用 |
 | 模型 raster 图片 | 是 | 是（MIME/像素/解码限制） | 否 | 否 | Artifact Store + 图片 viewer |
 | 生成文本/CSV | 是 | 是（大小/编码） | 否 | 否 | 本地预览 + 下载 |
-| PDF/XLSX/DOCX 预览 | 是 | 是（解析配额） | 视解析器而定 | 否 | 本地 parser；高风险/原生转换后接 Sandbox |
-| HTML/SVG/可执行文件 | 是（下载） | 是 | 是（若要处理） | 否 | 首期仅下载，禁止内联预览 |
-| Agent/Skill/MCP 外部生成 | 是 | 是 | **是** | 可能 | 进入已有 Sandbox 阶段 |
+| PDF/XLSX/DOCX 预览 | 是 | 是（解析配额） | 浏览器 parser 通常否；原生 helper/converter 是 | 否 | worker 优先；Windows AppContainer/macOS XPC/remote 未就绪时仅下载 |
+| HTML/SVG/可执行文件 | 是（下载） | 是 | 是（若要处理/执行） | 默认否 | 首期仅下载；未来需独立 renderer 边界 + execution gate |
+| Agent/Skill/MCP 外部生成 | 是 | 是 | **是** | 可能 | snapshot execution + manifest/artifact 回收 |
 
 ## 3. 当前项目与建议边界
 
@@ -103,19 +110,54 @@ XLSX 可从受控 ArrayBuffer/Uint8Array 读取；浏览器环境不应按文件
 
 ### 5.2 不可信活跃内容
 
-HTML、SVG、JS、可执行文件、Office macro 和嵌入对象都可能含主动内容。首期只允许下载，不在聊天主 WebView 解析或 inline。如果后续确有需求，必须新建独立“内容预览 sandbox”设计：隔离 webview/capability、无 Tauri IPC、禁止宿主凭据和网络，或使用不带 `allow-same-origin` 的最小 sandboxed iframe；但 MDN 明确指出 iframe sandbox 一旦能在框架外打开内容就失效，因此不能把 iframe 当作唯一防线。来源：[MDN iframe sandbox](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe)。
+HTML、SVG、JS、可执行文件、Office macro 和嵌入对象都可能含主动内容。首期只允许下载，不在聊天主 WebView 解析或 inline。如果后续确有需求，必须新建独立“主动内容预览”设计：隔离 webview/capability、无 Tauri IPC、禁止宿主凭据和网络；若使用不带 `allow-same-origin` 的最小 sandboxed iframe，它也只能是纵深防御。MDN 明确指出 iframe sandbox 一旦能在框架外打开内容就可能失效，因此不能把 iframe 当作唯一防线；涉及原生 helper/转换器时还必须同时通过 Execution Isolation Broker。来源：[MDN iframe sandbox](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe)。
 
 当前生产 CSP 的 `frame-src 'none'` 是有意的安全基线。任何未来 iframe 需求都要单独 ADR、CSP 差异审计和攻击测试，不可为 DOCX/HTML 预览直接放宽。
 
-## 6. 与既有 Sandbox 计划的合并方式
+## 6. 与最新 Sandbox 复核的合并方式
 
-不复制或重新发明现有 Sandbox B0–B7；新增以下挂接点：
+### 6.1 决策状态
 
-1. **R0 / Sandbox B1：** `ContentSafetyPolicy` 与 `SandboxPolicy` 各自独立，均由 Rust 领域层构造并审计。前者保护字节/renderer，后者保护执行/进程。
-2. **R2 / Sandbox B0：** 对原生解析器或 converter 建立攻击 fixture：path traversal、symlink/junction、压缩炸弹、超页/超像素、子进程、网络尝试、资源耗尽。
-3. **R5 / Sandbox B5：** Agent/Skill/MCP 的 `create_artifact` 若依赖外部命令，使用 authenticated execution bridge → `ExecutionService` → `SandboxBroker`，不能直连 Sidecar 本地 shell。
-4. **R4b / Sandbox B6：** 地图瓦片与地理编码归类为网络 policy，记录域名、批准、缓存与审计；即使不运行 shell，也不能让 WebView 任意出网。
-5. **R6 / Sandbox B7：** 严格 provider 缺失时，禁用需要外部执行的预览/生成器并给出诊断，绝不降级为 full-access。
+[Sandbox 方案复核](../../research/SANDBOX_STRATEGY_REASSESSMENT_2026-08.md) 已纳入 2026-08-13 修订后的 Proposed ADR。因此：
+
+1. 不再为富内容后续阶段新增对 Windows 专用账户、macOS Seatbelt 或旧 `B0–B7` 平台顺序的实现依赖。
+2. 不绑定 Provider 的合同、FakeProvider、snapshot/result manifest 与写回预检已作为 S0 实现；事务 apply/审批/持久审计留在 S0.5。
+3. 真实 Provider、联网和 host-direct UX 必须等待相应 Spike 与发布 Gate；未通过即保持 `unavailable`。
+
+### 6.2 富内容侧的统一合同
+
+```text
+Agent / Skill / MCP / native previewer
+  -> authenticated typed execution intent
+  -> Rust Execution Isolation Broker
+       policy + approval + immutable ExecutionPlan
+       WorkspaceSnapshotService + provider selection + lease/audit
+  -> AppContainer / XPC helper / local VM / remote microVM
+  -> restricted result manifest + artifacts + IsolationEvidence
+  -> Rust validation
+  -> ArtifactService + ContentSafetyPolicy
+  -> block ready / diff review / explicit apply
+```
+
+必须增加并复用 `ExecutionLocation`、`WorkspaceDelivery`、`NetworkMode`、`IsolationEvidence` 与 `ProviderAvailability`。`SandboxMode=read-only/workspace-write/full-access` 不能单独表达 remote、snapshot 或 host-direct 的真实边界。模型、React、Sidecar 与 MCP 不得传平台参数、provider 凭据、原始 host path 或 shell 字符串。
+
+### 6.3 Provider 与场景映射
+
+| 富内容执行场景 | Provider 方向 | 发布前证据 |
+|---|---|---|
+| Windows 离线 parser/converter | 无账户 AppContainer/LPAC + restricted token + Job Object；`CreateProcessInSandbox` 仅实验分支 | Home/Pro/标准用户、文件/凭据/IPv4/IPv6/DNS/loopback/进程树/实验 API 缺失攻击测试 |
+| macOS 项目自带 parser helper | 签名 App Sandbox + XPC，artifact-only I/O，无 network entitlement | 签名/entitlement、bookmark、输入输出目录、环境/凭据、notarization 实机测试 |
+| macOS 或跨平台通用命令 | remote Linux microVM；本地 Linux VM 为后续隐私选项 | 地区/保留期/egress/销毁/manifest；本地 VM 另测 Intel/Apple silicon、镜像和无 writable host share |
+| 瓦片/地理编码/第三方生成 | remote provider 或已验证 brokered network | 域名/协议/端口/TTL、DNS redirect/private IP/metadata endpoint、密钥不注入、缓存与审计 |
+| 宿主专有工具 | 用户每次明确批准的 `host_direct` | 明示无 OS Sandbox；理由/范围/TTL 审计；绝不由 provider 错误 fallback |
+
+### 6.4 与 R 阶段的挂接
+
+1. **R0/R1：** `ContentSafetyPolicy` 与 execution policy 独立；Artifact Store、窄 URI 和导出不等待 provider。
+2. **R2：** 浏览器 parser 先完成资源/恶意 fixture；原生 helper/converter 先通过目标执行位置 Gate，否则仅下载。
+3. **R4b：** 只有 remote 或 verified brokered network 可获取瓦片/地理编码，再经 ArtifactService/cache 交付；主 WebView 继续无任意网络。
+4. **R5：** 非执行 normalizer/event 可独立推进；外部生成必须完成 S0 合同（FakeProvider、snapshot、manifest、host-direct 显式建模），并按位置等待 S1 remote、S2 Windows 或 S3 macOS Gate。
+5. **R6：** 按 `IsolationEvidence` 对每条功能路径分别发布；默认启用/企业交付还要通过 S4 的组织 provider、地区、镜像 digest、密钥代理、审批、修复/销毁和独立安全评审。不能用另一平台、另一工具或“provider 已编译”代替当前路径证据。
 
 ## 7. 必须纳入计划的验证项
 
@@ -124,8 +166,12 @@ HTML、SVG、JS、可执行文件、Office macro 和嵌入对象都可能含主�
 - [ ] `dialog:allow-save` 下载取消、同名、Unicode、长路径、磁盘不足、只读目录在三平台行为可解释。
 - [ ] PDF/XLSX/DOCX/图片畸形样本、解压炸弹、超尺寸、超时、取消不会卡死 UI/主进程。
 - [ ] Chart/Map spec 不存在可执行 function、HTML、任意 URL 注入；图表/地图不放宽主 WebView CSP。
-- [ ] 触发外部 converter、Agent shell、Skill/MCP helper 时只有 Sandbox Broker 路径可用。
+- [ ] 触发外部 converter、Agent shell、Skill/MCP helper 时只有 Execution Isolation Broker 路径可用；结构化请求不含平台配置、原始 host path 或 shell 拼接。
+- [ ] strict snapshot 排除敏感目录/凭据/越界链接；result manifest 的路径、hash、大小、删除范围与 base generation 经 Rust 校验，未确认 diff 不写回。
+- [ ] Windows AppContainer、macOS XPC/VM、remote provider 分别通过对应攻击 fixture；Seatbelt、专用账户或本地容器的存在不计作默认 strict 证据。
+- [ ] 默认无网；允许网络时 DNS/redirect/private IP/metadata/IPv4/IPv6/loopback/child 绕过测试有证据，普通 proxy 环境变量不计入。
+- [ ] provider 缺失、实验 API 变化、签名/镜像 hash 失效、地区不符、配额耗尽与取消失败均可诊断，且不会回退 `host_direct`。
 
 ## 8. 最终建议
 
-将 “Artifact Store + 内容安全策略 + 窄 URI/导出” 作为 R0/R1 的明确前置项；将 “Sandbox 对外部执行、网络和高风险解析器的接入” 作为 R2/R5/R6 的依赖项。这一拆分既能尽快交付安全的图片/文件/图表/静态地图，又不淡化已有跨平台 Sandbox 方案必须完成的真实隔离工作。
+继续把 “Artifact Store + 内容安全策略 + 窄 URI/导出” 作为 R0/R1 的独立前置项。对外部执行、受控网络和高风险原生解析器，不再等待一个抽象的“全平台同构 OS Sandbox”，而是先完成统一 Broker/snapshot/result contract，再按实际执行位置通过 remote、Windows AppContainer、macOS XPC/VM 的独立 evidence gate。这样既不阻塞安全的静态富内容，也不会用弃用机制、实验 API、普通代理或宿主 fallback 伪装成已完成隔离。

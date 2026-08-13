@@ -2,8 +2,8 @@
 
 > **用途：** 让后续 AI Coding Agent 能在不重新猜测项目状态和安全边界的情况下继续实施。
 > **受众：** AI Coding Agent、开发者与代码评审者。
-> **最后审阅 / Last reviewed：** 2026-08-09
-> **状态：** R0–R4 已依本指南完成；R5、R6 尚未启动。阶段实现和门禁证据见 [实施过程记录](./06-implementation-log.md) 与 [R0–R4 交接](./09-r0-r4-handoff.md)。
+> **最后审阅 / Last reviewed：** 2026-08-13
+> **状态：** R0–R4 已依本指南完成；R5/R6 的 Execution Isolation S0 已本地实现，producer、真实 Provider 与发布 Gate 尚未启动。阶段实现和门禁证据见 [实施过程记录](./06-implementation-log.md) 与 [R0–R4 交接](./09-r0-r4-handoff.md)。
 
 ---
 
@@ -23,6 +23,7 @@ MisakaX 是 Tauri 2 + React 19 + TypeScript + Rust 2021 + Python 3.11 Sidecar �
    - [Tauri Capability/CSP 审计](../../guides/tauri-capability-csp-audit.md)
    - [Sandbox ADR](../../architecture/SANDBOX_TECH_SELECTION.md)
    - [Sandbox 实施计划](../SANDBOX_IMPLEMENTATION_PLAN.md)
+   - [2026-08 Sandbox 方案复核](../../research/SANDBOX_STRATEGY_REASSESSMENT_2026-08.md)
 6. 若涉及 UI：
    - [frontend-ui-guidelines.md](../../design/frontend-ui-guidelines.md)
    - [shell-and-workspace-ui-spec.md](../../design/shell-and-workspace-ui-spec.md)
@@ -31,21 +32,27 @@ MisakaX 是 Tauri 2 + React 19 + TypeScript + Rust 2021 + Python 3.11 Sidecar �
 
 实施前用 `git status --short` 检查工作树。不要覆盖用户已有的无关修改；必要时在实施记录中标记冲突和决策。
 
+Sandbox ADR 仍为 Proposed，但已于 2026-08-13 吸收最新复核并移除 Windows 专用账户/macOS Seatbelt 默认方向。provider-neutral 的 S0 contract/FakeProvider/snapshot/result manifest 已实现；不得把它视为真实 Provider 已通过，后续先完成 S0.5，再按修订 ADR 通过对应 Spike Gate。
+
 ## 3. 不可违反的约束
 
 ### 3.1 安全
 
 - **禁止**添加 `@tauri-apps/plugin-fs` 或在 capability 中给予通用 `fs:*`、`http:*`、Shell execute/spawn 权限来快速实现预览/下载。
 - **禁止**让 React 接受/拼接绝对文件路径、`file:` URL、任意 artifact URI、任意远程 URL 或模型指定的保存路径。
-- **禁止**让模型/Agent 传入原生 ECharts option function、HTML/JS/CSS、地图 tile URL、SVG/HTML inline 内容、shell argv 或 Tauri scope。
+- **禁止**让模型生成内容或 `present_*`/`create_artifact` 富内容工具传入原生 ECharts option function、HTML/JS/CSS、地图 tile URL、SVG/HTML inline 内容、shell argv 或 Tauri scope。独立执行桥只接受受策略约束的结构化 argv/typed converter ID，禁止 shell 字符串拼接。
 - **禁止**为地图或预览把生产 CSP 宽化为任意 `https:`、`*`、`unsafe-eval`、任意 `frame-src`。所有 CSP/capability 改动均需专门测试与文档更新。
 - **禁止**在 Sandbox 不可用时，将 Agent/Skill/MCP 的外部 converter 或 shell 自动降级到宿主直接执行。
+- **禁止**把 Windows 专用 sandbox account 或 macOS `sandbox-exec`/动态 Seatbelt profile 当作新代码的默认 strict 路径；实验 `CreateProcessInSandbox` 只允许在隔离的 Spike/Canary wrapper 中使用。
+- **禁止**把 `HTTP_PROXY`、容器名称、provider 名称或“进程已低权限启动”当作完整隔离证据；strict 必须逐项证明文件、网络、进程树、环境/凭据、资源与审计保证。
+- **禁止**让 strict provider 直接写真实工作区或接触 `.git`、`.misakax`、`.codex`、`.agents`、Git/SSH/cloud credential；默认通过 snapshot 和受限 result manifest 回收。
 - **禁止**把二进制/大 Base64 写进 `messages.content` 或无限 JSON DTO；用 artifact store + ID 引用。
 - **禁止**把在线 Office/第三方网页嵌入当默认预览方案，避免数据外流和 iframe/CSP 风险。
 
 ### 3.2 架构与兼容
 
 - Rust 是 artifact 身份、权限、路径、MIME、哈希、配额、导出、清理和审计的唯一权威；React/Python 不能复制安全判断。
+- Rust 也是 execution policy、`ExecutionPlan`、snapshot、provider 选择、lease、`IsolationEvidence`、结果 manifest 和受约束写回的唯一权威；React/Python/模型不得传平台 profile、VM/mount/network 参数或原始 host path。
 - 新消息块必须有 `schema_version`、稳定 `block_id`、消息内 `position`、状态和 safe fallback。
 - 旧 `messages.content`、`attachments`、`tool_calls`、流事件、导入/导出必须双读或有兼容 adapter；不得一次性删除旧路径。
 - renderer/previewer/provider normalizer 使用 Registry + Strategy + Adapter，不做跨层巨型 `switch` 或“一个万能 RichMessage 组件”。
@@ -91,7 +98,10 @@ MisakaX 是 Tauri 2 + React 19 + TypeScript + Rust 2021 + Python 3.11 Sidecar �
 ### R5–R6：后接真实 Agent、MCP 与 Sandbox
 
 - 将 provider/Sidecar/MCP 输出收敛到同一 `RichOutputAdapter` 和窄工具契约。
-- 对外部命令/转换器，先验证相应 Sandbox provider；没有 strict guarantee 就 disabled + diagnostic。
+- 非执行 adapter/event 可以独立交付；任何外部命令/转换器先完成 S0：immutable plan、FakeProvider contract、snapshot、result manifest、显式 `host_direct`、稳定 `SANDBOX_UNAVAILABLE`。
+- 按位置验证而非追求同构 provider：联网/跨平台 strict 先过 S1 remote snapshot；Windows 离线过 S2 AppContainer；macOS 窄 parser helper/可选本地 VM 过 S3。没有实际 evidence 就 disabled + diagnostic。
+- 默认启用或企业交付还必须通过 S4：组织 provider、数据地区、镜像 digest、密钥代理、审批/审计、修复/销毁和独立安全评审。
+- strict 默认 `WorkspaceDelivery=snapshot`、`NetworkMode=deny`。结果先经 Rust 校验与 ArtifactService/ContentSafetyPolicy；工作区变更展示 diff 并批准后才 apply。
 - 完成三平台、离线、资源/恶意样本、安全回归，再标记发布就绪。
 
 ## 6. 验证命令与最低测试矩阵
@@ -120,7 +130,8 @@ python -m pytest
 - 旧 Markdown、现有用户图片输入、工具调用、流式停止/重新生成、消息分页、导入/导出。
 - 深色/浅色、窄窗口、键盘、屏幕阅读器摘要、减少动态偏好。
 - URI 越权/路径 traversal/MIME confusion/超限/取消/文件缺失。
-- 若引入网络或外部执行，CSP/capability diff 与 Sandbox policy 回归。
+- 若引入网络或外部执行，CSP/capability diff、ExecutionPlan/snapshot/result contract、provider capability probe 与 fail-closed 回归。
+- remote 路径验证地区、上传摘要、保留/销毁、egress、DNS/redirect/private IP/metadata endpoint、取消/kill tree；Windows 路径验证凭据/loopback/junction/实验 API 缺失；macOS 路径验证 XPC 签名/entitlement/bookmark 或 VM 镜像/无 writable host share。
 
 ## 7. 阶段完成门禁：代码审查、本地验证、Git 与远程 CI
 
@@ -178,6 +189,8 @@ git push -u origin <current-branch>  # 仅首次；后续使用 git push
 - XLSX：可从 `ArrayBuffer` 读取的本地解析器；禁止公式/宏执行。
 
 详细的官方来源和结论见 [08-research-sources.md](./08-research-sources.md)。若候选依赖改变 CSP、WebWorker、WASM、许可证或 native binary 边界，必须先做小型 Spike 和安全评审。
+
+provider API、Windows experimental API、云服务区域/价格/preview 状态与 macOS entitlement 支持都具有时间敏感性。进入实现前必须重新核验官方文档、支持 OS/build、服务条款、数据处理协议和镜像/runner 签名；不得只引用 2026-08 调研结论作为发布证据。
 
 ## 9. UI 文档同步与交付
 

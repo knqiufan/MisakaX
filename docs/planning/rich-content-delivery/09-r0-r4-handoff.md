@@ -2,8 +2,8 @@
 
 > **用途：** 交接 R0–R4 的本地实现、验证结果、开关与后续阶段边界。
 > **受众：** 接手该功能的开发者、评审者和发布负责人。
-> **最后审阅 / Last reviewed：** 2026-08-09
-> **交接状态：** R0–R4 已完成代码审查、本地验证、非强制推送与 required CI 门禁；R5、R6 尚未开始。
+> **最后审阅 / Last reviewed：** 2026-08-13
+> **交接状态：** R0–R4 已完成代码审查、本地验证、非强制推送与 required CI 门禁；R5/R6 的执行隔离前置 S0 合同已实现，producer integration、真实 Provider 与发布 Gate 尚未开始。
 
 ---
 
@@ -55,6 +55,7 @@
 - PDF 最多渲染 200 页；文本、CSV、XLSX 的显示分别限制预览字符/行与 200 × 50 的可见表格区域，XLSX 最多暴露前 12 个 sheet。DOCX 仅以 DOMParser 提取文本，永不插入其 HTML。
 - 图表和地图只接受 Rust validator 的 JSON schema。地图是 MapLibre 本地 `FeatureCollection` + marker；基础 style 无 source/tile URL。任何渲染器错误降级为表格/要素/notice，不能击穿整条消息。
 - 导出的图表 CSV 会给 `= + - @` 开头的文本加单引号，避免电子表格公式注入。导出的 CSV/GeoJSON 先注册为临时 artifact，再经 Rust 保存，随后标为 expired。
+- R0–R4 没有实现或宣称任何 OS execution provider；现有浏览器内预览限制属于内容安全面。后续原生 helper/converter、受控网络和 Agent 外部生成必须按 2026-08 Sandbox 复核接入 Broker/snapshot/result manifest，不能把本期 renderer/worker 当作执行隔离证据。
 
 ## 已验证
 
@@ -75,8 +76,10 @@
 
 1. **R5 producer integration。** `services/content/normalizer.rs` 已预留 seam，但 Sidecar、provider、MCP 尚未产生 blocks/artifacts 或 lifecycle events；接入时必须先注册 artifact 再写 block，并沿用同一 validator。
 2. **R1 URI Spike。** 当前预览通过受限 base64 IPC，而不是 `asset:`/custom protocol。若需性能、range request 或大媒体，请比较并验证窄 `asset:` scope 与 `misakax-artifact:` 协议，再替换读字节接口。
-3. **R2 加固/跨平台 QA。** 在 Windows/macOS/Linux 手工验证 PDF、XLSX、DOCX、图片、WebGL 失败与保存取消；加入加密/损坏/压缩炸弹 fixture，评估解析器是否需要 Sandbox worker。不要把本期输出限制误认为压缩包解压预算的完整替代。
-4. **R4b 保持禁止。** 尚未确定瓦片供应商、许可、attribution、隐私、缓存、密钥和 Rust broker；不得加入宽 `https:` CSP 或让模型提供 URL。
+3. **R2 加固/跨平台 QA。** 在 Windows/macOS/Linux 手工验证 PDF、XLSX、DOCX、图片、WebGL 失败与保存取消；加入加密/损坏/压缩炸弹 fixture。纯浏览器 parser 先验证 worker/资源预算；若必须使用原生 helper/converter，则 Windows 等待 AppContainer Gate、macOS 项目自带 helper 等待 App Sandbox + XPC Gate，其他情况转 remote microVM。未通过时仅下载。不要把本期输出限制误认为压缩包解压预算或执行隔离的完整替代。
+4. **R4b 保持禁止。** 尚未确定瓦片供应商、许可、attribution、隐私、缓存、密钥和安全网络位置；必须由 remote provider 或已通过 egress 攻击测试的 brokered network 获取，再经 artifact/custom URI 交付。不得加入宽 `https:` CSP、让模型提供 URL，或用 `HTTP_PROXY` 代替网络隔离。
+5. **R5 执行路径继续过新决策门。** Broker S0 contract、snapshot/result manifest、显式 `host_direct`、写回预检和 FakeProvider 测试已完成；非执行 normalizer/event 仍等待 Phase 4。任何外部生成先完成 S0.5，再按实际位置等待 S1 remote、S2 Windows/Linux 或 S3 macOS Gate；当前不得把任何 Provider 标为可发布。
+6. **R6 默认启用另过 S4。** 即使单个 S1/S2/S3 provider 能运行，也必须补齐组织/地区、镜像 digest、密钥代理、审批审计、修复/销毁和独立安全评审，才能默认开启或作为企业能力发布。
 
 R5、R6 或 R4b 需作为新的独立阶段执行；不得把它们并入本次已验证的 R0–R4 交付。
 

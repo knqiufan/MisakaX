@@ -1,301 +1,257 @@
-# 跨平台 Sandbox 实施计划
+# Execution Isolation / Sandbox 实施计划
 
-> **用途：** 基于已选架构，把 Agent、Skill 和 MCP 的自动执行逐步迁移到 Windows/macOS/Linux 的真实 OS 沙箱。
+> **用途：** 按最新 ADR 将 Agent、Skill、MCP、外部转换器和高风险 helper 逐步迁移到可验证、可审计且 fail-closed 的执行隔离链路。
 > **受众：** Rust、Python Sidecar、安全、构建发布和测试维护者。
-> **最后审阅 / Last reviewed：** 2026-08-01
-> **状态：** 规划；平台 Spike Gate 未通过前不得宣称 Sandbox 已完成。
-> **关联：** [调研](../research/CROSS_PLATFORM_DESKTOP_SANDBOX_RESEARCH.md) · [ADR](../architecture/SANDBOX_TECH_SELECTION.md) · [总体架构](../architecture/WORKSPACE_SKILLS_SECURITY_ARCHITECTURE.md)
+> **最后审阅 / Last reviewed：** 2026-08-13
+> **状态：** S0 provider-neutral 合同已实现并通过定向测试；S1–S4 未开始，当前没有可发布 strict Provider。
+> **关联：** [ADR](../architecture/SANDBOX_TECH_SELECTION.md) · [2026-08 复核](../research/SANDBOX_STRATEGY_REASSESSMENT_2026-08.md) · [富内容计划](./rich-content-delivery/README.md)
 
 ---
 
-## 1. 目标与保证等级
+## 1. 目标与当前边界
 
 ### 1.1 交付目标
 
-- Agent Shell、Skill 脚本、扫描 helper 和本地 MCP 子进程通过统一 `SandboxBroker` 启动。
-- 文件系统策略支持只读、工作区可写、保护子路径和显式 full access。
-- 网络默认拒绝；通过可信 Broker 实现域名级审批和审计。
-- Windows/macOS/Linux 的 provider 具有近似等价的上层策略语义和明确能力差异。
-- Python Sidecar 不再直接用 `LocalShellBackend` 在宿主继承环境执行生产命令。
-- 沙箱不可用、配置损坏或策略构造失败时严格模式 fail closed。
-- UI 能显示当前保证、设置/修复步骤、审批和审计，而不是只有“执行失败”。
+- 所有自动外部执行只通过 Rust `SandboxBroker` / `ExecutionService`，不由 React、Python Sidecar、Skill 或 MCP 直接启动宿主进程。
+- strict 使用 snapshot，真实工作区写回经过 result manifest、hash、base generation、diff 与用户批准。
+- 网络默认拒绝；联网只走具备攻击测试证据的 Provider broker。
+- Provider 精确选择、按执行位置给出事实证据；不可用时稳定拒绝，不 fallback 到 host-direct。
+- 取消、崩溃和应用退出回收完整进程树/remote lease/临时数据；审计不记录 secret 或用户文件内容。
+- UI 只显示真实保证、缺口、执行位置、地区/网络和修复动作。
 
-### 1.2 产品保证等级
+### 1.2 当前完成边界（2026-08-13）
 
-| 等级 | 含义 | 使用场景 |
-|---|---|---|
-| `strict` | 文件 + 网络 + 进程树 + 环境/资源控制通过能力自检 | 默认 Agent/未知 Skill/无人值守 |
-| `restricted-compat` | 文件边界成立，但部分网络/资源保证不足；持续警告 | 用户显式选择的受限兼容 |
-| `full-access` | 当前用户权限执行，无沙箱保证；逐操作批准并审计 | 明确逃生操作 |
-| `unavailable` | provider/setup 不满足最低要求 | 禁止自动执行 |
+已实现 `src-tauri/src/services/sandbox/`：
 
-不能把 `restricted-compat` 显示成“已启用沙箱”，必须列出缺失保证。
+- `ExecutionIntent`、`ExecutionPolicy`、`ExecutionPlan`、`ExecutionLocation`、`WorkspaceDelivery`、`NetworkMode`、`ProviderAvailability`、`IsolationEvidence`。
+- 仅允许 registered tool / typed converter + structured argv；拒绝 host path、平台参数与敏感环境名。
+- strict snapshot、敏感目录/凭据/链接排除、SHA-256 和大小/文件数限制。
+- result change/artifact manifest 校验、result root containment、hash/配额、写回 approval/base generation/conflict 预检。
+- Provider registry、create/collect/destroy 生命周期、exact-location 选择、evidence gate、稳定错误码和脱敏 audit event。
+- `FakeProvider` 仅在 `#[cfg(test)]` 中；生产代码没有真实 Provider、host process spawn、Tauri command 或 capability 扩张。
+
+尚未实现：事务化 writeback apply、持久审批/审计、执行桥、真实 remote/AppContainer/Linux/XPC/VM Provider、UI、三平台 Spike、默认启用和发布运维。因此 R5/R6 总阶段仍不能标记完成。
 
 ## 2. 安全不变量
 
-实现和重构期间必须始终成立：
-
-1. 沙箱 policy 由 Rust 生成，前端和模型不能直接提供 platform args/profile。
-2. cwd 和 writable roots 来自当前会话的 canonical workspace，不信任模型字符串。
-3. 默认无网络；环境变量 proxy 只能纵深防御，不能作为强网络边界。
-4. API Key、SSH Agent、云凭据和 bridge master token 不进入子进程环境。
-5. 限制覆盖完整进程树；主进程退出或取消后不能留后台任务。
-6. 所有允许/拒绝、能力降级和 full-access 都有结构化审计。
-7. provider 异常绝不能 fallback 到普通 `subprocess`/Tauri Shell。
-8. 用户本机终端不经过本 Broker，必须用类型和 UI 明确区分。
+1. 策略由 Rust 从可信 session/workspace/settings/approval 构造；模型与前端不传 Provider credential、host path、ACL/profile、VM/mount 或网络规则。
+2. strict 固定 snapshot；`.git`、`.misakax`、`.codex`、`.agents`、凭据、越界链接不进入 Provider。
+3. 结构化 argv 不经 platform shell 二次解释；确需 Shell 的未来合同必须单独类型化、批准和审计。
+4. 默认无网；proxy 环境变量不是边界。模型 API key、Git/SSH/cloud credential、浏览器 session 不进入 guest/child。
+5. result manifest 是不可信输入；路径、hash、大小、删除范围、generation、evidence 和 artifact MIME 必须由 Rust 复验。
+6. Provider 异常、实验 API 缺失、签名/镜像/地区不符、destroy 失败均不能触发宿主 fallback。
+7. 用户 PTY 终端是 `LocalTerminalSession`，不经过 Broker，也不得在 UI/类型中冒充 `SandboxExecution`。
+8. 内容安全与执行隔离叠加；strict 输出仍经过 `ArtifactService` / `ContentSafetyPolicy`。
 
 ## 3. 实施顺序
 
 ```text
-B0 威胁模型/测试工具/三平台 Spike
-  -> B1 统一领域契约与 Broker（先使用 fake provider）
-    -> B2 Linux provider ┐
-    -> B3 macOS provider ├─ 可并行，分别过平台 gate
-    -> B4 Windows provider┘
-      -> B5 Python/MCP/Skill 执行链迁移
-        -> B6 Network/Approval/Audit 强化
-          -> B7 默认启用、发布和运维
+S0 合同 + snapshot + FakeProvider（当前完成）
+  -> S0.5 transaction/audit/approval application service
+    -> S1 remote snapshot vertical slice
+      -> S2 Windows/Linux local offline providers ┐
+      -> S3 macOS XPC helper / local VM           ├─ 按位置独立 Gate
+        -> R5 Sidecar/Skill/MCP execution bridge  ┘
+          -> S4 default-enable / enterprise / release
 ```
 
-平台 provider 可以并行，但 B5 合并前必须统一 runner protocol 和 contract tests。
+S1–S3 可在 S0.5 稳定后并行，但每条产品功能只按它实际使用的 Provider/evidence 发布。remote 可以提供三平台 strict 通用命令路径；本机 Provider 不因另一平台通过而自动通过。
 
-## 4. Phase B0：威胁模型、基线和平台 Spike
+## 4. Phase S0：Provider-neutral 合同（已实现）
 
-### 4.1 Spike 产物
+### 4.1 代码落点
 
-每个平台建立独立测试 runner，接受同一 JSON policy fixture 并返回能力和结果。Spike 不接入生产 UI，先验证安全原语和打包。
+| 模块 | 职责 |
+|---|---|
+| `services/sandbox/types.rs` | 版本化领域类型、policy/intent validation、errors/digests |
+| `services/sandbox/snapshot.rs` | snapshot、result/artifact validation、writeback preflight |
+| `services/sandbox/provider.rs` | create/collect/cancel/destroy Provider port；result root 仅 Rust 可见 |
+| `services/sandbox/broker.rs` | exact registry、lifecycle、evidence、cleanup、audit events |
+| `services/sandbox/tests.rs` | test-only FakeProvider 与 S0/R6 攻击回归 |
 
-代表性攻击 fixture：
+### 4.2 已完成检查
 
-- 写工作区内/外、写 `.git`、符号链接/junction 逃逸、rename 交换竞态。
-- 读 SSH/云/浏览器目录、读取环境变量和打开父进程句柄。
-- HTTP/DNS/direct socket/IPv6/localhost/Unix socket/命名管道。
-- child/grandchild/background daemon、双 fork、Windows detached process。
-- CPU/memory/process/file/descriptor 炸弹。
-- 路径空格、Unicode、长路径、Git worktree/submodule。
+- [x] 领域类型不依赖 Tauri、Python、云 SDK 或平台 crate。
+- [x] strict 禁止 `host_direct`、`direct_mount` 和 `explicit_host_direct` network。
+- [x] full access 只能是 host-direct + direct mount + explicit network + 非空 approval。
+- [x] credential/proxy 环境名不进入 allowlist。
+- [x] snapshot 排除控制目录、常见凭据、symlink/junction/reparse point。
+- [x] snapshot/result root 与真实工作区互不包含；manifest 不序列化绝对路径。
+- [x] result 拒绝 traversal、反斜杠歧义、受保护路径、重复/越权 change、hash/size 不符。
+- [x] writeback preflight 校验 manifest approval、generation 与用户并发修改。
+- [x] strict Provider capability 和最终 result evidence 双重检查。
+- [x] collect 后总是尝试 destroy；invalid lease identity 也尝试清理。
+- [x] FakeProvider 仅测试编译；安全基线测试禁止生产 S0 出现 host process shortcut。
 
-### 4.2 TODO
+### 4.3 S0 后续缺口（S0.5）
 
-- [ ] 将调研威胁模型转为可执行的跨平台 JSON fixture 和 expected result。
-- [ ] 定义能力枚举：filesystem/network/process_tree/resources/env/audit/setup_required。
-- [ ] 定义 runner protocol v1：framed JSON/pipe、结构化 argv、cwd、policy hash、nonce、result。
-- [ ] 为 runner 消息做 schema validation、大小上限、超时和 replay/ownership 设计。
-- [ ] Linux Spike：Bubblewrap 版本选择、system/bundled 解析、userns、seccomp、network namespace、Landlock 探测。
-- [ ] macOS Spike：Seatbelt profile、签名 helper、network Broker、支持版本和 App Sandbox/notarization 组合。
-- [ ] Windows Spike：write-restricted token、synthetic SID、ACL、Job Object、专用账户、防火墙、DPAPI、UAC setup。
-- [ ] 容器 Spike（可选）：Docker/Podman 检测、只读镜像、无 daemon socket、workspace mount 和启动开销。
-- [ ] 测试 helper/runner 的许可证、供应链、签名和打包路径。
-- [ ] 记录每平台不支持项；确定 strict 的最低能力，不以最弱平台无条件拉低全部标准。
-- [ ] 安全 review Spike 代码，禁止未经 review 的命令拼接进入后续实现。
+- [ ] 为 `ValidatedWriteback` 实现同卷 staging、原子替换、删除备份、失败回滚与 crash recovery journal。
+- [ ] 将 approval 绑定用户、window/session、manifest digest、TTL 和一次性消费；拒绝 replay/confused deputy。
+- [ ] 建立 SQLite audit/recovery schema，记录 plan/evidence/lease/cleanup，不存 argv/环境值/输出/路径明文。
+- [ ] 增加并发 execution registry、取消、idempotent terminate、应用 shutdown cleanup 和遗留 lease recovery。
+- [ ] 对 snapshot/result copy 加强 TOCTOU：平台 file identity、no-follow/open-handle 校验、rename race fixture。
+- [ ] 增加 signed/attested result manifest port；签名算法与 key lifecycle 由具体 Provider threat model 决定。
+- [ ] 添加 feature flag/settings schema；无 Provider 时仅显示 unavailable diagnostic。
 
-### 4.3 退出门
+### 4.4 S0.5 退出门
 
-- 三平台都能执行同一组核心 filesystem/network/process fixtures。
-- Windows 强网络方案已证明可行；若只有 proxy 环境变量，Windows gate 不通过。
-- 选定 runner protocol v1 和 helper 分发策略。
+- writeback 的每个失败点均不会留下未审计的半应用状态；crash 后可确定恢复或回滚。
+- approval replay、旧 generation、跨 session/window、manifest 篡改和重复提交均被拒绝。
+- app shutdown、取消和 provider disconnect 后 lease/临时目录可重试清理。
+- 没有真实 Provider 时生产 API 稳定返回 `SANDBOX_UNAVAILABLE`。
 
-## 5. Phase B1：Sandbox Domain、Broker 与 Fake Provider
+## 5. Phase S1：Remote + snapshot 垂直切片
 
-### 5.1 模块
+### 5.1 范围
 
-- `SandboxPolicy`：文件、网络、环境、资源、审批和模式。
-- `SandboxPolicyCompiler`：从工作区/设置/操作来源生成不可变 policy。
-- `SandboxProvider`：prepare/spawn/terminate/capabilities。
-- `SandboxBroker`：provider 选择、lifecycle、审批和审计协调。
-- `ExecutionService`：Agent/Skill/MCP 面向的 application API。
-- `FakeSandboxProvider`：测试，不允许编入 release 默认路径。
+选一个开发期 remote Provider（组织已有 Azure、自托管 Firecracker 或经审查的试点供应商），只用无 secret 测试工作区实现统一端口：
+
+```text
+create_execution(plan, encrypted snapshot reference)
+  -> stream structured output/diagnostics
+  -> cancel
+  -> collect signed result manifest + artifacts + evidence
+  -> destroy execution and temporary storage
+```
+
+供应商 SDK/HTTP client 位于 Rust adapter；Sidecar 不直连。credential 存 OS keychain/企业 token broker，sandbox 只得到短期 execution identity。
 
 ### 5.2 TODO
 
-- [ ] 新增 domain types，确保不依赖 Tauri、Python 或 platform crates。
-- [ ] 实现 policy normalization、稳定 hash 和等价性测试。
-- [ ] 实现 canonical workspace/writable/readonly/denied roots 解析，处理嵌套优先级。
-- [ ] 实现 environment allowlist/denylist，默认 `inherit_env=false`。
-- [ ] 实现 resource policy（timeout、process、CPU、memory、files/handles、output）。
-- [ ] 实现 provider registry/strategy 和 capability negotiation。
-- [ ] 实现 `SandboxBroker` state machine：preparing/running/approval_wait/terminating/exited/failed。
-- [ ] 实现 execution ownership、cancellation、idempotent terminate 和 app shutdown cleanup。
-- [ ] 定义结构化 audit events、Secret redaction 和 correlation ID。
-- [ ] 实现 fake provider/contract test suite，所有 platform adapter 必须复用。
-- [ ] 新增 feature flags/settings schema，但 UI 先显示“实验性/不可用”。
-- [ ] 确保 release build 在没有真实 provider 时返回 `SANDBOX_UNAVAILABLE`，不调用宿主命令。
+- [ ] threat model 与 DPA/地区/保留期/费用/配额评审；固定开发期 Provider 与版本。
+- [ ] snapshot upload 只含 manifest 已允许文件；UI/日志可显示摘要但不显示绝对路径和内容。
+- [ ] create/stream/cancel/collect/destroy、超时、重试、幂等和 lease expiry。
+- [ ] result manifest 签名/nonce/execution ownership/replay validation。
+- [ ] 默认 deny egress；allowlist 验证 DNS、redirect、private IP、metadata endpoint、IPv4/IPv6/loopback。
+- [ ] 不注入模型/Git/SSH/cloud/browser credential；环境与进程树证据可验证。
+- [ ] 中断、区域不符、镜像 digest 变化、配额耗尽和 destroy 失败的可操作诊断。
+- [ ] artifact 经过 `ArtifactService`；workspace diff 经过 S0.5 approval/writeback。
+- [ ] Windows/macOS/Linux 客户端兼容与网络代理/企业 TLS 场景测试。
 
-## 6. Phase B2：Linux Provider
+### 5.3 退出门
 
-### 6.1 实现要点
+- 同一无 secret fixture 在三平台客户端得到一致 plan/result 语义。
+- 未批准文件/凭据/网络均不可达；取消和 crash 后 remote process/lease/storage 可证明销毁。
+- Provider 不可用时只返回 unavailable，不命中 host-direct 或本地 subprocess。
+- UI 准确显示服务、地区、上传范围、保留期、网络和实际 evidence。
 
-- 根 `ro-bind / /`，按策略 bind writable roots；保护子路径按路径特异性重新 ro-bind/deny。
-- `--unshare-user --unshare-pid --unshare-net --new-session`，新 `/proc`，`no_new_privs`。
-- seccomp 限制网络/namespace/ptrace/危险 ioctl；不绑定 D-Bus、SSH agent、Docker socket。
-- managed proxy 模式由外部 Broker 通过最小 Unix socket 桥接；无网络模式彻底断开。
-- 启动时检查 system bwrap 可信路径和版本；如捆绑 binary，校验签名/hash。
-- Landlock 可增加文件约束或作为明确的兼容 provider，不自动宣称与 bwrap 等强。
+## 6. Phase S2：Windows / Linux 本机离线 Provider
 
-### 6.2 TODO
+### 6.1 Windows AppContainer
 
-- [ ] 实现 Linux capability probe 和诊断码。
-- [ ] 实现 bwrap argv builder，使用类型化 mount entries，不接受原始用户参数。
-- [ ] 正确处理 nested writable/readonly/denied roots 和不存在/符号链接路径。
-- [ ] 应用 no-new-privs、PID/user/network namespaces 和新 session。
-- [ ] 设计并加载最小 seccomp profile，做架构差异测试。
-- [ ] 实现进程组/cgroup 可用时资源限制和完整 kill tree。
-- [ ] 实现 network broker socket 映射，禁止任意 Unix socket。
-- [ ] 测试 system bwrap PATH 劫持、旧版本和 userns 禁用。
-- [ ] 在 Ubuntu/Debian/Fedora/RHEL 支持线运行 contract/attack/packaging tests。
-- [ ] 验证 AppImage/deb/rpm 中 helper 权限、hash 和升级替换。
-- [ ] 编写用户可操作诊断：如何启用 userns/为什么 strict 不可用。
+- 优先 Spike stable AppContainer/LPAC + restricted token + Job Object；`Experimental_CreateProcessInSandbox` 通过 runtime probe 和 opaque FFI 隔离，仅 Canary。
+- 不创建可登录专用账户，不授予 internet capability；snapshot 是唯一可写根，只读工具路径来自签名 registry。
+- 测试 home/浏览器/SSH/cloud credential、junction/reparse、rename race、named pipe、IPv4/IPv6/DNS/localhost/QUIC、child/grandchild/breakaway 和标准用户/企业策略。
 
-## 7. Phase B3：macOS Provider
+### 6.2 Linux namespaces
 
-### 7.1 实现要点
+- 候选为受审版本的 Bubblewrap/namespaces + seccomp + cgroup/process group；默认 unshare network，不绑定 D-Bus、SSH agent、Docker socket。
+- 检查可信 binary 路径、版本/hash、userns、发行版安全策略和打包；缺能力时 unavailable，不把 path guard/Landlock-only 冒充同等 strict。
+- 覆盖 symlink/mount、Unix socket、PID/daemon、resource/output bomb 和 Ubuntu/Debian/Fedora/RHEL 支持矩阵。
 
-- 独立签名 runner 为每个 policy 生成 Seatbelt profile；主 App 不扩大到同等权限。
-- workspace user-selected access/bookmark 与 runner 可见路径协同，避免用临时全盘 entitlement。
-- 默认禁止网络和不必要 Mach services；联网只连本地 Broker。
-- 使用 process group 和资源限制回收子进程；验证 helper/Sidecar 的 Hardened Runtime/notarization。
-- 对 Seatbelt/profile 行为建立每个支持 macOS 大版本实机测试。
+### 6.3 共同退出门
 
-### 7.2 TODO
+- 工作区外写、敏感读取、直接网络和后台进程逃逸失败。
+- Python/Node/Git/Rust 等“已登记工具”逐项记录兼容矩阵，不泛称支持任意本机工具链。
+- Unicode、长路径、worktree/submodule、受管设备和能力缺失都有稳定诊断。
+- provider probe/runner/实验 API 失败不调用宿主进程。
 
-- [ ] 实现 macOS capability probe、runner 签名校验和系统版本矩阵。
-- [ ] 实现类型化 Seatbelt profile compiler 和转义/fuzz tests。
-- [ ] 映射 readonly/writable/denied roots，覆盖 symlink、bookmark、APFS/case sensitivity。
-- [ ] 实现网络默认拒绝和只允许本地 Broker 的 profile。
-- [ ] 限制 Mach/IPC/device/process-control 能力并记录必要例外。
-- [ ] 实现 process group、timeout、output/resource control 和 kill tree。
-- [ ] 验证主 App 启用/不启用 App Sandbox 两种分发路线的影响，固定正式路线。
-- [ ] 验证 helper、Python Sidecar、PTY helper 的签名、entitlement、notarization 和升级。
-- [ ] 在当前及前两个受支持 macOS 大版本运行 attack/compat/packaging tests。
-- [ ] 对 profile compile/launch failure 严格拒绝并提供诊断，不回退宿主执行。
+## 7. Phase S3：macOS XPC 窄 helper 与本地 VM
 
-## 8. Phase B4：Windows Provider
+### 7.1 App Sandbox + XPC helper
 
-### 8.1 组件
+- 只用于项目签名、自带的 parser/converter；输入/输出均为 app container 中的 artifact bytes。
+- 最小 entitlements，无 network client、Automation、Accessibility；不继承父进程凭据和任意 host path。
+- 验证 code signature、notarization、bookmark 选择/撤销/失效、Intel/Apple silicon 和支持的 macOS 大版本。
 
-- `misakax-sandbox-setup.exe`：需要时以 UAC 提权，幂等创建/校验/修复/卸载账户、SID、ACL、防火墙。
-- `misakax-sandbox-runner.exe`：在专用用户上下文创建受限 token，启动 child。
-- 主 Tauri 进程：普通用户权限，调用 setup/runner 的窄协议。
+### 7.2 本地 Linux VM（可选隐私模式）
 
-建议身份：
+- 签名应用使用 Virtualization.framework，下载并校验架构匹配的 Linux image。
+- 默认无网络、无 writable VirtioFS host share；通过 snapshot disk/受认证 channel 返回 manifest/artifacts。
+- 明示仅 Linux 工具链；Xcode/macOS SDK/iOS 签名走 remote macOS 服务或逐操作 host-direct。
 
-- `MisakaXSandboxOffline`：默认 Agent 命令，防火墙阻断出站。
-- `MisakaXSandboxOnline`：只在 Network Broker 场景使用；仍不把无限网络直接交给命令。
+### 7.3 退出门
 
-密码/凭据使用 DPAPI 加密，存放位置对 sandbox user 不可读；日志不得记录。
+- XPC/VM 的文件、环境、凭据、网络、资源、进程回收、签名和升级证据完成。
+- VM image 供应链、磁盘加密/清理、休眠/崩溃、Intel/Apple silicon 通过。
+- `sandbox-exec`/动态 Seatbelt 不存在于正式 runner，也不计入 strict 证据。
 
-### 8.2 TODO
+## 8. R5：Sidecar、Skills、MCP 与富内容接入
 
-- [ ] 完成账户/SID/ACL/firewall 命名、升级兼容和卸载 threat review。
-- [ ] 实现 setup helper 的 create/validate/repair/remove，所有操作幂等并输出结构化结果。
-- [ ] UAC 只用于 setup/repair/remove；日常执行不提权。
-- [ ] 实现 DPAPI secret storage，校验 sandbox 用户无法读取密文/相关主密钥上下文。
-- [ ] 工作区和额外 writable roots 应用精准 ACL；保护 `.git/.misakax/.codex/.agents`。
-- [ ] 评估 ACL 应用性能和继承语义，避免不可逆污染用户项目；记录/恢复修改。
-- [ ] 实现 runner 的 `LogonUser/CreateRestrictedToken/CreateProcessAsUser` 等等价流程。
-- [ ] 使用 Job Object 限制/回收完整进程树，处理 breakaway、detached 和 nested job。
-- [ ] 创建/校验 offline outbound firewall rules；测试 direct socket、IPv4/IPv6、DNS、QUIC。
-- [ ] online 模式只通过 Network Broker 或受控规则，避免任意出站。
-- [ ] 构造最小 environment/block handle inheritance；保护 user profile、credential manager 和 named pipes。
-- [ ] 支持路径空格、Unicode、长路径、junction、reparse point、Git worktree。
-- [ ] 验证 Windows Home/Pro 的支持差异；不依赖 Windows Sandbox/Hyper-V。
-- [ ] 在 Windows 10/11、标准用户、企业策略/防火墙异常下运行 attack/compat/installer tests。
-- [ ] 实现 setup health UI：未设置、设置中、可用、需修复、卸载，并提供 correlation ID。
-- [ ] 卸载验证无专用账户、危险 ACL、凭据和防火墙残留；失败时提供修复工具。
+R5 的非执行 `RichOutputAdapter`/块事件依赖 Phase 4 对话迁移，可独立于 Provider 开发；任何外部生成必须等待 S0.5 和目标 Provider Gate。
 
-## 9. Phase B5：Python、Skills 和 MCP 执行链迁移
+### 8.1 执行桥 TODO
 
-### 9.1 执行桥
+- [ ] 选 UDS/named pipe/loopback transport 并完成本地攻击面评审。
+- [ ] token 高熵、短期、scope、rotation、constant-time 验证；绑定 session/workspace generation/tool/TTL，Sidecar 重启即失效。
+- [ ] Python `BrokeredWorkspaceBackend` 映射文件/执行 API；production 停止使用直接 `LocalShellBackend`。
+- [ ] 文件工具同样经 snapshot/canonical policy，避免 Python 插件绕过 shell 隔离。
+- [ ] Skill activation view 只读，执行请求带 skill ID/hash；本地 MCP spawn 走 `ExecutionService`。
+- [ ] 审批等待不阻塞 Sidecar event loop；disconnect/cancel/retry 幂等。
+- [ ] 外部结果先回 Broker/Artifact ingress，再写 canonical content block；取消/重生成不留孤立 artifact。
 
-推荐由 Rust 持有沙箱权威，通过绑定 `127.0.0.1` 或本地 pipe 的 authenticated bridge 接受 Python 请求：
+### 8.2 R5 sandbox 退出门
 
-- 主进程为每个 Sidecar/Chat Session 生成短期随机 token。
-- token 绑定 session、workspace generation、允许工具和到期时间。
-- 请求是结构化 execute/read/write/list，不传任意 host path。
-- Rust 再次执行 path、policy、approval 和 ownership 校验。
+- 生产 Agent/Skill/MCP 外部执行不存在 host subprocess fallback。
+- 每个执行可追踪 session/message/source、snapshot、location、network、lease、evidence 和 result manifest。
+- provider unavailable、Sidecar restart、MCP reject、cancel/stream failure 均安全收口。
 
-### 9.2 TODO
+## 9. R6 / Phase S4：加固、默认启用与发布
 
-- [ ] 设计 bridge transport（loopback/UDS/named pipe）并完成本地攻击面评审。
-- [ ] token 使用足够熵、短期、scope、rotation 和 constant-time 验证；不放环境/日志可被 child 读取的位置。
-- [ ] Python 实现 `BrokeredWorkspaceBackend`，映射 DeepAgents 所需 filesystem/shell API。
-- [ ] production `build_agent` 停止使用直接 `LocalShellBackend`；测试可显式 fake。
-- [ ] 文件工具也经 broker/canonical root，防止 Python 插件绕过 Shell 沙箱直接读宿主。
-- [ ] `inherit_env=true` 从生产执行路径删除。
-- [ ] Skills activation view 只读挂载；Skill script 请求标注 skill_id/artifact_hash。
-- [ ] 本地 MCP server spawn 走 ExecutionService；远端 MCP 网络走 NetworkPolicy。
-- [ ] 扫描 helper 用 read-only/offline policy；证明扫描不会执行目标文件。
-- [ ] 实现 bridge disconnect/cancel/retry 幂等；Sidecar 重启使旧 token 失效。
-- [ ] 对现有工具调用和流式事件做兼容测试，审批等待不能阻塞整个 Sidecar event loop。
-- [ ] 记录仍留在 Python 宿主权限控制面的可信代码清单和后续 worker isolation 计划。
+### 9.1 安全与性能
 
-## 10. Phase B6：Network Broker、审批和审计
+- [ ] snapshot/result 大仓库基准、内存/磁盘/文件数/输出/取消预算与产品阈值。
+- [ ] traversal、symlink/junction/reparse、rename race、Windows 保留名、Unicode、长路径、zip/resource bomb。
+- [ ] DNS/redirect/private IP/metadata/IPv4/IPv6/loopback/named pipe/Unix socket/child 绕过。
+- [ ] provider/result replay、错误身份、旧 generation、approval replay/confused deputy、签名/镜像失效。
+- [ ] 应用 crash/restart、kill tree、remote destroy、临时目录和 writeback journal recovery。
+- [ ] CSP/capability diff 保持主 WebView 无 FS/HTTP/Shell execute；安全基线测试持续覆盖。
 
-### 10.1 Network Broker
+### 9.2 产品与运维
 
-- deny-by-default；策略包含 domain、port、protocol、request source、scope 和 TTL。
-- 解析 DNS 后校验目标；跟随 redirect 时重新检查；防止 IP literal、rebinding 和内网/metadata endpoint 绕过。
-- 只让 sandbox child 连接 Broker，不把模型 API Key 或 Git 凭据放进 sandbox。
-- 对 HTTP(S)、Git 和包管理器定义兼容测试；不承诺任意自定义协议都能透明代理。
+- [ ] Settings 显示执行位置、实际保证/缺口、地区、网络、上传摘要、配额、setup/repair 和审计入口。
+- [ ] host-direct 明确 full access 风险、理由、范围和 TTL；每次批准，不提供隐式永久 fallback。
+- [ ] Provider/policy/runner/image 版本、签名、SBOM、原子更新、紧急禁用和回滚。
+- [ ] 企业 Provider 的区域、镜像 digest、密钥代理、组织审批、审计/保留和私有端点。
+- [ ] 独立安全 review/渗透测试；事故响应涵盖 Provider 禁用、lease/进程/临时数据清理和非敏感诊断。
 
-### 10.2 Approval Broker
+### 9.3 发布 Gate
 
-复用 MCP 现有审批体验，但抽为通用领域服务：filesystem escalation、network domain、full access、Skill review 和 Git credentialed operation 都使用同一批准记录模型。
+每个执行位置分别签字：
 
-### 10.3 TODO
+- [ ] 文件、凭据、网络、进程树、环境、资源、审计 evidence 与 UI 声明一致。
+- [ ] capability/provider/setup 损坏时 fail closed，诊断可操作。
+- [ ] 签名、安装、升级、修复、卸载/销毁无危险残留。
+- [ ] 兼容工具、平台/版本/架构、性能阈值和已知限制有证据。
+- [ ] 未通过的位置保持 unavailable，不以另一位置通过或“代码可编译”替代。
 
-- [ ] 定义 network policy、domain normalization、port/protocol、scope/TTL 和 deny precedence。
-- [ ] 实现 DNS/redirect/rebinding/private range/metadata endpoint 检查。
-- [ ] 建立每平台 child -> Broker 的唯一允许通道，验证 direct socket 失败。
-- [ ] 实现宿主侧 Model Gateway/凭据代持的最小 PoC，避免 Key 注入 child。
-- [ ] 抽取通用 `ApprovalBroker`，迁移 MCP 审批而不改变现有行为。
-- [ ] 审批 UI 显示操作来源、工作区、Skill、目标域/路径、持续时间和风险。
-- [ ] 支持 allow once/session/workspace，默认最短；永久允许需要设置级操作。
-- [ ] 所有 approval 可撤销、过期并写 audit；拒绝结果返回稳定错误码。
-- [ ] audit 做 Secret/path redaction、retention、导出和用户清理策略。
-- [ ] 安全团队建立 proxy/approval fuzz、并发和 confused-deputy 测试。
+## 10. 测试与验证命令
 
-## 11. Phase B7：默认启用、发布和运维
+```powershell
+cd src-tauri
 
-### 11.1 TODO
+# S0/R6 定向合同与攻击回归
+cargo test --all-features --lib sandbox
+cargo test --all-features --test security_config_baseline_tests
 
-- [ ] dev 渠道先 shadow/audit：计算 policy 和能力但不宣称隔离，比较预期影响。
-- [ ] 按平台逐步启用 strict；未过 gate 的平台保持 unavailable，不用兼容模式冒充完成。
-- [ ] Settings 增加沙箱状态、provider、保证列表、诊断、设置/修复和审计入口。
-- [ ] Agent 执行区持续显示当前 mode；full access 每次清晰提示。
-- [ ] 定义 policy/provider/rule 的版本升级、签名、回滚和紧急禁用机制。
-- [ ] 安装包生成 SBOM，签名 setup/runner/Sidecar，验证更新原子性。
-- [ ] CI 建立 Windows/macOS/Linux attack suite；夜间跑重型资源/逃逸测试。
-- [ ] 发布前安排独立安全 review/渗透测试，特别关注 runner protocol、Windows ACL/firewall 和 Network Broker。
-- [ ] 制定事故响应：撤销 Skill、禁用 provider、收集非敏感诊断、清理残留进程/账户/规则。
-- [ ] 更新用户文档：保证、限制、兼容模式、终端区别和卸载清理。
+# Rust 质量门
+cargo fmt --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo nextest run --all-features --profile ci  # 提交/推送前；未安装则 cargo test --all-features
+```
 
-## 12. 平台发布 Gate
+真实 Provider 另需平台 runner/attack/packaging suite；普通单元测试或当前 Windows 开发机结果不能替代三平台实机证据。
 
-每个平台分别签字，不允许以“代码可编译”代替：
+## 11. 回滚原则
 
-- [ ] 工作区外写、受保护子路径写和敏感读取失败。
-- [ ] HTTP/DNS/direct socket/IPv6/常见工具联网在 offline 模式失败。
-- [ ] allowlisted network 正常，redirect/rebinding/内网绕过失败。
-- [ ] child/grandchild/background/breakaway 被回收。
-- [ ] Python/Node/Git/Rust/包管理器兼容样本达到约定通过率。
-- [ ] resource/output limits 有效，拒绝服务不会拖垮主 App。
-- [ ] provider/setup 损坏时 fail closed 且诊断可操作。
-- [ ] 签名、安装、升级、修复、卸载通过，无危险残留。
-- [ ] CSP/capabilities/bridge token/Secret redaction 通过安全 review。
-- [ ] 用户看到的保证与实际 capability probe 完全一致。
+- Provider 发布故障时标为 unavailable；不能自动回退 full access。
+- policy/provider/image 版本与 evidence 保留可审计迁移；回滚不删除用户文件和审计。
+- writeback apply 必须有 journal/backup/recovery；未确认 diff 永不写真实工作区。
+- Python legacy/fake backend 只允许测试或显式开发开关，release 不包含自动 fallback。
 
-## 13. 回滚原则
+## 12. 完成定义
 
-- provider 发布故障时可通过签名配置把 strict 标为 unavailable；**不能自动回退 full access**。
-- Windows setup/ACL/firewall 变更必须记录 transaction/marker，repair/remove 可重放。
-- policy migration 保留上一个已签名版本；回滚需记录 audit。
-- Python backend 保留 fake/legacy adapter 只用于测试和显式开发开关，release 不包含自动 fallback。
-- 审计和用户文件不随 provider 回滚删除。
-
-## 14. 完成定义
-
-- 三平台 Spike 和发布 Gate 都通过，ADR 状态转 Accepted。
-- Agent/Skill/MCP 生产执行路径不存在直接宿主 Shell fallback。
-- strict 模式同时具备文件、网络、进程树和环境/资源保证。
-- 安装/升级/卸载、诊断、审批、审计和事故流程完备。
-- UI、架构、项目结构和进度文档与实际代码一致。
+- 目标平台各有至少一个真实 strict 路径通过对应 Gate，ADR 按事实转 Accepted。
+- Agent/Skill/MCP/外部 converter 生产链路不存在直接宿主执行绕过。
+- snapshot、result、approval、writeback、network、cancel、cleanup、audit 和发布运维完整。
+- UI/文档只声明 capability evidence 已证明的保证；R5/R6 阶段记录包含本地与远程 CI 证据。

@@ -251,3 +251,45 @@ fn w5_workspace_and_terminal_events_use_tauri_safe_names() {
         assert!(!terminal.contains(invalid));
     }
 }
+
+#[test]
+fn isolation_s0_has_no_host_process_or_webview_execution_shortcut() {
+    let sandbox_root = manifest_path("src/services/sandbox");
+    let production_files = [
+        "mod.rs",
+        "types.rs",
+        "provider.rs",
+        "snapshot.rs",
+        "broker.rs",
+    ];
+    let source = production_files
+        .iter()
+        .map(|name| fs::read_to_string(sandbox_root.join(name)).unwrap())
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    for forbidden in [
+        "std::process::Command",
+        "tokio::process::Command",
+        "portable_pty",
+        "tauri_plugin_shell",
+        "Command::new(",
+        "powershell",
+        "cmd.exe",
+        "sandbox-exec",
+    ] {
+        assert!(
+            !source.contains(forbidden),
+            "S0 production isolation contract contains host execution shortcut {forbidden}"
+        );
+    }
+
+    let module = fs::read_to_string(sandbox_root.join("mod.rs")).unwrap();
+    assert!(module.contains("#[cfg(test)]\nmod tests;"));
+    assert!(!source.contains("FakeProvider"));
+
+    let capability = json("capabilities/default.json");
+    let permissions = string_set(&capability["permissions"]);
+    assert!(!permissions.contains("shell:allow-execute"));
+    assert!(!permissions.contains("shell:allow-spawn"));
+}
